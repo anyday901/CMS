@@ -53,6 +53,10 @@ Then open http://localhost:8000/admin and log in with the staff account you just
 
 Run the tests with `php artisan test`.
 
+## Client portal
+
+Clients log in at `/portal` to see their services and invoices and update their details. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead.
+
 ## Admin area
 
 The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate) and invoices (view, record payments, cancel). Create staff accounts with `php artisan admin:create`.

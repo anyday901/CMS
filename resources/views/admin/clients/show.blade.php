@@ -3,7 +3,10 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $client->fullName() }}</h1>
         <x-status-badge :status="$client->status" />
-        <a href="{{ route('admin.clients.edit', $client) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Edit</a>
+        <form method="POST" action="{{ route('admin.clients.password-link', $client) }}" class="ml-auto">@csrf
+            <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Email portal password link</button>
+        </form>
+        <a href="{{ route('admin.clients.edit', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Edit</a>
         <a href="{{ route('admin.services.create', $client) }}" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">Add service</a>
     </div>
 

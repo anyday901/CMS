@@ -17,7 +17,9 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [ ] Staff roles and permissions
 - [ ] Manual invoice creation and editing
 - [ ] Activity log
-- [ ] Client portal: login, password reset, 2FA, invoices, services
+- [x] Client portal: login, password setup and reset, invoices, services, account
+- [ ] Client 2FA
+- [ ] Client sign-up and ordering from the portal
 - [ ] PayPal gateway (one-time checkout per invoice)
 - [ ] Payment gateway plugin interface
 
