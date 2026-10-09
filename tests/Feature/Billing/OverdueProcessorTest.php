@@ -17,7 +17,7 @@ class OverdueProcessorTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function run_on(string $date): array
+    private function runOn(string $date): array
     {
         return app(OverdueProcessor::class)->run(CarbonImmutable::parse($date));
     }
@@ -34,16 +34,16 @@ class OverdueProcessorTest extends TestCase
         $service = Service::factory()->create(['next_due_date' => '2026-11-01']);
         app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-25'));
 
-        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->run_on('2026-11-03'));
+        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->runOn('2026-11-03'));
         $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
 
-        $this->assertSame(['suspended' => 1, 'terminated' => 0], $this->run_on('2026-11-04'));
+        $this->assertSame(['suspended' => 1, 'terminated' => 0], $this->runOn('2026-11-04'));
         $this->assertSame(ServiceStatus::Suspended, $service->refresh()->status);
         Event::assertDispatched(ServiceSuspended::class);
 
-        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->run_on('2026-11-05'));
+        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->runOn('2026-11-05'));
 
-        $this->assertSame(['suspended' => 0, 'terminated' => 1], $this->run_on('2026-12-01'));
+        $this->assertSame(['suspended' => 0, 'terminated' => 1], $this->runOn('2026-12-01'));
         $this->assertSame(ServiceStatus::Terminated, $service->refresh()->status);
         Event::assertDispatched(ServiceTerminated::class);
     }
@@ -54,7 +54,7 @@ class OverdueProcessorTest extends TestCase
         $service = Service::factory()->create(['next_due_date' => '2026-11-01']);
         app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-25'));
 
-        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->run_on('2027-06-01'));
+        $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->runOn('2027-06-01'));
         $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
     }
 }

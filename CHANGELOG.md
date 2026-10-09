@@ -23,8 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project docs: v1 spec, README (with required PHP extensions and Node version), TODO and this changelog.
 
 ### Changed
+- Admin login no longer autofocuses the email field.
+- SonarCloud skips its PHP line-length and brace-style rules, since Laravel Pint already enforces code style.
 - The frontend uses the system font instead of downloading Instrument Sans at build time, so builds work without internet access.
 - `/` redirects to the admin area; the default Laravel welcome page is removed.
+
+### Fixed
+- Admin client search box and product price fields now have labels, so screen readers announce them.
 
 ## [0.0.1] - 2026-10-09
 

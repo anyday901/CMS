@@ -1,7 +1,7 @@
 <x-admin-layout title="Clients">
     <div class="mb-4 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Clients</h1>
-        <form class="ml-auto"><input name="q" value="{{ $search }}" placeholder="Search name, company or email" class="w-64 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300"></form>
+        <form class="ml-auto"><label for="client-search" class="sr-only">Search clients</label><input id="client-search" type="search" name="q" value="{{ $search }}" placeholder="Search name, company or email" class="w-64 rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300"></form>
         <a href="{{ route('admin.clients.create') }}" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">Add client</a>
     </div>
     @if ($clients->isEmpty())
