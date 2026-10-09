@@ -27,7 +27,7 @@ class PaymentController extends Controller
 
     public function paypalCapture(Request $request, int $invoice, PayPal $paypal): JsonResponse
     {
-        $data = $request->validate(['order_id' => ['required', 'string', 'max:64']]);
+        $data = $request->validate(['order_id' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9]+$/']]);
         $invoice = $this->payable($request, $invoice);
         abort_unless($paypal->isEnabled(), 404);
 

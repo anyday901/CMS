@@ -89,6 +89,12 @@ class PayPal implements Gateway
      */
     public function captureOrder(Invoice $invoice, string $orderId): ?Transaction
     {
+        // The id goes into the request path, so anything but a plain PayPal
+        // order id could point this authenticated call at another endpoint.
+        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $orderId)) {
+            throw new PaymentFailed('This payment could not be found. Please try again.');
+        }
+
         $response = $this->api()
             ->withHeaders(['PayPal-Request-Id' => "capture-{$orderId}"])
             ->post("/v2/checkout/orders/{$orderId}/capture", (object) []);
@@ -101,8 +107,12 @@ class PayPal implements Gateway
             throw new PaymentFailed('This payment does not match the invoice. Please contact us.');
         }
 
-        if ($capture['status'] !== 'COMPLETED') {
+        if ($capture['status'] === 'PENDING') {
             return null;
+        }
+
+        if ($capture['status'] !== 'COMPLETED') {
+            throw new PaymentFailed('PayPal declined this payment. Please try another payment method.');
         }
 
         $method = array_key_exists('venmo', $order['payment_source'] ?? []) ? 'venmo' : 'paypal';

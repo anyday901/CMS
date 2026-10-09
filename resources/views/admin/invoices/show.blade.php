@@ -46,7 +46,7 @@
             <div>
                 <h2 class="mb-2 font-semibold">Payments</h2>
                 @forelse ($invoice->transactions as $transaction)
-                    <div class="text-sm">{{ $transaction->created_at->format('M j, Y') }} · {{ $transaction->methodLabel() }} · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif</div>
+                    <div class="text-sm">{{ $transaction->created_at->format('M j, Y') }} · {{ $transaction->methodLabel() }} · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif</div>
                 @empty
                     <p class="text-sm text-gray-500">No payments yet.</p>
                 @endforelse

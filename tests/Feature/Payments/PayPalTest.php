@@ -5,6 +5,9 @@ namespace Tests\Feature\Payments;
 use App\Enums\InvoiceStatus;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\User;
+use App\Payments\Gateways\PayPal;
+use App\Payments\PaymentFailed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -33,7 +36,7 @@ class PayPalTest extends TestCase
     private function capture(array $overrides = [], string $source = 'paypal'): array
     {
         return [
-            'id' => 'ORDER-1',
+            'id' => 'ORDER1',
             'status' => 'COMPLETED',
             'payment_source' => [$source => []],
             'purchase_units' => [['payments' => ['captures' => [array_merge([
@@ -50,8 +53,8 @@ class PayPalTest extends TestCase
     {
         Http::fake([
             'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response(['access_token' => 'tok']),
-            'api-m.sandbox.paypal.com/v2/checkout/orders' => Http::response(['id' => 'ORDER-1'], 201),
-            'api-m.sandbox.paypal.com/v2/checkout/orders/ORDER-1/capture' => Http::response($capture, 201),
+            'api-m.sandbox.paypal.com/v2/checkout/orders' => Http::response(['id' => 'ORDER1'], 201),
+            'api-m.sandbox.paypal.com/v2/checkout/orders/ORDER1/capture' => Http::response($capture, 201),
             'api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature' => Http::response(['verification_status' => 'SUCCESS']),
         ]);
     }
@@ -71,12 +74,12 @@ class PayPalTest extends TestCase
         $this->fakePayPal($this->capture([], 'venmo'));
         $this->actingAs($this->client, 'client');
 
-        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/order")->assertOk()->assertJson(['id' => 'ORDER-1']);
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/order")->assertOk()->assertJson(['id' => 'ORDER1']);
         Http::assertSent(fn ($r) => str_ends_with($r->url(), '/v2/checkout/orders')
             && $r['purchase_units'][0]['amount']['value'] === '15.00'
             && $r['purchase_units'][0]['custom_id'] === (string) $this->invoice->id);
 
-        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER-1'])
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER1'])
             ->assertOk()->assertJson(['redirect' => route('portal.invoices.show', $this->invoice)]);
 
         $this->invoice->refresh();
@@ -87,6 +90,36 @@ class PayPalTest extends TestCase
         $this->assertSame('CAP-1', $transaction->gateway_reference);
         $this->assertSame(82, $transaction->fee);
         $this->assertSame('Venmo', $transaction->methodLabel());
+
+        $this->actingAs(User::factory()->create(), 'web')
+            ->get("/admin/invoices/{$this->invoice->id}")->assertSee('(fee $0.82)', false);
+    }
+
+    public function test_order_id_that_is_not_a_plain_paypal_id_is_rejected_before_calling_paypal(): void
+    {
+        $this->fakePayPal($this->capture());
+        $this->actingAs($this->client, 'client');
+
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => '../../payments/captures/CAP1/refund#'])
+            ->assertStatus(422)->assertJsonValidationErrors('order_id');
+
+        // The gateway refuses it too, whoever calls it.
+        $this->expectException(PaymentFailed::class);
+        try {
+            app(PayPal::class)->captureOrder($this->invoice, '../../payments/captures/CAP1/refund#');
+        } finally {
+            Http::assertNotSent(fn ($r) => str_contains($r->url(), 'captures') || str_contains($r->url(), '/capture'));
+        }
+    }
+
+    public function test_declined_capture_is_reported_as_failed(): void
+    {
+        $this->fakePayPal($this->capture(['status' => 'DECLINED']));
+        $this->actingAs($this->client, 'client');
+
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER1'])
+            ->assertStatus(422)->assertJson(['message' => 'PayPal declined this payment. Please try another payment method.']);
+        $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
     }
 
     public function test_capture_for_a_different_invoice_is_rejected(): void
@@ -94,7 +127,7 @@ class PayPalTest extends TestCase
         $this->fakePayPal($this->capture(['custom_id' => '999']));
         $this->actingAs($this->client, 'client');
 
-        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER-1'])->assertStatus(422);
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER1'])->assertStatus(422);
         $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
     }
 
@@ -103,7 +136,7 @@ class PayPalTest extends TestCase
         $this->fakePayPal($this->capture(['status' => 'PENDING']));
         $this->actingAs($this->client, 'client');
 
-        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER-1'])->assertOk();
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER1'])->assertOk();
         $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
 
         $resource = $this->capture()['purchase_units'][0]['payments']['captures'][0];
@@ -136,7 +169,7 @@ class PayPalTest extends TestCase
         $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/order")->assertNotFound();
 
         $this->actingAs($this->client, 'client');
-        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER-1'])->assertOk();
+        $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/capture", ['order_id' => 'ORDER1'])->assertOk();
         $this->postJson("/portal/invoices/{$this->invoice->id}/paypal/order")->assertStatus(409);
     }
 }
