@@ -11,7 +11,7 @@ class Transaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'client_id', 'invoice_id', 'gateway', 'gateway_reference', 'currency',
+        'client_id', 'invoice_id', 'gateway', 'payment_method', 'gateway_reference', 'currency',
         'amount', 'fee',
     ];
 
@@ -21,6 +21,18 @@ class Transaction extends Model
             'amount' => 'integer',
             'fee' => 'integer',
         ];
+    }
+
+    /** Display name, e.g. "Venmo" for a Venmo payment through PayPal. */
+    public function methodLabel(): string
+    {
+        return match ($this->payment_method ?? $this->gateway) {
+            'paypal' => 'PayPal',
+            'venmo' => 'Venmo',
+            'cashapp' => 'Cash App',
+            'bank_transfer' => 'Bank transfer',
+            default => ucfirst(str_replace('_', ' ', $this->payment_method ?? $this->gateway)),
+        };
     }
 
     public function client(): BelongsTo

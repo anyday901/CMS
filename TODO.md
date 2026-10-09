@@ -20,12 +20,15 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Client portal: login, password setup and reset, invoices, services, account
 - [ ] Client 2FA
 - [ ] Client sign-up and ordering from the portal
-- [ ] PayPal gateway (one-time checkout per invoice)
-- [ ] Payment gateway plugin interface
+- [x] PayPal gateway (one-time checkout per invoice)
+- [x] Payment gateway plugin interface
+- [ ] Test PayPal, Venmo and Cash App with real sandbox accounts
 
 ## Milestone 3: Payments, provisioning, support
-- [ ] Venmo through PayPal checkout
-- [ ] Cash App Pay through Square
+- [x] Venmo through PayPal checkout
+- [x] Cash App Pay through Square
+- [ ] Square webhook for Cash App refunds and disputes
+- [ ] Refunds through the gateways from the admin area
 - [ ] Provisioning module interface
 - [ ] Manual fulfillment tasks
 - [ ] Webhook provisioning module

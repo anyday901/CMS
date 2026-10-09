@@ -30,8 +30,24 @@
 
     @if ($invoice->status->value === 'unpaid')
         <div class="rounded-lg border border-gray-200 bg-white p-4 text-sm">
-            <h2 class="mb-1 font-semibold">How to pay</h2>
-            <p class="text-gray-600">Online payment is coming soon. Until then, please pay using the details we've sent you and include invoice #{{ $invoice->number }} as the reference.</p>
+            <h2 class="mb-3 font-semibold">Pay {{ Money::format($invoice->balance(), $invoice->currency) }}</h2>
+            @forelse ($gateways as $gateway)
+                <div class="mb-4 max-w-sm">
+                    @include($gateway->view(), ['invoice' => $invoice] + $gateway->viewData($invoice))
+                </div>
+            @empty
+                <p class="text-gray-600">Please pay using the details we've sent you and include invoice #{{ $invoice->number }} as the reference.</p>
+            @endforelse
+            <p id="payment-error" class="hidden rounded-md bg-red-50 px-3 py-2 text-red-800" role="alert"></p>
+        </div>
+    @endif
+
+    @if ($invoice->transactions->isNotEmpty())
+        <div class="mt-6 text-sm">
+            <h2 class="mb-2 font-semibold">Payments</h2>
+            @foreach ($invoice->transactions as $transaction)
+                <div>{{ $transaction->created_at->format('M j, Y') }} · {{ $transaction->methodLabel() }} · {{ Money::format($transaction->amount, $transaction->currency) }}</div>
+            @endforeach
         </div>
     @endif
 </x-portal-layout>

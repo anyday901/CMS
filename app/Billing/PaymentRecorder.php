@@ -27,24 +27,25 @@ class PaymentRecorder
         string $gateway,
         ?string $reference = null,
         int $fee = 0,
+        ?string $method = null,
     ): Transaction {
         if ($amount <= 0) {
             throw new InvalidArgumentException('Payment amount must be positive.');
         }
 
         try {
-            return $this->recordLocked($invoice, $amount, $gateway, $reference, $fee);
+            return $this->recordLocked($invoice, $amount, $gateway, $reference, $fee, $method);
         } catch (UniqueConstraintViolationException $e) {
             // A concurrent callback with the same reference won the race.
             return $this->findExisting($gateway, $reference, $invoice) ?? throw $e;
         }
     }
 
-    private function recordLocked(Invoice $invoice, int $amount, string $gateway, ?string $reference, int $fee): Transaction
+    private function recordLocked(Invoice $invoice, int $amount, string $gateway, ?string $reference, int $fee, ?string $method): Transaction
     {
         $paidNow = false;
 
-        $transaction = DB::transaction(function () use ($invoice, $amount, $gateway, $reference, $fee, &$paidNow) {
+        $transaction = DB::transaction(function () use ($invoice, $amount, $gateway, $reference, $fee, $method, &$paidNow) {
             $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
 
             if ($existing = $this->findExisting($gateway, $reference, $invoice)) {
@@ -61,6 +62,7 @@ class PaymentRecorder
             $transaction = $invoice->transactions()->create([
                 'client_id' => $invoice->client_id,
                 'gateway' => $gateway,
+                'payment_method' => $method,
                 'gateway_reference' => $reference,
                 'currency' => $invoice->currency,
                 'amount' => $applied,
