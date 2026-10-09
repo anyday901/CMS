@@ -57,6 +57,40 @@ Run the tests with `php artisan test`.
 
 Clients log in at `/portal` to see their services and invoices and update their details. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead.
 
+## Online payments
+
+Clients pay each invoice from the portal. A payment method appears on unpaid invoices once its settings are in `.env`. Leave them blank to hide it.
+
+### PayPal and Venmo
+
+1. In the [PayPal developer dashboard](https://developer.paypal.com/dashboard/applications), create a REST app and copy its client ID and secret.
+2. Add a webhook to that app pointing at `https://your-domain/webhooks/paypal`, subscribed to **Payment capture completed**, and copy its webhook ID.
+3. Set these in `.env`:
+
+```dotenv
+PAYPAL_MODE=sandbox        # "live" for real payments
+PAYPAL_CLIENT_ID=...
+PAYPAL_SECRET=...
+PAYPAL_WEBHOOK_ID=...
+PAYPAL_VENMO=true          # show the Venmo button to US clients
+```
+
+Venmo payments go through PayPal and show as "Venmo" on the invoice.
+
+### Cash App Pay
+
+1. In the [Square developer dashboard](https://developer.squareup.com/apps), create an application and copy its application ID and access token, plus the location ID of the location that should receive payments.
+2. Set these in `.env`:
+
+```dotenv
+SQUARE_ENVIRONMENT=sandbox # "production" for real payments
+SQUARE_APPLICATION_ID=...
+SQUARE_ACCESS_TOKEN=...
+SQUARE_LOCATION_ID=...
+```
+
+Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
+
 ## Admin area
 
 The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate) and invoices (view, record payments, cancel). Create staff accounts with `php artisan admin:create`.

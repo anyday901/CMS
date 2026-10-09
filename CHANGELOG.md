@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Online payments on unpaid invoices in the client portal: PayPal and Venmo through PayPal Checkout, and Cash App Pay through Square. Payments are confirmed server side, matched to the invoice and recorded with the provider's fee. PayPal payments that clear later are recorded through a signed webhook at `/webhooks/paypal`. Declined PayPal captures are reported to the client as failed, and the admin invoice page shows each payment's gateway fee.
+- Payment gateway plugin interface (`App\Payments\Gateway`) and `config/payments.php`.
+- Transactions record how the client paid within a gateway, such as Venmo through PayPal.
 - Client portal at `/portal`: client login, password setup and reset by email, a home page with active services and unpaid invoices, invoice and service pages limited to the client's own records, and account details and password change.
 - Clients whose account is closed are signed out on their next portal request, even with an existing session or remember-me cookie.
 - "Email portal password link" button on the admin client page, so clients created by staff can set their first password.

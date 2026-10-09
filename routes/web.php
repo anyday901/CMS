@@ -2,10 +2,13 @@
 
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Portal;
+use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureClientCanLogIn;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/portal');
+
+Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::middleware('guest:client')->group(function () {
@@ -22,6 +25,11 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
         Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('invoices/{invoice}', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
+        Route::middleware('throttle:20,1')->group(function () {
+            Route::post('invoices/{invoice}/paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
+            Route::post('invoices/{invoice}/paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
+            Route::post('invoices/{invoice}/cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+        });
         Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
         Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');
         Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
