@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Service and invoice events (`ServiceActivated`, `ServiceSuspended`, `ServiceUnsuspended`, `ServiceTerminated`, `InvoicePaid`) that fire only after the database commit.
 - `billing:run` command, scheduled daily.
 - Billing settings in `config/billing.php`.
-- Project docs: v1 spec, README (with required PHP extensions), TODO and this changelog.
+- Minimum Node version declared in `package.json`.
+- Project docs: v1 spec, README (with required PHP extensions and Node version), TODO and this changelog.
 
 ## [0.0.1] - 2026-10-09
 
