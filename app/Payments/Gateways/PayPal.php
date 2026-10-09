@@ -192,7 +192,7 @@ class PayPal implements Gateway
 
     private function accessToken(): string
     {
-        $cacheKey = 'paypal-token-'.md5(config('payments.paypal.client_id').config('payments.paypal.mode'));
+        $cacheKey = 'paypal-token-'.hash('sha256', config('payments.paypal.client_id').'|'.config('payments.paypal.mode'));
 
         return Cache::remember($cacheKey, now()->addMinutes(30), function () {
             $response = Http::baseUrl($this->baseUrl())

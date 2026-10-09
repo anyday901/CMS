@@ -14,6 +14,8 @@ use Tests\TestCase;
 
 class PayPalTest extends TestCase
 {
+    private const WEBHOOK_URL = '/webhooks/paypal';
+
     use RefreshDatabase;
 
     private Client $client;
@@ -140,12 +142,12 @@ class PayPalTest extends TestCase
         $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
 
         $resource = $this->capture()['purchase_units'][0]['payments']['captures'][0];
-        $this->postJson('/webhooks/paypal', ['id' => 'WH-EVT', 'event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])
+        $this->postJson(self::WEBHOOK_URL, ['id' => 'WH-EVT', 'event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])
             ->assertOk();
         $this->assertSame(InvoiceStatus::Paid, $this->invoice->refresh()->status);
 
         // A repeated webhook does not double count.
-        $this->postJson('/webhooks/paypal', ['id' => 'WH-EVT', 'event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])
+        $this->postJson(self::WEBHOOK_URL, ['id' => 'WH-EVT', 'event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])
             ->assertOk();
         $this->assertSame(1, $this->invoice->transactions()->count());
     }
@@ -158,7 +160,7 @@ class PayPalTest extends TestCase
         ]);
         $resource = $this->capture()['purchase_units'][0]['payments']['captures'][0];
 
-        $this->postJson('/webhooks/paypal', ['event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])->assertStatus(400);
+        $this->postJson(self::WEBHOOK_URL, ['event_type' => 'PAYMENT.CAPTURE.COMPLETED', 'resource' => $resource])->assertStatus(400);
         $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
     }
 
