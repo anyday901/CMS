@@ -8,7 +8,7 @@
                 <input type="email" name="email" value="{{ old('email', $email) }}" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
             </label>
             <label class="block">New password (at least 10 characters)
-                <input type="password" name="password" required autofocus class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
+                <input type="password" name="password" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
             </label>
             <label class="block">Confirm new password
                 <input type="password" name="password_confirmation" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
