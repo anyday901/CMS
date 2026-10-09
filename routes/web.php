@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Portal;
 use App\Http\Controllers\WebhookController;
+use App\Http\Middleware\EnsureClientCanLogIn;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/portal');
@@ -19,7 +20,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('reset-password', [Portal\PasswordController::class, 'update'])->middleware('throttle:10,1')->name('password.update');
     });
 
-    Route::middleware('auth:client')->group(function () {
+    Route::middleware(['auth:client', EnsureClientCanLogIn::class])->group(function () {
         Route::post('logout', [Portal\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
         Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');

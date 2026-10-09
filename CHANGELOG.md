@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Payment gateway plugin interface (`App\Payments\Gateway`) and `config/payments.php`.
 - Transactions record how the client paid within a gateway, such as Venmo through PayPal.
 - Client portal at `/portal`: client login, password setup and reset by email, a home page with active services and unpaid invoices, invoice and service pages limited to the client's own records, and account details and password change.
+- Clients whose account is closed are signed out on their next portal request, even with an existing session or remember-me cookie.
 - "Email portal password link" button on the admin client page, so clients created by staff can set their first password.
 - Admin area at `/admin`: staff login, dashboard (income, unpaid and overdue invoices, active clients and services), client list with search, client create and edit, product and pricing management, adding services to clients with an optional first invoice and setup fee, service suspend, unsuspend and terminate, invoice list with status filters, invoice view, recording manual payments and cancelling invoices. Cancelling a new service's first invoice also cancels the pending service.
 - `php artisan admin:create` command to create staff accounts.
