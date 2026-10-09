@@ -70,6 +70,20 @@ class PortalTest extends TestCase
         $this->assertGuest('client');
     }
 
+    public function test_client_closed_mid_session_is_signed_out(): void
+    {
+        $client = Client::factory()->create(['password' => 'client-password']);
+        $this->post('/portal/login', ['email' => $client->email, 'password' => 'client-password', 'remember' => '1']);
+        $this->assertAuthenticatedAs($client, 'client');
+
+        $client->update(['status' => ClientStatus::Closed]);
+        $this->app['auth']->forgetGuards(); // a new request loads the client fresh
+
+        $this->get('/portal')->assertRedirect('/portal/login')->assertSessionHasErrors('email');
+        $this->assertGuest('client');
+        $this->get('/portal')->assertRedirect('/portal/login');
+    }
+
     public function test_staff_session_does_not_grant_portal_access_and_vice_versa(): void
     {
         $this->actingAs(User::factory()->create());
