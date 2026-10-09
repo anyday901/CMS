@@ -49,7 +49,7 @@ class ProductController extends Controller
 
     private function save(Request $request, Product $product): void
     {
-        $money = ['nullable', 'regex:/^\$?[\d,]*(\.\d{1,2})?$/'];
+        $money = ['nullable', Money::rule()];
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],

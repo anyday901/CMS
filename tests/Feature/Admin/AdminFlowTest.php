@@ -125,6 +125,44 @@ class AdminFlowTest extends TestCase
         $this->assertSame(InvoiceStatus::Cancelled, $other->refresh()->status);
     }
 
+    public function test_cancelling_first_invoice_cancels_pending_service(): void
+    {
+        $product = Product::factory()->create();
+        $product->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 500]);
+        $client = Client::factory()->create();
+        $this->post("/admin/clients/{$client->id}/services", [
+            'product_id' => $product->id, 'billing_cycle' => 'monthly', 'start_date' => '2026-12-01', 'invoice' => '1',
+        ]);
+
+        $this->post('/admin/invoices/'.Invoice::sole()->id.'/cancel')->assertRedirect();
+
+        $this->assertSame(ServiceStatus::Cancelled, Service::sole()->status);
+    }
+
+    public function test_reused_reference_shows_an_error(): void
+    {
+        $client = Client::factory()->create();
+        [$a, $b] = collect([1, 2])->map(function () use ($client) {
+            $invoice = Invoice::create(['client_id' => $client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
+            $invoice->items()->create(['description' => 'Thing', 'amount' => 1000]);
+
+            return $invoice->recalculate();
+        });
+
+        $this->post("/admin/invoices/{$a->id}/payments", ['amount' => '10', 'method' => 'paypal', 'reference' => 'TX1'])
+            ->assertSessionHasNoErrors();
+        $this->post("/admin/invoices/{$b->id}/payments", ['amount' => '10', 'method' => 'paypal', 'reference' => 'TX1'])
+            ->assertSessionHasErrors('amount');
+        $this->assertSame(InvoiceStatus::Unpaid, $b->refresh()->status);
+    }
+
+    public function test_malformed_price_is_rejected(): void
+    {
+        $this->post('/admin/products', ['name' => 'X', 'prices' => ['monthly' => ['price' => '12,34.56']]])
+            ->assertSessionHasErrors('prices.monthly.price');
+        $this->assertSame(0, Product::count());
+    }
+
     public function test_invoice_list_filters(): void
     {
         $client = Client::factory()->create();

@@ -20,8 +20,14 @@ class MoneyTest extends TestCase
 
     public function test_parse_rejects_garbage(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        Money::parse('12.345');
+        foreach (['12.345', '12,34.56', '1,2', ',', 'abc', '', '$'] as $bad) {
+            try {
+                Money::parse($bad);
+                $this->fail("Accepted {$bad}");
+            } catch (InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 
     public function test_format(): void

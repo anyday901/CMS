@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\InvoiceCanceller;
 use App\Billing\PaymentRecorder;
 use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
@@ -44,7 +45,7 @@ class InvoiceController extends Controller
     public function pay(Request $request, Invoice $invoice, PaymentRecorder $payments): RedirectResponse
     {
         $data = $request->validate([
-            'amount' => ['required', 'regex:/^\$?[\d,]*(\.\d{1,2})?$/'],
+            'amount' => ['required', Money::rule()],
             'method' => ['required', Rule::in(['cash', 'check', 'bank_transfer', 'paypal', 'venmo', 'cashapp', 'other'])],
             'reference' => ['nullable', 'string', 'max:255'],
         ]);
@@ -58,12 +59,13 @@ class InvoiceController extends Controller
         return back()->with('status', 'Payment recorded.');
     }
 
-    public function cancel(Invoice $invoice): RedirectResponse
+    public function cancel(Invoice $invoice, InvoiceCanceller $canceller): RedirectResponse
     {
-        abort_unless($invoice->status === InvoiceStatus::Unpaid && $invoice->amountPaid() === 0, 422,
-            'Only unpaid invoices with no payments can be cancelled.');
-
-        $invoice->update(['status' => InvoiceStatus::Cancelled]);
+        try {
+            $canceller->cancel($invoice);
+        } catch (InvalidArgumentException $e) {
+            abort(422, $e->getMessage());
+        }
 
         return back()->with('status', 'Invoice cancelled.');
     }
