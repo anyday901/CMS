@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Admin area at `/admin`: staff login, dashboard (income, unpaid and overdue invoices, active clients and services), client list with search, client create and edit, product and pricing management, adding services to clients with an optional first invoice and setup fee, service suspend, unsuspend and terminate, invoice list with status filters, invoice view, recording manual payments and cancelling invoices.
+- `php artisan admin:create` command to create staff accounts.
 - Billing data model: clients, products with per-cycle pricing, services, invoices, invoice items and transactions. All money is stored in integer cents.
 - Billing cycles: one time, monthly, quarterly, semi-annually, annually and biennially, with month-end safe date math.
 - Recurring invoice generation a configurable number of days before services are due, grouped into one invoice per client and safe to run repeatedly or concurrently.
@@ -18,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Billing settings in `config/billing.php`.
 - Minimum Node version declared in `package.json`.
 - Project docs: v1 spec, README (with required PHP extensions and Node version), TODO and this changelog.
+
+### Changed
+- The frontend uses the system font instead of downloading Instrument Sans at build time, so builds work without internet access.
+- `/` redirects to the admin area; the default Laravel welcome page is removed.
 
 ## [0.0.1] - 2026-10-09
 

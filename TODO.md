@@ -12,9 +12,13 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [ ] Refunds
 - [ ] Late fees
 - [ ] PDF invoices
-- [ ] Admin area: staff accounts, roles, dashboard
+- [x] Admin area: staff login, dashboard, clients, products, services, invoices
+- [x] Record manual payments and cancel invoices
+- [ ] Staff roles and permissions
+- [ ] Manual invoice creation and editing
+- [ ] Activity log
 - [ ] Client portal: login, password reset, 2FA, invoices, services
-- [ ] PayPal gateway (one-time and subscriptions)
+- [ ] PayPal gateway (one-time checkout per invoice)
 - [ ] Payment gateway plugin interface
 
 ## Milestone 3: Payments, provisioning, support
@@ -37,5 +41,4 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [ ] Public v1.0.0 release
 
 ## Open questions
-- Do clients pay automatically each cycle, or pay each invoice by hand?
 - AGPL-3.0 or MIT license (AGPL assumed for now).
