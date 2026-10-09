@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
@@ -24,8 +25,17 @@ class InvoiceGenerator
     {
         $cutoff = $today->copy()->addDays((int) config('billing.invoice_days_before_due'));
 
-        $services = Service::query()
-            ->with(['product', 'client'])
+        return $this->dueServices($cutoff)
+            ->distinct()
+            ->pluck('client_id')
+            ->map(fn (int $clientId) => $this->invoiceClient($clientId, $cutoff, $today))
+            ->filter()
+            ->values();
+    }
+
+    private function dueServices(CarbonInterface $cutoff): Builder
+    {
+        return Service::query()
             ->whereIn('status', ServiceStatus::billable())
             ->where('billing_cycle', '!=', BillingCycle::OneTime)
             ->whereNotNull('next_due_date')
@@ -34,21 +44,27 @@ class InvoiceGenerator
                 $items->whereColumn('invoice_items.period_start', 'services.next_due_date')
                     ->whereHas('invoice', fn (Builder $invoice) => $invoice
                         ->where('status', '!=', InvoiceStatus::Cancelled));
-            })
-            ->orderBy('id')
-            ->get();
-
-        return $services
-            ->groupBy('client_id')
-            ->map(fn (Collection $clientServices) => $this->invoiceClient($clientServices, $today))
-            ->values();
+            });
     }
 
-    /** @param Collection<int, Service> $services */
-    private function invoiceClient(Collection $services, CarbonInterface $today): Invoice
+    /**
+     * Locks the client row so concurrent runs serialize per client, then
+     * re-reads which services still need invoicing before creating anything.
+     */
+    private function invoiceClient(int $clientId, CarbonInterface $cutoff, CarbonInterface $today): ?Invoice
     {
-        return DB::transaction(function () use ($services, $today) {
-            $client = $services->first()->client;
+        return DB::transaction(function () use ($clientId, $cutoff, $today) {
+            $client = Client::lockForUpdate()->findOrFail($clientId);
+
+            $services = $this->dueServices($cutoff)
+                ->where('client_id', $clientId)
+                ->with('product')
+                ->orderBy('id')
+                ->get();
+
+            if ($services->isEmpty()) {
+                return null;
+            }
 
             $invoice = Invoice::create([
                 'client_id' => $client->id,

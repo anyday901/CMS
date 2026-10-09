@@ -86,6 +86,18 @@ class PaymentRecorderTest extends TestCase
         $this->assertSame(500, $invoice->balance());
     }
 
+    public function test_repeated_reference_after_invoice_is_paid_returns_existing(): void
+    {
+        $service = Service::factory()->create(['recurring_amount' => 1000]);
+        $invoice = $this->renewalInvoice($service);
+
+        $first = $this->pay($invoice, 1000, 'PAY-1');
+        $second = $this->pay($invoice, 1000, 'PAY-1');
+
+        $this->assertTrue($first->is($second));
+        $this->assertSame(1, $invoice->transactions()->count());
+    }
+
     public function test_cannot_pay_a_paid_invoice(): void
     {
         $service = Service::factory()->create(['recurring_amount' => 1000]);

@@ -8,6 +8,7 @@ use App\Events\InvoicePaid;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Transaction;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -31,20 +32,24 @@ class PaymentRecorder
             throw new InvalidArgumentException('Payment amount must be positive.');
         }
 
-        if ($reference !== null) {
-            $existing = Transaction::where('gateway', $gateway)
-                ->where('gateway_reference', $reference)
-                ->first();
-
-            if ($existing) {
-                return $existing;
-            }
+        try {
+            return $this->recordLocked($invoice, $amount, $gateway, $reference, $fee);
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent callback with the same reference won the race.
+            return $this->findExisting($gateway, $reference) ?? throw $e;
         }
+    }
 
+    private function recordLocked(Invoice $invoice, int $amount, string $gateway, ?string $reference, int $fee): Transaction
+    {
         $paidNow = false;
 
         $transaction = DB::transaction(function () use ($invoice, $amount, $gateway, $reference, $fee, &$paidNow) {
             $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
+
+            if ($existing = $this->findExisting($gateway, $reference)) {
+                return $existing;
+            }
 
             if ($invoice->status !== InvoiceStatus::Unpaid) {
                 throw new InvalidArgumentException("Invoice {$invoice->number} is {$invoice->status->value}, not unpaid.");
@@ -79,6 +84,17 @@ class PaymentRecorder
         }
 
         return $transaction;
+    }
+
+    private function findExisting(string $gateway, ?string $reference): ?Transaction
+    {
+        if ($reference === null) {
+            return null;
+        }
+
+        return Transaction::where('gateway', $gateway)
+            ->where('gateway_reference', $reference)
+            ->first();
     }
 
     private function markPaid(Invoice $invoice): void

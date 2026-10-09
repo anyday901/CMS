@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Billing data model: clients, products with per-cycle pricing, services, invoices, invoice items and transactions. All money is stored in integer cents.
 - Billing cycles: one time, monthly, quarterly, semi-annually, annually and biennially, with month-end safe date math.
-- Recurring invoice generation a configurable number of days before services are due, grouped into one invoice per client and safe to run repeatedly.
-- Payment recording: partial payments, marking invoices paid, advancing service due dates and activating pending services.
+- Recurring invoice generation a configurable number of days before services are due, grouped into one invoice per client and safe to run repeatedly or concurrently.
+- Payment recording: duplicate gateway callbacks return the original transaction, partial payments, marking invoices paid, advancing service due dates and activating pending services.
 - Overdue handling: automatic suspension and termination after configurable days, and unsuspension once paid.
+- Service and invoice events (`ServiceActivated`, `ServiceSuspended`, `ServiceUnsuspended`, `ServiceTerminated`, `InvoicePaid`) that fire only after the database commit.
 - `billing:run` command, scheduled daily.
 - Billing settings in `config/billing.php`.
 - Project docs: v1 spec, README, TODO and this changelog.

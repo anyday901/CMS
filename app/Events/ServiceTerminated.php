@@ -3,9 +3,10 @@
 namespace App\Events;
 
 use App\Models\Service;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
-class ServiceTerminated
+class ServiceTerminated implements ShouldDispatchAfterCommit
 {
     use Dispatchable;
 
