@@ -32,12 +32,12 @@ A free, self-hosted billing and client management app that can fully replace WHM
 - PDF invoices.
 
 ### Payment gateways
-A gateway plugin interface, with three gateways in v1:
-- **PayPal**: one-time checkout and PayPal subscriptions for recurring billing.
-- **Venmo**: offered through PayPal's checkout (US only). To be confirmed in the build whether saved Venmo payment methods allow automatic recurring charges.
-- **Cash App Pay**: through Square's API. To be confirmed whether it allows saved, automatic recurring charges or only pay-per-invoice.
+Clients pay each invoice by hand; there is no automatic charging or saved payment methods in v1.
 
-Where a gateway can't charge automatically, clients get the invoice by email and pay by link.
+A gateway plugin interface, with three gateways in v1. Each one adds a "Pay now" option on unpaid invoices and confirms payment through the gateway's callback:
+- **PayPal**: one-time PayPal checkout.
+- **Venmo**: offered through PayPal's checkout (US only).
+- **Cash App Pay**: one-time payment through Square's API.
 
 ### Provisioning
 Corey uses no control panel, so v1 provisioning is:
@@ -79,6 +79,4 @@ Corey uses no control panel, so v1 provisioning is:
 4. WHMCS importer, a side-by-side billing cycle on Corey's data, then switchover and public release.
 
 ## Open questions for Corey
-- Do clients pay automatically each cycle, or pay each invoice by hand?
-- Name for the project and repo.
 - AGPL-3.0 or MIT.
