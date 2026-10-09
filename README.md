@@ -14,7 +14,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Support tickets with email piping
 - An importer for existing WHMCS installs
 
-The full v1 spec is in [docs/spec.md](docs/spec.md).
+The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
 
 ## Requirements
 
@@ -34,6 +34,23 @@ php artisan serve
 ```
 
 Run the tests with `php artisan test`.
+
+## Scheduled jobs
+
+Add the Laravel scheduler to cron so billing runs daily:
+
+```cron
+* * * * * cd /path/to/cms && php artisan schedule:run >> /dev/null 2>&1
+```
+
+`php artisan billing:run` generates renewal invoices and suspends or terminates overdue services. Its settings are in `config/billing.php` and can be set from `.env`:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `BILLING_CURRENCY` | `USD` | Currency for new clients |
+| `BILLING_INVOICE_DAYS_BEFORE_DUE` | `7` | Days before the due date to create the renewal invoice |
+| `BILLING_SUSPEND_AFTER_DAYS` | `3` | Days overdue before suspending |
+| `BILLING_TERMINATE_AFTER_DAYS` | `30` | Days overdue before terminating |
 
 ## License
 

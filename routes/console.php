@@ -1,8 +1,16 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
+use App\Billing\InvoiceGenerator;
+use App\Billing\OverdueProcessor;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+Artisan::command('billing:run', function (InvoiceGenerator $generator, OverdueProcessor $overdue) {
+    $invoices = $generator->generate(today());
+    $this->info("Generated {$invoices->count()} invoice(s).");
+
+    $counts = $overdue->run(today());
+    $this->info("Suspended {$counts['suspended']} and terminated {$counts['terminated']} service(s).");
+})->purpose('Generate renewal invoices and process overdue services');
+
+Schedule::command('billing:run')->dailyAt('00:05')->withoutOverlapping();
