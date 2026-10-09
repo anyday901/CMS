@@ -36,7 +36,7 @@ class PaymentRecorder
             return $this->recordLocked($invoice, $amount, $gateway, $reference, $fee);
         } catch (UniqueConstraintViolationException $e) {
             // A concurrent callback with the same reference won the race.
-            return $this->findExisting($gateway, $reference) ?? throw $e;
+            return $this->findExisting($gateway, $reference, $invoice) ?? throw $e;
         }
     }
 
@@ -47,7 +47,7 @@ class PaymentRecorder
         $transaction = DB::transaction(function () use ($invoice, $amount, $gateway, $reference, $fee, &$paidNow) {
             $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
 
-            if ($existing = $this->findExisting($gateway, $reference)) {
+            if ($existing = $this->findExisting($gateway, $reference, $invoice)) {
                 return $existing;
             }
 
@@ -86,15 +86,25 @@ class PaymentRecorder
         return $transaction;
     }
 
-    private function findExisting(string $gateway, ?string $reference): ?Transaction
+    /**
+     * The transaction already recorded under this gateway reference, if any.
+     * A reference already used on a different invoice is an error, not a retry.
+     */
+    private function findExisting(string $gateway, ?string $reference, Invoice $invoice): ?Transaction
     {
         if ($reference === null) {
             return null;
         }
 
-        return Transaction::where('gateway', $gateway)
+        $existing = Transaction::where('gateway', $gateway)
             ->where('gateway_reference', $reference)
             ->first();
+
+        if ($existing && $existing->invoice_id !== $invoice->id) {
+            throw new InvalidArgumentException("Reference {$reference} is already recorded on another invoice.");
+        }
+
+        return $existing;
     }
 
     private function markPaid(Invoice $invoice): void

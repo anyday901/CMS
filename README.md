@@ -45,10 +45,17 @@ php artisan key:generate
 touch database/database.sqlite
 php artisan migrate
 npm install && npm run build
+php artisan admin:create
 php artisan serve
 ```
 
+Then open http://localhost:8000/admin and log in with the staff account you just created. To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
+
 Run the tests with `php artisan test`.
+
+## Admin area
+
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate) and invoices (view, record payments, cancel). Create staff accounts with `php artisan admin:create`.
 
 ## Scheduled jobs
 
