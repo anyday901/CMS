@@ -12,7 +12,7 @@ class AuthTest extends TestCase
 
     public function test_guests_are_sent_to_login(): void
     {
-        $this->get('/')->assertRedirect('/admin');
+        $this->get('/')->assertRedirect('/portal');
         $this->get('/admin')->assertRedirect('/admin/login');
         $this->get('/admin/login')->assertOk()->assertSee('Staff log in');
     }

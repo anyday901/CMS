@@ -3,13 +3,15 @@
 namespace App\Models;
 
 use App\Enums\ClientStatus;
+use App\Notifications\ClientResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -53,6 +55,16 @@ class Client extends Authenticatable
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ClientResetPassword($token));
+    }
+
+    public function canLogIn(): bool
+    {
+        return $this->status !== ClientStatus::Closed;
     }
 
     public function fullName(): string

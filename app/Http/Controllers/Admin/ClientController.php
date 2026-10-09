@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -62,6 +63,15 @@ class ClientController extends Controller
         $client->update($this->validated($request, $client));
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client updated.');
+    }
+
+    public function sendPasswordLink(Client $client): RedirectResponse
+    {
+        $status = Password::broker('clients')->sendResetLink(['email' => $client->email]);
+
+        return back()->with('status', $status === Password::RESET_LINK_SENT
+            ? "Password setup link sent to {$client->email}."
+            : __($status));
     }
 
     private function validated(Request $request, ?Client $client = null): array
