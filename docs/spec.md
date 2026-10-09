@@ -44,6 +44,7 @@ Corey uses no control panel, so v1 provisioning is:
 - **Manual fulfillment**: a new order or a cancellation creates an admin task ("set up", "suspend", "terminate") with a checklist.
 - **Webhook module**: optionally fires an HTTP call on create, suspend, unsuspend and terminate, so it can be connected to anything later.
 - A provisioning module interface so control panel modules (cPanel, Plesk, Proxmox and so on) can be added after v1.
+- Corey's own custom provisioning module will be built on this interface later.
 
 ### Support tickets
 - Departments, priorities, statuses, staff assignment, internal notes, attachments.
@@ -78,7 +79,6 @@ Corey uses no control panel, so v1 provisioning is:
 4. WHMCS importer, a side-by-side billing cycle on Corey's data, then switchover and public release.
 
 ## Open questions for Corey
-- With no control panel, what does "provisioning" mean for you today? For example, do you set things up by hand, or does WHMCS call a script or API?
 - Do clients pay automatically each cycle, or pay each invoice by hand?
 - Name for the project and repo.
 - AGPL-3.0 or MIT.
