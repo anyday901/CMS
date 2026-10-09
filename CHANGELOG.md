@@ -22,5 +22,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Laravel 13 project skeleton, AGPL-3.0-or-later license and CI test workflow.
 
-[Unreleased]: https://github.com/anyday901/cms/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/anyday901/cms/releases/tag/v0.0.1
+[Unreleased]: https://github.com/anyday901/cms/compare/28bc321...HEAD
+[0.0.1]: https://github.com/anyday901/cms/commit/28bc321
