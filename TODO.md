@@ -41,6 +41,7 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [ ] Install guide (Nginx, PHP-FPM, cron, queue worker)
 - [ ] Docker Compose setup
 - [ ] Public v1.0.0 release
+- [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)
 
 ## Open questions
 - AGPL-3.0 or MIT license (AGPL assumed for now).

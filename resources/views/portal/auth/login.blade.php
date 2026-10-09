@@ -4,7 +4,7 @@
         <form method="POST" action="{{ route('portal.login') }}" class="space-y-4 text-sm">
             @csrf
             <label class="block">Email
-                <input type="email" name="email" value="{{ old('email') }}" required autofocus class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
+                <input type="email" name="email" value="{{ old('email') }}" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
             </label>
             <label class="block">Password
                 <input type="password" name="password" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
