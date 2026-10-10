@@ -18,6 +18,8 @@ class CreditTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DUE = '2026-11-01';
+
     private function invoiceFor(Client $client, int $amount): Invoice
     {
         $invoice = Invoice::create(['client_id' => $client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
@@ -30,9 +32,9 @@ class CreditTest extends TestCase
     {
         $client = Client::factory()->create();
         $client->forceFill(['credit_balance' => 1500])->save();
-        $service = Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => '2026-11-01']);
+        $service = Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => self::DUE]);
 
-        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-11-01'))->sole();
+        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::DUE))->sole();
 
         $this->assertSame(InvoiceStatus::Paid, $invoice->status);
         $this->assertSame(500, $client->refresh()->credit_balance);
@@ -45,9 +47,9 @@ class CreditTest extends TestCase
         config(['billing.apply_credit_automatically' => false]);
         $client = Client::factory()->create();
         $client->forceFill(['credit_balance' => 300])->save();
-        Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => '2026-11-01']);
+        Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => self::DUE]);
 
-        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-11-01'))->sole();
+        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::DUE))->sole();
         $this->assertSame(1000, $invoice->balance());
 
         app(CreditApplier::class)->apply($invoice);

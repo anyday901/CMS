@@ -19,6 +19,10 @@ class TaxTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DUE = '2026-11-01';
+
+    private const RULES_URL = '/admin/tax-rules';
+
     public function test_most_specific_rule_wins(): void
     {
         TaxRule::create(['name' => 'Everywhere', 'rate' => 100]);
@@ -35,11 +39,11 @@ class TaxTest extends TestCase
     {
         TaxRule::create(['name' => 'Sales tax', 'rate' => 825, 'country' => 'US']);
         $client = Client::factory()->create(['country' => 'US']);
-        Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => '2026-11-01']);
+        Service::factory()->for($client)->create(['recurring_amount' => 1000, 'next_due_date' => self::DUE]);
         $untaxed = Product::factory()->create(['taxable' => false]);
-        Service::factory()->for($client)->for($untaxed)->create(['recurring_amount' => 2000, 'next_due_date' => '2026-11-01']);
+        Service::factory()->for($client)->for($untaxed)->create(['recurring_amount' => 2000, 'next_due_date' => self::DUE]);
 
-        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-11-01'))->sole();
+        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::DUE))->sole();
 
         $this->assertSame('Sales tax', $invoice->tax_name);
         $this->assertSame(825, $invoice->tax_rate);
@@ -81,19 +85,19 @@ class TaxTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
-        $this->post('/admin/tax-rules', ['name' => 'Texas', 'rate' => '8.25', 'country' => 'us', 'state' => 'TX'])
-            ->assertRedirect('/admin/tax-rules');
+        $this->post(self::RULES_URL, ['name' => 'Texas', 'rate' => '8.25', 'country' => 'us', 'state' => 'TX'])
+            ->assertRedirect(self::RULES_URL);
         $rule = TaxRule::sole();
         $this->assertSame(825, $rule->rate);
         $this->assertSame('US', $rule->country);
 
-        $this->get('/admin/tax-rules')->assertSee('Texas')->assertSee('8.25%');
-        $this->post('/admin/tax-rules', ['name' => 'Bad', 'rate' => '101'])->assertSessionHasErrors('rate');
+        $this->get(self::RULES_URL)->assertSee('Texas')->assertSee('8.25%');
+        $this->post(self::RULES_URL, ['name' => 'Bad', 'rate' => '101'])->assertSessionHasErrors('rate');
 
-        $this->put("/admin/tax-rules/{$rule->id}", ['name' => 'Texas', 'rate' => '6.25', 'country' => 'US', 'state' => 'TX']);
+        $this->put(self::RULES_URL."/{$rule->id}", ['name' => 'Texas', 'rate' => '6.25', 'country' => 'US', 'state' => 'TX']);
         $this->assertSame(625, $rule->refresh()->rate);
 
-        $this->delete("/admin/tax-rules/{$rule->id}");
+        $this->delete(self::RULES_URL."/{$rule->id}");
         $this->assertSame(0, TaxRule::count());
     }
 }

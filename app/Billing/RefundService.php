@@ -34,22 +34,11 @@ class RefundService
             throw new InvalidArgumentException("Unknown refund mode {$mode}.");
         }
 
-        if ($amount <= 0) {
-            throw new InvalidArgumentException('Refund amount must be positive.');
-        }
-
         return DB::transaction(function () use ($payment, $amount, $mode) {
             // Locking the invoice serializes refunds of the same payment.
             $invoice = $payment->invoice_id ? Invoice::lockForUpdate()->find($payment->invoice_id) : null;
             $payment = Transaction::findOrFail($payment->id);
-
-            if ($amount > $payment->refundable()) {
-                throw new InvalidArgumentException('That is more than is left to refund on this payment.');
-            }
-
-            if ($payment->gateway === CreditApplier::GATEWAY && $mode !== 'credit') {
-                throw new InvalidArgumentException('A payment made with account credit can only be refunded to credit.');
-            }
+            $this->ensureRefundable($payment, $amount, $mode);
 
             $reference = $mode === 'gateway' ? $this->refundThroughGateway($payment, $amount) : null;
 
@@ -64,6 +53,21 @@ class RefundService
                 throw $e;
             }
         });
+    }
+
+    private function ensureRefundable(Transaction $payment, int $amount, string $mode): void
+    {
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Refund amount must be positive.');
+        }
+
+        if ($amount > $payment->refundable()) {
+            throw new InvalidArgumentException('That is more than is left to refund on this payment.');
+        }
+
+        if ($payment->gateway === CreditApplier::GATEWAY && $mode !== 'credit') {
+            throw new InvalidArgumentException('A payment made with account credit can only be refunded to credit.');
+        }
     }
 
     private function record(Transaction $payment, ?Invoice $invoice, int $amount, string $mode, ?string $reference): Transaction
