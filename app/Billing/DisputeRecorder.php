@@ -6,6 +6,7 @@ use App\Models\Activity;
 use App\Models\Transaction;
 use App\Payments\GatewayRefund;
 use App\Support\Money;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -23,10 +24,21 @@ class DisputeRecorder
     {
         $state = strtolower($state);
 
-        if ($payment->dispute_status === $state) {
-            return; // Repeated webhook.
-        }
+        // One transaction, so a failure part way leaves the old state in place
+        // and Square's retry does the whole thing again.
+        DB::transaction(function () use ($payment, $disputeId, $state, $amount, $reason) {
+            $payment = Transaction::lockForUpdate()->findOrFail($payment->id);
 
+            if ($payment->dispute_status === $state) {
+                return; // Repeated webhook.
+            }
+
+            $this->apply($payment, $disputeId, $state, $amount, $reason);
+        });
+    }
+
+    private function apply(Transaction $payment, string $disputeId, string $state, int $amount, ?string $reason): void
+    {
         $payment->update(['dispute_status' => $state]);
 
         $where = $payment->invoice ? " on invoice #{$payment->invoice->number}" : '';

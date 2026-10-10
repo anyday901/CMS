@@ -42,13 +42,17 @@ return new class extends Migration
             $table->timestamp('provisioned_at')->nullable();
             // Whatever the module wants to remember, such as a remote account id.
             $table->json('provisioning_data')->nullable();
+            // Actions run strictly in the order they were queued: each job
+            // carries a number and waits until the one before it has finished.
+            $table->unsignedInteger('provisioning_queued')->default(0);
+            $table->unsignedInteger('provisioning_finished')->default(0);
         });
     }
 
     public function down(): void
     {
         Schema::table('services', function (Blueprint $table) {
-            $table->dropColumn(['provisioning_status', 'provisioning_action', 'provisioning_error', 'provisioned_at', 'provisioning_data']);
+            $table->dropColumn(['provisioning_status', 'provisioning_action', 'provisioning_error', 'provisioned_at', 'provisioning_data', 'provisioning_queued', 'provisioning_finished']);
         });
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropColumn('dispute_status');

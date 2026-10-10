@@ -4,6 +4,7 @@ namespace App\Provisioning;
 
 use App\Jobs\RunProvisioningAction;
 use App\Models\Service;
+use Illuminate\Support\Facades\DB;
 
 /** Queues module actions for services whose product uses a provisioning module. */
 class Provisioner
@@ -24,12 +25,18 @@ class Provisioner
             return;
         }
 
-        $service->forceFill([
-            'provisioning_status' => self::PENDING,
-            'provisioning_action' => $action,
-            'provisioning_error' => null,
-        ])->save();
+        $sequence = DB::transaction(function () use ($service, $action) {
+            $locked = Service::lockForUpdate()->findOrFail($service->id);
+            $locked->forceFill([
+                'provisioning_status' => self::PENDING,
+                'provisioning_action' => $action,
+                'provisioning_error' => null,
+                'provisioning_queued' => $locked->provisioning_queued + 1,
+            ])->save();
 
-        RunProvisioningAction::dispatch($service, $action);
+            return $locked->provisioning_queued;
+        });
+
+        RunProvisioningAction::dispatch($service, $action, $sequence);
     }
 }

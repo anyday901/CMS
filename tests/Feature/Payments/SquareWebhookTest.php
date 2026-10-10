@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Billing\DisputeRecorder;
 use App\Billing\PaymentRecorder;
+use App\Billing\RefundService;
 use App\Enums\InvoiceStatus;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -101,6 +103,21 @@ class SquareWebhookTest extends TestCase
 
         $this->send($event)->assertOk();
         $this->assertSame(1, Transaction::count());
+    }
+
+    public function test_a_lost_dispute_that_fails_part_way_is_retried_in_full(): void
+    {
+        $refunds = $this->mock(RefundService::class);
+        $refunds->shouldReceive('recordFromGateway')->once()->andThrow(new \PDOException('database went away'));
+
+        try {
+            app(DisputeRecorder::class)->update($this->payment, 'D2', 'LOST', 2500);
+            $this->fail('Expected the refund failure to bubble up.');
+        } catch (\PDOException) {
+            // Square sees an error and retries.
+        }
+
+        $this->assertNull($this->payment->fresh()->dispute_status);
     }
 
     public function test_disputes_are_tracked_and_a_lost_dispute_counts_as_a_refund(): void

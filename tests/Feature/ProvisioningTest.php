@@ -5,13 +5,16 @@ namespace Tests\Feature;
 use App\Billing\PaymentRecorder;
 use App\Billing\ServiceLifecycle;
 use App\Enums\ServiceStatus;
+use App\Jobs\RunProvisioningAction;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\User;
+use App\Provisioning\Provisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\Fakes\FakeProvisioningModule;
 use Tests\TestCase;
 
@@ -90,6 +93,29 @@ class ProvisioningTest extends TestCase
         $this->assertSame('done', $service->fresh()->provisioning_status);
         $this->assertNull($service->fresh()->provisioning_error);
         $this->assertCount(2, FakeProvisioningModule::$calls);
+    }
+
+    public function test_actions_run_in_the_order_they_were_queued(): void
+    {
+        Queue::fake();
+        $service = Service::factory()->for($this->product)->create();
+        $provisioner = app(Provisioner::class);
+
+        $provisioner->queue($service, 'create');
+        $provisioner->queue($service, 'terminate');
+        [$create, $terminate] = Queue::pushed(RunProvisioningAction::class)->all();
+
+        // The terminate job is picked up first by another worker: it waits.
+        app()->call([$terminate, 'handle']);
+        $this->assertSame([], FakeProvisioningModule::$calls);
+
+        app()->call([$create, 'handle']);
+        $this->assertSame('pending', $service->fresh()->provisioning_status);
+        app()->call([$terminate, 'handle']);
+        app()->call([$terminate, 'handle']); // a duplicate delivery does nothing
+
+        $this->assertSame(['create', 'terminate'], array_column(FakeProvisioningModule::$calls, 0));
+        $this->assertSame('done', $service->fresh()->provisioning_status);
     }
 
     public function test_a_module_can_report_a_failure_without_throwing(): void

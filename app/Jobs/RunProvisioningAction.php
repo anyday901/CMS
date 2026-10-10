@@ -6,46 +6,98 @@ use App\Models\Activity;
 use App\Models\Service;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
+use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
+use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Runs one module action. It is tried once: a half-finished create on a
- * remote system is safer for staff to look at and retry than to repeat blindly.
+ * Runs one module action. Actions for a service run one at a time and in the
+ * order they were queued, so a slow create can't land after a terminate. A
+ * module error is not retried: a half-finished action on another system is
+ * safer for staff to look at and run again than to repeat blindly.
  */
 class RunProvisioningAction implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 1;
+    private const WAIT_SECONDS = 15;
 
-    public function __construct(public Service $service, public string $action) {}
+    public function __construct(public Service $service, public string $action, public int $sequence) {}
+
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping("provisioning-{$this->service->id}"))->releaseAfter(self::WAIT_SECONDS)->expireAfter(900)];
+    }
+
+    /** Keeps waiting for earlier actions for up to an hour. */
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addHour();
+    }
 
     public function handle(ModuleRegistry $modules): void
     {
         $service = $this->service->fresh('product');
         $module = $modules->find($service?->product->module);
 
-        if ($service === null || $module === null) {
+        if ($service === null || $module === null || $this->sequence <= $service->provisioning_finished) {
+            return; // Gone, module removed, or already handled.
+        }
+
+        if ($this->sequence > $service->provisioning_finished + 1) {
+            $this->release(self::WAIT_SECONDS); // An earlier action hasn't finished yet.
+
             return;
         }
 
+        $this->finish($service, $module, $this->run($service, $module));
+    }
+
+    /** Called when the job gives up waiting for an earlier action. */
+    public function failed(?Throwable $e): void
+    {
+        $service = $this->service->fresh();
+
+        if ($service && $this->sequence > $service->provisioning_finished) {
+            $service->forceFill([
+                'provisioning_status' => Provisioner::FAILED,
+                'provisioning_error' => "The {$this->action} action timed out waiting for an earlier action. Run it again when the module is reachable.",
+                'provisioning_finished' => $this->sequence,
+            ])->save();
+        }
+    }
+
+    private function run(Service $service, ProvisioningModule $module): ProvisioningResult
+    {
         try {
-            $result = $module->{$this->action}($service);
+            return $module->{$this->action}($service);
         } catch (Throwable $e) {
             Log::error('Provisioning action failed', ['service' => $service->id, 'action' => $this->action, 'exception' => $e]);
-            $result = ProvisioningResult::failed($e->getMessage() ?: $e::class);
-        }
 
+            return ProvisioningResult::failed($e->getMessage() ?: $e::class);
+        }
+    }
+
+    private function finish(Service $service, ProvisioningModule $module, ProvisioningResult $result): void
+    {
         $service->forceFill([
-            'provisioning_status' => $result->ok ? Provisioner::DONE : Provisioner::FAILED,
+            // Stays pending while later actions are queued behind this one.
+            'provisioning_status' => match (true) {
+                $this->sequence < $service->provisioning_queued => Provisioner::PENDING,
+                $result->ok => Provisioner::DONE,
+                default => Provisioner::FAILED,
+            },
             'provisioning_action' => $this->action,
             'provisioning_error' => $result->ok ? null : $result->message,
             'provisioned_at' => $result->ok ? now() : $service->provisioned_at,
             'provisioning_data' => array_merge($service->provisioning_data ?? [], $result->data),
+            'provisioning_finished' => $this->sequence,
         ])->save();
 
         Activity::record(
