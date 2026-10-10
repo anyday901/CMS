@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Billing\CreditApplier;
+use App\Billing\InvoicePdf;
 use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Payments\GatewayRegistry;
@@ -10,6 +11,7 @@ use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceController extends Controller
 {
@@ -31,6 +33,15 @@ class InvoiceController extends Controller
         return redirect()->route('portal.invoices.show', $invoice)->with('status', $applied
             ? 'Applied '.Money::format($applied->amount, $applied->currency).' of your credit to this invoice.'
             : 'There was no credit to apply.');
+    }
+
+    public function pdf(Request $request, int $invoice, InvoicePdf $pdf): Response
+    {
+        $invoice = $request->user('client')->invoices()
+            ->where('status', '!=', InvoiceStatus::Draft)
+            ->findOrFail($invoice);
+
+        return $pdf->download($invoice);
     }
 
     public function show(Request $request, int $invoice, GatewayRegistry $gateways): View

@@ -87,6 +87,12 @@ class Invoice extends Model
         return $this;
     }
 
+    /** Drafts and unpaid invoices can still have their lines changed. */
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+    }
+
     public function amountPaid(): int
     {
         return (int) $this->transactions()->sum('amount');

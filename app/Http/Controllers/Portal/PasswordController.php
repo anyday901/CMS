@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Client;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
@@ -48,6 +49,7 @@ class PasswordController extends Controller
             function (Client $client, string $password) {
                 $client->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
                 event(new PasswordReset($client));
+                Activity::record('Reset their portal password', $client);
             },
         );
 

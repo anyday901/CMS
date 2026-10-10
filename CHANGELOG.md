@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- PDF invoices: staff download any invoice and clients download their own from the invoice page. Company name, address, email and tax id on the PDF come from `BILLING_COMPANY_*` settings.
+- Staff roles: admin, billing and support. Billing staff manage clients, services and invoices; support staff can only look. Admins manage staff accounts on a new Staff page, can't delete or demote themselves, and there is always at least one admin. `admin:create` takes `--role`.
+- Manual invoices: staff create invoices with any lines (negative lines as discounts) from a client's page, save them as drafts hidden from the client, publish them, and edit draft or unpaid invoices. Edits can't bring the total down to or below what is already paid. Drafts can be cancelled.
+- Activity log: logins, client, product, tax rule and staff changes, invoice, payment, refund, late fee and service events are recorded with who did them and their IP address. Admins browse and search it on a new Activity page, and each client's page shows their recent activity.
+- Draft filter on the admin invoice list.
 - Tax rules: a Tax page in the admin area for rates by country, or by country and state, tax-exempt clients and non-taxable products. New invoices use the most specific matching rule and keep that rate even if the rule changes later.
 - Credit balance is applied to invoices: automatically when new invoices are created (`BILLING_APPLY_CREDIT`), from an "Apply credit" form in the admin area, and from a button on the client's invoice page. The portal home shows the client's credit.
 - Refunds from the admin invoice page: full or partial, sent back through PayPal or Square, recorded as refunded outside the app, or moved to account credit. Fully refunded invoices are marked refunded. Refunds the gateway reports as pending are checked by `billing:run` and undone if they fail.
@@ -33,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project docs: v1 spec, README (with required PHP extensions and Node version), TODO and this changelog.
 
 ### Changed
+- Existing staff accounts become admins. Admin pages hide buttons and menu links the signed-in role can't use.
 - Admin and portal login and password pages no longer autofocus the first field.
 - SonarCloud skips its PHP line-length and brace-style rules, since Laravel Pint already enforces code style.
 - The frontend uses the system font instead of downloading Instrument Sans at build time, so builds work without internet access.

@@ -7,6 +7,7 @@ use App\Events\ServiceActivated;
 use App\Events\ServiceSuspended;
 use App\Events\ServiceTerminated;
 use App\Events\ServiceUnsuspended;
+use App\Models\Activity;
 use App\Models\Service;
 
 /**
@@ -21,6 +22,7 @@ class ServiceLifecycle
     {
         $service->status = ServiceStatus::Active;
         $service->save();
+        Activity::record("Activated {$service->description()}", $service);
 
         ServiceActivated::dispatch($service);
     }
@@ -32,6 +34,7 @@ class ServiceLifecycle
             'suspended_at' => now(),
             'suspension_reason' => $reason,
         ])->save();
+        Activity::record("Suspended {$service->description()} ({$reason})", $service);
 
         ServiceSuspended::dispatch($service);
     }
@@ -43,6 +46,7 @@ class ServiceLifecycle
             'suspended_at' => null,
             'suspension_reason' => null,
         ])->save();
+        Activity::record("Unsuspended {$service->description()}", $service);
 
         ServiceUnsuspended::dispatch($service);
     }
@@ -53,6 +57,7 @@ class ServiceLifecycle
             'status' => ServiceStatus::Terminated,
             'terminated_at' => now(),
         ])->save();
+        Activity::record("Terminated {$service->description()}", $service);
 
         ServiceTerminated::dispatch($service);
     }

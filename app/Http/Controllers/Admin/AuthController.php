@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,12 +29,14 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        Activity::record('Staff logged in', $request->user());
 
         return redirect()->intended(route('admin.dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
     {
+        Activity::record('Staff logged out', $request->user());
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -3,11 +3,20 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $client->fullName() }}</h1>
         <x-status-badge :status="$client->status" />
-        <form method="POST" action="{{ route('admin.clients.password-link', $client) }}" class="ml-auto">@csrf
-            <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Email portal password link</button>
-        </form>
-        <a href="{{ route('admin.clients.edit', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Edit</a>
-        <a href="{{ route('admin.services.create', $client) }}" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">Add service</a>
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+            @can('manage-clients')
+                <form method="POST" action="{{ route('admin.clients.password-link', $client) }}">@csrf
+                    <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Email portal password link</button>
+                </form>
+                <a href="{{ route('admin.clients.edit', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Edit</a>
+            @endcan
+            @can('manage-billing')
+                <a href="{{ route('admin.invoices.create', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">New invoice</a>
+            @endcan
+            @can('manage-clients')
+                <a href="{{ route('admin.services.create', $client) }}" class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">Add service</a>
+            @endcan
+        </div>
     </div>
 
     <div class="mb-8 grid gap-4 rounded-lg border border-gray-200 bg-white p-4 text-sm md:grid-cols-3">
@@ -48,5 +57,12 @@
         <p class="text-sm text-gray-500">No invoices yet.</p>
     @else
         @include('admin.invoices._table', ['invoices' => $client->invoices->each->setRelation('client', $client)])
+    @endif
+
+    <h2 class="mt-8 mb-3 text-lg font-semibold">Recent activity</h2>
+    @if ($activity->isEmpty())
+        <p class="text-sm text-gray-500">Nothing logged yet.</p>
+    @else
+        @include('admin.activity._list', ['entries' => $activity, 'showClient' => false])
     @endif
 </x-admin-layout>

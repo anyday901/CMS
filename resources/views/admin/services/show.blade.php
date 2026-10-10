@@ -3,6 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $service->description() }}</h1>
         <x-status-badge :status="$service->status" />
+        @can('manage-clients')
         <div class="ml-auto flex gap-2">
             @foreach (['suspend' => 'active', 'unsuspend' => 'suspended'] as $action => $from)
                 @if ($service->status->value === $from)
@@ -17,6 +18,7 @@
                 </form>
             @endif
         </div>
+        @endcan
     </div>
 
     <div class="mb-8 grid gap-4 rounded-lg border border-gray-200 bg-white p-4 text-sm md:grid-cols-3">

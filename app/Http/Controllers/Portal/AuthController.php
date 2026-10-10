@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,12 +36,14 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        Activity::record('Logged in to the portal', $request->user('client'));
 
         return redirect()->intended(route('portal.dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
     {
+        Activity::record('Logged out of the portal', $request->user('client'));
         Auth::guard('client')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

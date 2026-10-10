@@ -5,10 +5,12 @@ namespace App\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
+use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -98,7 +100,10 @@ class InvoiceGenerator
                 ]);
             }
 
-            return $invoice->recalculate();
+            $invoice->recalculate();
+            Activity::record("Generated invoice #{$invoice->number} for ".Money::format($invoice->total, $invoice->currency), $invoice);
+
+            return $invoice;
         });
     }
 }

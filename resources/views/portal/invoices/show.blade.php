@@ -3,6 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Invoice #{{ $invoice->number }}</h1>
         <x-status-badge :status="$invoice->status->value === 'unpaid' && $invoice->due_date->lt(today()) ? 'overdue' : $invoice->status" />
+        <a href="{{ route('portal.invoices.pdf', $invoice) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Download PDF</a>
     </div>
 
     <div class="mb-6 grid gap-2 rounded-lg border border-gray-200 bg-white p-4 text-sm sm:grid-cols-3">

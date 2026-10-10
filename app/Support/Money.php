@@ -39,6 +39,18 @@ class Money
         return $m[1] === '-' ? -$cents : $cents;
     }
 
+    /** Validation rule for an amount that may be negative, such as a discount line. */
+    public static function signedRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            try {
+                static::parse((string) $value);
+            } catch (InvalidArgumentException) {
+                $fail('The :attribute must be an amount like 12.34 or -5.00.');
+            }
+        };
+    }
+
     /** Validation rule for a non-negative amount field. */
     public static function rule(): \Closure
     {

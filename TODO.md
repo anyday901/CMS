@@ -11,12 +11,12 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Client credit balance applied to invoices
 - [x] Refunds
 - [x] Late fees
-- [ ] PDF invoices
+- [x] PDF invoices
 - [x] Admin area: staff login, dashboard, clients, products, services, invoices
 - [x] Record manual payments and cancel invoices
-- [ ] Staff roles and permissions
-- [ ] Manual invoice creation and editing
-- [ ] Activity log
+- [x] Staff roles and permissions
+- [x] Manual invoice creation and editing
+- [x] Activity log
 - [x] Client portal: login, password setup and reset, invoices, services, account
 - [ ] Client 2FA
 - [ ] Client sign-up and ordering from the portal
@@ -38,6 +38,9 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [ ] Support tickets with departments, priorities, assignment and attachments
 - [ ] Inbound email piping for tickets
 - [ ] Email templates and email log
+- [ ] Attach the PDF to invoice emails
+- [ ] Custom staff permissions beyond the three built-in roles
+- [ ] Activity log retention setting
 
 ## Milestone 4: Migration and release
 - [ ] WHMCS importer with dry-run report
