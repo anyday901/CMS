@@ -56,6 +56,12 @@
         </div>
     @endif
 
+    @php $tasks = App\Models\FulfillmentTask::where('service_id', $service->id)->with(['service.client', 'service.product', 'completedBy'])->latest('id')->get(); @endphp
+    @if ($tasks->isNotEmpty())
+        <h2 class="mb-3 text-lg font-semibold">Tasks</h2>
+        <div class="mb-8">@include('admin.tasks._table')</div>
+    @endif
+
     <h2 class="mb-3 text-lg font-semibold">Invoices</h2>
     @php $invoices = $service->invoiceItems->pluck('invoice')->unique('id')->sortByDesc('id')->each->setRelation('client', $service->client); @endphp
     @if ($invoices->isEmpty())

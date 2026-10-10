@@ -48,7 +48,12 @@
                 @foreach ($modules as $key => $module)
                     @foreach ($module->configFields() as $name => $field)
                         <label class="block" data-module="{{ $key }}">{{ $module->label() }}: {{ $field['label'] }}@if ($field['required'] ?? false) <span class="text-ink-500">(required)</span>@endif
-                            <input name="module_config[{{ $key }}][{{ $name }}]" value="{{ old("module_config.{$key}.{$name}", $product->module === $key ? ($product->module_config[$name] ?? '') : '') }}" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            @php $value = old("module_config.{$key}.{$name}", $product->module === $key ? ($product->module_config[$name] ?? '') : ''); @endphp
+                            @if (($field['type'] ?? 'text') === 'textarea')
+                                <textarea name="module_config[{{ $key }}][{{ $name }}]" rows="4" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $value }}</textarea>
+                            @else
+                                <input name="module_config[{{ $key }}][{{ $name }}]" type="{{ ($field['type'] ?? 'text') === 'url' ? 'url' : 'text' }}" value="{{ $value }}" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            @endif
                             @if ($field['help'] ?? null)<span class="text-ink-500">{{ $field['help'] }}</span>@endif
                         </label>
                     @endforeach

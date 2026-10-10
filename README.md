@@ -64,7 +64,7 @@ Clients pay each invoice from the portal. A payment method appears on unpaid inv
 ### PayPal and Venmo
 
 1. In the [PayPal developer dashboard](https://developer.paypal.com/dashboard/applications), create a REST app and copy its client ID and secret.
-2. Add a webhook to that app pointing at `https://your-domain/webhooks/paypal`, subscribed to **Payment capture completed**, and copy its webhook ID.
+2. Add a webhook to that app pointing at `https://your-domain/webhooks/paypal`, subscribed to **Payment capture completed** and the **Customer dispute created**, **updated** and **resolved** events, and copy its webhook ID.
 3. Set these in `.env`:
 
 ```dotenv
@@ -75,7 +75,7 @@ PAYPAL_WEBHOOK_ID=...
 PAYPAL_VENMO=true          # show the Venmo button to US clients
 ```
 
-Venmo payments go through PayPal and show as "Venmo" on the invoice.
+Venmo payments go through PayPal and show as "Venmo" on the invoice. Disputed PayPal and Venmo payments are flagged on the admin invoice page; a dispute PayPal resolves in the buyer's favour, or one you accept, is recorded as a refund of the disputed amount. Answer disputes in the PayPal Resolution Center.
 
 ### Cash App Pay
 
@@ -107,7 +107,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), tax rules, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), tax rules, staff and the activity log.
 
 ### Staff roles
 
@@ -130,6 +130,15 @@ Admins change late fees and tax-inclusive pricing under **Settings**. Values sav
 A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
 
 Actions for one service run one at a time, in the order they happened. A service's page shows the last action and any error. Failed actions are not retried on their own, because repeating a half-finished action on another system can do more harm than good; fix the cause and use **Run again**. Products without a module keep working as before.
+
+Two modules come with the app:
+
+- **Manual fulfillment** opens a task under **Tasks** for each action, with a checklist you write per product (one step per line, for set-up, suspend, unsuspend and terminate). Staff tick the steps, add notes and mark the task done. Open tasks are listed on the dashboard and counted in the menu.
+- **Webhook** sends each action as a JSON POST to a URL you set on the product. The body has the action, the service (including anything saved from earlier replies) and the client. With a signing secret, the `X-Webhook-Signature` header is `sha256=` plus the hex HMAC-SHA256 of the raw body. `X-Webhook-Delivery` stays the same when an action is run again, so the receiver can ignore repeats. Any 2xx reply counts as done; a JSON reply can include `message`, shown to staff, and `data`, an object saved on the service and sent with later actions.
+
+### Staff emails
+
+Staff are emailed when something needs a person: a provisioning action fails or a new manual task opens (staff who can manage clients: admin and billing roles), or a payment is disputed or a dispute changes (staff who can manage billing). Emails go from the queue through the `MAIL_*` settings in `.env`.
 
 ### Invoices
 

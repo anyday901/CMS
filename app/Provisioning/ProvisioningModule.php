@@ -23,9 +23,10 @@ interface ProvisioningModule
 
     /**
      * Settings shown on the product form and saved in the product's
-     * module_config, keyed by field name.
+     * module_config, keyed by field name. "type" is text (the default),
+     * textarea or url.
      *
-     * @return array<string, array{label: string, required?: bool, help?: string}>
+     * @return array<string, array{label: string, required?: bool, help?: string, type?: string}>
      */
     public function configFields(): array;
 
