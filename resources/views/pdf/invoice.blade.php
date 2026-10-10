@@ -24,7 +24,7 @@
 </style>
 </head>
 <body>
-    <table class="header">
+    <table class="header" role="presentation">
         <tr>
             <td>
                 <h1>{{ $company['name'] }}</h1>
@@ -63,7 +63,7 @@
         </tbody>
     </table>
 
-    <table class="totals" style="margin-top: 8px;">
+    <table class="totals" role="presentation" style="margin-top: 8px;">
         @if ($invoice->tax)
             <tr><td class="label">Subtotal</td><td class="num" style="width: 120px;">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
             <tr><td class="label">{{ $invoice->taxLabel() }}</td><td class="num">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>

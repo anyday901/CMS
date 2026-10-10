@@ -24,13 +24,15 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('logout', [Portal\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
         Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
-        Route::get('invoices/{invoice}', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
-        Route::post('invoices/{invoice}/credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
-        Route::get('invoices/{invoice}/pdf', [Portal\InvoiceController::class, 'pdf'])->name('invoices.pdf');
-        Route::middleware('throttle:20,1')->group(function () {
-            Route::post('invoices/{invoice}/paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
-            Route::post('invoices/{invoice}/paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
-            Route::post('invoices/{invoice}/cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+        Route::prefix('invoices/{invoice}')->group(function () {
+            Route::get('/', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
+            Route::post('credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+            Route::get('pdf', [Portal\InvoiceController::class, 'pdf'])->name('invoices.pdf');
+            Route::middleware('throttle:20,1')->group(function () {
+                Route::post('paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
+                Route::post('paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
+                Route::post('cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+            });
         });
         Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
         Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');

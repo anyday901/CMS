@@ -14,6 +14,10 @@ class StaffRolesTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const STAFF = '/admin/staff';
+
+    private const SAM = 'sam@example.com';
+
     private function staff(StaffRole $role): User
     {
         return User::factory()->create(['role' => $role]);
@@ -45,7 +49,7 @@ class StaffRolesTest extends TestCase
         $this->get("/admin/clients/{$client->id}/invoices/create")->assertForbidden();
         $this->get('/admin/products')->assertForbidden();
         $this->get('/admin/activity')->assertForbidden();
-        $this->get('/admin/staff')->assertForbidden();
+        $this->get(self::STAFF)->assertForbidden();
     }
 
     public function test_billing_handles_clients_and_invoices_but_not_settings(): void
@@ -58,7 +62,7 @@ class StaffRolesTest extends TestCase
         $this->get('/admin')->assertOk()->assertDontSee('Products')->assertDontSee('Staff');
         $this->get('/admin/products')->assertForbidden();
         $this->get('/admin/tax-rules')->assertForbidden();
-        $this->get('/admin/staff')->assertForbidden();
+        $this->get(self::STAFF)->assertForbidden();
     }
 
     public function test_admin_manages_staff(): void
@@ -66,23 +70,23 @@ class StaffRolesTest extends TestCase
         $admin = $this->staff(StaffRole::Admin);
         $this->actingAs($admin);
 
-        $this->get('/admin/staff')->assertOk()->assertSee($admin->email);
-        $this->post('/admin/staff', [
-            'name' => 'Sam Support', 'email' => 'sam@example.com', 'role' => 'support',
+        $this->get(self::STAFF)->assertOk()->assertSee($admin->email);
+        $this->post(self::STAFF, [
+            'name' => 'Sam Support', 'email' => self::SAM, 'role' => 'support',
             'password' => 'a-long-password', 'password_confirmation' => 'a-long-password',
-        ])->assertRedirect('/admin/staff');
+        ])->assertRedirect(self::STAFF);
 
-        $sam = User::where('email', 'sam@example.com')->sole();
+        $sam = User::where('email', self::SAM)->sole();
         $this->assertSame(StaffRole::Support, $sam->role);
         $this->assertTrue(Activity::where('description', 'like', 'Added staff member Sam Support%')->exists());
 
         $oldHash = $sam->password;
-        $this->put("/admin/staff/{$sam->id}", ['name' => 'Sam', 'email' => 'sam@example.com', 'role' => 'billing', 'password' => ''])
-            ->assertRedirect('/admin/staff');
+        $this->put(self::STAFF."/{$sam->id}", ['name' => 'Sam', 'email' => self::SAM, 'role' => 'billing', 'password' => ''])
+            ->assertRedirect(self::STAFF);
         $this->assertSame(StaffRole::Billing, $sam->fresh()->role);
         $this->assertSame($oldHash, $sam->fresh()->password);
 
-        $this->delete("/admin/staff/{$sam->id}")->assertRedirect('/admin/staff');
+        $this->delete(self::STAFF."/{$sam->id}")->assertRedirect(self::STAFF);
         $this->assertModelMissing($sam);
     }
 
@@ -91,9 +95,9 @@ class StaffRolesTest extends TestCase
         $admin = $this->staff(StaffRole::Admin);
         $this->actingAs($admin);
 
-        $this->post('/admin/staff', ['name' => 'X', 'email' => $admin->email, 'role' => 'admin', 'password' => 'short', 'password_confirmation' => 'short'])
+        $this->post(self::STAFF, ['name' => 'X', 'email' => $admin->email, 'role' => 'admin', 'password' => 'short', 'password_confirmation' => 'short'])
             ->assertSessionHasErrors(['email', 'password']);
-        $this->post('/admin/staff', ['name' => 'X', 'email' => 'x@example.com', 'role' => 'owner', 'password' => 'a-long-password', 'password_confirmation' => 'a-long-password'])
+        $this->post(self::STAFF, ['name' => 'X', 'email' => 'x@example.com', 'role' => 'owner', 'password' => 'a-long-password', 'password_confirmation' => 'a-long-password'])
             ->assertSessionHasErrors('role');
     }
 
@@ -102,8 +106,8 @@ class StaffRolesTest extends TestCase
         $admin = $this->staff(StaffRole::Admin);
         $this->actingAs($admin);
 
-        $this->delete("/admin/staff/{$admin->id}")->assertSessionHasErrors('staff');
-        $this->put("/admin/staff/{$admin->id}", ['name' => $admin->name, 'email' => $admin->email, 'role' => 'support'])
+        $this->delete(self::STAFF."/{$admin->id}")->assertSessionHasErrors('staff');
+        $this->put(self::STAFF."/{$admin->id}", ['name' => $admin->name, 'email' => $admin->email, 'role' => 'support'])
             ->assertSessionHasErrors('role');
         $this->assertModelExists($admin);
         $this->assertSame(StaffRole::Admin, $admin->fresh()->role);
@@ -111,7 +115,7 @@ class StaffRolesTest extends TestCase
         // With a second admin, the other admin can be demoted and removed, but
         // the last one standing cannot.
         $other = $this->staff(StaffRole::Admin);
-        $this->put("/admin/staff/{$other->id}", ['name' => $other->name, 'email' => $other->email, 'role' => 'billing'])
+        $this->put(self::STAFF."/{$other->id}", ['name' => $other->name, 'email' => $other->email, 'role' => 'billing'])
             ->assertSessionDoesntHaveErrors();
         $this->assertSame(StaffRole::Billing, $other->fresh()->role);
     }
@@ -122,10 +126,10 @@ class StaffRolesTest extends TestCase
         $other = $this->staff(StaffRole::Admin);
 
         $this->actingAs($this->staff(StaffRole::Billing));
-        $this->delete("/admin/staff/{$other->id}")->assertForbidden();
+        $this->delete(self::STAFF."/{$other->id}")->assertForbidden();
 
         $this->actingAs($admin);
-        $this->delete("/admin/staff/{$other->id}")->assertRedirect('/admin/staff');
+        $this->delete(self::STAFF."/{$other->id}")->assertRedirect(self::STAFF);
         $this->assertModelMissing($other);
     }
 

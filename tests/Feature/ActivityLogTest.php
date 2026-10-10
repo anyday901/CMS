@@ -16,6 +16,10 @@ class ActivityLogTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const CREATED_CLIENT = 'Created client';
+
+    private const UNRELATED = 'Something unrelated';
+
     public function test_staff_actions_are_logged_with_who_did_them(): void
     {
         $staff = User::factory()->create(['name' => 'Alex Admin', 'password' => 'a-long-password']);
@@ -28,7 +32,7 @@ class ActivityLogTest extends TestCase
         $this->assertSame(['staff', $staff->id, 'Alex Admin'], [$login->actor_type, $login->actor_id, $login->actor_name]);
         $this->assertSame('127.0.0.1', $login->ip_address);
 
-        $created = Activity::where('description', 'Created client')->sole();
+        $created = Activity::where('description', self::CREATED_CLIENT)->sole();
         $this->assertSame($client->id, $created->client_id);
         $this->assertTrue($created->subject->is($client));
     }
@@ -69,14 +73,14 @@ class ActivityLogTest extends TestCase
     public function test_activity_page_lists_and_filters_entries(): void
     {
         $client = Client::factory()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
-        Activity::record('Created client', $client);
-        Activity::record('Something unrelated');
+        Activity::record(self::CREATED_CLIENT, $client);
+        Activity::record(self::UNRELATED);
 
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->get('/admin/activity')->assertOk()->assertSee('Created client')->assertSee('Something unrelated');
-        $this->get('/admin/activity?q=unrelated')->assertSee('Something unrelated')->assertDontSee('Created client');
+        $this->get('/admin/activity')->assertOk()->assertSee(self::CREATED_CLIENT)->assertSee(self::UNRELATED);
+        $this->get('/admin/activity?q=unrelated')->assertSee(self::UNRELATED)->assertDontSee(self::CREATED_CLIENT);
         $this->get('/admin/activity?actor=staff')->assertSee('Nothing logged yet');
-        $this->get("/admin/clients/{$client->id}")->assertSee('Recent activity')->assertSee('Created client')->assertDontSee('Something unrelated');
+        $this->get("/admin/clients/{$client->id}")->assertSee('Recent activity')->assertSee(self::CREATED_CLIENT)->assertDontSee(self::UNRELATED);
     }
 }
