@@ -16,6 +16,8 @@ class CreditLedgerTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const GOODWILL = 'Outage goodwill';
+
     private Client $client;
 
     protected function setUp(): void
@@ -53,16 +55,16 @@ class CreditLedgerTest extends TestCase
         $staff = User::factory()->create(['name' => 'Alex']);
         $this->actingAs($staff, 'web');
 
-        $this->post("/admin/clients/{$this->client->id}/credit", ['direction' => 'add', 'amount' => '25.00', 'reason' => 'Outage goodwill'])
+        $this->post("/admin/clients/{$this->client->id}/credit", ['direction' => 'add', 'amount' => '25.00', 'reason' => self::GOODWILL])
             ->assertSessionDoesntHaveErrors();
         $this->post("/admin/clients/{$this->client->id}/credit", ['direction' => 'remove', 'amount' => '5', 'reason' => 'Correction'])
             ->assertSessionDoesntHaveErrors();
 
         $this->assertSame(2000, $this->client->fresh()->credit_balance);
-        $entry = CreditEntry::where('description', 'Outage goodwill')->sole();
+        $entry = CreditEntry::where('description', self::GOODWILL)->sole();
         $this->assertSame($staff->id, $entry->user_id);
 
-        $this->get("/admin/clients/{$this->client->id}")->assertSee('Outage goodwill')->assertSee('Alex')->assertSee('$20.00 available');
+        $this->get("/admin/clients/{$this->client->id}")->assertSee(self::GOODWILL)->assertSee('Alex')->assertSee('$20.00 available');
     }
 
     public function test_credit_cannot_go_below_zero(): void

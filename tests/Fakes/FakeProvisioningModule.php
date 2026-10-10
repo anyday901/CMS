@@ -5,7 +5,6 @@ namespace Tests\Fakes;
 use App\Models\Service;
 use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
-use RuntimeException;
 
 /** Records the actions it is asked to run; can be told to fail. */
 class FakeProvisioningModule implements ProvisioningModule
@@ -60,7 +59,7 @@ class FakeProvisioningModule implements ProvisioningModule
         self::$calls[] = [$action, $service->id];
 
         if (self::$throw) {
-            throw new RuntimeException('Connection refused');
+            throw new FakeModuleUnreachable('Connection refused');
         }
 
         return self::$failWith ? ProvisioningResult::failed(self::$failWith) : ProvisioningResult::ok(null, $data);

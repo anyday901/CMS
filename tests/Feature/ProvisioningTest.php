@@ -19,6 +19,8 @@ class ProvisioningTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PRODUCTS = '/admin/products';
+
     private Product $product;
 
     protected function setUp(): void
@@ -120,13 +122,13 @@ class ProvisioningTest extends TestCase
         $this->get('/admin/products/create')->assertSee('Fake Panel')->assertSee('Package name on the server');
 
         $fields = ['name' => 'VPS', 'active' => '1', 'taxable' => '1', 'module' => 'fake', 'prices' => ['monthly' => ['price' => '10']]];
-        $this->post('/admin/products', $fields)->assertSessionHasErrors('module_config.fake.server');
-        $this->post('/admin/products', $fields + ['module_config' => ['fake' => ['server' => 'node2', 'plan' => '']]])->assertRedirect();
+        $this->post(self::PRODUCTS, $fields)->assertSessionHasErrors('module_config.fake.server');
+        $this->post(self::PRODUCTS, $fields + ['module_config' => ['fake' => ['server' => 'node2', 'plan' => '']]])->assertRedirect();
 
         $product = Product::where('name', 'VPS')->sole();
         $this->assertSame('fake', $product->module);
         $this->assertSame(['server' => 'node2'], $product->module_config);
 
-        $this->post('/admin/products', ['name' => 'Bad', 'module' => 'nope'] + $fields)->assertSessionHasErrors('module');
+        $this->post(self::PRODUCTS, ['name' => 'Bad', 'module' => 'nope'] + $fields)->assertSessionHasErrors('module');
     }
 }
