@@ -18,6 +18,8 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Manual invoice creation and editing
 - [x] Activity log
 - [x] Client portal: login, password setup and reset, invoices, services, account
+- [x] Own visual theme (Harbor) for the admin area and client portal
+- [ ] Use the Harbor colors on PDF invoices
 - [ ] Client 2FA
 - [ ] Client sign-up and ordering from the portal
 - [x] PayPal gateway (one-time checkout per invoice)

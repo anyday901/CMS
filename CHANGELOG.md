@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Harbor theme for the admin area and client portal: sea-green and warm-sun colors, Bricolage Grotesque headings over Figtree text, rounded cards, pill buttons and navigation. Fonts are bundled with the app, so pages make no requests to font services. Colors, fonts and corner sizes are set in `resources/css/app.css`.
 - Square webhook at `/webhooks/square` for Cash App Pay: refunds made in the Square dashboard are recorded on the invoice, pending refunds are settled as soon as Square reports them, and disputes are shown on the payment. A lost or accepted dispute is recorded as a refund. Requests are checked against `SQUARE_WEBHOOK_SIGNATURE_KEY`.
 - Credit history: every change to a client's credit balance (overpayments, refunds to credit, credit used on invoices and manual changes) is listed with the balance after it, on the admin client page and the client's portal home.
 - Staff with the billing or admin role can add or remove credit by hand, with a reason. The balance can't go below zero.
