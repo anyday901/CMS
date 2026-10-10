@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** A set-up, suspend, unsuspend or terminate job for staff to do by hand, with a checklist. */
 class FulfillmentTask extends Model
 {
-    protected $fillable = ['service_id', 'action', 'checklist', 'notes'];
+    protected $fillable = ['service_id', 'action', 'operation', 'checklist', 'notes'];
 
     protected function casts(): array
     {

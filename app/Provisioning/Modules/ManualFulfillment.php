@@ -66,16 +66,19 @@ class ManualFulfillment implements ProvisioningModule
 
     private function open(Service $service, string $action): ProvisioningResult
     {
-        // Running the action again while its task is still open adds nothing.
-        $existing = FulfillmentTask::open()->where('service_id', $service->id)->where('action', $action)->first();
+        // A retry of the same operation reuses its task. A later action, even
+        // one with the same name, gets its own so the steps stay in order.
+        $operation = $service->provisioningOperation ?? $service->provisioning_finished + 1;
+        $existing = FulfillmentTask::where('service_id', $service->id)->where('operation', $operation)->first();
 
         if ($existing) {
-            return ProvisioningResult::ok("Task #{$existing->id} is already open for staff.");
+            return ProvisioningResult::ok("Task #{$existing->id} was already opened for this action.");
         }
 
         $task = FulfillmentTask::create([
             'service_id' => $service->id,
             'action' => $action,
+            'operation' => $operation,
             'checklist' => array_map(fn (string $text) => ['text' => $text, 'done' => false], $this->steps($service, $action)),
         ]);
         Activity::record("Opened task #{$task->id}: {$task->title()}", $service);

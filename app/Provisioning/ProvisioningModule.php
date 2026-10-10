@@ -12,7 +12,9 @@ use App\Models\Service;
  *
  * Return ProvisioningResult::failed() for a problem staff should see and
  * retry; anything thrown is caught and shown the same way. An action can run
- * again when staff retry it, so make each one safe to repeat.
+ * again when staff retry it, so make each one safe to repeat:
+ * $service->provisioningOperation is the same number on every run of one
+ * action and different for each new action.
  */
 interface ProvisioningModule
 {

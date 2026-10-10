@@ -13,6 +13,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('service_id')->constrained()->cascadeOnDelete();
             $table->string('action');
+            // The provisioning operation that opened it; a retry of the same one reuses the task.
+            $table->unsignedInteger('operation');
             // [{"text": "Create the account", "done": false}, ...]
             $table->json('checklist');
             $table->text('notes')->nullable();
@@ -20,10 +22,19 @@ return new class extends Migration
             $table->foreignId('completed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
+
+        Schema::table('services', function (Blueprint $table) {
+            // Identifies the last action that ran, so running a failed action
+            // again tells the module it is the same action, not a new one.
+            $table->unsignedInteger('provisioning_operation')->default(0);
+        });
     }
 
     public function down(): void
     {
+        Schema::table('services', function (Blueprint $table) {
+            $table->dropColumn('provisioning_operation');
+        });
         Schema::dropIfExists('fulfillment_tasks');
     }
 };

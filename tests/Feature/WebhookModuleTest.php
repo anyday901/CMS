@@ -68,6 +68,25 @@ class WebhookModuleTest extends TestCase
         $this->assertSame('The webhook answered HTTP 503: No capacity in region', $this->service->provisioning_error);
     }
 
+    public function test_a_staff_retry_of_a_failed_action_keeps_its_delivery_id(): void
+    {
+        Http::fakeSequence(self::URL)->push(['message' => 'Timed out'], 504)->push(['data' => ['vm' => 'vm-7']])->push();
+        app(ServiceLifecycle::class)->activate($this->service);
+        $this->assertSame('failed', $this->service->fresh()->provisioning_status);
+
+        $this->actingAs(User::factory()->create(), 'web')
+            ->post("/admin/services/{$this->service->id}/provision", ['action' => 'create'])->assertRedirect();
+
+        $this->assertSame('done', $this->service->fresh()->provisioning_status);
+
+        // A new action after that gets a new id.
+        app(ServiceLifecycle::class)->suspend($this->service->fresh(), 'overdue');
+
+        $id = $this->service->id;
+        $deliveries = Http::recorded()->map(fn (array $pair) => $pair[0]->header('X-Webhook-Delivery')[0])->all();
+        $this->assertSame(["service-{$id}-action-1", "service-{$id}-action-1", "service-{$id}-action-3"], $deliveries);
+    }
+
     public function test_an_unreachable_url_fails_the_action(): void
     {
         Http::fake(fn () => throw new ConnectionException('Could not resolve host'));

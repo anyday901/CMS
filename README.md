@@ -134,7 +134,7 @@ Actions for one service run one at a time, in the order they happened. A service
 Two modules come with the app:
 
 - **Manual fulfillment** opens a task under **Tasks** for each action, with a checklist you write per product (one step per line, for set-up, suspend, unsuspend and terminate). Staff tick the steps, add notes and mark the task done. Open tasks are listed on the dashboard and counted in the menu.
-- **Webhook** sends each action as a JSON POST to a URL you set on the product. The body has the action, the service (including anything saved from earlier replies) and the client. With a signing secret, the `X-Webhook-Signature` header is `sha256=` plus the hex HMAC-SHA256 of the raw body. `X-Webhook-Delivery` stays the same when an action is run again, so the receiver can ignore repeats. Any 2xx reply counts as done; a JSON reply can include `message`, shown to staff, and `data`, an object saved on the service and sent with later actions.
+- **Webhook** sends each action as a JSON POST to a URL you set on the product. The body has the action, the service (including anything saved from earlier replies) and the client. With a signing secret, the `X-Webhook-Signature` header is `sha256=` plus the hex HMAC-SHA256 of the raw body. `X-Webhook-Delivery` stays the same when staff run a failed action again, so the receiver can ignore work it already did when only its reply was lost. Any 2xx reply counts as done; a JSON reply can include `message`, shown to staff, and `data`, an object saved on the service and sent with later actions.
 
 ### Staff emails
 

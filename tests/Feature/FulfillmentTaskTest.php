@@ -45,16 +45,25 @@ class FulfillmentTaskTest extends TestCase
         Notification::assertSentTo($staff, StaffAlert::class, fn (StaffAlert $alert) => $alert->url === route('admin.tasks.show', $task));
     }
 
-    public function test_actions_without_a_checklist_get_a_default_step_and_repeats_do_not_duplicate(): void
+    public function test_actions_without_a_checklist_get_a_default_step(): void
     {
         $service = Service::factory()->for($this->product)->create();
 
         app(ServiceLifecycle::class)->suspend($service, 'overdue');
-        $this->actingAs(User::factory()->create(), 'web')
-            ->post("/admin/services/{$service->id}/provision", ['action' => 'suspend'])->assertRedirect();
 
-        $task = FulfillmentTask::sole();
-        $this->assertSame([['text' => 'Suspend the service', 'done' => false]], $task->checklist);
+        $this->assertSame([['text' => 'Suspend the service', 'done' => false]], FulfillmentTask::sole()->checklist);
+    }
+
+    public function test_each_new_action_gets_its_own_task_so_steps_stay_in_order(): void
+    {
+        $service = Service::factory()->for($this->product)->create();
+        $lifecycle = app(ServiceLifecycle::class);
+
+        $lifecycle->suspend($service, 'overdue');
+        $lifecycle->unsuspend($service->fresh());
+        $lifecycle->suspend($service->fresh(), 'overdue');
+
+        $this->assertSame(['suspend', 'unsuspend', 'suspend'], FulfillmentTask::orderBy('id')->pluck('action')->all());
     }
 
     public function test_staff_tick_steps_and_mark_the_task_done(): void

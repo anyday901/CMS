@@ -68,10 +68,9 @@ class Webhook implements ProvisioningModule
             return ProvisioningResult::failed('The product has no webhook URL. Set one on the product page.');
         }
 
-        // Actions run one at a time in order, so the next number to finish
-        // identifies this action, and stays the same when staff run it again
-        // after a failure.
-        $delivery = "service-{$service->id}-action-".($service->provisioning_finished + 1);
+        // The same for staff retries of a failed action, so the receiver can
+        // skip work it already did when only its reply was lost.
+        $delivery = "service-{$service->id}-action-".($service->provisioningOperation ?? $service->provisioning_finished + 1);
         $body = json_encode($this->payload($service, $action, $delivery), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
         $headers = ['X-Webhook-Delivery' => $delivery, 'User-Agent' => config('app.name').' provisioning'];

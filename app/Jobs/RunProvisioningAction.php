@@ -28,7 +28,11 @@ class RunProvisioningAction implements ShouldQueue
 
     private const WAIT_SECONDS = 15;
 
-    public function __construct(public Service $service, public string $action, public int $sequence) {}
+    /** @param  int|null  $operation  Defaults to the sequence; a retry of a failed action passes that action's operation. */
+    public function __construct(public Service $service, public string $action, public int $sequence, public ?int $operation = null)
+    {
+        $this->operation ??= $sequence;
+    }
 
     /** @return list<object> */
     public function middleware(): array
@@ -71,6 +75,7 @@ class RunProvisioningAction implements ShouldQueue
                 'provisioning_status' => Provisioner::FAILED,
                 'provisioning_error' => $error,
                 'provisioning_finished' => $this->sequence,
+                'provisioning_operation' => $this->operation,
             ])->save();
             $this->alert($service, $error);
         }
@@ -78,6 +83,8 @@ class RunProvisioningAction implements ShouldQueue
 
     private function run(Service $service, ProvisioningModule $module): ProvisioningResult
     {
+        $service->provisioningOperation = $this->operation;
+
         try {
             return $module->{$this->action}($service);
         } catch (Throwable $e) {
@@ -101,6 +108,7 @@ class RunProvisioningAction implements ShouldQueue
             'provisioned_at' => $result->ok ? now() : $service->provisioned_at,
             'provisioning_data' => array_merge($service->provisioning_data ?? [], $result->data),
             'provisioning_finished' => $this->sequence,
+            'provisioning_operation' => $this->operation,
         ])->save();
 
         Activity::record(
