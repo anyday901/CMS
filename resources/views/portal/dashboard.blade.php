@@ -2,6 +2,10 @@
 <x-portal-layout title="Home">
     <h1 class="mb-6 text-2xl font-semibold">Welcome, {{ $client->first_name }}</h1>
 
+    @if ($client->credit_balance > 0)
+        <p class="mb-4 text-sm text-gray-700">You have <strong>{{ Money::format($client->credit_balance, $client->currency) }}</strong> of account credit, which you can use on any unpaid invoice.</p>
+    @endif
+
     @if ($unpaid->isNotEmpty())
         <div class="mb-8 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm">
             You have {{ $unpaid->count() }} unpaid {{ Str::plural('invoice', $unpaid->count()) }} totaling

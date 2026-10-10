@@ -17,6 +17,8 @@ use InvalidArgumentException;
 /** Creates new services for a client, with their first invoice. */
 class OrderService
 {
+    public function __construct(private CreditApplier $credit) {}
+
     /**
      * With $invoice true the service starts pending and activates when the
      * first invoice is paid. With $invoice false it starts active and the
@@ -35,7 +37,7 @@ class OrderService
         $price = $product->priceFor($cycle, $client->currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$client->currency}.");
 
-        return DB::transaction(function () use ($client, $product, $cycle, $start, $label, $invoice, $price) {
+        $order = DB::transaction(function () use ($client, $product, $cycle, $start, $label, $invoice, $price) {
             $service = Service::create([
                 'client_id' => $client->id,
                 'product_id' => $product->id,
@@ -68,6 +70,7 @@ class OrderService
                     ? sprintf('%s (%s - %s)', $service->description(), $start->format('m/d/Y'), $end->format('m/d/Y'))
                     : $service->description(),
                 'amount' => $price->price,
+                'taxable' => $product->taxable,
                 'period_start' => $start,
                 'period_end' => $end,
             ]);
@@ -78,10 +81,17 @@ class OrderService
                     'type' => InvoiceItem::TYPE_SETUP_FEE,
                     'description' => "Setup fee: {$service->description()}",
                     'amount' => $price->setup_fee,
+                    'taxable' => $product->taxable,
                 ]);
             }
 
             return ['service' => $service, 'invoice' => $first->recalculate()];
         });
+
+        $this->credit->applyIfEnabled($order['invoice']);
+        $order['invoice']?->refresh();
+        $order['service']->refresh();
+
+        return $order;
     }
 }

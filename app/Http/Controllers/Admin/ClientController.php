@@ -90,6 +90,7 @@ class ClientController extends Controller
             'country' => ['nullable', 'string', 'size:2'],
             'status' => ['required', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
-        ]);
+            'tax_exempt' => ['boolean'],
+        ]) + ['tax_exempt' => $request->boolean('tax_exempt')];
     }
 }

@@ -16,7 +16,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'status', 'notes',
+        'currency', 'tax_exempt', 'status', 'notes',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -24,6 +24,7 @@ class Client extends Authenticatable
     protected $attributes = [
         'status' => 'active',
         'credit_balance' => 0,
+        'tax_exempt' => false,
     ];
 
     protected static function booted(): void
@@ -39,6 +40,7 @@ class Client extends Authenticatable
             'password' => 'hashed',
             'status' => ClientStatus::class,
             'credit_balance' => 'integer',
+            'tax_exempt' => 'boolean',
         ];
     }
 

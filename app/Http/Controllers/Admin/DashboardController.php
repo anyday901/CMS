@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\CreditApplier;
 use App\Enums\ClientStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
@@ -22,7 +23,9 @@ class DashboardController extends Controller
             'activeClients' => Client::where('status', ClientStatus::Active)->count(),
             'activeServices' => Service::where('status', ServiceStatus::Active)->count(),
             'pendingServices' => Service::where('status', ServiceStatus::Pending)->count(),
-            'incomeThisMonth' => (int) Transaction::where('created_at', '>=', now()->startOfMonth())->sum('amount'),
+            'incomeThisMonth' => (int) Transaction::where('created_at', '>=', now()->startOfMonth())
+                // Paying from credit moves money already received, so it isn't new income.
+                ->where('gateway', '!=', CreditApplier::GATEWAY)->sum('amount'),
             'unpaidCount' => (clone $unpaid)->count(),
             'unpaidTotal' => (int) (clone $unpaid)->sum('total'),
             'overdue' => (clone $unpaid)->whereDate('due_date', '<', today())

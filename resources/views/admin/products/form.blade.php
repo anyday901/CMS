@@ -13,6 +13,8 @@
         </label>
         <input type="hidden" name="active" value="0">
         <label class="flex items-center gap-2"><input type="checkbox" name="active" value="1" @checked(old('active', $product->exists ? $product->active : true))> Available for new orders</label>
+        <input type="hidden" name="taxable" value="0">
+        <label class="flex items-center gap-2"><input type="checkbox" name="taxable" value="1" @checked(old('taxable', $product->exists ? $product->taxable : true))> Taxable</label>
 
         <div>
             <h2 class="mb-1 font-semibold">Pricing ({{ config('billing.currency') }})</h2>

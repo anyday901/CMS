@@ -93,7 +93,17 @@ Test with sandbox credentials first; both providers have sandbox accounts for fa
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate) and invoices (view, record payments, cancel). Create staff accounts with `php artisan admin:create`.
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), invoices (view, record payments, apply credit, refund, cancel) and tax rules. Create staff accounts with `php artisan admin:create`.
+
+### Tax
+
+Add tax rules under **Tax**. Each rule has a rate and optionally a country, or a country and state. A new invoice uses the most specific rule matching the client's address, and taxes only products marked taxable. Mark a client tax exempt on their edit page. Invoices keep the rate they were created with, so changing a rule doesn't change existing invoices.
+
+### Credit and refunds
+
+Overpayments and refunds to credit go to the client's credit balance. New invoices are paid from credit automatically (turn this off with `BILLING_APPLY_CREDIT=false`), and staff or the client can apply credit to an unpaid invoice by hand. Credit payments don't count as income on the dashboard.
+
+To refund a payment, open its invoice and use **Refund** under the payment. PayPal, Venmo and Cash App payments can be sent back through the gateway (if the gateway reports the refund as pending, the nightly billing run checks it and undoes the record if it later fails); any payment can be recorded as refunded outside the app or moved to account credit. A fully refunded invoice is marked refunded. Services are left as they are, so suspend or terminate them yourself if needed.
 
 ## Scheduled jobs
 
@@ -103,7 +113,7 @@ Add the Laravel scheduler to cron so billing runs daily:
 * * * * * cd /path/to/cms && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-`php artisan billing:run` generates renewal invoices and suspends or terminates overdue services. Its settings are in `config/billing.php` and can be set from `.env`:
+`php artisan billing:run` generates renewal invoices, adds late fees and suspends or terminates overdue services. Its settings are in `config/billing.php` and can be set from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -111,6 +121,12 @@ Add the Laravel scheduler to cron so billing runs daily:
 | `BILLING_INVOICE_DAYS_BEFORE_DUE` | `7` | Days before the due date to create the renewal invoice |
 | `BILLING_SUSPEND_AFTER_DAYS` | `3` | Days overdue before suspending |
 | `BILLING_TERMINATE_AFTER_DAYS` | `30` | Days overdue before terminating |
+| `BILLING_APPLY_CREDIT` | `true` | Pay new invoices from the client's credit balance |
+| `BILLING_LATE_FEE_AFTER_DAYS` | (off) | Days overdue before adding a one-time late fee |
+| `BILLING_LATE_FEE_TYPE` | `fixed` | `fixed` for a set amount, `percent` for a share of the invoice total |
+| `BILLING_LATE_FEE_AMOUNT` | `0` | The fee, e.g. `5.00`, or `10` for 10% |
+
+Late fees are added once per invoice and are not taxed.
 
 ## License
 

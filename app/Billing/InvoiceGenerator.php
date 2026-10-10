@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\DB;
  */
 class InvoiceGenerator
 {
+    public function __construct(private CreditApplier $credit) {}
+
     /** @return Collection<int, Invoice> */
     public function generate(CarbonInterface $today): Collection
     {
@@ -30,6 +32,8 @@ class InvoiceGenerator
             ->pluck('client_id')
             ->map(fn (int $clientId) => $this->invoiceClient($clientId, $cutoff, $today))
             ->filter()
+            ->each(fn (Invoice $invoice) => $this->credit->applyIfEnabled($invoice))
+            ->map(fn (Invoice $invoice) => $invoice->refresh())
             ->values();
     }
 
@@ -88,6 +92,7 @@ class InvoiceGenerator
                         $end->format('m/d/Y'),
                     ),
                     'amount' => $service->recurring_amount,
+                    'taxable' => $service->product->taxable,
                     'period_start' => $start,
                     'period_end' => $end,
                 ]);

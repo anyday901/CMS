@@ -6,7 +6,10 @@ use App\Billing\PaymentRecorder;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\Gateway;
+use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
+use App\Payments\RefundsPayments;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -16,7 +19,7 @@ use InvalidArgumentException;
  * one-time token from Cash App, and the server charges it through Square's
  * Payments API, so card or account details never touch this app.
  */
-class CashAppPay implements Gateway
+class CashAppPay implements Gateway, RefundsPayments
 {
     public function __construct(private PaymentRecorder $payments) {}
 
@@ -58,23 +61,17 @@ class CashAppPay implements Gateway
     {
         $amount = $invoice->balance();
 
-        $response = Http::baseUrl($this->production() ? 'https://connect.squareup.com' : 'https://connect.squareupsandbox.com')
-            ->withToken(config('payments.square.access_token'))
-            ->withHeaders(['Square-Version' => config('payments.square.version')])
-            ->acceptJson()
-            ->asJson()
-            ->timeout(30)
-            ->post('/v2/payments', [
-                // Same token and invoice always map to the same key, so a
-                // retried request cannot charge twice.
-                'idempotency_key' => substr(hash('sha256', "{$invoice->id}|{$token}"), 0, 45),
-                'source_id' => $token,
-                'amount_money' => ['amount' => $amount, 'currency' => $invoice->currency],
-                'location_id' => config('payments.square.location_id'),
-                'reference_id' => (string) $invoice->id,
-                'note' => config('app.name')." invoice #{$invoice->number}",
-                'autocomplete' => true,
-            ]);
+        $response = $this->api()->post('/v2/payments', [
+            // Same token and invoice always map to the same key, so a
+            // retried request cannot charge twice.
+            'idempotency_key' => substr(hash('sha256', "{$invoice->id}|{$token}"), 0, 45),
+            'source_id' => $token,
+            'amount_money' => ['amount' => $amount, 'currency' => $invoice->currency],
+            'location_id' => config('payments.square.location_id'),
+            'reference_id' => (string) $invoice->id,
+            'note' => config('app.name')." invoice #{$invoice->number}",
+            'autocomplete' => true,
+        ]);
 
         $payment = $response->json('payment');
 
@@ -101,6 +98,55 @@ class CashAppPay implements Gateway
 
             throw new PaymentFailed('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.');
         }
+    }
+
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund
+    {
+        $response = $this->api()->post('/v2/refunds', [
+            'idempotency_key' => substr(hash('sha256', $idempotencyKey), 0, 45),
+            'payment_id' => $payment->gateway_reference,
+            'amount_money' => ['amount' => $amount, 'currency' => $payment->currency],
+        ]);
+
+        $refund = $response->json('refund');
+
+        if ($response->failed() || ! in_array($refund['status'] ?? null, ['PENDING', 'COMPLETED'], true)) {
+            Log::error('Cash App Pay refund failed', ['transaction' => $payment->id, 'status' => $response->status(), 'body' => $response->json()]);
+
+            throw new PaymentFailed('Square refused the refund: '.($response->json('errors.0.detail') ?? 'unknown error').'.');
+        }
+
+        return $this->refundResult($refund);
+    }
+
+    public function refundStatus(string $refundId): GatewayRefund
+    {
+        $response = $this->api()->get('/v2/refunds/'.rawurlencode($refundId));
+
+        if ($response->failed() || ! is_array($response->json('refund'))) {
+            throw new PaymentFailed("Square could not look up refund {$refundId}.");
+        }
+
+        return $this->refundResult($response->json('refund'));
+    }
+
+    private function refundResult(array $refund): GatewayRefund
+    {
+        return new GatewayRefund($refund['id'], match ($refund['status'] ?? null) {
+            'COMPLETED' => GatewayRefund::COMPLETED,
+            'PENDING' => GatewayRefund::PENDING,
+            default => GatewayRefund::FAILED, // FAILED or REJECTED
+        });
+    }
+
+    private function api(): PendingRequest
+    {
+        return Http::baseUrl($this->production() ? 'https://connect.squareup.com' : 'https://connect.squareupsandbox.com')
+            ->withToken(config('payments.square.access_token'))
+            ->withHeaders(['Square-Version' => config('payments.square.version')])
+            ->acceptJson()
+            ->asJson()
+            ->timeout(30);
     }
 
     private function production(): bool

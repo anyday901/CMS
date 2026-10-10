@@ -6,7 +6,9 @@ use App\Billing\PaymentRecorder;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\Gateway;
+use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
+use App\Payments\RefundsPayments;
 use App\Support\Money;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -19,8 +21,11 @@ use InvalidArgumentException;
  * PayPal Checkout (Orders API v2) with the PayPal JS SDK buttons. Venmo is a
  * funding option inside the same checkout, so it is handled here too.
  */
-class PayPal implements Gateway
+class PayPal implements Gateway, RefundsPayments
 {
+    /** PayPal order, capture and refund ids. Anything else could change the request path. */
+    private const ID_PATTERN = '/^[A-Za-z0-9]{1,64}$/';
+
     public function __construct(private PaymentRecorder $payments) {}
 
     public function key(): string
@@ -91,7 +96,7 @@ class PayPal implements Gateway
     {
         // The id goes into the request path, so anything but a plain PayPal
         // order id could point this authenticated call at another endpoint.
-        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $orderId)) {
+        if (! preg_match(self::ID_PATTERN, $orderId)) {
             throw new PaymentFailed('This payment could not be found. Please try again.');
         }
 
@@ -132,6 +137,53 @@ class PayPal implements Gateway
         }
 
         return $this->record($invoice, $capture, null);
+    }
+
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund
+    {
+        $captureId = (string) $payment->gateway_reference;
+
+        if (! preg_match(self::ID_PATTERN, $captureId)) {
+            throw new PaymentFailed('This payment has no PayPal capture id to refund.');
+        }
+
+        $response = $this->api()
+            ->withHeaders(['PayPal-Request-Id' => $idempotencyKey])
+            ->post("/v2/payments/captures/{$captureId}/refund", [
+                'amount' => ['value' => Money::toInput($amount), 'currency_code' => $payment->currency],
+            ]);
+
+        if ($response->failed() || ! in_array($response->json('status'), ['COMPLETED', 'PENDING'], true)) {
+            Log::error('PayPal refund failed', ['transaction' => $payment->id, 'status' => $response->status(), 'body' => $response->json()]);
+
+            throw new PaymentFailed('PayPal refused the refund: '.($response->json('details.0.description') ?? $response->json('message') ?? 'unknown error').'.');
+        }
+
+        return $this->refundResult($response->json());
+    }
+
+    public function refundStatus(string $refundId): GatewayRefund
+    {
+        if (! preg_match(self::ID_PATTERN, $refundId)) {
+            throw new PaymentFailed('Not a PayPal refund id.');
+        }
+
+        $response = $this->api()->get("/v2/payments/refunds/{$refundId}");
+
+        if ($response->failed()) {
+            throw new PaymentFailed("PayPal could not look up refund {$refundId}.");
+        }
+
+        return $this->refundResult($response->json());
+    }
+
+    private function refundResult(array $refund): GatewayRefund
+    {
+        return new GatewayRefund($refund['id'], match ($refund['status'] ?? null) {
+            'COMPLETED' => GatewayRefund::COMPLETED,
+            'PENDING' => GatewayRefund::PENDING,
+            default => GatewayRefund::FAILED, // FAILED or CANCELLED
+        });
     }
 
     public function verifyWebhook(array $headers, array $event): bool

@@ -17,6 +17,7 @@
                     'admin.clients.index' => 'Clients',
                     'admin.products.index' => 'Products',
                     'admin.invoices.index' => 'Invoices',
+                    'admin.tax-rules.index' => 'Tax',
                 ] as $route => $label)
                     <a href="{{ route($route) }}"
                        class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) ? 'font-medium text-indigo-600' : 'text-gray-600 hover:text-gray-900' }}">{{ $label }}</a>
