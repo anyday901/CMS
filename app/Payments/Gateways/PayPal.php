@@ -23,6 +23,9 @@ use InvalidArgumentException;
  */
 class PayPal implements Gateway, RefundsPayments
 {
+    /** PayPal order, capture and refund ids. Anything else could change the request path. */
+    private const ID_PATTERN = '/^[A-Za-z0-9]{1,64}$/';
+
     public function __construct(private PaymentRecorder $payments) {}
 
     public function key(): string
@@ -93,7 +96,7 @@ class PayPal implements Gateway, RefundsPayments
     {
         // The id goes into the request path, so anything but a plain PayPal
         // order id could point this authenticated call at another endpoint.
-        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $orderId)) {
+        if (! preg_match(self::ID_PATTERN, $orderId)) {
             throw new PaymentFailed('This payment could not be found. Please try again.');
         }
 
@@ -140,7 +143,7 @@ class PayPal implements Gateway, RefundsPayments
     {
         $captureId = (string) $payment->gateway_reference;
 
-        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $captureId)) {
+        if (! preg_match(self::ID_PATTERN, $captureId)) {
             throw new PaymentFailed('This payment has no PayPal capture id to refund.');
         }
 
@@ -161,7 +164,7 @@ class PayPal implements Gateway, RefundsPayments
 
     public function refundStatus(string $refundId): GatewayRefund
     {
-        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $refundId)) {
+        if (! preg_match(self::ID_PATTERN, $refundId)) {
             throw new PaymentFailed('Not a PayPal refund id.');
         }
 
