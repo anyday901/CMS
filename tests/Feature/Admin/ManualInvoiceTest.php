@@ -7,6 +7,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -143,6 +144,26 @@ class ManualInvoiceTest extends TestCase
         $this->put("/admin/invoices/{$invoice->id}", $this->form([['id' => $line->id, 'description' => 'Hosting', 'amount' => '15.00']]))
             ->assertSessionDoesntHaveErrors();
         $this->assertSame(500, $invoice->fresh()->balance());
+    }
+
+    public function test_service_lines_cannot_be_removed_so_the_period_is_not_billed_twice(): void
+    {
+        $service = Service::factory()->for($this->client)->create();
+        $invoice = Invoice::create(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
+        $renewal = $invoice->items()->create(['service_id' => $service->id, 'description' => 'VPS renewal', 'amount' => 1000, 'period_start' => today()]);
+        $extra = $invoice->items()->create(['description' => 'Extra IP', 'amount' => 300]);
+        $invoice->recalculate();
+
+        $this->get("/admin/invoices/{$invoice->id}/edit")->assertSee('Cancel the invoice to stop billing this service period');
+        $this->put("/admin/invoices/{$invoice->id}", $this->form([['id' => $extra->id, 'description' => 'Extra IP', 'amount' => '3']]))
+            ->assertSessionHasErrors('items');
+        $this->assertModelExists($renewal);
+
+        // Changing the amount of the service line is fine.
+        $this->put("/admin/invoices/{$invoice->id}", $this->form([['id' => $renewal->id, 'description' => 'VPS renewal', 'amount' => '8']]))
+            ->assertSessionDoesntHaveErrors();
+        $this->assertSame(800, $renewal->fresh()->amount);
+        $this->assertModelMissing($extra);
     }
 
     public function test_paid_invoices_cannot_be_edited(): void

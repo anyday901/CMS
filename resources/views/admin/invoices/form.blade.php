@@ -23,6 +23,8 @@
             ])->all());
             $rows = array_values($rows);
             if (count($rows) === 0) { $rows[] = ['taxable' => true]; }
+            // Service lines mark the period as billed, so they stay on the invoice.
+            $serviceLines = $items->whereNotNull('service_id')->pluck('id')->all();
         @endphp
         <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
             <table class="min-w-full">
@@ -43,7 +45,13 @@
                                 <input type="hidden" name="items[{{ $i }}][taxable]" value="0">
                                 <input type="checkbox" name="items[{{ $i }}][taxable]" value="1" aria-label="Taxable" @checked($row['taxable'] ?? true)>
                             </td>
-                            <td class="px-3 py-2"><button type="button" class="remove-row text-red-600 hover:underline">Remove</button></td>
+                            <td class="px-3 py-2">
+                                @if (in_array((int) ($row['id'] ?? 0), $serviceLines, true))
+                                    <span class="text-gray-500" title="Cancel the invoice to stop billing this service period">Service</span>
+                                @else
+                                    <button type="button" class="remove-row text-red-600 hover:underline">Remove</button>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

@@ -66,7 +66,15 @@ class InvoiceEditor
             ]);
 
             $keep = collect($data['items'])->pluck('id')->filter()->all();
-            $invoice->items()->whereNotIn('id', $keep)->delete();
+            $removed = $invoice->items()->whereNotIn('id', $keep);
+
+            // A service line is what tells the billing run this period is
+            // already invoiced; removing it would bill the period again.
+            if ((clone $removed)->whereNotNull('service_id')->exists()) {
+                throw new InvalidArgumentException('Service lines can\'t be removed. Change their amount, or cancel the invoice to stop billing the service for this period.');
+            }
+
+            $removed->delete();
 
             foreach ($data['items'] as $item) {
                 $attributes = $this->itemAttributes($item);
