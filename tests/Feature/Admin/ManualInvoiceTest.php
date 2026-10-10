@@ -151,11 +151,11 @@ class ManualInvoiceTest extends TestCase
         $service = Service::factory()->for($this->client)->create();
         $invoice = Invoice::create(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
         $renewal = $invoice->items()->create(['service_id' => $service->id, 'description' => 'VPS renewal', 'amount' => 1000, 'period_start' => today()]);
-        $extra = $invoice->items()->create(['description' => 'Extra IP', 'amount' => 300]);
+        $extra = $invoice->items()->create(['description' => 'Dedicated IP', 'amount' => 300]);
         $invoice->recalculate();
 
         $this->get("/admin/invoices/{$invoice->id}/edit")->assertSee('Cancel the invoice to stop billing this service period');
-        $this->put("/admin/invoices/{$invoice->id}", $this->form([['id' => $extra->id, 'description' => 'Extra IP', 'amount' => '3']]))
+        $this->put("/admin/invoices/{$invoice->id}", $this->form([['id' => $extra->id, 'description' => 'Dedicated IP', 'amount' => '3']]))
             ->assertSessionHasErrors('items');
         $this->assertModelExists($renewal);
 
