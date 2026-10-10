@@ -3,6 +3,7 @@
 namespace Tests\Feature\Billing;
 
 use App\Billing\PaymentRecorder;
+use App\Billing\RefundReconciler;
 use App\Billing\RefundService;
 use App\Enums\InvoiceStatus;
 use App\Models\Client;
@@ -87,7 +88,41 @@ class RefundTest extends TestCase
         $refund = app(RefundService::class)->refund($this->pay('cashapp', 'SQPAY'), 2000, 'gateway');
 
         $this->assertSame('SQREF', $refund->gateway_reference);
+        $this->assertTrue($refund->pending);
         Http::assertSent(fn ($r) => $r['payment_id'] === 'SQPAY' && $r['amount_money']['amount'] === 2000);
+    }
+
+    public function test_pending_refund_is_confirmed_by_the_nightly_check(): void
+    {
+        config(['payments.square' => ['environment' => 'sandbox', 'application_id' => 'app', 'access_token' => 'tok', 'location_id' => 'LOC', 'version' => '2024-12-18']]);
+        Http::fake([
+            'connect.squareupsandbox.com/v2/refunds' => Http::response(['refund' => ['id' => 'SQREF', 'status' => 'PENDING']]),
+            'connect.squareupsandbox.com/v2/refunds/SQREF' => Http::response(['refund' => ['id' => 'SQREF', 'status' => 'COMPLETED']]),
+        ]);
+        $refund = app(RefundService::class)->refund($this->pay('cashapp', 'SQPAY'), 2000, 'gateway');
+
+        $this->assertSame(['completed' => 1, 'failed' => 0], app(RefundReconciler::class)->run());
+        $this->assertFalse($refund->refresh()->pending);
+        $this->assertSame(InvoiceStatus::Refunded, $this->invoice->refresh()->status);
+    }
+
+    public function test_pending_refund_that_fails_is_undone(): void
+    {
+        config(['payments.paypal' => ['mode' => 'sandbox', 'client_id' => 'id', 'secret' => 'secret', 'webhook_id' => null, 'venmo' => true]]);
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response(['access_token' => 'tok']),
+            'api-m.sandbox.paypal.com/v2/payments/captures/CAP1/refund' => Http::response(['id' => 'REF1', 'status' => 'PENDING'], 201),
+            'api-m.sandbox.paypal.com/v2/payments/refunds/REF1' => Http::response(['id' => 'REF1', 'status' => 'FAILED']),
+        ]);
+        $payment = $this->pay('paypal', 'CAP1');
+        app(RefundService::class)->refund($payment, 2000, 'gateway');
+        $this->assertSame(InvoiceStatus::Refunded, $this->invoice->refresh()->status);
+
+        $this->assertSame(['completed' => 0, 'failed' => 1], app(RefundReconciler::class)->run());
+
+        $this->assertSame(1, Transaction::count());
+        $this->assertSame(InvoiceStatus::Paid, $this->invoice->refresh()->status);
+        $this->assertSame(2000, $payment->refundable());
     }
 
     public function test_gateway_refusal_records_nothing(): void

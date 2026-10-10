@@ -6,6 +6,7 @@ use App\Billing\PaymentRecorder;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\Gateway;
+use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
 use App\Support\Money;
@@ -135,7 +136,7 @@ class PayPal implements Gateway, RefundsPayments
         return $this->record($invoice, $capture, null);
     }
 
-    public function refund(Transaction $payment, int $amount, string $idempotencyKey): string
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund
     {
         $captureId = (string) $payment->gateway_reference;
 
@@ -155,7 +156,31 @@ class PayPal implements Gateway, RefundsPayments
             throw new PaymentFailed('PayPal refused the refund: '.($response->json('details.0.description') ?? $response->json('message') ?? 'unknown error').'.');
         }
 
-        return $response->json('id');
+        return $this->refundResult($response->json());
+    }
+
+    public function refundStatus(string $refundId): GatewayRefund
+    {
+        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $refundId)) {
+            throw new PaymentFailed('Not a PayPal refund id.');
+        }
+
+        $response = $this->api()->get("/v2/payments/refunds/{$refundId}");
+
+        if ($response->failed()) {
+            throw new PaymentFailed("PayPal could not look up refund {$refundId}.");
+        }
+
+        return $this->refundResult($response->json());
+    }
+
+    private function refundResult(array $refund): GatewayRefund
+    {
+        return new GatewayRefund($refund['id'], match ($refund['status'] ?? null) {
+            'COMPLETED' => GatewayRefund::COMPLETED,
+            'PENDING' => GatewayRefund::PENDING,
+            default => GatewayRefund::FAILED, // FAILED or CANCELLED
+        });
     }
 
     public function verifyWebhook(array $headers, array $event): bool

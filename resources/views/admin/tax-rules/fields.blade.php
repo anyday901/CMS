@@ -8,6 +8,6 @@
 <label class="block">Country (2-letter code, blank for all)
     <input name="country" value="{{ old('country', $rule->country) }}" maxlength="2" placeholder="US" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
 </label>
-<label class="block">State (blank for all)
+<label class="block">State (blank for all; needs a country)
     <input name="state" value="{{ old('state', $rule->state) }}" placeholder="TX" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">
 </label>

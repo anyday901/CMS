@@ -13,7 +13,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'client_id', 'invoice_id', 'refund_of_id', 'gateway', 'payment_method', 'gateway_reference', 'currency',
-        'amount', 'fee',
+        'amount', 'fee', 'pending',
     ];
 
     protected function casts(): array
@@ -21,6 +21,7 @@ class Transaction extends Model
         return [
             'amount' => 'integer',
             'fee' => 'integer',
+            'pending' => 'boolean',
         ];
     }
 

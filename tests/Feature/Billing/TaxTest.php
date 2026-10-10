@@ -93,6 +93,7 @@ class TaxTest extends TestCase
 
         $this->get(self::RULES_URL)->assertSee('Texas')->assertSee('8.25%');
         $this->post(self::RULES_URL, ['name' => 'Bad', 'rate' => '101'])->assertSessionHasErrors('rate');
+        $this->post(self::RULES_URL, ['name' => 'No country', 'rate' => '5', 'state' => 'CA'])->assertSessionHasErrors('country');
 
         $this->put(self::RULES_URL."/{$rule->id}", ['name' => 'Texas', 'rate' => '6.25', 'country' => 'US', 'state' => 'TX']);
         $this->assertSame(625, $rule->refresh()->rate);

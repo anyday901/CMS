@@ -48,7 +48,7 @@
                 <h2 class="mb-2 font-semibold">Payments</h2>
                 @forelse ($invoice->transactions as $transaction)
                     <div class="border-b border-gray-100 py-2 text-sm">
-                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif</div>
+                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif</div>
                         @if ($transaction->refundable() > 0)
                             <details class="mt-1" @if ($errors->has("refund.{$transaction->id}")) open @endif>
                                 <summary class="cursor-pointer text-indigo-600">Refund</summary>

@@ -6,6 +6,7 @@ use App\Billing\PaymentRecorder;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\Gateway;
+use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
 use Illuminate\Http\Client\PendingRequest;
@@ -99,7 +100,7 @@ class CashAppPay implements Gateway, RefundsPayments
         }
     }
 
-    public function refund(Transaction $payment, int $amount, string $idempotencyKey): string
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund
     {
         $response = $this->api()->post('/v2/refunds', [
             'idempotency_key' => substr(hash('sha256', $idempotencyKey), 0, 45),
@@ -115,7 +116,27 @@ class CashAppPay implements Gateway, RefundsPayments
             throw new PaymentFailed('Square refused the refund: '.($response->json('errors.0.detail') ?? 'unknown error').'.');
         }
 
-        return $refund['id'];
+        return $this->refundResult($refund);
+    }
+
+    public function refundStatus(string $refundId): GatewayRefund
+    {
+        $response = $this->api()->get('/v2/refunds/'.rawurlencode($refundId));
+
+        if ($response->failed() || ! is_array($response->json('refund'))) {
+            throw new PaymentFailed("Square could not look up refund {$refundId}.");
+        }
+
+        return $this->refundResult($response->json('refund'));
+    }
+
+    private function refundResult(array $refund): GatewayRefund
+    {
+        return new GatewayRefund($refund['id'], match ($refund['status'] ?? null) {
+            'COMPLETED' => GatewayRefund::COMPLETED,
+            'PENDING' => GatewayRefund::PENDING,
+            default => GatewayRefund::FAILED, // FAILED or REJECTED
+        });
     }
 
     private function api(): PendingRequest

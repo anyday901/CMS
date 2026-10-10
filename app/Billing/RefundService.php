@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\Transaction;
+use App\Payments\GatewayRefund;
 use App\Payments\GatewayRegistry;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
@@ -19,8 +20,10 @@ use InvalidArgumentException;
  * - manual: staff already sent the money back outside the app; just record it.
  * - credit: moves the money to the client's credit balance.
  *
- * A fully refunded invoice is marked refunded. Services are left as they are,
- * so staff decide whether to suspend or cancel them.
+ * A gateway refund the gateway reports as pending is recorded as pending and
+ * settled later by RefundReconciler. A fully refunded invoice is marked
+ * refunded. Services are left as they are, so staff decide whether to
+ * suspend or cancel them.
  */
 class RefundService
 {
@@ -40,14 +43,14 @@ class RefundService
             $payment = Transaction::findOrFail($payment->id);
             $this->ensureRefundable($payment, $amount, $mode);
 
-            $reference = $mode === 'gateway' ? $this->refundThroughGateway($payment, $amount) : null;
+            $sent = $mode === 'gateway' ? $this->refundThroughGateway($payment, $amount) : null;
 
             try {
-                return $this->record($payment, $invoice, $amount, $mode, $reference);
+                return $this->record($payment, $invoice, $amount, $mode, $sent);
             } catch (\Throwable $e) {
-                if ($reference !== null) {
+                if ($sent !== null) {
                     // The money already went back, so staff must record this by hand.
-                    Log::critical('Gateway refund sent but not recorded', ['transaction' => $payment->id, 'refund' => $reference, 'reason' => $e->getMessage()]);
+                    Log::critical('Gateway refund sent but not recorded', ['transaction' => $payment->id, 'refund' => $sent->id, 'reason' => $e->getMessage()]);
                 }
 
                 throw $e;
@@ -70,7 +73,7 @@ class RefundService
         }
     }
 
-    private function record(Transaction $payment, ?Invoice $invoice, int $amount, string $mode, ?string $reference): Transaction
+    private function record(Transaction $payment, ?Invoice $invoice, int $amount, string $mode, ?GatewayRefund $sent): Transaction
     {
         $refund = Transaction::create([
             'client_id' => $payment->client_id,
@@ -78,9 +81,10 @@ class RefundService
             'refund_of_id' => $payment->id,
             'gateway' => $mode === 'credit' ? CreditApplier::GATEWAY : $payment->gateway,
             'payment_method' => $mode === 'credit' ? null : $payment->payment_method,
-            'gateway_reference' => $reference,
+            'gateway_reference' => $sent?->id,
             'currency' => $payment->currency,
             'amount' => -$amount,
+            'pending' => $sent?->pending() ?? false,
         ]);
 
         if ($mode === 'credit') {
@@ -94,7 +98,7 @@ class RefundService
         return $refund;
     }
 
-    private function refundThroughGateway(Transaction $payment, int $amount): string
+    private function refundThroughGateway(Transaction $payment, int $amount): GatewayRefund
     {
         $gateway = $this->gateways->find($payment->gateway);
 
@@ -107,13 +111,13 @@ class RefundService
         $key = "refund-{$payment->id}-{$payment->refunds()->count()}-{$amount}";
 
         try {
-            $reference = $gateway->refund($payment, $amount, $key);
+            $sent = $gateway->refund($payment, $amount, $key);
         } catch (PaymentFailed $e) {
             throw new InvalidArgumentException($e->getMessage(), previous: $e);
         }
 
-        Log::info('Gateway refund sent', ['transaction' => $payment->id, 'refund' => $reference, 'amount' => $amount]);
+        Log::info('Gateway refund sent', ['transaction' => $payment->id, 'refund' => $sent->id, 'status' => $sent->status, 'amount' => $amount]);
 
-        return $reference;
+        return $sent;
     }
 }

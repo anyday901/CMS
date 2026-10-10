@@ -41,6 +41,8 @@ return new class extends Migration
         Schema::table('transactions', function (Blueprint $table) {
             $table->foreignId('refund_of_id')->nullable()->after('invoice_id')
                 ->constrained('transactions')->nullOnDelete();
+            // A gateway refund the gateway has accepted but not finished yet.
+            $table->boolean('pending')->default(false)->after('fee');
         });
     }
 
@@ -48,6 +50,7 @@ return new class extends Migration
     {
         Schema::table('transactions', function (Blueprint $table) {
             $table->dropConstrainedForeignId('refund_of_id');
+            $table->dropColumn('pending');
         });
         Schema::table('invoice_items', fn (Blueprint $table) => $table->dropColumn('taxable'));
         Schema::table('invoices', fn (Blueprint $table) => $table->dropColumn(['tax_name', 'tax_rate']));

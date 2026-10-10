@@ -50,7 +50,8 @@ class TaxRuleController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'rate' => ['required', Money::rule()],
-            'country' => ['nullable', 'string', 'size:2'],
+            // A state code alone is ambiguous across countries.
+            'country' => ['nullable', 'required_with:state', 'string', 'size:2'],
             'state' => ['nullable', 'string', 'max:255'],
         ]);
 

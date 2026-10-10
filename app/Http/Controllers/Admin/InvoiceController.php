@@ -89,12 +89,14 @@ class InvoiceController extends Controller
         ]);
 
         try {
-            $refunds->refund($transaction, Money::parse($data['amount']), $data['mode']);
+            $refund = $refunds->refund($transaction, Money::parse($data['amount']), $data['mode']);
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(["refund.{$transaction->id}" => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Refund recorded.');
+        return back()->with('status', $refund->pending
+            ? 'Refund sent. The gateway is still processing it; the nightly billing run will confirm it or undo it if it fails.'
+            : 'Refund recorded.');
     }
 
     public function cancel(Invoice $invoice, InvoiceCanceller $canceller): RedirectResponse

@@ -8,9 +8,12 @@ use App\Models\Transaction;
 interface RefundsPayments
 {
     /**
-     * Refunds part or all of a payment and returns the gateway's refund id.
+     * Refunds part or all of a payment.
      *
      * @throws PaymentFailed when the gateway refuses the refund.
      */
-    public function refund(Transaction $payment, int $amount, string $idempotencyKey): string;
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund;
+
+    /** Looks up a refund the gateway reported as pending. */
+    public function refundStatus(string $refundId): GatewayRefund;
 }
