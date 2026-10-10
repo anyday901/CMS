@@ -27,6 +27,10 @@ class Invoice extends Model
     protected static function booted(): void
     {
         static::creating(function (Invoice $invoice) {
+            if (! $invoice->isDirty('tax_inclusive')) {
+                $invoice->tax_inclusive = (bool) config('billing.tax_inclusive');
+            }
+
             if (! $invoice->isDirty('tax_rate') && $invoice->client) {
                 $rule = TaxRule::forClient($invoice->client);
                 $invoice->tax_name = $rule?->name;
@@ -45,6 +49,7 @@ class Invoice extends Model
     {
         return [
             'status' => InvoiceStatus::class,
+            'tax_inclusive' => 'boolean',
             'issue_date' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
@@ -76,12 +81,24 @@ class Invoice extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    /** Recompute subtotal, tax and total from the line items. */
+    /**
+     * Recompute subtotal, tax and total from the line items. With
+     * tax-inclusive pricing the line amounts already contain the tax, so the
+     * total is the sum of the lines and the tax is the part of it that is tax.
+     */
     public function recalculate(): static
     {
+        $taxable = (int) $this->items()->where('taxable', true)->sum('amount');
         $this->subtotal = (int) $this->items()->sum('amount');
-        $this->tax = TaxRule::taxOn((int) $this->items()->where('taxable', true)->sum('amount'), $this->tax_rate);
-        $this->total = $this->subtotal + $this->tax;
+
+        if ($this->tax_inclusive) {
+            $this->tax = TaxRule::taxIncludedIn($taxable, $this->tax_rate);
+            $this->total = $this->subtotal;
+        } else {
+            $this->tax = TaxRule::taxOn($taxable, $this->tax_rate);
+            $this->total = $this->subtotal + $this->tax;
+        }
+
         $this->save();
 
         return $this;

@@ -20,6 +20,7 @@ class DashboardController extends Controller
             'services' => $client->services()->with('product')
                 ->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])
                 ->orderBy('next_due_date')->get(),
+            'credit' => $client->creditEntries()->latest('id')->limit(10)->get(),
         ]);
     }
 }

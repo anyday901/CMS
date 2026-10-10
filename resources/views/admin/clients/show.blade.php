@@ -59,6 +59,50 @@
         @include('admin.invoices._table', ['invoices' => $client->invoices->each->setRelation('client', $client)])
     @endif
 
+    <h2 class="mt-8 mb-3 text-lg font-semibold">Credit <span class="text-base font-normal text-gray-500">{{ Money::format($client->credit_balance, $client->currency) }} available</span></h2>
+    @can('manage-billing')
+        <details class="mb-4 text-sm" @if ($errors->hasAny(['direction', 'amount', 'reason'])) open @endif>
+            <summary class="cursor-pointer text-indigo-600">Adjust credit</summary>
+            <form method="POST" action="{{ route('admin.clients.credit', $client) }}" class="mt-2 flex flex-wrap items-end gap-2">
+                @csrf
+                <label class="block">Change
+                    <select name="direction" class="mt-1 block rounded-md px-2 py-1 ring-1 ring-gray-300">
+                        <option value="add" @selected(old('direction') !== 'remove')>Add credit</option>
+                        <option value="remove" @selected(old('direction') === 'remove')>Remove credit</option>
+                    </select>
+                </label>
+                <label class="block">Amount
+                    <input name="amount" value="{{ old('amount') }}" required placeholder="0.00" class="mt-1 block w-28 rounded-md px-2 py-1 ring-1 ring-gray-300">
+                </label>
+                <label class="block">Reason
+                    <input name="reason" value="{{ old('reason') }}" required maxlength="255" placeholder="Goodwill credit for outage" class="mt-1 block w-72 rounded-md px-2 py-1 ring-1 ring-gray-300">
+                </label>
+                <span class="basis-full text-gray-500">The client sees the reason in their credit history.</span>
+                <button class="rounded-md px-3 py-1 ring-1 ring-gray-300 hover:bg-gray-100">Save</button>
+            </form>
+        </details>
+    @endcan
+    @if ($credit->isEmpty())
+        <p class="text-sm text-gray-500">No credit history yet.</p>
+    @else
+        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Date</th><th class="px-4 py-2">What</th><th class="px-4 py-2">By</th><th class="px-4 py-2 text-right">Change</th><th class="px-4 py-2 text-right">Balance</th></tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                    @foreach ($credit as $entry)
+                        <tr>
+                            <td class="whitespace-nowrap px-4 py-2">{{ $entry->created_at->format('M j, Y') }}</td>
+                            <td class="px-4 py-2">@if ($entry->invoice)<a href="{{ route('admin.invoices.show', $entry->invoice) }}" class="text-indigo-600">{{ $entry->description }}</a>@else{{ $entry->description }}@endif</td>
+                            <td class="px-4 py-2 text-gray-500">{{ $entry->user?->name ?? 'System' }}</td>
+                            <td class="px-4 py-2 text-right {{ $entry->amount < 0 ? 'text-red-700' : 'text-green-700' }}">{{ $entry->amount > 0 ? '+' : '' }}{{ Money::format($entry->amount, $client->currency) }}</td>
+                            <td class="px-4 py-2 text-right">{{ Money::format($entry->balance_after, $client->currency) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     <h2 class="mt-8 mb-3 text-lg font-semibold">Recent activity</h2>
     @if ($activity->isEmpty())
         <p class="text-sm text-gray-500">Nothing logged yet.</p>

@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Events\ServiceActivated;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -93,6 +94,11 @@ class OrderService
         $this->credit->applyIfEnabled($order['invoice']);
         $order['invoice']?->refresh();
         $order['service']->refresh();
+
+        if (! $invoice) {
+            // Added as active without an invoice, so nothing else will activate it.
+            ServiceActivated::dispatch($order['service']);
+        }
 
         return $order;
     }

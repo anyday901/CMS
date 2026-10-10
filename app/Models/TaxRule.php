@@ -44,6 +44,16 @@ class TaxRule extends Model
     }
 
     /** Tax on an amount at a rate in hundredths of a percent, rounded half away from zero. */
+    /** The tax already inside a tax-inclusive amount, rounded half away from zero. */
+    public static function taxIncludedIn(int $amount, int $rate): int
+    {
+        $divisor = 10000 + $rate;
+        $net = intdiv(abs($amount) * 20000 + $divisor, 2 * $divisor);
+        $tax = abs($amount) - $net;
+
+        return $amount < 0 ? -$tax : $tax;
+    }
+
     public static function taxOn(int $amount, int $rate): int
     {
         $raw = $amount * $rate;

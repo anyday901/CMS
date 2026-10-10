@@ -53,9 +53,10 @@
                         @endforeach
                     </tbody>
                     <tfoot class="font-medium">
-                        @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
-                        @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                         <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
+                @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-gray-500">Includes {{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right font-normal text-gray-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                         <tr><td class="px-4 py-2 text-right">Balance due</td><td class="px-4 py-2 text-right">{{ Money::format(max(0, $invoice->balance()), $invoice->currency) }}</td></tr>
                     </tfoot>
                 </table>
@@ -65,7 +66,7 @@
                 <h2 class="mb-2 font-semibold">Payments</h2>
                 @forelse ($invoice->transactions as $transaction)
                     <div class="border-b border-gray-100 py-2 text-sm">
-                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif</div>
+                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif @if ($transaction->dispute_status)<span class="font-medium text-red-700">Disputed: {{ str_replace('_', ' ', $transaction->dispute_status) }}</span>@endif</div>
                         @if ($transaction->refundable() > 0 && auth()->user()->can('manage-billing'))
                             <details class="mt-1" @if ($errors->has("refund.{$transaction->id}")) open @endif>
                                 <summary class="cursor-pointer text-indigo-600">Refund</summary>

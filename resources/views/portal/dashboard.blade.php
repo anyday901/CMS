@@ -27,4 +27,23 @@
     @else
         @include('portal.invoices._table', ['invoices' => $unpaid])
     @endif
+
+    @if ($credit->isNotEmpty())
+        <h2 class="mt-8 mb-3 text-lg font-semibold">Account credit</h2>
+        <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Date</th><th class="px-4 py-2">What</th><th class="px-4 py-2 text-right">Change</th><th class="px-4 py-2 text-right">Balance</th></tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                    @foreach ($credit as $entry)
+                        <tr>
+                            <td class="whitespace-nowrap px-4 py-2">{{ $entry->created_at->format('M j, Y') }}</td>
+                            <td class="px-4 py-2">{{ $entry->description }}</td>
+                            <td class="px-4 py-2 text-right">{{ $entry->amount > 0 ? '+' : '' }}{{ Money::format($entry->amount, $client->currency) }}</td>
+                            <td class="px-4 py-2 text-right">{{ Money::format($entry->balance_after, $client->currency) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 </x-portal-layout>

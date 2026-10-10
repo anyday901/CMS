@@ -26,6 +26,11 @@ return [
     // Pay new invoices from the client's credit balance when they are created.
     'apply_credit_automatically' => (bool) env('BILLING_APPLY_CREDIT', true),
 
+    // When true, prices already include tax: invoice totals equal the sum of
+    // the lines and show the tax they contain. Applies to invoices created
+    // after the change. Can also be set on the admin Settings page.
+    'tax_inclusive' => (bool) env('BILLING_TAX_INCLUSIVE', false),
+
     // Late fee added once to invoices still unpaid this many days after the
     // due date. Set to null to turn late fees off.
     'late_fee_after_days' => env('BILLING_LATE_FEE_AFTER_DAYS'),

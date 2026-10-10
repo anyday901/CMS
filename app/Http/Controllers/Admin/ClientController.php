@@ -54,7 +54,9 @@ class ClientController extends Controller
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
 
-        return view('admin.clients.show', compact('client', 'activity'));
+        $credit = $client->creditEntries()->with(['invoice', 'user'])->latest('id')->limit(25)->get();
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit'));
     }
 
     public function edit(Client $client): View

@@ -89,6 +89,16 @@ SQUARE_ACCESS_TOKEN=...
 SQUARE_LOCATION_ID=...
 ```
 
+3. To keep refunds and disputes in sync, add a webhook subscription in the Square developer dashboard pointing at `https://your-domain/webhooks/square`, with the `refund.created`, `refund.updated`, `dispute.created` and `dispute.state.updated` events. Copy its signature key into `.env`:
+
+```dotenv
+SQUARE_WEBHOOK_SIGNATURE_KEY=...
+# Only if the app is behind a proxy and its own URL differs from the one in Square:
+# SQUARE_WEBHOOK_URL=https://your-domain/webhooks/square
+```
+
+With the webhook, refunds issued from the Square dashboard are recorded on the invoice, pending refunds are confirmed or undone as soon as Square knows, and disputed payments are flagged on the admin invoice page. A lost or accepted dispute is recorded as a refund of the disputed amount.
+
 Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
 
 ## Admin area
@@ -101,11 +111,21 @@ Each staff account has one role:
 
 | Role | Can do |
 | --- | --- |
-| Admin | Everything, including staff, products, tax rules and the activity log |
+| Admin | Everything, including staff, products, tax rules, settings and the activity log |
 | Billing | Create and edit clients, services and invoices; record payments, apply credit and refund |
 | Support | Look at clients, services and invoices, and download invoice PDFs, without changing anything |
 
 Admins add and edit staff under **Staff**. You can't delete your own account or remove your own admin role, so there is always at least one admin. From the command line, `php artisan admin:create --role=billing` creates a staff account with a role (the default is `admin`). Staff accounts that existed before roles were added are admins.
+
+### Settings
+
+Admins change late fees and tax-inclusive pricing under **Settings**. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
+
+### Provisioning modules
+
+A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
+
+Actions for one service run one at a time, in the order they happened. A service's page shows the last action and any error. Failed actions are not retried on their own, because repeating a half-finished action on another system can do more harm than good; fix the cause and use **Run again**. Products without a module keep working as before.
 
 ### Invoices
 
@@ -130,7 +150,7 @@ Add tax rules under **Tax**. Each rule has a rate and optionally a country, or a
 
 ### Credit and refunds
 
-Overpayments and refunds to credit go to the client's credit balance. New invoices are paid from credit automatically (turn this off with `BILLING_APPLY_CREDIT=false`), and staff or the client can apply credit to an unpaid invoice by hand. Credit payments don't count as income on the dashboard.
+Overpayments and refunds to credit go to the client's credit balance. Staff with the billing or admin role can add or remove credit by hand under **Adjust credit** on a client's page, with a reason. Every change to the balance, by hand or automatic, is listed in the client's credit history, and clients see theirs on the portal home page. The balance can't go below zero. New invoices are paid from credit automatically (turn this off with `BILLING_APPLY_CREDIT=false`), and staff or the client can apply credit to an unpaid invoice by hand. Credit payments don't count as income on the dashboard.
 
 To refund a payment, open its invoice and use **Refund** under the payment. PayPal, Venmo and Cash App payments can be sent back through the gateway (if the gateway reports the refund as pending, the nightly billing run checks it and undoes the record if it later fails); any payment can be recorded as refunded outside the app or moved to account credit. A fully refunded invoice is marked refunded. Services are left as they are, so suspend or terminate them yourself if needed.
 
@@ -155,7 +175,9 @@ Add the Laravel scheduler to cron so billing runs daily:
 | `BILLING_LATE_FEE_TYPE` | `fixed` | `fixed` for a set amount, `percent` for a share of the invoice total |
 | `BILLING_LATE_FEE_AMOUNT` | `0` | The fee, e.g. `5.00`, or `10` for 10% |
 
-Late fees are added once per invoice and are not taxed.
+| `BILLING_TAX_INCLUSIVE` | `false` | Prices include tax |
+
+Late fees are added once per invoice and are not taxed. The late fee and tax-inclusive settings can also be changed on the admin **Settings** page.
 
 ## License
 

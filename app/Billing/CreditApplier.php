@@ -13,7 +13,7 @@ class CreditApplier
 {
     public const GATEWAY = 'credit';
 
-    public function __construct(private PaymentRecorder $payments) {}
+    public function __construct(private PaymentRecorder $payments, private CreditLedger $ledger) {}
 
     /**
      * Applies as much credit as the invoice balance allows, optionally capped
@@ -36,9 +36,10 @@ class CreditApplier
                 return null;
             }
 
-            $client->decrement('credit_balance', $amount);
+            $payment = $this->payments->record($invoice, $amount, self::GATEWAY);
+            $this->ledger->change($client->id, -$amount, "Paid invoice #{$invoice->number}", $invoice, $payment);
 
-            return $this->payments->record($invoice, $amount, self::GATEWAY);
+            return $payment;
         });
     }
 
