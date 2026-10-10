@@ -101,6 +101,10 @@ With the webhook, refunds issued from the Square dashboard are recorded on the i
 
 Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
 
+## Look and feel
+
+The admin area and client portal share one theme, Harbor, defined in `resources/css/app.css`. Views use `brand` colors for buttons and links and `ink` colors for text, borders and backgrounds, so changing those values (and the fonts and corner sizes next to them) restyles the whole app. Run `npm run build` after editing it. The Figtree and Bricolage Grotesque fonts come from npm and are served by the app itself.
+
 ## Admin area
 
 The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), tax rules, staff and the activity log.

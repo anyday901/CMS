@@ -1,9 +1,113 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/figtree';
+@import '@fontsource-variable/bricolage-grotesque';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/*
+ * Harbor theme. Views use `brand` (sea green) for actions and links and `ink`
+ * (sea-tinted neutrals) for text, borders and surfaces. Change the look here,
+ * not in the views.
+ */
 @theme {
-    --font-sans: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+    --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+
+    --color-brand-50: #eef8f5;
+    --color-brand-100: #d7f0ea;
+    --color-brand-200: #b0e0d5;
+    --color-brand-300: #7fcab9;
+    --color-brand-400: #48ab98;
+    --color-brand-500: #1f917e;
+    --color-brand-600: #0e7c6b;
+    --color-brand-700: #0c6457;
+    --color-brand-800: #0d5048;
+    --color-brand-900: #0e423c;
+    --color-brand-950: #052725;
+
+    --color-ink-50: #f3f7f6;
+    --color-ink-100: #e7efed;
+    --color-ink-200: #dbe7e4;
+    --color-ink-300: #c3d3cf;
+    --color-ink-400: #8fa6a1;
+    --color-ink-500: #5b736f;
+    --color-ink-600: #46605c;
+    --color-ink-700: #334c48;
+    --color-ink-800: #22403c;
+    --color-ink-900: #13322f;
+    --color-ink-950: #0a1f1d;
+
+    /* Warm accent for highlights such as the brand mark. */
+    --color-sun-300: #ffdf9e;
+    --color-sun-400: #ffcf6e;
+
+    /* Laravel's pagination views use gray; keep them on the same neutrals. */
+    --color-gray-50: var(--color-ink-50);
+    --color-gray-100: var(--color-ink-100);
+    --color-gray-200: var(--color-ink-200);
+    --color-gray-300: var(--color-ink-300);
+    --color-gray-400: var(--color-ink-400);
+    --color-gray-500: var(--color-ink-500);
+    --color-gray-600: var(--color-ink-600);
+    --color-gray-700: var(--color-ink-700);
+    --color-gray-800: var(--color-ink-800);
+    --color-gray-900: var(--color-ink-900);
+
+    /* Softer corners: inputs and small controls, then cards and panels. */
+    --radius-md: 0.75rem;
+    --radius-lg: 1.25rem;
+}
+
+@layer base {
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-display);
+        letter-spacing: -0.01em;
+    }
+
+    h1 {
+        font-weight: 800;
+    }
+
+    input:not([type='checkbox'], [type='radio']),
+    select,
+    textarea {
+        background-color: var(--color-ink-50);
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+        outline: 2px solid var(--color-brand-500);
+        outline-offset: 1px;
+    }
+
+    a,
+    button {
+        transition-property: color, background-color, box-shadow;
+        transition-duration: 120ms;
+    }
+
+    table {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+@utility brand-mark {
+    display: inline-block;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 9999px;
+    background: conic-gradient(var(--color-brand-600) 0 70%, var(--color-sun-400) 0);
+}
+
+/* Soft sea-and-sun wash behind the log-in screens. */
+@utility harbor-backdrop {
+    background-image:
+        radial-gradient(circle at 15% 15%, var(--color-brand-100) 0, transparent 40%),
+        radial-gradient(circle at 90% 85%, #fff1d1 0, transparent 35%);
+    background-attachment: fixed;
 }
