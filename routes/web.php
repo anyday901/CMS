@@ -69,8 +69,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('can:manage-billing')->group(function () {
             Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
             Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
-            Route::get('invoices/{invoice}/edit', [Admin\InvoiceController::class, 'edit'])->name('invoices.edit');
-            Route::put('invoices/{invoice}', [Admin\InvoiceController::class, 'update'])->name('invoices.update');
+            Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
             Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
             Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
             Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
@@ -82,8 +81,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('clients', [Admin\ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [Admin\ClientController::class, 'show'])->name('clients.show');
         Route::get('services/{service}', [Admin\ServiceController::class, 'show'])->name('services.show');
-        Route::get('invoices', [Admin\InvoiceController::class, 'index'])->name('invoices.index');
-        Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');
+        Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 
         Route::middleware('can:manage-settings')->group(function () {
