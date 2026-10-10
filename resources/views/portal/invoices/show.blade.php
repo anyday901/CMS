@@ -20,7 +20,8 @@
                 @endforeach
             </tbody>
             <tfoot class="font-medium">
-                @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">Tax</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                 <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
                 @if ($invoice->amountPaid())<tr><td class="px-4 py-2 text-right">Paid</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->status->value === 'unpaid')<tr><td class="px-4 py-2 text-right">Balance due</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->balance(), $invoice->currency) }}</td></tr>@endif
@@ -31,6 +32,13 @@
     @if ($invoice->status->value === 'unpaid')
         <div class="rounded-lg border border-gray-200 bg-white p-4 text-sm">
             <h2 class="mb-3 font-semibold">Pay {{ Money::format($invoice->balance(), $invoice->currency) }}</h2>
+            @php $client = auth('client')->user(); @endphp
+            @if ($client->credit_balance > 0 && $client->currency === $invoice->currency)
+                <form method="POST" action="{{ route('portal.invoices.credit', $invoice) }}" class="mb-4">
+                    @csrf
+                    <button class="rounded-md px-4 py-2 font-medium ring-1 ring-gray-300 hover:bg-gray-100">Use my {{ Money::format(min($client->credit_balance, $invoice->balance()), $invoice->currency) }} account credit</button>
+                </form>
+            @endif
             @forelse ($gateways as $gateway)
                 <div class="mb-4 max-w-sm">
                     @include($gateway->view(), ['invoice' => $invoice] + $gateway->viewData($invoice))
@@ -46,7 +54,7 @@
         <div class="mt-6 text-sm">
             <h2 class="mb-2 font-semibold">Payments</h2>
             @foreach ($invoice->transactions as $transaction)
-                <div>{{ $transaction->created_at->format('M j, Y') }} · {{ $transaction->methodLabel() }} · {{ Money::format($transaction->amount, $transaction->currency) }}</div>
+                <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}</div>
             @endforeach
         </div>
     @endif

@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\CreditApplier;
 use App\Billing\InvoiceCanceller;
 use App\Billing\PaymentRecorder;
+use App\Billing\RefundService;
 use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\Transaction;
+use App\Payments\GatewayRegistry;
+use App\Payments\RefundsPayments;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,9 +42,15 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): View
     {
-        $invoice->load(['client', 'items.service', 'transactions']);
+        $invoice->load(['client', 'items.service', 'transactions.refunds']);
 
-        return view('admin.invoices.show', compact('invoice'));
+        return view('admin.invoices.show', [
+            'invoice' => $invoice,
+            'refundableByGateway' => app(GatewayRegistry::class)->enabled()
+                ->filter(fn ($gateway) => $gateway instanceof RefundsPayments)
+                ->map(fn ($gateway) => $gateway->key())
+                ->all(),
+        ]);
     }
 
     public function pay(Request $request, Invoice $invoice, PaymentRecorder $payments): RedirectResponse
@@ -57,6 +68,33 @@ class InvoiceController extends Controller
         }
 
         return back()->with('status', 'Payment recorded.');
+    }
+
+    public function applyCredit(Request $request, Invoice $invoice, CreditApplier $credit): RedirectResponse
+    {
+        $data = $request->validate(['amount' => ['required', Money::rule()]]);
+
+        $applied = $credit->apply($invoice, Money::parse($data['amount']));
+
+        return back()->with('status', $applied
+            ? 'Applied '.Money::format($applied->amount, $applied->currency).' of credit.'
+            : 'No credit was applied.');
+    }
+
+    public function refund(Request $request, Transaction $transaction, RefundService $refunds): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', Money::rule()],
+            'mode' => ['required', Rule::in(RefundService::MODES)],
+        ]);
+
+        try {
+            $refunds->refund($transaction, Money::parse($data['amount']), $data['mode']);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(["refund.{$transaction->id}" => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Refund recorded.');
     }
 
     public function cancel(Invoice $invoice, InvoiceCanceller $canceller): RedirectResponse

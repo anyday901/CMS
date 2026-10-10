@@ -7,10 +7,10 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Recurring invoice generation
 - [x] Payment recording and service due date advancement
 - [x] Overdue suspension and termination
-- [ ] Tax rules
-- [ ] Client credit balance applied to invoices
-- [ ] Refunds
-- [ ] Late fees
+- [x] Tax rules
+- [x] Client credit balance applied to invoices
+- [x] Refunds
+- [x] Late fees
 - [ ] PDF invoices
 - [x] Admin area: staff login, dashboard, clients, products, services, invoices
 - [x] Record manual payments and cancel invoices
@@ -28,7 +28,9 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Venmo through PayPal checkout
 - [x] Cash App Pay through Square
 - [ ] Square webhook for Cash App refunds and disputes
-- [ ] Refunds through the gateways from the admin area
+- [x] Refunds through the gateways from the admin area
+- [ ] Admin adjustment of client credit balances, with a credit history
+- [ ] Late fee settings and tax-inclusive pricing in the admin area
 - [ ] Provisioning module interface
 - [ ] Manual fulfillment tasks
 - [ ] Webhook provisioning module

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Tax rules: a Tax page in the admin area for rates by country and state, tax-exempt clients and non-taxable products. New invoices use the most specific matching rule and keep that rate even if the rule changes later.
+- Credit balance is applied to invoices: automatically when new invoices are created (`BILLING_APPLY_CREDIT`), from an "Apply credit" form in the admin area, and from a button on the client's invoice page. The portal home shows the client's credit.
+- Refunds from the admin invoice page: full or partial, sent back through PayPal or Square, recorded as refunded outside the app, or moved to account credit. Fully refunded invoices are marked refunded.
+- Late fees: `billing:run` adds a one-time fixed or percentage fee to invoices unpaid a set number of days after the due date (`BILLING_LATE_FEE_*`). Off by default.
 - Online payments on unpaid invoices in the client portal: PayPal and Venmo through PayPal Checkout, and Cash App Pay through Square. Payments are confirmed server side, matched to the invoice and recorded with the provider's fee. PayPal payments that clear later are recorded through a signed webhook at `/webhooks/paypal`. Declined PayPal captures are reported to the client as failed, and the admin invoice page shows each payment's gateway fee.
 - Payment gateway plugin interface (`App\Payments\Gateway`) and `config/payments.php`.
 - Transactions record how the client paid within a gateway, such as Venmo through PayPal.

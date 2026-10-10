@@ -16,8 +16,10 @@ class InvoiceItem extends Model
 
     public const TYPE_SETUP_FEE = 'setup_fee';
 
+    public const TYPE_LATE_FEE = 'late_fee';
+
     protected $fillable = [
-        'invoice_id', 'service_id', 'type', 'description', 'amount',
+        'invoice_id', 'service_id', 'type', 'description', 'amount', 'taxable',
         'period_start', 'period_end',
     ];
 
@@ -25,10 +27,13 @@ class InvoiceItem extends Model
     {
         return [
             'amount' => 'integer',
+            'taxable' => 'boolean',
             'period_start' => 'date',
             'period_end' => 'date',
         ];
     }
+
+    protected $attributes = ['taxable' => true];
 
     public function invoice(): BelongsTo
     {

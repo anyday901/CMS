@@ -25,6 +25,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
         Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('invoices/{invoice}', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
+        Route::post('invoices/{invoice}/credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
         Route::middleware('throttle:20,1')->group(function () {
             Route::post('invoices/{invoice}/paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
             Route::post('invoices/{invoice}/paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
@@ -51,6 +52,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('clients', Admin\ClientController::class)->except('destroy');
         Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
         Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
+        Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
 
         Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
         Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
@@ -63,5 +65,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');
         Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
         Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
+        Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+        Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
     });
 });

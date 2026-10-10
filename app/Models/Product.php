@@ -11,12 +11,15 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'active', 'module', 'module_config'];
+    protected $fillable = ['name', 'description', 'active', 'taxable', 'module', 'module_config'];
+
+    protected $attributes = ['active' => true, 'taxable' => true];
 
     protected function casts(): array
     {
         return [
             'active' => 'boolean',
+            'taxable' => 'boolean',
             'module_config' => 'array',
         ];
     }

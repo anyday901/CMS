@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\Gateway;
 use App\Payments\PaymentFailed;
+use App\Payments\RefundsPayments;
 use App\Support\Money;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -19,7 +20,7 @@ use InvalidArgumentException;
  * PayPal Checkout (Orders API v2) with the PayPal JS SDK buttons. Venmo is a
  * funding option inside the same checkout, so it is handled here too.
  */
-class PayPal implements Gateway
+class PayPal implements Gateway, RefundsPayments
 {
     public function __construct(private PaymentRecorder $payments) {}
 
@@ -132,6 +133,29 @@ class PayPal implements Gateway
         }
 
         return $this->record($invoice, $capture, null);
+    }
+
+    public function refund(Transaction $payment, int $amount, string $idempotencyKey): string
+    {
+        $captureId = (string) $payment->gateway_reference;
+
+        if (! preg_match('/^[A-Za-z0-9]{1,64}$/', $captureId)) {
+            throw new PaymentFailed('This payment has no PayPal capture id to refund.');
+        }
+
+        $response = $this->api()
+            ->withHeaders(['PayPal-Request-Id' => $idempotencyKey])
+            ->post("/v2/payments/captures/{$captureId}/refund", [
+                'amount' => ['value' => Money::toInput($amount), 'currency_code' => $payment->currency],
+            ]);
+
+        if ($response->failed() || ! in_array($response->json('status'), ['COMPLETED', 'PENDING'], true)) {
+            Log::error('PayPal refund failed', ['transaction' => $payment->id, 'status' => $response->status(), 'body' => $response->json()]);
+
+            throw new PaymentFailed('PayPal refused the refund: '.($response->json('details.0.description') ?? $response->json('message') ?? 'unknown error').'.');
+        }
+
+        return $response->json('id');
     }
 
     public function verifyWebhook(array $headers, array $event): bool

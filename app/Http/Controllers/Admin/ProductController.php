@@ -54,6 +54,7 @@ class ProductController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'active' => ['boolean'],
+            'taxable' => ['boolean'],
         ];
         foreach (BillingCycle::cases() as $cycle) {
             $rules["prices.{$cycle->value}.price"] = $money;
@@ -65,6 +66,7 @@ class ProductController extends Controller
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'active' => $request->boolean('active'),
+            'taxable' => $request->boolean('taxable'),
         ])->save();
 
         $currency = config('billing.currency');

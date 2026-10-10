@@ -21,6 +21,10 @@
                 @endforeach
             </select>
         </label>
+        <div class="md:col-span-2">
+            <input type="hidden" name="tax_exempt" value="0">
+            <label class="flex items-center gap-2"><input type="checkbox" name="tax_exempt" value="1" @checked(old('tax_exempt', $client->tax_exempt))> Tax exempt</label>
+        </div>
         <label class="block md:col-span-2">Notes
             <textarea name="notes" rows="3" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-gray-300">{{ old('notes', $client->notes) }}</textarea>
         </label>

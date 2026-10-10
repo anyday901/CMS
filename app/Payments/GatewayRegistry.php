@@ -14,4 +14,10 @@ class GatewayRegistry
             ->filter(fn (Gateway $gateway) => $gateway->isEnabled())
             ->values();
     }
+
+    /** The enabled gateway that recorded payments under this key, if any. */
+    public function find(string $key): ?Gateway
+    {
+        return $this->enabled()->first(fn (Gateway $gateway) => $gateway->key() === $key);
+    }
 }

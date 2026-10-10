@@ -16,6 +16,7 @@
         <div><div class="text-gray-500">Phone</div>{{ $client->phone ?: '—' }}</div>
         <div><div class="text-gray-500">Address</div>{{ collect([$client->address1, $client->address2, $client->city, $client->state, $client->postcode, $client->country])->filter()->join(', ') ?: '—' }}</div>
         <div><div class="text-gray-500">Credit balance</div>{{ Money::format($client->credit_balance, $client->currency) }}</div>
+        <div><div class="text-gray-500">Tax</div>{{ $client->tax_exempt ? 'Exempt' : (App\Models\TaxRule::forClient($client)?->name ?? 'None') }}</div>
         <div><div class="text-gray-500">Client since</div>{{ $client->created_at->format('M j, Y') }}</div>
         @if ($client->notes)<div class="md:col-span-3"><div class="text-gray-500">Notes</div>{!! nl2br(e($client->notes)) !!}</div>@endif
     </div>
