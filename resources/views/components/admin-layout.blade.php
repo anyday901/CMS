@@ -21,6 +21,7 @@
                         'admin.invoices.index' => 'Invoices',
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
+                        'admin.settings.edit' => $settings ? 'Settings' : null,
                         'admin.staff.index' => auth()->user()->can('manage-staff') ? 'Staff' : null,
                     ]);
                 @endphp

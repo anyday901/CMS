@@ -34,6 +34,37 @@
             </table>
         </div>
 
+        @if ($modules->isNotEmpty())
+            <fieldset class="space-y-3">
+                <legend class="mb-1 font-semibold">Provisioning</legend>
+                <label class="block">Module
+                    <select name="module" id="product-module" class="mt-1 block rounded-md px-3 py-2 ring-1 ring-gray-300">
+                        <option value="">None (set up by hand)</option>
+                        @foreach ($modules as $key => $module)
+                            <option value="{{ $key }}" @selected(old('module', $product->module) === $key)>{{ $module->label() }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                @foreach ($modules as $key => $module)
+                    @foreach ($module->configFields() as $name => $field)
+                        <label class="block" data-module="{{ $key }}">{{ $module->label() }}: {{ $field['label'] }}@if ($field['required'] ?? false) <span class="text-gray-500">(required)</span>@endif
+                            <input name="module_config[{{ $key }}][{{ $name }}]" value="{{ old("module_config.{$key}.{$name}", $product->module === $key ? ($product->module_config[$name] ?? '') : '') }}" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-gray-300">
+                            @if ($field['help'] ?? null)<span class="text-gray-500">{{ $field['help'] }}</span>@endif
+                        </label>
+                    @endforeach
+                @endforeach
+            </fieldset>
+            <script>
+                // Show only the settings of the chosen module.
+                (() => {
+                    const select = document.getElementById('product-module');
+                    const sync = () => document.querySelectorAll('[data-module]').forEach(el => { el.hidden = el.dataset.module !== select.value; });
+                    select.addEventListener('change', sync);
+                    sync();
+                })();
+            </script>
+        @endif
+
         <button class="rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500">Save</button>
     </form>
 </x-admin-layout>

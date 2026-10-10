@@ -31,6 +31,8 @@ class Service extends Model
             'registration_date' => 'date',
             'next_due_date' => 'date',
             'suspended_at' => 'datetime',
+            'provisioned_at' => 'datetime',
+            'provisioning_data' => 'array',
             'terminated_at' => 'datetime',
             'custom_fields' => 'array',
         ];

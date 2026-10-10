@@ -54,6 +54,11 @@ class Client extends Authenticatable
         return $this->hasMany(Invoice::class);
     }
 
+    public function creditEntries(): HasMany
+    {
+        return $this->hasMany(CreditEntry::class);
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);

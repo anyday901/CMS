@@ -27,11 +27,13 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 ## Milestone 3: Payments, provisioning, support
 - [x] Venmo through PayPal checkout
 - [x] Cash App Pay through Square
-- [ ] Square webhook for Cash App refunds and disputes
+- [x] Square webhook for Cash App refunds and disputes
 - [x] Refunds through the gateways from the admin area
-- [ ] Admin adjustment of client credit balances, with a credit history
-- [ ] Late fee settings and tax-inclusive pricing in the admin area
-- [ ] Provisioning module interface
+- [x] Admin adjustment of client credit balances, with a credit history
+- [x] Late fee settings and tax-inclusive pricing in the admin area
+- [x] Provisioning module interface
+- [ ] Disputes for PayPal payments (PayPal webhook)
+- [ ] Notify staff by email when a provisioning action fails or a payment is disputed
 - [ ] Manual fulfillment tasks
 - [ ] Webhook provisioning module
 - [ ] Corey's custom provisioning module

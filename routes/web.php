@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/', '/portal');
 
 Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
+Route::post('webhooks/square', [WebhookController::class, 'square'])->name('webhooks.square');
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::middleware('guest:client')->group(function () {
@@ -61,6 +62,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
+            Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
                 ->name('services.action');
@@ -70,6 +72,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
             Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
             Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
+            Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
             Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
             Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
             Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
@@ -88,6 +91,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
+            Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');
+            Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
         });
 
         Route::middleware('can:manage-staff')->group(function () {

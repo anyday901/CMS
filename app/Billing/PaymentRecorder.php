@@ -16,7 +16,7 @@ use InvalidArgumentException;
 
 class PaymentRecorder
 {
-    public function __construct(private ServiceLifecycle $lifecycle) {}
+    public function __construct(private ServiceLifecycle $lifecycle, private CreditLedger $ledger) {}
 
     /**
      * Record a payment against an invoice. A repeated gateway reference returns
@@ -72,7 +72,7 @@ class PaymentRecorder
             ]);
 
             if ($excess > 0) {
-                $invoice->client()->increment('credit_balance', $excess);
+                $this->ledger->change($invoice->client_id, $excess, "Overpayment on invoice #{$invoice->number}", $invoice, $transaction);
             }
 
             Activity::record(

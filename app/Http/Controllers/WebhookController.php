@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Payments\Gateways\PayPal;
+use App\Payments\Gateways\SquareWebhook;
 use App\Payments\PaymentFailed;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -28,6 +29,19 @@ class WebhookController extends Controller
                 // Already logged; acknowledge so PayPal stops retrying.
             }
         }
+
+        return response('', 200);
+    }
+
+    public function square(Request $request, SquareWebhook $square): Response
+    {
+        if (! $square->verify($request->getContent(), $request->header('x-square-hmacsha256-signature'))) {
+            Log::warning('Rejected Square webhook', ['id' => $request->json('event_id')]);
+
+            return response('', 400);
+        }
+
+        $square->handle($request->json()->all());
 
         return response('', 200);
     }

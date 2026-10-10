@@ -42,17 +42,35 @@ class RefundReconciler
                 continue;
             }
 
-            if ($status === GatewayRefund::COMPLETED) {
-                $refund->update(['pending' => false]);
-                Activity::record('Gateway confirmed a '.Money::format(-$refund->amount, $refund->currency).' refund', $refund);
-                $counts['completed']++;
-            } elseif ($status === GatewayRefund::FAILED) {
-                $this->undo($refund);
-                $counts['failed']++;
+            if ($result = $this->settle($refund, $status)) {
+                $counts[$result]++;
             }
         }
 
         return $counts;
+    }
+
+    /**
+     * Applies a gateway's final answer to a pending refund, from the nightly
+     * check or a webhook. Returns "completed" or "failed", or null when there
+     * was nothing to change.
+     */
+    public function settle(Transaction $refund, string $status): ?string
+    {
+        if (! $refund->pending || ! in_array($status, [GatewayRefund::COMPLETED, GatewayRefund::FAILED], true)) {
+            return null;
+        }
+
+        if ($status === GatewayRefund::COMPLETED) {
+            $refund->update(['pending' => false]);
+            Activity::record('Gateway confirmed a '.Money::format(-$refund->amount, $refund->currency).' refund', $refund);
+
+            return 'completed';
+        }
+
+        $this->undo($refund);
+
+        return 'failed';
     }
 
     private function undo(Transaction $refund): void

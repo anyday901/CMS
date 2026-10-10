@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Square webhook at `/webhooks/square` for Cash App Pay: refunds made in the Square dashboard are recorded on the invoice, pending refunds are settled as soon as Square reports them, and disputes are shown on the payment. A lost or accepted dispute is recorded as a refund. Requests are checked against `SQUARE_WEBHOOK_SIGNATURE_KEY`.
+- Credit history: every change to a client's credit balance (overpayments, refunds to credit, credit used on invoices and manual changes) is listed with the balance after it, on the admin client page and the client's portal home.
+- Staff with the billing or admin role can add or remove credit by hand, with a reason. The balance can't go below zero.
+- Settings page for admins to change late fees and turn on tax-inclusive pricing without editing `.env`.
+- Tax-inclusive pricing (`BILLING_TAX_INCLUSIVE`): invoice totals equal the sum of their lines and show the tax they contain. Invoices keep the setting they were created with.
+- Provisioning module interface (`App\Provisioning\ProvisioningModule`): products can use a module registered in `config/provisioning.php`, whose create, suspend, unsuspend and terminate actions run on the queue when a service's status changes. The service page shows the last result and lets staff run an action again.
 - PDF invoices: staff download any invoice and clients download their own from the invoice page. Company name, address, email and tax id on the PDF come from `BILLING_COMPANY_*` settings.
 - Staff roles: admin, billing and support. Billing staff manage clients, services and invoices; support staff can only look. Admins manage staff accounts on a new Staff page, can't delete or demote themselves, and there is always at least one admin. `admin:create` takes `--role`.
 - Manual invoices: staff create invoices with any lines (negative lines as discounts) from a client's page, save them as drafts hidden from the client, publish them, and edit draft or unpaid invoices. Edits can't bring the total down to or below what is already paid, or remove service renewal lines. Drafts can be cancelled.

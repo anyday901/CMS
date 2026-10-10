@@ -29,5 +29,10 @@ return [
         'access_token' => env('SQUARE_ACCESS_TOKEN'),
         'location_id' => env('SQUARE_LOCATION_ID'),
         'version' => env('SQUARE_VERSION', '2024-12-18'),
+        // From the webhook subscription in the Square developer dashboard.
+        'webhook_signature_key' => env('SQUARE_WEBHOOK_SIGNATURE_KEY'),
+        // The exact notification URL entered in Square. Defaults to this
+        // app's /webhooks/square; set it if the app sits behind a proxy.
+        'webhook_url' => env('SQUARE_WEBHOOK_URL'),
     ],
 ];

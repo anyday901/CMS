@@ -7,9 +7,12 @@ use App\Billing\ServiceLifecycle;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Product;
 use App\Models\Service;
+use App\Provisioning\ModuleRegistry;
+use App\Provisioning\Provisioner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,5 +81,18 @@ class ServiceController extends Controller
         };
 
         return back()->with('status', 'Service '.$service->status->value.'.');
+    }
+
+    /** Runs a module action again, usually after fixing what made it fail. */
+    public function provision(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
+    {
+        $data = $request->validate(['action' => ['required', Rule::in(Provisioner::ACTIONS)]]);
+
+        abort_if($modules->find($service->product->module) === null, 422, 'This service\'s product has no provisioning module.');
+
+        $provisioner->queue($service, $data['action']);
+        Activity::record("Queued {$data['action']} on the provisioning module for {$service->description()}", $service);
+
+        return back()->with('status', 'Provisioning action queued.');
     }
 }

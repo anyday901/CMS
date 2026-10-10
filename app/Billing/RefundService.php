@@ -31,7 +31,7 @@ class RefundService
 {
     public const MODES = ['gateway', 'manual', 'credit'];
 
-    public function __construct(private GatewayRegistry $gateways) {}
+    public function __construct(private GatewayRegistry $gateways, private CreditLedger $ledger) {}
 
     public function refund(Transaction $payment, int $amount, string $mode): Transaction
     {
@@ -57,6 +57,35 @@ class RefundService
 
                 throw $e;
             }
+        });
+    }
+
+    /**
+     * Records a refund that started at the gateway rather than here, such as
+     * one issued from the Square dashboard or a lost dispute. A refund already
+     * recorded under the same gateway id is returned as it is. Returns null
+     * when the payment has less left to refund than the gateway reports.
+     */
+    public function recordFromGateway(Transaction $payment, int $amount, GatewayRefund $sent): ?Transaction
+    {
+        return DB::transaction(function () use ($payment, $amount, $sent) {
+            $invoice = $payment->invoice_id ? Invoice::lockForUpdate()->find($payment->invoice_id) : null;
+
+            $existing = Transaction::where('gateway', $payment->gateway)->where('gateway_reference', $sent->id)->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $payment = Transaction::findOrFail($payment->id);
+
+            if ($amount <= 0 || $amount > $payment->refundable()) {
+                Log::critical('Gateway reports a refund larger than what is left on the payment', ['transaction' => $payment->id, 'refund' => $sent->id, 'amount' => $amount]);
+
+                return null;
+            }
+
+            return $this->record($payment, $invoice, $amount, 'gateway', $sent);
         });
     }
 
@@ -90,7 +119,7 @@ class RefundService
         ]);
 
         if ($mode === 'credit') {
-            $payment->client()->increment('credit_balance', $amount);
+            $this->ledger->change($payment->client_id, $amount, 'Refund'.($invoice ? " from invoice #{$invoice->number}" : ''), $invoice, $refund);
         }
 
         Activity::record(

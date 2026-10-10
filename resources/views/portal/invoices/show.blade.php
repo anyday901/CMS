@@ -21,9 +21,10 @@
                 @endforeach
             </tbody>
             <tfoot class="font-medium">
-                @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
-                        @if ($invoice->tax)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                 <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
+                @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-gray-500">Includes {{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right font-normal text-gray-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->amountPaid())<tr><td class="px-4 py-2 text-right">Paid</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->status->value === 'unpaid')<tr><td class="px-4 py-2 text-right">Balance due</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->balance(), $invoice->currency) }}</td></tr>@endif
             </tfoot>
