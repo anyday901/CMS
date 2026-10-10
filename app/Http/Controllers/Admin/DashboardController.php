@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\FulfillmentTask;
 use App\Models\Invoice;
 use App\Models\Service;
 use App\Models\Transaction;
@@ -26,6 +27,7 @@ class DashboardController extends Controller
             'incomeThisMonth' => (int) Transaction::where('created_at', '>=', now()->startOfMonth())
                 // Paying from credit moves money already received, so it isn't new income.
                 ->where('gateway', '!=', CreditApplier::GATEWAY)->sum('amount'),
+            'openTasks' => FulfillmentTask::open()->with(['service.client', 'service.product'])->oldest()->limit(10)->get(),
             'unpaidCount' => (clone $unpaid)->count(),
             'unpaidTotal' => (int) (clone $unpaid)->sum('total'),
             'overdue' => (clone $unpaid)->whereDate('due_date', '<', today())

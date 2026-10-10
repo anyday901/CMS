@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Billing\PaymentRecorder;
 use App\Billing\ServiceLifecycle;
 use App\Enums\ServiceStatus;
+use App\Enums\StaffRole;
 use App\Jobs\RunProvisioningAction;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -12,8 +13,10 @@ use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\User;
+use App\Notifications\StaffAlert;
 use App\Provisioning\Provisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\Fakes\FakeProvisioningModule;
 use Tests\TestCase;
@@ -93,6 +96,25 @@ class ProvisioningTest extends TestCase
         $this->assertSame('done', $service->fresh()->provisioning_status);
         $this->assertNull($service->fresh()->provisioning_error);
         $this->assertCount(2, FakeProvisioningModule::$calls);
+    }
+
+    public function test_staff_who_manage_services_are_emailed_when_an_action_fails(): void
+    {
+        Notification::fake();
+        $billing = User::factory()->create(['role' => StaffRole::Billing]);
+        $support = User::factory()->create(['role' => StaffRole::Support]);
+        $service = Service::factory()->for($this->product)->create();
+
+        app(ServiceLifecycle::class)->suspend($service, 'overdue');
+        Notification::assertNothingSent();
+
+        FakeProvisioningModule::$failWith = 'Server node1 is down';
+        app(ServiceLifecycle::class)->unsuspend($service);
+
+        Notification::assertSentTo($billing, StaffAlert::class, fn (StaffAlert $alert) => str_contains($alert->subject, 'unsuspend')
+            && in_array('Error: Server node1 is down', $alert->lines, true)
+            && $alert->url === route('admin.services.show', $service));
+        Notification::assertNotSentTo($support, StaffAlert::class);
     }
 
     public function test_actions_run_in_the_order_they_were_queued(): void

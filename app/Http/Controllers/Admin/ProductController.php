@@ -110,7 +110,14 @@ class ProductController extends Controller
         }
 
         $rules = collect($module->configFields())
-            ->mapWithKeys(fn (array $field, string $name) => ["module_config.{$module->key()}.{$name}" => [($field['required'] ?? false) ? 'required' : 'nullable', 'string', 'max:1000']])
+            ->mapWithKeys(fn (array $field, string $name) => ["module_config.{$module->key()}.{$name}" => array_merge(
+                [($field['required'] ?? false) ? 'required' : 'nullable', 'string'],
+                match ($field['type'] ?? 'text') {
+                    'textarea' => ['max:5000'],
+                    'url' => ['max:1000', 'url:http,https'],
+                    default => ['max:1000'],
+                },
+            )])
             ->all();
         $config = $request->validate($rules)['module_config'][$module->key()] ?? [];
 

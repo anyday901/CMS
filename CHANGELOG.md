@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- PayPal disputes: the PayPal webhook now takes the customer dispute events. Disputed PayPal and Venmo payments are flagged on the invoice, and a dispute resolved in the buyer's favour or accepted is recorded as a refund of the disputed amount.
+- Staff emails when a provisioning action fails, a manual task opens, or a payment is disputed or its dispute changes. Admin and billing staff get provisioning and task emails; staff who manage billing get dispute emails.
+- Manual fulfillment module: each provisioning action opens a task with the product's checklist. A new **Tasks** page lists open and finished tasks, staff tick steps, add notes and mark tasks done, and open tasks show on the dashboard and the service page.
+- Webhook provisioning module: sends create, suspend, unsuspend and terminate to a URL as signed JSON, and saves any `data` the receiver sends back on the service.
+- Provisioning module settings can be text areas or web addresses (`type` in `configFields()`).
 - Harbor theme for the admin area and client portal: sea-green and warm-sun colors, Bricolage Grotesque headings over Figtree text, rounded cards, pill buttons and navigation. Fonts are bundled with the app, so pages make no requests to font services. Colors, fonts and corner sizes are set in `resources/css/app.css`.
 - Square webhook at `/webhooks/square` for Cash App Pay: refunds made in the Square dashboard are recorded on the invoice, pending refunds are settled as soon as Square reports them, and disputes are shown on the payment. A lost or accepted dispute is recorded as a refund. Requests are checked against `SQUARE_WEBHOOK_SIGNATURE_KEY`.
 - Credit history: every change to a client's credit balance (overpayments, refunds to credit, credit used on invoices and manual changes) is listed with the balance after it, on the admin client page and the client's portal home.

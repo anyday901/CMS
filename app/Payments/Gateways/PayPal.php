@@ -2,6 +2,7 @@
 
 namespace App\Payments\Gateways;
 
+use App\Billing\DisputeRecorder;
 use App\Billing\PaymentRecorder;
 use App\Models\Invoice;
 use App\Models\Transaction;
@@ -26,7 +27,7 @@ class PayPal implements Gateway, RefundsPayments
     /** PayPal order, capture and refund ids. Anything else could change the request path. */
     private const ID_PATTERN = '/^[A-Za-z0-9]{1,64}$/';
 
-    public function __construct(private PaymentRecorder $payments) {}
+    public function __construct(private PaymentRecorder $payments, private DisputeRecorder $disputes) {}
 
     public function key(): string
     {
@@ -137,6 +138,56 @@ class PayPal implements Gateway, RefundsPayments
         }
 
         return $this->record($invoice, $capture, null);
+    }
+
+    /**
+     * Handles a verified CUSTOMER.DISPUTE.* webhook resource. PayPal names the
+     * disputed capture in disputed_transactions; disputes on payments this app
+     * did not record are ignored.
+     */
+    public function disputeUpdated(array $dispute): void
+    {
+        $captureId = $dispute['disputed_transactions'][0]['seller_transaction_id'] ?? null;
+        $payment = $captureId === null ? null : Transaction::where('gateway', $this->key())
+            ->where('gateway_reference', $captureId)
+            ->where('amount', '>', 0)
+            ->first();
+
+        if ($payment === null || ! isset($dispute['dispute_id'])) {
+            Log::info('PayPal dispute for a payment this app did not record', ['dispute' => $dispute['dispute_id'] ?? null, 'capture' => $captureId]);
+
+            return;
+        }
+
+        $this->disputes->update(
+            $payment,
+            $dispute['dispute_id'],
+            $this->disputeState($dispute),
+            Money::parse((string) ($dispute['dispute_amount']['value'] ?? '0')),
+            $dispute['reason'] ?? null,
+        );
+    }
+
+    /**
+     * Open disputes keep PayPal's status (e.g. waiting_for_seller_response).
+     * Resolved ones become won, lost or accepted from the outcome, so a lost
+     * dispute is recorded as a refund like a Square one.
+     */
+    private function disputeState(array $dispute): string
+    {
+        if (($dispute['status'] ?? null) !== 'RESOLVED') {
+            return strtolower($dispute['status'] ?? 'open');
+        }
+
+        return match ($dispute['dispute_outcome']['outcome_code'] ?? null) {
+            'RESOLVED_BUYER_FAVOUR' => 'lost',
+            'ACCEPTED' => 'accepted',
+            'RESOLVED_SELLER_FAVOUR', 'DENIED' => 'won',
+            'CANCELED_BY_BUYER' => 'cancelled',
+            // PayPal paid the buyer itself; the money stays with the merchant.
+            'RESOLVED_WITH_PAYOUT' => 'resolved_with_payout',
+            default => 'resolved',
+        };
     }
 
     public function refund(Transaction $payment, int $amount, string $idempotencyKey): GatewayRefund

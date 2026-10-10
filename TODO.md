@@ -34,10 +34,10 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Admin adjustment of client credit balances, with a credit history
 - [x] Late fee settings and tax-inclusive pricing in the admin area
 - [x] Provisioning module interface
-- [ ] Disputes for PayPal payments (PayPal webhook)
-- [ ] Notify staff by email when a provisioning action fails or a payment is disputed
-- [ ] Manual fulfillment tasks
-- [ ] Webhook provisioning module
+- [x] Disputes for PayPal payments (PayPal webhook)
+- [x] Notify staff by email when a provisioning action fails or a payment is disputed
+- [x] Manual fulfillment tasks
+- [x] Webhook provisioning module
 - [ ] Corey's custom provisioning module
 - [ ] Support tickets with departments, priorities, assignment and attachments
 - [ ] Inbound email piping for tickets

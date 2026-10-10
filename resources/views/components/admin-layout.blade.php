@@ -19,6 +19,7 @@
                         'admin.clients.index' => 'Clients',
                         'admin.products.index' => $settings ? 'Products' : null,
                         'admin.invoices.index' => 'Invoices',
+                        'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
                         'admin.settings.edit' => $settings ? 'Settings' : null,

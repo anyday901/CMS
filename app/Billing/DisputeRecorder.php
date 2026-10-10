@@ -4,6 +4,7 @@ namespace App\Billing;
 
 use App\Models\Activity;
 use App\Models\Transaction;
+use App\Notifications\StaffAlert;
 use App\Payments\GatewayRefund;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,20 @@ class DisputeRecorder
             array_filter(['dispute' => $disputeId, 'amount' => $amount, 'reason' => $reason]),
         );
         Log::warning('Payment dispute updated', ['transaction' => $payment->id, 'dispute' => $disputeId, 'state' => $state]);
+
+        $client = $payment->client;
+        StaffAlert::send(
+            'manage-billing',
+            'Payment dispute: '.str_replace('_', ' ', $state),
+            array_values(array_filter([
+                'A '.Money::format($payment->amount, $payment->currency)." {$payment->methodLabel()} payment{$where}".($client ? " from {$client->fullName()}" : '').' is disputed.',
+                'Status: '.str_replace('_', ' ', $state).'. Disputed amount: '.Money::format($amount, $payment->currency).'.',
+                $reason ? 'Reason given: '.str_replace('_', ' ', strtolower($reason)).'.' : null,
+                in_array($state, self::LOST_STATES, true) ? 'The dispute is lost, so the amount has been recorded as a refund.' : "Respond in the {$payment->methodLabel()} dashboard if it needs evidence from you.",
+            ])),
+            'View the payment',
+            $payment->invoice ? route('admin.invoices.show', $payment->invoice) : ($client ? route('admin.clients.show', $client) : route('admin.dashboard')),
+        );
 
         if (in_array($state, self::LOST_STATES, true)) {
             $this->refunds->recordFromGateway($payment, min($amount, $payment->refundable()), new GatewayRefund("dispute-{$disputeId}", GatewayRefund::COMPLETED));

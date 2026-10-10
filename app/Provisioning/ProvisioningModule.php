@@ -12,7 +12,9 @@ use App\Models\Service;
  *
  * Return ProvisioningResult::failed() for a problem staff should see and
  * retry; anything thrown is caught and shown the same way. An action can run
- * again when staff retry it, so make each one safe to repeat.
+ * again when staff retry it, so make each one safe to repeat:
+ * $service->provisioningOperation is the same number on every run of one
+ * action and different for each new action.
  */
 interface ProvisioningModule
 {
@@ -23,9 +25,10 @@ interface ProvisioningModule
 
     /**
      * Settings shown on the product form and saved in the product's
-     * module_config, keyed by field name.
+     * module_config, keyed by field name. "type" is text (the default),
+     * textarea or url.
      *
-     * @return array<string, array{label: string, required?: bool, help?: string}>
+     * @return array<string, array{label: string, required?: bool, help?: string, type?: string}>
      */
     public function configFields(): array;
 
