@@ -12,13 +12,19 @@
         <nav class="border-b border-gray-200 bg-white">
             <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
                 <a href="{{ route('admin.dashboard') }}" class="font-semibold">{{ config('app.name') }}</a>
-                @foreach ([
-                    'admin.dashboard' => 'Dashboard',
-                    'admin.clients.index' => 'Clients',
-                    'admin.products.index' => 'Products',
-                    'admin.invoices.index' => 'Invoices',
-                    'admin.tax-rules.index' => 'Tax',
-                ] as $route => $label)
+                @php
+                    $settings = auth()->user()->can('manage-settings');
+                    $links = array_filter([
+                        'admin.dashboard' => 'Dashboard',
+                        'admin.clients.index' => 'Clients',
+                        'admin.products.index' => $settings ? 'Products' : null,
+                        'admin.invoices.index' => 'Invoices',
+                        'admin.tax-rules.index' => $settings ? 'Tax' : null,
+                        'admin.activity.index' => $settings ? 'Activity' : null,
+                        'admin.staff.index' => auth()->user()->can('manage-staff') ? 'Staff' : null,
+                    ]);
+                @endphp
+                @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
                        class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) ? 'font-medium text-indigo-600' : 'text-gray-600 hover:text-gray-900' }}">{{ $label }}</a>
                 @endforeach

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\TaxRule;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +22,8 @@ class TaxRuleController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        TaxRule::create($this->validated($request));
+        $rule = TaxRule::create($this->validated($request));
+        Activity::record("Added tax rule {$rule->name}", $rule, ['rate' => $rule->rate, 'country' => $rule->country, 'state' => $rule->state]);
 
         return redirect()->route('admin.tax-rules.index')->with('status', 'Tax rule added.');
     }
@@ -34,6 +36,7 @@ class TaxRuleController extends Controller
     public function update(Request $request, TaxRule $taxRule): RedirectResponse
     {
         $taxRule->update($this->validated($request));
+        Activity::record("Updated tax rule {$taxRule->name}", $taxRule, ['rate' => $taxRule->rate, 'country' => $taxRule->country, 'state' => $taxRule->state]);
 
         return redirect()->route('admin.tax-rules.index')->with('status', 'Tax rule updated.');
     }
@@ -41,6 +44,7 @@ class TaxRuleController extends Controller
     public function destroy(TaxRule $taxRule): RedirectResponse
     {
         $taxRule->delete();
+        Activity::record("Deleted tax rule {$taxRule->name}");
 
         return redirect()->route('admin.tax-rules.index')->with('status', 'Tax rule deleted.');
     }

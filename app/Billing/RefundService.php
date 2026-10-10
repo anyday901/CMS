@@ -3,12 +3,14 @@
 namespace App\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Models\Activity;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\GatewayRefund;
 use App\Payments\GatewayRegistry;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -90,6 +92,16 @@ class RefundService
         if ($mode === 'credit') {
             $payment->client()->increment('credit_balance', $amount);
         }
+
+        Activity::record(
+            'Refunded '.Money::format($amount, $payment->currency)." of a {$payment->methodLabel()} payment"
+                .match ($mode) {
+                    'credit' => ' to account credit', 'gateway' => ' through the gateway', default => ' (outside the app)'
+                }
+            .($invoice ? " on invoice #{$invoice->number}" : ''),
+            $refund,
+            array_filter(['pending' => $refund->pending ?: null]),
+        );
 
         if ($invoice && $invoice->status === InvoiceStatus::Paid && $invoice->amountPaid() <= 0) {
             $invoice->forceFill(['status' => InvoiceStatus::Refunded])->save();

@@ -5,9 +5,11 @@ namespace App\Billing;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
 use App\Events\InvoicePaid;
+use App\Models\Activity;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Transaction;
+use App\Support\Money;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -72,6 +74,13 @@ class PaymentRecorder
             if ($excess > 0) {
                 $invoice->client()->increment('credit_balance', $excess);
             }
+
+            Activity::record(
+                ($gateway === CreditApplier::GATEWAY ? 'Applied ' : 'Payment of ').Money::format($amount, $invoice->currency)
+                    .($gateway === CreditApplier::GATEWAY ? ' of credit to' : " by {$transaction->methodLabel()} on")." invoice #{$invoice->number}",
+                $transaction,
+                array_filter(['reference' => $reference, 'excess_to_credit' => $excess ?: null]),
+            );
 
             if ($invoice->balance() <= 0) {
                 $this->markPaid($invoice);

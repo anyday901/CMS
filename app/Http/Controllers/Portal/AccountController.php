@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,8 @@ class AccountController extends Controller
             'country' => ['nullable', 'string', 'size:2'],
         ]));
 
+        Activity::record('Updated their contact details', $client, ['changed' => array_keys($client->getChanges())]);
+
         return back()->with('status', 'Your details are saved.');
     }
 
@@ -45,6 +48,7 @@ class AccountController extends Controller
         ]);
 
         $request->user('client')->update(['password' => $data['password']]);
+        Activity::record('Changed their portal password', $request->user('client'));
 
         return back()->with('status', 'Your password is changed.');
     }

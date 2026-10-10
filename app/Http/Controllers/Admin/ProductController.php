@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Product;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,9 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        DB::transaction(fn () => $this->save($request, new Product));
+        $product = new Product;
+        DB::transaction(fn () => $this->save($request, $product));
+        Activity::record("Created product {$product->name}", $product);
 
         return redirect()->route('admin.products.index')->with('status', 'Product created.');
     }
@@ -43,6 +46,7 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): RedirectResponse
     {
         DB::transaction(fn () => $this->save($request, $product));
+        Activity::record("Updated product {$product->name}", $product);
 
         return redirect()->route('admin.products.index')->with('status', 'Product updated.');
     }

@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -48,6 +49,7 @@ class OrderService
                 'registration_date' => $start,
                 'next_due_date' => $start,
             ]);
+            Activity::record("Ordered {$service->description()} ({$cycle->label()})", $service);
 
             if (! $invoice) {
                 return ['service' => $service, 'invoice' => null];

@@ -3,6 +3,7 @@
 namespace App\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Models\Activity;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Support\Money;
@@ -58,6 +59,7 @@ class LateFeeProcessor
                 'taxable' => false,
             ]);
             $invoice->recalculate();
+            Activity::record('Added a '.Money::format($fee, $invoice->currency)." late fee to invoice #{$invoice->number}", $invoice);
 
             return true;
         });

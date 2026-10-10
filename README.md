@@ -49,7 +49,7 @@ php artisan admin:create
 php artisan serve
 ```
 
-Then open http://localhost:8000/admin and log in with the staff account you just created. To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
+Then open http://localhost:8000/admin and log in with the staff account you just created (it is an admin). To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
 
 Run the tests with `php artisan test`.
 
@@ -93,7 +93,36 @@ Test with sandbox credentials first; both providers have sandbox accounts for fa
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), invoices (view, record payments, apply credit, refund, cancel) and tax rules. Create staff accounts with `php artisan admin:create`.
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), tax rules, staff and the activity log.
+
+### Staff roles
+
+Each staff account has one role:
+
+| Role | Can do |
+| --- | --- |
+| Admin | Everything, including staff, products, tax rules and the activity log |
+| Billing | Create and edit clients, services and invoices; record payments, apply credit and refund |
+| Support | Look at clients, services and invoices, and download invoice PDFs, without changing anything |
+
+Admins add and edit staff under **Staff**. You can't delete your own account or remove your own admin role, so there is always at least one admin. From the command line, `php artisan admin:create --role=billing` creates a staff account with a role (the default is `admin`). Staff accounts that existed before roles were added are admins.
+
+### Invoices
+
+Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
+
+Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `BILLING_COMPANY_NAME` | `APP_NAME` | Your business name |
+| `BILLING_COMPANY_ADDRESS` | (blank) | Postal address; wrap it in double quotes and use `\n` for new lines |
+| `BILLING_COMPANY_EMAIL` | (blank) | Billing contact email |
+| `BILLING_COMPANY_TAX_ID` | (blank) | Tax or business registration number |
+
+### Activity log
+
+Admins can see who did what under **Activity**: staff and client logins, changes to clients, products, tax rules and staff, invoices created, edited, published and cancelled, payments, refunds, late fees and service status changes. Each entry records the person (or "System" for the nightly billing run and payment webhooks) and their IP address. A client's page shows their 20 most recent entries.
 
 ### Tax
 

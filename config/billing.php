@@ -1,6 +1,14 @@
 <?php
 
 return [
+    // Your business details, printed on invoices. Use "\n" for new lines in the address.
+    'company' => [
+        'name' => env('BILLING_COMPANY_NAME', env('APP_NAME', 'CMS')),
+        'address' => env('BILLING_COMPANY_ADDRESS'),
+        'email' => env('BILLING_COMPANY_EMAIL'),
+        'tax_id' => env('BILLING_COMPANY_TAX_ID'),
+    ],
+
     // Currency for new clients and invoices (ISO 4217).
     'currency' => env('BILLING_CURRENCY', 'USD'),
 

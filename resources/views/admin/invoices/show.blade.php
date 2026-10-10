@@ -3,13 +3,30 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Invoice #{{ $invoice->number }}</h1>
         <x-status-badge :status="$invoice->status" />
-        @if ($invoice->status->value === 'unpaid' && $invoice->amountPaid() === 0)
-            <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}" class="ml-auto" onsubmit="return confirm('Cancel this invoice?')">
-                @csrf
-                <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Cancel invoice</button>
-            </form>
-        @endif
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+            <a href="{{ route('admin.invoices.pdf', $invoice) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Download PDF</a>
+            @can('manage-billing')
+                @if ($invoice->isEditable())
+                    <a href="{{ route('admin.invoices.edit', $invoice) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Edit</a>
+                @endif
+                @if (in_array($invoice->status->value, ['draft', 'unpaid'], true) && $invoice->amountPaid() === 0)
+                    <form method="POST" action="{{ route('admin.invoices.cancel', $invoice) }}" onsubmit="return confirm('Cancel this invoice?')">
+                        @csrf
+                        <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-gray-300 hover:bg-gray-100">Cancel invoice</button>
+                    </form>
+                @endif
+                @if ($invoice->status->value === 'draft')
+                    <form method="POST" action="{{ route('admin.invoices.publish', $invoice) }}" onsubmit="return confirm('Publish this invoice? The client will be able to see and pay it.')">
+                        @csrf
+                        <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">Publish</button>
+                    </form>
+                @endif
+            @endcan
+        </div>
     </div>
+    @if ($invoice->status->value === 'draft')
+        <p class="mb-6 rounded-md bg-yellow-50 px-4 py-3 text-sm text-yellow-800">This is a draft. The client can't see it until you publish it.</p>
+    @endif
 
     <div class="grid gap-6 md:grid-cols-3">
         <div class="md:col-span-2 space-y-6">
@@ -49,7 +66,7 @@
                 @forelse ($invoice->transactions as $transaction)
                     <div class="border-b border-gray-100 py-2 text-sm">
                         <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif</div>
-                        @if ($transaction->refundable() > 0)
+                        @if ($transaction->refundable() > 0 && auth()->user()->can('manage-billing'))
                             <details class="mt-1" @if ($errors->has("refund.{$transaction->id}")) open @endif>
                                 <summary class="cursor-pointer text-indigo-600">Refund</summary>
                                 <form method="POST" action="{{ route('admin.transactions.refund', $transaction) }}" class="mt-2 flex flex-wrap items-end gap-2" onsubmit="return confirm('Refund this payment?')">
@@ -80,7 +97,7 @@
             </div>
         </div>
 
-        @if ($invoice->status->value === 'unpaid')
+        @if ($invoice->status->value === 'unpaid' && auth()->user()->can('manage-billing'))
             <div class="h-fit space-y-6">
             @if ($invoice->client->credit_balance > 0 && $invoice->client->currency === $invoice->currency)
                 <form method="POST" action="{{ route('admin.invoices.credit', $invoice) }}" class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 text-sm">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Activity;
 use App\Models\Client;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,6 +40,7 @@ class ClientController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $client = Client::create($this->validated($request));
+        Activity::record('Created client', $client);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
     }
@@ -50,7 +52,9 @@ class ClientController extends Controller
             'invoices' => fn ($q) => $q->latest('issue_date')->latest('id'),
         ]);
 
-        return view('admin.clients.show', compact('client'));
+        $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
+
+        return view('admin.clients.show', compact('client', 'activity'));
     }
 
     public function edit(Client $client): View
@@ -61,6 +65,7 @@ class ClientController extends Controller
     public function update(Request $request, Client $client): RedirectResponse
     {
         $client->update($this->validated($request, $client));
+        Activity::record('Updated client details', $client, ['changed' => array_keys($client->getChanges())]);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client updated.');
     }
@@ -68,6 +73,7 @@ class ClientController extends Controller
     public function sendPasswordLink(Client $client): RedirectResponse
     {
         $status = Password::broker('clients')->sendResetLink(['email' => $client->email]);
+        Activity::record('Sent a portal password link', $client);
 
         return back()->with('status', $status === Password::RESET_LINK_SENT
             ? "Password setup link sent to {$client->email}."
