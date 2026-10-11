@@ -55,7 +55,9 @@ Run the tests with `php artisan test`.
 
 ## Client portal
 
-Clients log in at `/portal` to see their services and invoices and update their details. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead.
+Clients log in at `/portal` to see their services and invoices and update their details. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
+
+Clients open and follow support tickets under **Support**.
 
 ## Online payments
 
@@ -107,7 +109,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), tax rules, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
 ### Staff roles
 
@@ -115,15 +117,18 @@ Each staff account has one role:
 
 | Role | Can do |
 | --- | --- |
-| Admin | Everything, including staff, products, tax rules, settings and the activity log |
-| Billing | Create and edit clients, services and invoices; record payments, apply credit and refund |
-| Support | Look at clients, services and invoices, and download invoice PDFs, without changing anything |
+| Admin | Everything, including staff, products, tax rules, departments, email templates, the email log, settings and the activity log |
+| Billing | Create and edit clients, services and invoices; record payments, apply credit and refund; handle tickets |
+| Support | Handle tickets; look at clients, services and invoices, and download invoice PDFs, without changing them |
+| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets |
+
+Every role can look at clients, services, invoices and tasks. A custom staff member with nothing ticked can only look.
 
 Admins add and edit staff under **Staff**. You can't delete your own account or remove your own admin role, so there is always at least one admin. From the command line, `php artisan admin:create --role=billing` creates a staff account with a role (the default is `admin`). Staff accounts that existed before roles were added are admins.
 
 ### Settings
 
-Admins change late fees and tax-inclusive pricing under **Settings**. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
+Admins change late fees, tax-inclusive pricing, whether invoice emails attach the PDF, and how long to keep the activity log under **Settings**, which also links to ticket departments and email templates. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
 
 ### Provisioning modules
 
@@ -138,7 +143,36 @@ Two modules come with the app:
 
 ### Staff emails
 
-Staff are emailed when something needs a person: a provisioning action fails or a new manual task opens (staff who can manage clients: admin and billing roles), or a payment is disputed or a dispute changes (staff who can manage billing). Emails go from the queue through the `MAIL_*` settings in `.env`.
+Staff are emailed when something needs a person: a provisioning action fails or a new manual task opens (staff who can manage clients: admin and billing roles), a payment is disputed or a dispute changes (staff who can manage billing), or a client opens or replies to a ticket (the ticket's assignee, or everyone who handles tickets when nobody is assigned). Emails go from the queue through the `MAIL_*` settings in `.env`.
+
+### Support tickets
+
+Add at least one department under **Settings > Departments** (for example Sales and Technical) so clients can open tickets. Give a department an email address to make it the reply-to on ticket emails and to accept tickets by email.
+
+Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department and assignee. A client reply reopens a closed ticket. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
+
+### Tickets by email
+
+Clients can open and reply to tickets by email. Ticket emails carry `[Ticket #N]` in the subject and a "Reply above this line" marker, and use the department's address as the reply-to. When an email arrives:
+
+- a subject with `[Ticket #N]` from the address of that ticket's client adds a reply to it;
+- otherwise, an email from a client's address to a department's address opens a new ticket in that department;
+- anything else (unknown senders, auto-replies, bulk mail) is ignored and noted in the Laravel log.
+
+Quoted text below the marker or an "On ... wrote:" line is dropped, and attachments of other types or over 10 MB are skipped. Anyone can fake a sender address, so treat tickets by email with the same care as any email.
+
+Deliver mail to the app in one of two ways:
+
+1. **Pipe from your mail server.** Forward each department address to a command, for example in `/etc/aliases` with Postfix: `support: "|/usr/bin/php /path/to/cms/artisan tickets:pipe"`. Run it as a user that can write to `storage/`. Add `--department=ID` to put new tickets in a set department when the address the email was sent to isn't a department address (such as a catch-all).
+2. **POST over HTTP.** Set `TICKETS_INBOUND_SECRET` in `.env`, then have your mail service POST the raw email (the full MIME message) as the request body to `https://your-domain/webhooks/email`, with the secret in an `X-Inbound-Secret` header or as `?key=`. `?department=ID` works like `--department`. The endpoint is off while the secret is blank.
+
+### Client emails
+
+The app emails clients when an invoice is issued (with the PDF attached, unless turned off on the **Settings** page), when an invoice becomes overdue, when an invoice is paid in full, when they ask for a password link, and when a ticket is opened or staff reply to it. Draft invoices are never emailed.
+
+Change the subject and wording of each email under **Emails > Email templates**. Bodies are Markdown with placeholders such as `{client_first_name}` and `{invoice_url}`; each template lists the ones it can use. You can turn an email off, or reset it to the default. HTML typed into a template or a ticket reply is shown as text.
+
+Every client email is listed under **Emails** with its status (queued, sent or failed) and full text, and a client's page shows their 10 most recent. Emails are sent from the queue and retried up to three times; staff can use **Send again** on a failed one. Password links are not kept in the log, so those can't be resent: send a new link instead. Run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor) or emails stay queued.
 
 ### Invoices
 
@@ -155,7 +189,9 @@ Staff and clients can download any invoice they can see as a PDF. The company de
 
 ### Activity log
 
-Admins can see who did what under **Activity**: staff and client logins, changes to clients, products, tax rules and staff, invoices created, edited, published and cancelled, payments, refunds, late fees and service status changes. Each entry records the person (or "System" for the nightly billing run and payment webhooks) and their IP address. A client's page shows their 20 most recent entries.
+Admins can see who did what under **Activity**: staff and client logins, changes to clients, products, tax rules and staff, invoices created, edited, published and cancelled, payments, refunds, late fees, service status changes and ticket activity. Each entry records the person (or "System" for the nightly billing run and payment webhooks) and their IP address. A client's page shows their 20 most recent entries.
+
+Entries are kept forever unless you set a number of days on the **Settings** page or with `ACTIVITY_RETENTION_DAYS`. `php artisan activity:prune` deletes older entries, and the scheduler runs it every night.
 
 ### Tax
 
@@ -169,13 +205,13 @@ To refund a payment, open its invoice and use **Refund** under the payment. PayP
 
 ## Scheduled jobs
 
-Add the Laravel scheduler to cron so billing runs daily:
+Add the Laravel scheduler to cron so billing and activity log clean-up run daily:
 
 ```cron
 * * * * * cd /path/to/cms && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-`php artisan billing:run` generates renewal invoices, adds late fees and suspends or terminates overdue services. Its settings are in `config/billing.php` and can be set from `.env`:
+`php artisan billing:run` generates renewal invoices, adds late fees, suspends or terminates overdue services and emails overdue reminders. Its settings are in `config/billing.php` and can be set from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -187,10 +223,13 @@ Add the Laravel scheduler to cron so billing runs daily:
 | `BILLING_LATE_FEE_AFTER_DAYS` | (off) | Days overdue before adding a one-time late fee |
 | `BILLING_LATE_FEE_TYPE` | `fixed` | `fixed` for a set amount, `percent` for a share of the invoice total |
 | `BILLING_LATE_FEE_AMOUNT` | `0` | The fee, e.g. `5.00`, or `10` for 10% |
-
 | `BILLING_TAX_INCLUSIVE` | `false` | Prices include tax |
+| `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
+| `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
+| `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
+| `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 
-Late fees are added once per invoice and are not taxed. The late fee and tax-inclusive settings can also be changed on the admin **Settings** page.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF and activity log settings can also be changed on the admin **Settings** page.
 
 ## License
 

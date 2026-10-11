@@ -16,6 +16,7 @@
                     'portal.dashboard' => 'Home',
                     'portal.services.index' => 'Services',
                     'portal.invoices.index' => 'Invoices',
+                    'portal.tickets.index' => 'Support',
                     'portal.account.edit' => 'Account',
                 ] as $route => $label)
                     <a href="{{ route($route) }}"

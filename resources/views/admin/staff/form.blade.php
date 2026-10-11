@@ -19,6 +19,24 @@
                 </label>
             @endforeach
         </fieldset>
+        <fieldset id="staff-permissions" class="rounded-md bg-ink-50 p-3">
+            <legend class="mb-1 font-medium">Permissions for the custom role</legend>
+            @foreach (App\Enums\StaffRole::ABILITIES as $ability)
+                <label class="mb-1 flex items-start gap-2">
+                    <input type="checkbox" name="permissions[]" value="{{ $ability }}" class="mt-1" @checked(in_array($ability, old('permissions', $user->permissions ?? []), true))>
+                    <span>{{ App\Enums\StaffRole::abilityLabel($ability) }}</span>
+                </label>
+            @endforeach
+        </fieldset>
+        <script>
+            // Show the permission boxes only for the custom role.
+            (() => {
+                const box = document.getElementById('staff-permissions');
+                const sync = () => { box.hidden = document.querySelector('input[name=role]:checked')?.value !== 'custom'; };
+                document.querySelectorAll('input[name=role]').forEach(el => el.addEventListener('change', sync));
+                sync();
+            })();
+        </script>
         <label class="block">{{ $user->exists ? 'New password (leave blank to keep the current one)' : 'Password' }}
             <input type="password" name="password" autocomplete="new-password" @required(! $user->exists) minlength="12" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
         </label>

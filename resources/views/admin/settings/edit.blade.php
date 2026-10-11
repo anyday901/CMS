@@ -1,5 +1,5 @@
 <x-admin-layout title="Settings">
-    <h1 class="mb-6 text-2xl font-semibold">Billing settings</h1>
+    <h1 class="mb-6 text-2xl font-semibold">Settings</h1>
     <form method="POST" action="{{ route('admin.settings.update') }}" class="max-w-2xl space-y-6 rounded-lg border border-ink-200 bg-white p-6 text-sm">
         @csrf
         @method('PUT')
@@ -30,6 +30,29 @@
             <label class="flex items-start gap-2">
                 <input type="checkbox" name="tax_inclusive" value="1" class="mt-1" @checked(old('tax_inclusive', $taxInclusive))>
                 <span>Prices include tax. Invoice totals equal the sum of their lines, and the invoice shows how much of that is tax. Applies to invoices created from now on.</span>
+            </label>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Invoice emails</legend>
+            <input type="hidden" name="attach_invoice_pdf" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="attach_invoice_pdf" value="1" class="mt-1" @checked(old('attach_invoice_pdf', $attachInvoicePdf))>
+                <span>Attach the invoice PDF to new invoice emails.</span>
+            </label>
+            <p class="text-ink-600">Change the wording of client emails under <a href="{{ route('admin.email-templates.index') }}" class="text-brand-600">Email templates</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Support</legend>
+            <p class="text-ink-600">Add and edit ticket departments and their email addresses under <a href="{{ route('admin.departments.index') }}" class="text-brand-600">Departments</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Activity log</legend>
+            <label class="block">Keep entries for this many days
+                <input type="number" name="activity_retention_days" min="1" max="36500" value="{{ old('activity_retention_days', $activityRetentionDays) }}" placeholder="Forever" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">Older entries are deleted every night. Leave blank to keep them forever.</span>
             </label>
         </fieldset>
 

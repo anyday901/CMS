@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ClientStatus;
-use App\Notifications\ClientResetPassword;
+use App\Mail\ClientMailer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -59,6 +59,16 @@ class Client extends Authenticatable
         return $this->hasMany(CreditEntry::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    public function emailLogs(): HasMany
+    {
+        return $this->hasMany(EmailLog::class);
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
@@ -66,7 +76,10 @@ class Client extends Authenticatable
 
     public function sendPasswordResetNotification($token): void
     {
-        $this->notify(new ClientResetPassword($token));
+        app(ClientMailer::class)->send($this, 'password_reset', [
+            'reset_url' => route('portal.password.reset', ['token' => $token, 'email' => $this->email]),
+            'expire_minutes' => config('auth.passwords.clients.expire'),
+        ]);
     }
 
     public function canLogIn(): bool

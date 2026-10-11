@@ -3,13 +3,14 @@
 namespace Tests\Feature\Portal;
 
 use App\Enums\ClientStatus;
+use App\Mail\LoggedEmail;
 use App\Models\Client;
+use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\Service;
 use App\Models\User;
-use App\Notifications\ClientResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PortalTest extends TestCase
@@ -96,18 +97,25 @@ class PortalTest extends TestCase
 
     public function test_password_setup_flow(): void
     {
-        Notification::fake();
+        Mail::fake();
         $client = Client::factory()->create();
 
         $this->post('/portal/forgot-password', ['email' => $client->email])->assertSessionHas('status');
         $this->post('/portal/forgot-password', ['email' => 'nobody@example.com'])->assertSessionHas('status');
 
         $token = null;
-        Notification::assertSentTo($client, ClientResetPassword::class, function ($n) use (&$token) {
-            $token = $n->token;
+        Mail::assertSent(LoggedEmail::class, function (LoggedEmail $mail) use ($client, &$token) {
+            preg_match('#reset-password/([A-Za-z0-9]+)#', $mail->render(), $m);
+            $token = $m[1] ?? null;
 
-            return true;
+            return $mail->hasTo($client->email);
         });
+        Mail::assertSentCount(1);
+
+        // The log keeps a record of the email, but not the private link.
+        $log = EmailLog::sole();
+        $this->assertSame(['password_reset', EmailLog::SENT], [$log->template, $log->status]);
+        $this->assertStringNotContainsString((string) $token, $log->body);
 
         $this->get("/portal/reset-password/{$token}?email={$client->email}")->assertOk();
         $this->post('/portal/reset-password', [
@@ -120,13 +128,13 @@ class PortalTest extends TestCase
 
     public function test_admin_can_email_a_password_link(): void
     {
-        Notification::fake();
+        Mail::fake();
         $client = Client::factory()->create();
         $this->actingAs(User::factory()->create());
 
         $this->post("/admin/clients/{$client->id}/password-link")->assertSessionHas('status');
 
-        Notification::assertSentTo($client, ClientResetPassword::class);
+        Mail::assertSent(LoggedEmail::class, fn (LoggedEmail $mail) => $mail->hasTo($client->email) && str_contains($mail->render(), 'reset-password/'));
     }
 
     public function test_account_details_and_password_change(): void

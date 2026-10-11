@@ -11,7 +11,7 @@
                     <tr>
                         <td class="px-4 py-2"><a href="{{ route('admin.staff.edit', $member) }}" class="text-brand-600">{{ $member->name }}</a>@if ($member->is(auth()->user())) <span class="text-ink-500">(you)</span>@endif</td>
                         <td class="px-4 py-2">{{ $member->email }}</td>
-                        <td class="px-4 py-2">{{ $member->role->label() }}</td>
+                        <td class="px-4 py-2">{{ $member->role->label() }}@if ($member->role === App\Enums\StaffRole::Custom) <span class="text-ink-500">({{ count($member->permissions ?? []) }} permissions)</span>@endif</td>
                         <td class="px-4 py-2 text-right">
                             @unless ($member->is(auth()->user()))
                                 <form method="POST" action="{{ route('admin.staff.destroy', $member) }}" onsubmit="return confirm('Remove {{ e($member->name) }}?')">

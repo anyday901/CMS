@@ -24,7 +24,13 @@ class StaffAlert extends Notification implements ShouldQueueAfterCommit
     /** Emails every staff member whose role has the ability, e.g. manage-billing for disputes. */
     public static function send(string $ability, string $subject, array $lines, string $actionText, string $url): void
     {
-        $staff = User::all()->filter(fn (User $user) => $user->role->allows($ability));
+        self::sendTo(User::all()->filter(fn (User $user) => $user->allows($ability)), $subject, $lines, $actionText, $url);
+    }
+
+    /** @param  iterable<User>  $staff */
+    public static function sendTo(iterable $staff, string $subject, array $lines, string $actionText, string $url): void
+    {
+        $staff = collect($staff);
 
         if ($staff->isNotEmpty()) {
             Notifier::send($staff, new self($subject, $lines, $actionText, $url));

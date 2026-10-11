@@ -23,7 +23,12 @@ class Settings
         'billing.late_fee_type',
         'billing.late_fee_amount',
         'billing.tax_inclusive',
+        'billing.attach_invoice_pdf',
+        'activity.retention_days',
     ];
+
+    /** Saved as 0 or 1, read back as booleans. */
+    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void
@@ -36,7 +41,7 @@ class Settings
         }
 
         foreach (array_intersect_key($saved, array_flip(self::KEYS)) as $key => $value) {
-            config([$key => $key === 'billing.tax_inclusive' ? (bool) $value : $value]);
+            config([$key => in_array($key, self::BOOLEANS, true) ? (bool) $value : $value]);
         }
     }
 

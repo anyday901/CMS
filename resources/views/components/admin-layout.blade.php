@@ -19,9 +19,11 @@
                         'admin.clients.index' => 'Clients',
                         'admin.products.index' => $settings ? 'Products' : null,
                         'admin.invoices.index' => 'Invoices',
+                        'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
+                        'admin.emails.index' => $settings ? 'Emails' : null,
                         'admin.settings.edit' => $settings ? 'Settings' : null,
                         'admin.staff.index' => auth()->user()->can('manage-staff') ? 'Staff' : null,
                     ]);

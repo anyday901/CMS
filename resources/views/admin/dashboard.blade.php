@@ -16,6 +16,12 @@
         @endforeach
     </div>
 
+    @if ($waitingTickets->isNotEmpty())
+        <h2 class="mb-3 mt-10 text-lg font-semibold">Tickets waiting on us</h2>
+        @include('admin.tickets._table', ['tickets' => $waitingTickets])
+        <a href="{{ route('admin.tickets.index') }}" class="mt-2 inline-block text-sm text-brand-600">View all tickets</a>
+    @endif
+
     @if ($openTasks->isNotEmpty())
         <h2 class="mb-3 mt-10 text-lg font-semibold">Open tasks</h2>
         @include('admin.tasks._table', ['tasks' => $openTasks])

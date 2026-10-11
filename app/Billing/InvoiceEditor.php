@@ -3,6 +3,7 @@
 namespace App\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Events\InvoiceIssued;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -44,6 +45,7 @@ class InvoiceEditor
 
         if (! $draft) {
             $this->credit->applyIfEnabled($invoice);
+            InvoiceIssued::dispatch($invoice->refresh());
         }
 
         return $invoice->refresh();
@@ -115,6 +117,7 @@ class InvoiceEditor
         if ($published) {
             Activity::record("Published invoice #{$invoice->number}", $invoice);
             $this->credit->applyIfEnabled($invoice);
+            InvoiceIssued::dispatch($invoice->refresh());
         }
 
         return $invoice->refresh();

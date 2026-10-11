@@ -23,6 +23,8 @@ class SettingsController extends Controller
             'lateFeeType' => config('billing.late_fee_type'),
             'lateFeeAmount' => config('billing.late_fee_amount'),
             'taxInclusive' => (bool) config('billing.tax_inclusive'),
+            'attachInvoicePdf' => (bool) config('billing.attach_invoice_pdf'),
+            'activityRetentionDays' => config('activity.retention_days'),
         ]);
     }
 
@@ -33,6 +35,8 @@ class SettingsController extends Controller
             'late_fee_type' => ['required', Rule::in(['fixed', self::PERCENT])],
             'late_fee_amount' => ['nullable', Money::rule()],
             'tax_inclusive' => ['boolean'],
+            'attach_invoice_pdf' => ['boolean'],
+            'activity_retention_days' => ['nullable', 'integer', 'min:1', 'max:36500'],
         ]);
 
         $amount = Money::parse($data['late_fee_amount'] ?? '0');
@@ -50,13 +54,17 @@ class SettingsController extends Controller
             'billing.late_fee_type' => $data['late_fee_type'],
             'billing.late_fee_amount' => Money::toInput($amount),
             'billing.tax_inclusive' => $request->boolean('tax_inclusive'),
+            'billing.attach_invoice_pdf' => $request->boolean('attach_invoice_pdf'),
+            'activity.retention_days' => filled($data['activity_retention_days'] ?? null) ? (int) $data['activity_retention_days'] : null,
         ]);
 
-        Activity::record('Updated billing settings', null, [
+        Activity::record('Updated settings', null, [
             'late_fee_after_days' => config('billing.late_fee_after_days'),
             'late_fee_type' => config('billing.late_fee_type'),
             'late_fee_amount' => config('billing.late_fee_amount'),
             'tax_inclusive' => (bool) config('billing.tax_inclusive'),
+            'attach_invoice_pdf' => (bool) config('billing.attach_invoice_pdf'),
+            'activity_retention_days' => config('activity.retention_days'),
         ]);
 
         return redirect()->route('admin.settings.edit')->with('status', 'Settings saved.');

@@ -39,12 +39,12 @@ Work toward v1, in rough order. See [docs/spec.md](docs/spec.md) for details. Mo
 - [x] Manual fulfillment tasks
 - [x] Webhook provisioning module
 - [ ] Corey's custom provisioning module
-- [ ] Support tickets with departments, priorities, assignment and attachments
-- [ ] Inbound email piping for tickets
-- [ ] Email templates and email log
-- [ ] Attach the PDF to invoice emails
-- [ ] Custom staff permissions beyond the three built-in roles
-- [ ] Activity log retention setting
+- [x] Support tickets with departments, priorities, assignment and attachments
+- [x] Inbound email piping for tickets
+- [x] Email templates and email log
+- [x] Attach the PDF to invoice emails
+- [x] Custom staff permissions beyond the three built-in roles
+- [x] Activity log retention setting
 
 ## Milestone 4: Migration and release
 - [ ] WHMCS importer with dry-run report
