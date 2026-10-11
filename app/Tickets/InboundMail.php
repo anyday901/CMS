@@ -33,6 +33,8 @@ class InboundMail
 
     public const IGNORED = 'ignored';
 
+    private const TICKET_PATTERN = '/\[Ticket #(\d+)\]/i';
+
     public function __construct(private TicketDesk $desk) {}
 
     /** @return array{0: string, 1: string} The outcome and a short reason, for logs and command output. */
@@ -40,7 +42,7 @@ class InboundMail
     {
         $message = Message::from($raw, false);
         $from = strtolower((string) $message->getHeader('From')?->getEmail());
-        $client = $from === '' ? null : $this->clientFor($from);
+        $client = $from === '' ? null : $this->clientFor($from, (string) $message->getSubject());
         $body = $this->body($message);
         $files = $this->attachments($message);
         $messageId = Str::limit(trim((string) $message->getMessageId()), 250, '') ?: null;
@@ -72,7 +74,7 @@ class InboundMail
     {
         $subject = trim((string) $message->getSubject());
         $body = $body !== '' ? $body : '(Attachments only.)';
-        $ticket = preg_match('/\[Ticket #(\d+)\]/i', $subject, $m)
+        $ticket = preg_match(self::TICKET_PATTERN, $subject, $m)
             ? Ticket::where('client_id', $client->id)->find((int) $m[1])
             : null;
 
@@ -93,11 +95,27 @@ class InboundMail
         return [self::OPENED, "ticket #{$ticket->id} from {$client->email}"];
     }
 
-    /** The client with this address, or the client of a contact who gets support emails. */
-    private function clientFor(string $from): ?Client
+    /**
+     * The client with this address, or the client of a contact who gets
+     * support emails. One address can be a contact for several clients: a
+     * reply to a ticket goes to that ticket's client, and a new email from an
+     * address shared by several clients is ignored rather than guessed.
+     */
+    private function clientFor(string $from, string $subject): ?Client
     {
-        return Client::whereRaw('lower(email) = ?', [$from])->first()
-            ?? ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->oldest('id')->first()?->client;
+        $client = Client::whereRaw('lower(email) = ?', [$from])->first();
+        if ($client !== null) {
+            return $client;
+        }
+
+        $clientIds = ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->distinct()->pluck('client_id');
+        $ticketClient = preg_match(self::TICKET_PATTERN, $subject, $m) ? Ticket::find((int) $m[1])?->client_id : null;
+
+        return match (true) {
+            $ticketClient !== null && $clientIds->contains($ticketClient) => Client::find($ticketClient),
+            $clientIds->count() === 1 => Client::find($clientIds->first()),
+            default => null,
+        };
     }
 
     /** @return array{0: string, 1: string} */

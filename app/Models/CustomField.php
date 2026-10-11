@@ -81,10 +81,11 @@ class CustomField extends Model
     public static function rules(Collection $fields): array
     {
         return $fields->mapWithKeys(fn (self $field) => ["custom_fields.{$field->id}" => array_merge(
-            [$field->required && $field->type !== self::CHECKBOX ? 'required' : 'nullable'],
+            [$field->required ? 'required' : 'nullable'],
             match ($field->type) {
                 'dropdown' => [Rule::in($field->choices())],
-                self::CHECKBOX => ['in:0,1'],
+                // A required checkbox has to be ticked.
+                self::CHECKBOX => [$field->required ? 'accepted' : 'in:0,1'],
                 'textarea' => ['string', 'max:5000'],
                 default => ['string', 'max:1000'],
             },

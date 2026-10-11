@@ -13,6 +13,7 @@ use App\Models\Invoice;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Tickets\InboundMail;
+use App\Tickets\TicketDesk;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -127,5 +128,28 @@ class ClientContactTest extends TestCase
 
         [$outcome] = app(InboundMail::class)->handle($email(self::BOOKKEEPER));
         $this->assertSame(InboundMail::IGNORED, $outcome);
+    }
+
+    public function test_an_address_that_is_a_contact_for_several_clients_follows_the_ticket(): void
+    {
+        Mail::fake();
+        Notification::fake();
+        Storage::fake('local');
+        Department::create(['name' => 'Technical', 'email' => 'support@example.com', 'active' => true]);
+        [$first, $second] = Client::factory()->count(2)->create();
+        $this->contact($first, self::DEVELOPER, ['support_emails' => true]);
+        $this->contact($second, self::DEVELOPER, ['support_emails' => true]);
+        $email = fn (string $subject) => 'From: '.self::DEVELOPER."\r\nTo: support@example.com\r\nSubject: {$subject}\r\nMessage-ID: <".uniqid('', true)."@example.com>\r\nContent-Type: text/plain\r\n\r\nPlease help.\r\n";
+
+        // A new ticket can't tell which client it's for.
+        [$outcome] = app(InboundMail::class)->handle($email('Site down'));
+        $this->assertSame(InboundMail::IGNORED, $outcome);
+
+        // A reply goes to the client whose ticket it is.
+        $department = Department::sole();
+        $ticket = app(TicketDesk::class)->open($second, $department, 'Site down', 'Help');
+        [$outcome] = app(InboundMail::class)->handle($email("Re: [Ticket #{$ticket->id}] Site down"));
+        $this->assertSame(InboundMail::REPLIED, $outcome);
+        $this->assertSame(2, $ticket->messages()->count());
     }
 }

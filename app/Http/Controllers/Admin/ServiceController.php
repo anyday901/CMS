@@ -77,8 +77,9 @@ class ServiceController extends Controller
     }
 
     /**
-     * Custom fields and configurable options. A change in option prices is
-     * added to or taken off the recurring amount from the next invoice; the
+     * Custom fields and configurable options. Options added are priced at
+     * today's prices and options removed come off at the price they were
+     * billed at; the difference applies from the next invoice, and the
      * current period isn't re-invoiced.
      */
     public function update(Request $request, Service $service, ConfigurableOptions $options): RedirectResponse
@@ -87,15 +88,15 @@ class ServiceController extends Controller
         $request->validate(['options' => ['array']] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         try {
-            $selected = $options->select($service->product, (array) $request->input('options', []));
-            $options->assertCurrency($selected, $service->client, $service->billing_cycle);
+            $selected = $options->select($service->product, (array) $request->input('options', []), $service->billing_cycle, $service->options);
+            $options->assertCurrency($selected, $service->client);
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['options' => $e->getMessage()]);
         }
 
         DB::transaction(function () use ($request, $service, $options, $selected, $fields) {
             $before = $service->optionSummary();
-            $change = $options->recurring($selected, $service->billing_cycle) - $options->recurring($service->options->load(['option', 'choice']), $service->billing_cycle);
+            $change = $options->recurring($selected) - $options->recurring($service->options);
 
             $options->save($service, $selected);
             $service->forceFill([

@@ -160,4 +160,20 @@ class ConfigurableOptionsTest extends TestCase
 
         $this->put("/admin/services/{$service->id}", ['options' => [$this->ips->id => '9']])->assertSessionHasErrors('options');
     }
+
+    public function test_changes_use_the_price_each_option_was_billed_at(): void
+    {
+        ['service' => $service] = $this->order([$this->backups->id => '1', $this->ips->id => '1']);
+        $this->assertSame(1350, $service->recurring_amount);
+
+        // Prices go up after the order.
+        $this->backups->choices()->first()->update(['prices' => [self::MONTHLY => 300]]);
+        $this->ips->choices()->first()->update(['prices' => [self::MONTHLY => 500]]);
+        $this->actingAs(User::factory()->create(), 'web');
+
+        // Removing backups takes off the 1.50 it was billed at, and more IPs keep the 2.00 unit price they were billed at.
+        $this->put("/admin/services/{$service->id}", ['options' => [$this->backups->id => '0', $this->ips->id => '2']])->assertRedirect();
+        $this->assertSame(1350 - 150 + 200, $service->fresh()->recurring_amount);
+        $this->assertSame(200, $service->fresh()->options->firstWhere('product_option_id', $this->ips->id)->unit_price);
+    }
 }

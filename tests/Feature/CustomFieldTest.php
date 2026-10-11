@@ -56,6 +56,18 @@ class CustomFieldTest extends TestCase
         $this->get(self::FIELDS)->assertForbidden();
     }
 
+    public function test_a_required_checkbox_must_be_ticked(): void
+    {
+        $terms = CustomField::create(['entity' => 'client', 'name' => 'Accepts terms', 'type' => 'checkbox', 'required' => true]);
+        $client = Client::factory()->create();
+        $details = ['first_name' => 'Jane', 'last_name' => 'Doe', 'email' => $client->email];
+        $this->actingAs($client, 'client');
+
+        $this->put('/portal/account', $details + ['custom_fields' => [$terms->id => '0']])->assertSessionHasErrors("custom_fields.{$terms->id}");
+        $this->put('/portal/account', $details + ['custom_fields' => [$terms->id => '1']])->assertSessionHasNoErrors();
+        $this->assertSame([(string) $terms->id => '1'], $client->fresh()->custom_fields);
+    }
+
     public function test_client_fields_on_the_admin_and_portal_pages(): void
     {
         $vat = CustomField::create(['entity' => 'client', 'name' => self::VAT_NAME, 'type' => 'text', 'required' => true]);

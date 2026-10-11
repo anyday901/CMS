@@ -53,6 +53,8 @@ return new class extends Migration
             $table->foreignId('product_option_id')->constrained()->restrictOnDelete();
             $table->foreignId('product_option_choice_id')->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity')->default(1);
+            // The price per unit when chosen, so later catalog changes don't reprice it.
+            $table->unsignedBigInteger('unit_price')->default(0);
             $table->timestamps();
             $table->unique(['service_id', 'product_option_id']);
         });

@@ -40,9 +40,9 @@ class OrderService
     ): array {
         $price = $product->priceFor($cycle, $client->currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$client->currency}.");
-        $selected = $this->options->select($product, $choices->options);
-        $this->options->assertCurrency($selected, $client, $cycle);
-        $recurring = $price->price + $this->options->recurring($selected, $cycle);
+        $selected = $this->options->select($product, $choices->options, $cycle);
+        $this->options->assertCurrency($selected, $client);
+        $recurring = $price->price + $this->options->recurring($selected);
         $setupFee = $price->setup_fee + $this->options->setupFee($selected);
 
         $order = DB::transaction(function () use ($client, $product, $cycle, $start, $label, $invoice, $choices, $selected, $recurring, $setupFee) {

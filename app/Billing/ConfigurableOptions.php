@@ -18,14 +18,22 @@ use InvalidArgumentException;
 class ConfigurableOptions
 {
     /**
+     * Each choice is priced at today's price for the cycle, except a choice the
+     * service already has, which keeps the price it was billed at.
+     *
      * @param  array<int|string, mixed>  $input  Option id => choice id (dropdown), "1" (checkbox) or a number (quantity).
+     * @param  Collection<int, ServiceOption>|null  $current  The service's options, when changing them.
      * @return Collection<int, ServiceOption> Unsaved, with option and choice loaded.
      */
-    public function select(Product $product, array $input): Collection
+    public function select(Product $product, array $input, BillingCycle $cycle, ?Collection $current = null): Collection
     {
         return $product->options()->with('choices')->get()
             ->map(fn (ProductOption $option) => $this->selectOne($option, $input[$option->id] ?? null))
             ->filter()
+            ->each(function (ServiceOption $chosen) use ($cycle, $current) {
+                $kept = $current?->first(fn (ServiceOption $old) => $old->product_option_choice_id === $chosen->product_option_choice_id);
+                $chosen->unit_price = $kept?->unit_price ?? $chosen->choice->priceFor($cycle);
+            })
             ->values();
     }
 
@@ -70,9 +78,9 @@ class ConfigurableOptions
     }
 
     /** @param  Collection<int, ServiceOption>  $selected */
-    public function recurring(Collection $selected, BillingCycle $cycle): int
+    public function recurring(Collection $selected): int
     {
-        return (int) $selected->sum(fn (ServiceOption $chosen) => $chosen->choice->priceFor($cycle) * $chosen->quantity);
+        return (int) $selected->sum(fn (ServiceOption $chosen) => $chosen->unit_price * $chosen->quantity);
     }
 
     /** @param  Collection<int, ServiceOption>  $selected */
@@ -87,9 +95,9 @@ class ConfigurableOptions
      *
      * @param  Collection<int, ServiceOption>  $selected
      */
-    public function assertCurrency(Collection $selected, Client $client, BillingCycle $cycle): void
+    public function assertCurrency(Collection $selected, Client $client): void
     {
-        if ($client->currency !== config('billing.currency') && ($this->recurring($selected, $cycle) > 0 || $this->setupFee($selected) > 0)) {
+        if ($client->currency !== config('billing.currency') && ($this->recurring($selected) > 0 || $this->setupFee($selected) > 0)) {
             throw new InvalidArgumentException('Configurable option prices are only set in '.config('billing.currency').", but this client is billed in {$client->currency}.");
         }
     }
