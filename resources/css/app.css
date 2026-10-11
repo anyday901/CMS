@@ -94,6 +94,11 @@
     table {
         font-variant-numeric: tabular-nums;
     }
+
+    input[type='checkbox'],
+    input[type='radio'] {
+        accent-color: var(--color-brand-600);
+    }
 }
 
 @utility brand-mark {

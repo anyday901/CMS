@@ -90,7 +90,7 @@ class ServiceController extends Controller
 
         abort_if($modules->find($service->product->module) === null, 422, 'This service\'s product has no provisioning module.');
 
-        $provisioner->queue($service, $data['action']);
+        $provisioner->queue($service, $data['action'], retry: true);
         Activity::record("Queued {$data['action']} on the provisioning module for {$service->description()}", $service);
 
         return back()->with('status', 'Provisioning action queued.');

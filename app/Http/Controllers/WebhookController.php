@@ -22,12 +22,16 @@ class WebhookController extends Controller
             return response('', 400);
         }
 
-        if (($event['event_type'] ?? null) === 'PAYMENT.CAPTURE.COMPLETED') {
+        $type = (string) ($event['event_type'] ?? '');
+
+        if ($type === 'PAYMENT.CAPTURE.COMPLETED') {
             try {
                 $paypal->captureCompleted($event['resource'] ?? []);
             } catch (PaymentFailed) {
                 // Already logged; acknowledge so PayPal stops retrying.
             }
+        } elseif (str_starts_with($type, 'CUSTOMER.DISPUTE.')) {
+            $paypal->disputeUpdated($event['resource'] ?? []);
         }
 
         return response('', 200);

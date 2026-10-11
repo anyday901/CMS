@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Activity;
 use App\Models\Service;
+use App\Notifications\StaffAlert;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
 use App\Provisioning\ProvisioningModule;
@@ -27,7 +28,11 @@ class RunProvisioningAction implements ShouldQueue
 
     private const WAIT_SECONDS = 15;
 
-    public function __construct(public Service $service, public string $action, public int $sequence) {}
+    /** @param  int|null  $operation  Defaults to the sequence; a retry of a failed action passes that action's operation. */
+    public function __construct(public Service $service, public string $action, public int $sequence, public ?int $operation = null)
+    {
+        $this->operation ??= $sequence;
+    }
 
     /** @return list<object> */
     public function middleware(): array
@@ -65,16 +70,21 @@ class RunProvisioningAction implements ShouldQueue
         $service = $this->service->fresh();
 
         if ($service && $this->sequence > $service->provisioning_finished) {
+            $error = "The {$this->action} action timed out waiting for an earlier action. Run it again when the module is reachable.";
             $service->forceFill([
                 'provisioning_status' => Provisioner::FAILED,
-                'provisioning_error' => "The {$this->action} action timed out waiting for an earlier action. Run it again when the module is reachable.",
+                'provisioning_error' => $error,
                 'provisioning_finished' => $this->sequence,
+                'provisioning_operation' => $this->operation,
             ])->save();
+            $this->alert($service, $error);
         }
     }
 
     private function run(Service $service, ProvisioningModule $module): ProvisioningResult
     {
+        $service->provisioningOperation = $this->operation;
+
         try {
             return $module->{$this->action}($service);
         } catch (Throwable $e) {
@@ -98,12 +108,32 @@ class RunProvisioningAction implements ShouldQueue
             'provisioned_at' => $result->ok ? now() : $service->provisioned_at,
             'provisioning_data' => array_merge($service->provisioning_data ?? [], $result->data),
             'provisioning_finished' => $this->sequence,
+            'provisioning_operation' => $this->operation,
         ])->save();
 
         Activity::record(
             ucfirst($this->action)." on {$module->label()} ".($result->ok ? 'done' : 'failed').' for '.$service->description()
                 .($result->message ? ": {$result->message}" : ''),
             $service,
+        );
+
+        if (! $result->ok) {
+            $this->alert($service, $result->message);
+        }
+    }
+
+    private function alert(Service $service, ?string $error): void
+    {
+        StaffAlert::send(
+            'manage-clients',
+            "Provisioning failed: {$this->action} for {$service->description()}",
+            array_values(array_filter([
+                "The {$this->action} action failed for {$service->description()} ({$service->client->fullName()}).",
+                $error ? "Error: {$error}" : null,
+                'Fix the cause, then run the action again from the service page.',
+            ])),
+            'Open the service',
+            route('admin.services.show', $service),
         );
     }
 }

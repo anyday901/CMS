@@ -16,6 +16,12 @@
         @endforeach
     </div>
 
+    @if ($openTasks->isNotEmpty())
+        <h2 class="mb-3 mt-10 text-lg font-semibold">Open tasks</h2>
+        @include('admin.tasks._table', ['tasks' => $openTasks])
+        <a href="{{ route('admin.tasks.index') }}" class="mt-2 inline-block text-sm text-brand-600">View all tasks</a>
+    @endif
+
     <h2 class="mb-3 mt-10 text-lg font-semibold">Overdue invoices</h2>
     @if ($overdue->isEmpty())
         <p class="text-sm text-ink-500">Nothing overdue.</p>

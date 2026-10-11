@@ -19,14 +19,24 @@ class Provisioner
 
     public function __construct(private ModuleRegistry $modules) {}
 
-    public function queue(Service $service, string $action): void
+    /**
+     * Queues an action. Each action is a new operation, except when staff
+     * retry the action that just failed: that keeps its operation number, so
+     * the module can tell a retry from a new action (see Service::$provisioningOperation).
+     */
+    public function queue(Service $service, string $action, bool $retry = false): void
     {
         if ($this->modules->find($service->product->module) === null) {
             return;
         }
 
-        $sequence = DB::transaction(function () use ($service, $action) {
+        [$sequence, $operation] = DB::transaction(function () use ($service, $action, $retry) {
             $locked = Service::lockForUpdate()->findOrFail($service->id);
+            $retryingFailure = $retry
+                && $locked->provisioning_status === self::FAILED
+                && $locked->provisioning_action === $action
+                && $locked->provisioning_operation > 0;
+
             $locked->forceFill([
                 'provisioning_status' => self::PENDING,
                 'provisioning_action' => $action,
@@ -34,9 +44,9 @@ class Provisioner
                 'provisioning_queued' => $locked->provisioning_queued + 1,
             ])->save();
 
-            return $locked->provisioning_queued;
+            return [$locked->provisioning_queued, $retryingFailure ? $locked->provisioning_operation : $locked->provisioning_queued];
         });
 
-        RunProvisioningAction::dispatch($service, $action, $sequence);
+        RunProvisioningAction::dispatch($service, $action, $sequence, $operation);
     }
 }

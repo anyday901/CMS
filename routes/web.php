@@ -62,6 +62,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
+            Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
@@ -84,6 +85,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('clients', [Admin\ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [Admin\ClientController::class, 'show'])->name('clients.show');
         Route::get('services/{service}', [Admin\ServiceController::class, 'show'])->name('services.show');
+        Route::get('tasks', [Admin\TaskController::class, 'index'])->name('tasks.index');
+        Route::get('tasks/{task}', [Admin\TaskController::class, 'show'])->name('tasks.show');
         Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 

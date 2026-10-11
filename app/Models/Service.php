@@ -22,6 +22,13 @@ class Service extends Model
         'status' => 'pending',
     ];
 
+    /**
+     * Set while a provisioning action runs: the same number for every run of
+     * one action (including staff retries after a failure), different for
+     * each new action. Modules use it to recognise a repeat. Not saved.
+     */
+    public ?int $provisioningOperation = null;
+
     protected function casts(): array
     {
         return [
