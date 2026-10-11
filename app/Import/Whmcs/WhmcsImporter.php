@@ -2,6 +2,7 @@
 
 namespace App\Import\Whmcs;
 
+use App\Auth\LegacyPassword;
 use App\Billing\CreditApplier;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
@@ -464,7 +465,7 @@ class WhmcsImporter
                 'company' => Str::limit(Whmcs::text($row->companyname ?? ''), 250, '') ?: null,
                 'email' => $email,
                 'password' => null,
-                'legacy_password' => $passwords[(int) $row->id] ?? (filled($row->password ?? null) ? (string) $row->password : null),
+                'legacy_password' => $this->passwordHash($row, $passwords[(int) $row->id] ?? null),
                 'phone' => Str::limit(Whmcs::text($row->phonenumber ?? ''), 250, '') ?: null,
                 'address1' => Str::limit(Whmcs::text($row->address1 ?? ''), 250, '') ?: null,
                 'address2' => Str::limit(Whmcs::text($row->address2 ?? ''), 250, '') ?: null,
@@ -495,6 +496,20 @@ class WhmcsImporter
             $this->clients[(int) $row->id] = $currency;
             $this->report->imported(self::CLIENTS);
         }
+    }
+
+    /** The client's WHMCS hash when it can be checked at login; older formats mean a password reset. */
+    private function passwordHash(object $row, ?string $ownerHash): ?string
+    {
+        $hash = $ownerHash ?? (filled($row->password ?? null) ? (string) $row->password : null);
+
+        if ($hash !== null && ! LegacyPassword::supported($hash)) {
+            $this->report->note(self::CLIENTS, "Client {$row->id} has an old WHMCS password hash that can't be checked safely, so they'll need to use Forgot password.");
+
+            return null;
+        }
+
+        return $hash;
     }
 
     /**

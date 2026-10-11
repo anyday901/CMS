@@ -204,21 +204,26 @@ class WhmcsImportTest extends TestCase
     public function test_setting_a_new_password_drops_the_whmcs_one(): void
     {
         $client = Client::factory()->create(['password' => null]);
-        $client->forceFill(['legacy_password' => md5('salt'.'pw').':salt'])->save();
+        $client->forceFill(['legacy_password' => password_hash('old-secret', PASSWORD_BCRYPT)])->save();
 
         $client->forceFill(['password' => 'a-new-password'])->save();
 
         $this->assertNull($client->fresh()->legacy_password);
     }
 
-    public function test_legacy_password_formats(): void
+    public function test_only_modern_whmcs_hashes_are_kept(): void
     {
         $this->assertTrue(LegacyPassword::verify('pw', password_hash('pw', PASSWORD_BCRYPT)));
-        $this->assertTrue(LegacyPassword::verify('pw', md5('ab'.'pw').':ab'));
-        $this->assertTrue(LegacyPassword::verify('pw', md5('pw')));
-        $this->assertFalse(LegacyPassword::verify('nope', md5('ab'.'pw').':ab'));
-        $this->assertFalse(LegacyPassword::verify('pw', 'something-else'));
+        $this->assertFalse(LegacyPassword::verify('nope', password_hash('pw', PASSWORD_BCRYPT)));
+        $this->assertFalse(LegacyPassword::verify('pw', '5f4dcc3b5aa765d61d8327deb882cf99:salt'));
         $this->assertFalse(LegacyPassword::verify('pw', null));
+
+        $this->whmcs->table('tblusers')->delete();
+        $this->whmcs->table('tblclients')->where('id', 7)->update(['password' => '5f4dcc3b5aa765d61d8327deb882cf99:salt']);
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+
+        $this->assertNull(Client::findOrFail(7)->legacy_password);
+        $this->assertStringContainsString('Forgot password', $report->toMarkdown());
     }
 
     public function test_replies_to_old_whmcs_ticket_emails_find_the_ticket(): void

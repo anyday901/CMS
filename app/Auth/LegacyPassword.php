@@ -3,33 +3,21 @@
 namespace App\Auth;
 
 /**
- * Checks a password against a hash imported from WHMCS. Newer WHMCS installs
- * use bcrypt; older ones stored md5(salt + password) as "hash:salt", or a
- * bare md5. Unknown formats never match, so those clients reset their
- * password by email instead.
+ * Checks a password against a hash imported from WHMCS. WHMCS has used
+ * bcrypt since 5.3.9 and moves older hashes to it at login, so only modern
+ * hashes are kept. Clients whose WHMCS hash was older reset their password
+ * by email instead.
  */
 class LegacyPassword
 {
+    /** Whether a WHMCS hash is one this app can check (bcrypt or Argon2). */
+    public static function supported(?string $hash): bool
+    {
+        return in_array(password_get_info(trim((string) $hash))['algoName'], ['bcrypt', 'argon2i', 'argon2id'], true);
+    }
+
     public static function verify(string $password, ?string $hash): bool
     {
-        $hash = trim((string) $hash);
-
-        if ($hash === '' || $password === '') {
-            return false;
-        }
-
-        if (str_starts_with($hash, '$')) {
-            return password_verify($password, $hash);
-        }
-
-        if (preg_match('/^([a-f0-9]{32}):(.+)$/i', $hash, $m)) {
-            return hash_equals(strtolower($m[1]), md5($m[2].$password));
-        }
-
-        if (preg_match('/^[a-f0-9]{32}$/i', $hash)) {
-            return hash_equals(strtolower($hash), md5($password));
-        }
-
-        return false;
+        return $password !== '' && self::supported($hash) && password_verify($password, trim((string) $hash));
     }
 }

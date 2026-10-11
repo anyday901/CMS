@@ -10,7 +10,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-in
 FROM node:22-alpine AS assets
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY vite.config.js ./
 COPY resources ./resources
 COPY --from=vendor /app/vendor/laravel/framework/src/Illuminate/Pagination/resources/views ./vendor/laravel/framework/src/Illuminate/Pagination/resources/views
@@ -34,10 +34,12 @@ RUN composer dump-autoload --optimize --no-dev --no-interaction \
 
 COPY docker/entrypoint.sh /usr/local/bin/cms-entrypoint
 RUN chmod +x /usr/local/bin/cms-entrypoint
+USER www-data
 ENTRYPOINT ["cms-entrypoint"]
 CMD ["php-fpm"]
 
 # Nginx in front, serving the built assets and passing PHP to the app.
-FROM nginx:1.27-alpine AS web
+# The unprivileged image runs as the nginx user and listens on 8080.
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS web
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=app /var/www/html/public /var/www/html/public
