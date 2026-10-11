@@ -41,7 +41,8 @@ class Impersonation
             Activity::record("Left the portal as {$client->fullName()}", $client);
         }
 
-        Auth::guard('client')->logout();
+        // Not logout(): that rotates the client's remember token and signs them out on their own devices.
+        Auth::guard('client')->logoutCurrentDevice();
         session()->forget(self::KEY);
         session()->regenerate();
 

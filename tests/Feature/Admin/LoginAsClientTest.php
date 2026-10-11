@@ -42,12 +42,15 @@ class LoginAsClientTest extends TestCase
     {
         $staff = User::factory()->create();
         $client = Client::factory()->create();
+        $client->forceFill(['remember_token' => 'their-own-device'])->save();
         $this->actingAs($staff, 'web');
         $this->post("/admin/clients/{$client->id}/login-as");
 
         $this->post('/portal/logout')->assertRedirect("/admin/clients/{$client->id}");
         $this->assertGuest('client');
         $this->assertAuthenticatedAs($staff, 'web');
+        // The client stays remembered on their own devices.
+        $this->assertSame('their-own-device', $client->fresh()->remember_token);
     }
 
     public function test_closed_clients_and_staff_without_client_access_are_refused(): void
