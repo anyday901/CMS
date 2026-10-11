@@ -11,7 +11,7 @@ class TicketMessage extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'body', 'internal', 'via'];
+    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'body', 'internal', 'via', 'email_message_id'];
 
     protected function casts(): array
     {

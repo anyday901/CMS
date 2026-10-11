@@ -6,6 +6,8 @@ use App\Mail\EmailTemplates;
 use App\Models\Client;
 use App\Models\Department;
 use App\Models\Ticket;
+use App\Models\TicketMessage;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use ZBateson\MailMimeParser\Header\AddressHeader;
@@ -59,11 +61,31 @@ class InboundMail
             return $this->ignore("empty message from {$from}");
         }
 
+        $messageId = Str::limit(trim((string) $message->getMessageId()), 250, '') ?: null;
+
+        if ($messageId !== null && TicketMessage::where('email_message_id', $messageId)->exists()) {
+            return $this->ignore("already received {$messageId}");
+        }
+
+        try {
+            return $this->apply($client, $from, $subject, $body, $files, $department, $message, $messageId);
+        } catch (UniqueConstraintViolationException) {
+            // The same email arrived twice at once and the other delivery won.
+            return $this->ignore("already received {$messageId}");
+        }
+    }
+
+    /**
+     * @param  list<array{name: string, mime: ?string, contents: string}>  $files
+     * @return array{0: string, 1: string}
+     */
+    private function apply(Client $client, string $from, string $subject, string $body, array $files, ?Department $department, IMessage $message, ?string $messageId): array
+    {
         if (preg_match('/\[Ticket #(\d+)\]/i', $subject, $m)) {
             $ticket = Ticket::where('client_id', $client->id)->find((int) $m[1]);
 
             if ($ticket !== null) {
-                $this->desk->clientReply($ticket, $body !== '' ? $body : '(Attachments only.)', $files, 'email');
+                $this->desk->clientReply($ticket, $body !== '' ? $body : '(Attachments only.)', $files, 'email', $messageId);
 
                 return [self::REPLIED, "reply on ticket #{$ticket->id} from {$from}"];
             }
@@ -82,6 +104,7 @@ class InboundMail
             $body !== '' ? $body : '(Attachments only.)',
             files: $files,
             via: 'email',
+            emailMessageId: $messageId,
         );
 
         return [self::OPENED, "ticket #{$ticket->id} from {$from}"];

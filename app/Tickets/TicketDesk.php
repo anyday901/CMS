@@ -31,7 +31,7 @@ class TicketDesk
 
     public const MAX_KB = 10240;
 
-    /** Longest message body kept, so a huge email can't fill a text column. */
+    /** Longest message body kept, so a huge email can't fill the database. */
     public const MAX_BODY = 60000;
 
     public function __construct(private ClientMailer $mailer) {}
@@ -63,9 +63,9 @@ class TicketDesk
     }
 
     /** @param  list<array{name: string, mime: ?string, contents: string}>  $files */
-    public function open(Client $client, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], string $via = 'web'): Ticket
+    public function open(Client $client, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], string $via = 'web', ?string $emailMessageId = null): Ticket
     {
-        $ticket = DB::transaction(function () use ($client, $department, $subject, $body, $priority, $files, $via) {
+        $ticket = DB::transaction(function () use ($client, $department, $subject, $body, $priority, $files, $via, $emailMessageId) {
             $ticket = Ticket::create([
                 'client_id' => $client->id,
                 'department_id' => $department->id,
@@ -74,7 +74,7 @@ class TicketDesk
                 'priority' => $priority,
                 'last_reply_at' => now(),
             ]);
-            $this->addMessage($ticket, ['client_id' => $client->id, 'via' => $via], $body, $files);
+            $this->addMessage($ticket, ['client_id' => $client->id, 'via' => $via, 'email_message_id' => $emailMessageId], $body, $files);
             Activity::record("Opened ticket #{$ticket->id}: {$ticket->subject}", $ticket, $via === 'email' ? ['via' => 'email'] : []);
 
             return $ticket;
@@ -91,10 +91,10 @@ class TicketDesk
      *
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
      */
-    public function clientReply(Ticket $ticket, string $body, array $files = [], string $via = 'web'): TicketMessage
+    public function clientReply(Ticket $ticket, string $body, array $files = [], string $via = 'web', ?string $emailMessageId = null): TicketMessage
     {
-        $message = DB::transaction(function () use ($ticket, $body, $files, $via) {
-            $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id, 'via' => $via], $body, $files);
+        $message = DB::transaction(function () use ($ticket, $body, $files, $via, $emailMessageId) {
+            $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id, 'via' => $via, 'email_message_id' => $emailMessageId], $body, $files);
             $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now()]);
             Activity::record("Client replied to ticket #{$ticket->id}", $ticket, $via === 'email' ? ['via' => 'email'] : []);
 

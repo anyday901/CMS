@@ -69,11 +69,13 @@ return new class extends Migration
             $table->foreignId('ticket_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete();
-            $table->text('body');
+            $table->longText('body');
             // Internal notes are for staff only and never emailed.
             $table->boolean('internal')->default(false);
             // web or email
             $table->string('via')->default('web');
+            // The Message-ID of a piped email, so a redelivered email isn't added twice.
+            $table->string('email_message_id')->nullable()->unique();
             $table->timestamp('created_at')->nullable();
         });
 

@@ -35,7 +35,7 @@ class InboundTicketMailTest extends TestCase
 
     private function email(string $subject, string $body, string $from = 'Jane Doe <Jane@Example.com>', string $to = 'support@example.com', string $extra = ''): string
     {
-        return "From: {$from}\r\nTo: {$to}\r\nSubject: {$subject}\r\nMessage-ID: <x@example.com>\r\nMIME-Version: 1.0\r\n{$extra}Content-Type: text/plain; charset=UTF-8\r\n\r\n{$body}\r\n";
+        return "From: {$from}\r\nTo: {$to}\r\nSubject: {$subject}\r\nMessage-ID: <".uniqid('', true)."@example.com>\r\nMIME-Version: 1.0\r\n{$extra}Content-Type: text/plain; charset=UTF-8\r\n\r\n{$body}\r\n";
     }
 
     public function test_an_email_to_a_department_opens_a_ticket_and_a_reply_adds_to_it(): void
@@ -56,13 +56,24 @@ class InboundTicketMailTest extends TestCase
         $this->assertSame('Thanks, that worked.', TicketMessage::latest('id')->first()->body);
     }
 
+    public function test_a_redelivered_email_is_only_added_once(): void
+    {
+        $raw = $this->email('Cannot log in', 'Help please.');
+        $inbound = app(InboundMail::class);
+
+        $this->assertSame(InboundMail::OPENED, $inbound->handle($raw)[0]);
+        $this->assertSame(InboundMail::IGNORED, $inbound->handle($raw)[0]);
+        $this->assertSame(1, Ticket::count());
+        $this->assertSame(1, TicketMessage::count());
+    }
+
     public function test_reply_marker_cuts_the_quoted_email(): void
     {
         $ticket = Ticket::create(['client_id' => $this->client->id, 'department_id' => $this->department->id, 'subject' => 'Billing']);
 
-        app(InboundMail::class)->handle($this->email("[Ticket #{$ticket->id}] Billing", "Got it\n\n-- Reply above this line --\nold text"));
+        app(InboundMail::class)->handle($this->email("[Ticket #{$ticket->id}] Billing", "Got it 👍\n\n-- Reply above this line --\nold text"));
 
-        $this->assertSame('Got it', TicketMessage::sole()->body);
+        $this->assertSame('Got it 👍', TicketMessage::sole()->body);
     }
 
     public function test_strangers_auto_replies_and_other_clients_tickets_are_ignored(): void
