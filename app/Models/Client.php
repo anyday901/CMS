@@ -19,7 +19,7 @@ class Client extends Authenticatable
         'currency', 'tax_exempt', 'status', 'notes', 'custom_fields',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'legacy_password', 'remember_token'];
 
     protected $attributes = [
         'status' => 'active',
@@ -31,6 +31,13 @@ class Client extends Authenticatable
     {
         static::creating(function (Client $client) {
             $client->currency ??= config('billing.currency');
+        });
+
+        // A new password replaces any password brought over from WHMCS.
+        static::saving(function (Client $client) {
+            if ($client->isDirty('password') && $client->password !== null) {
+                $client->legacy_password = null;
+            }
         });
     }
 

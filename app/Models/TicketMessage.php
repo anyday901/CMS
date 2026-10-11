@@ -11,7 +11,7 @@ class TicketMessage extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'body', 'internal', 'via', 'email_message_id'];
+    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'author_name', 'body', 'internal', 'via', 'email_message_id'];
 
     protected function casts(): array
     {
@@ -46,7 +46,7 @@ class TicketMessage extends Model
     public function authorName(): string
     {
         return $this->fromStaff()
-            ? ($this->user->name ?? 'Staff')
-            : ($this->client?->fullName() ?? 'Client');
+            ? ($this->user->name ?? $this->author_name ?? 'Staff')
+            : ($this->author_name ?? $this->client?->fullName() ?? 'Client');
     }
 }
