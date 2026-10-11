@@ -3,12 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Import\Whmcs\BillingComparison;
+use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Setting;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Throwable;
 
 class WhmcsCompare extends Command
@@ -28,7 +28,7 @@ class WhmcsCompare extends Command
             $source = DB::connection($this->option('connection'));
             $source->getPdo();
             BillingComparison::lastImportedInvoice();
-        } catch (RuntimeException $e) {
+        } catch (ImportException $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;

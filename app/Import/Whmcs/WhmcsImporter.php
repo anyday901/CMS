@@ -18,7 +18,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -122,7 +121,7 @@ class WhmcsImporter
 
     public function __construct(private ?string $attachmentsPath = null) {}
 
-    /** @throws RuntimeException when this install already has data */
+    /** @throws ImportException when this install already has data */
     public function run(ConnectionInterface $source, bool $dryRun): ImportReport
     {
         $this->source = $source;
@@ -132,7 +131,7 @@ class WhmcsImporter
 
         foreach (self::TARGET_TABLES as $table) {
             if (DB::table($table)->exists()) {
-                throw new RuntimeException("This install already has {$table}. Import into a new, empty install (run php artisan migrate:fresh first if it only has test data).");
+                throw new ImportException("This install already has {$table}. Import into a new, empty install (run php artisan migrate:fresh first if it only has test data).");
             }
         }
 
@@ -459,9 +458,11 @@ class WhmcsImporter
 
         foreach ($this->source->table('tblcustomfieldsvalues')->whereIn('fieldid', array_keys($this->fields))->cursor() as $value) {
             $field = $this->fields[(int) $value->fieldid];
-            $text = $field['type'] === CustomField::CHECKBOX
-                ? (Whmcs::on($value->value) ? '1' : '')
-                : Whmcs::text($value->value);
+            $text = Whmcs::text($value->value);
+
+            if ($field['type'] === CustomField::CHECKBOX) {
+                $text = Whmcs::on($value->value) ? '1' : '';
+            }
 
             if ($text === '') {
                 continue;
@@ -656,7 +657,7 @@ class WhmcsImporter
                 'registration_date' => $this->day($registered),
                 'next_due_date' => $cycle->isRecurring() ? $this->day(Whmcs::date($row->nextduedate)) : null,
                 'suspended_at' => $status === ServiceStatus::Suspended ? $this->now : null,
-                'suspension_reason' => $status === ServiceStatus::Suspended ? (Str::limit(Whmcs::text($row->suspendreason ?? ''), 250, '') ?: 'Suspended in WHMCS') : null,
+                'suspension_reason' => $status === ServiceStatus::Suspended ? $this->suspensionReason($row) : null,
                 'terminated_at' => $status === ServiceStatus::Terminated ? Whmcs::dateTime($row->termination_date ?? null) ?? $this->now : null,
                 'custom_fields' => $values === [] ? null : json_encode(array_combine(array_map('strval', array_keys($values)), $values)),
                 'created_at' => Whmcs::dateTime($row->created_at ?? null) ?? "{$registered} 00:00:00",
@@ -980,19 +981,29 @@ class WhmcsImporter
         $this->report->imported(self::TICKETS);
     }
 
+    private function suspensionReason(object $row): string
+    {
+        return Str::limit(Whmcs::text($row->suspendreason ?? ''), 250, '') ?: 'Suspended in WHMCS';
+    }
+
     /** A ticket's first message (kept on the ticket row in WHMCS) or one of its replies. */
     private function message(int $ticketId, int $clientId, object $row, string $at): void
     {
         $staff = trim((string) ($row->admin ?? '')) !== '';
         $files = array_values(array_filter(explode('|', (string) ($row->attachment ?? ''))));
         $body = Whmcs::text($row->message ?? '');
+        $author = $staff ? Whmcs::text($row->admin) : Whmcs::text($row->name ?? '');
+
+        if ($body === '') {
+            $body = $files !== [] ? '(Attachments only.)' : '(No message.)';
+        }
 
         $messageId = DB::table('ticket_messages')->insertGetId([
             'ticket_id' => $ticketId,
             'user_id' => null,
             'client_id' => $staff ? null : $clientId,
-            'author_name' => Str::limit($staff ? Whmcs::text($row->admin) : Whmcs::text($row->name ?? ''), 250, '') ?: null,
-            'body' => $body !== '' ? $body : ($files !== [] ? '(Attachments only.)' : '(No message.)'),
+            'author_name' => Str::limit($author, 250, '') ?: null,
+            'body' => $body,
             'internal' => false,
             'via' => 'whmcs',
             'created_at' => $at,

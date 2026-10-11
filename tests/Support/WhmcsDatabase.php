@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\DB;
 class WhmcsDatabase
 {
     public const CONNECTION = 'whmcs';
+
+    /** The VPS's monthly price. */
+    private const PRICE = '13.00';
+
+    private const NOVEMBER = '2026-11-15';
 
     public static function create(): ConnectionInterface
     {
@@ -29,6 +35,16 @@ class WhmcsDatabase
         $db = DB::connection(self::CONNECTION);
         $schema = $db->getSchemaBuilder();
 
+        self::clientTables($schema);
+        self::productTables($schema);
+        self::serviceTables($schema);
+        self::ticketTables($schema);
+
+        return $db;
+    }
+
+    private static function clientTables(Builder $schema): void
+    {
         $schema->create('tblcurrencies', function (Blueprint $t) {
             $t->id();
             $t->string('code');
@@ -65,6 +81,10 @@ class WhmcsDatabase
                 $t->text($column)->nullable();
             }
         });
+    }
+
+    private static function productTables(Builder $schema): void
+    {
         $schema->create('tblproducts', function (Blueprint $t) {
             $t->id();
             foreach (['name', 'description', 'hidden', 'retired', 'tax', 'paytype', 'servertype'] as $column) {
@@ -125,6 +145,10 @@ class WhmcsDatabase
             $t->integer('relid');
             $t->text('value')->nullable();
         });
+    }
+
+    private static function serviceTables(Builder $schema): void
+    {
         $schema->create('tblhosting', function (Blueprint $t) {
             $t->id();
             $t->integer('userid');
@@ -192,6 +216,10 @@ class WhmcsDatabase
             $t->date('nextduedate')->nullable();
             $t->string('status');
         });
+    }
+
+    private static function ticketTables(Builder $schema): void
+    {
         $schema->create('tblticketdepartments', function (Blueprint $t) {
             $t->id();
             $t->string('name');
@@ -224,8 +252,6 @@ class WhmcsDatabase
             $t->string('admin')->nullable();
             $t->string('attachment')->nullable();
         });
-
-        return $db;
     }
 
     /** The sample data described above. */
@@ -257,25 +283,25 @@ class WhmcsDatabase
         $db->table('tblcustomfieldsvalues')->insert([['fieldid' => 31, 'relid' => 7, 'value' => 'GB123'], ['fieldid' => 32, 'relid' => 40, 'value' => 'Debian']]);
 
         $db->table('tblhosting')->insert([
-            'id' => 40, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-01-15', 'domain' => 'vps1.example.com', 'amount' => '13.00',
-            'billingcycle' => 'Monthly', 'nextduedate' => '2026-11-15', 'domainstatus' => 'Active',
+            'id' => 40, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-01-15', 'domain' => 'vps1.example.com', 'amount' => self::PRICE,
+            'billingcycle' => 'Monthly', 'nextduedate' => self::NOVEMBER, 'domainstatus' => 'Active',
         ]);
         $db->table('tblhostingconfigoptions')->insert(['relid' => 40, 'configid' => 11, 'optionid' => 22, 'qty' => 0]);
 
         // Paid last month, with a PayPal payment.
         $db->table('tblinvoices')->insert([
             'id' => 100, 'userid' => 7, 'date' => '2026-10-08', 'duedate' => '2026-10-15', 'datepaid' => '2026-10-10 09:00:00',
-            'subtotal' => '13.00', 'total' => '13.00', 'status' => 'Paid',
+            'subtotal' => self::PRICE, 'total' => self::PRICE, 'status' => 'Paid',
         ]);
-        $db->table('tblinvoiceitems')->insert(['invoiceid' => 100, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/10/2026 - 14/11/2026)', 'amount' => '13.00', 'taxed' => 1, 'duedate' => '2026-10-15']);
-        $db->table('tblaccounts')->insert(['id' => 500, 'userid' => 7, 'currency' => 0, 'gateway' => 'paypalcheckout', 'date' => '2026-10-10 09:00:00', 'amountin' => '13.00', 'fees' => '0.68', 'transid' => 'PAY-1', 'invoiceid' => 100]);
+        $db->table('tblinvoiceitems')->insert(['invoiceid' => 100, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/10/2026 - 14/11/2026)', 'amount' => self::PRICE, 'taxed' => 1, 'duedate' => '2026-10-15']);
+        $db->table('tblaccounts')->insert(['id' => 500, 'userid' => 7, 'currency' => 0, 'gateway' => 'paypalcheckout', 'date' => '2026-10-10 09:00:00', 'amountin' => self::PRICE, 'fees' => '0.68', 'transid' => 'PAY-1', 'invoiceid' => 100]);
 
         // This month's renewal, unpaid, with part paid from credit.
         $db->table('tblinvoices')->insert([
-            'id' => 101, 'userid' => 7, 'invoicenum' => 'INV-0042', 'date' => '2026-11-08', 'duedate' => '2026-11-15',
-            'subtotal' => '13.00', 'credit' => '3.00', 'total' => '10.00', 'status' => 'Unpaid',
+            'id' => 101, 'userid' => 7, 'invoicenum' => 'INV-0042', 'date' => '2026-11-08', 'duedate' => self::NOVEMBER,
+            'subtotal' => self::PRICE, 'credit' => '3.00', 'total' => '10.00', 'status' => 'Unpaid',
         ]);
-        $db->table('tblinvoiceitems')->insert(['invoiceid' => 101, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/11/2026 - 14/12/2026)', 'amount' => '13.00', 'taxed' => 1, 'duedate' => '2026-11-15']);
+        $db->table('tblinvoiceitems')->insert(['invoiceid' => 101, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/11/2026 - 14/12/2026)', 'amount' => self::PRICE, 'taxed' => 1, 'duedate' => self::NOVEMBER]);
 
         $db->table('tblticketdepartments')->insert(['id' => 2, 'name' => 'Support', 'email' => 'support@example.com']);
         $db->table('tbltickets')->insert([

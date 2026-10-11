@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Auth\LegacyPassword;
 use App\Billing\InvoiceGenerator;
 use App\Enums\InvoiceStatus;
+use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Client;
 use App\Models\CustomField;
@@ -21,7 +22,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use Tests\Support\WhmcsDatabase;
 use Tests\TestCase;
 
@@ -128,7 +128,7 @@ class WhmcsImportTest extends TestCase
     {
         Client::factory()->create();
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(ImportException::class);
         (new WhmcsImporter)->run($this->whmcs, dryRun: true);
     }
 

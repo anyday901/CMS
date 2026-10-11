@@ -24,6 +24,8 @@ class WhmcsCompareTest extends TestCase
 
     private const TO = '2026-12-31';
 
+    private const DECEMBER = '2026-12-15';
+
     private ConnectionInterface $whmcs;
 
     protected function setUp(): void
@@ -36,9 +38,9 @@ class WhmcsCompareTest extends TestCase
         (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
         // November's renewal was paid, so both systems bill December next.
-        Service::findOrFail(40)->forceFill(['next_due_date' => '2026-12-15'])->save();
+        Service::findOrFail(40)->forceFill(['next_due_date' => self::DECEMBER])->save();
         Invoice::findOrFail(101)->forceFill(['status' => 'paid'])->save();
-        $this->whmcsRenewal(102, 40, '2026-12-15', '13.00');
+        $this->whmcsRenewal(102, 40, self::DECEMBER, '13.00');
     }
 
     public function test_a_simulated_run_matches_whmcs_and_saves_nothing(): void
@@ -76,7 +78,7 @@ class WhmcsCompareTest extends TestCase
 
     public function test_add_ons_and_domains_whmcs_bills_are_listed(): void
     {
-        $this->whmcsRenewal(104, 9, '2026-12-15', '2.00', 'Addon');
+        $this->whmcsRenewal(104, 9, self::DECEMBER, '2.00', 'Addon');
 
         $lines = collect($this->compare(simulate: true))->keyBy('result');
 

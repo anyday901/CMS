@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replies to old WHMCS ticket emails (`[Ticket ID: 123456]` in the subject) are added to the imported ticket.
 - Triennial billing cycle.
 - Install guide for Ubuntu with Nginx, PHP-FPM, MariaDB, cron and a systemd queue worker, with updates, backups and the move from WHMCS: [docs/install.md](docs/install.md).
-- Docker Compose setup: `Dockerfile` and `docker-compose.yml` run the app with Nginx, MariaDB, Redis, a queue worker and the scheduler.
+- Docker Compose setup: `Dockerfile` and `docker-compose.yml` run the app with Nginx, MariaDB, Redis, a queue worker and the scheduler. The app image runs as www-data, the web image is unprivileged Nginx, and PHP session cookies are HttpOnly and Secure.
 - Release checklist and steps for v1.0.0: [docs/release.md](docs/release.md).
 
 ### Changed

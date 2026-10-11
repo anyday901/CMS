@@ -14,7 +14,6 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use RuntimeException;
 
 /**
  * Compares the renewal invoices WHMCS and this app made for the same billing
@@ -40,7 +39,7 @@ class BillingComparison
     /**
      * @return list<array<string, mixed>>
      *
-     * @throws RuntimeException when nothing has been imported yet
+     * @throws ImportException when nothing has been imported yet
      */
     public function compare(ConnectionInterface $source, CarbonInterface $from, CarbonInterface $to, bool $simulate): array
     {
@@ -74,7 +73,7 @@ class BillingComparison
         $saved = json_decode((string) Setting::find(WhmcsImporter::SETTING)?->value, true);
 
         if (! is_array($saved)) {
-            throw new RuntimeException('Nothing has been imported from WHMCS yet. Run php artisan whmcs:import first.');
+            throw new ImportException('Nothing has been imported from WHMCS yet. Run php artisan whmcs:import first.');
         }
 
         return (int) $saved['last_invoice_id'];

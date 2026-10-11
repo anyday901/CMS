@@ -2,11 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\ImportReport;
 use App\Import\Whmcs\WhmcsImporter;
 use Illuminate\Console\Command;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Throwable;
 
 class WhmcsImport extends Command
@@ -24,30 +25,16 @@ class WhmcsImport extends Command
         $dryRun = (bool) $this->option('dry-run');
         $attachments = $this->option('attachments');
 
-        if ($attachments !== null && ! is_dir($attachments)) {
-            $this->error("No folder at {$attachments}.");
-
-            return self::FAILURE;
-        }
-
         try {
-            $source = DB::connection($this->option('connection'));
-            $source->getPdo();
-        } catch (Throwable $e) {
-            $this->error('Could not connect to the WHMCS database: '.$e->getMessage());
+            $source = $this->source($attachments);
 
-            return self::FAILURE;
-        }
+            if (! $dryRun && ! $this->confirm('Import WHMCS into this install now? Run with --dry-run first to check the report.', true)) {
+                return self::FAILURE;
+            }
 
-        if (! $dryRun && ! $this->confirm('Import WHMCS into this install now? Run with --dry-run first to check the report.', true)) {
-            return self::FAILURE;
-        }
-
-        $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
-
-        try {
+            $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
             $report = (new WhmcsImporter($attachments))->run($source, $dryRun);
-        } catch (RuntimeException $e) {
+        } catch (ImportException $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;
@@ -65,6 +52,23 @@ class WhmcsImport extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /** @throws ImportException when the attachments folder or the WHMCS database can't be reached */
+    private function source(?string $attachments): ConnectionInterface
+    {
+        if ($attachments !== null && ! is_dir($attachments)) {
+            throw new ImportException("No folder at {$attachments}.");
+        }
+
+        try {
+            $source = DB::connection($this->option('connection'));
+            $source->getPdo();
+        } catch (Throwable $e) {
+            throw new ImportException('Could not connect to the WHMCS database: '.$e->getMessage(), previous: $e);
+        }
+
+        return $source;
     }
 
     private function show(ImportReport $report): void
@@ -87,7 +91,8 @@ class WhmcsImport extends Command
 
     private function save(ImportReport $report): string
     {
-        $path = $this->option('report') ?: storage_path('app/whmcs/import-'.($report->dryRun ? 'dry-run-' : '').now()->format('Ymd-His').'.md');
+        $prefix = $report->dryRun ? 'import-dry-run-' : 'import-';
+        $path = $this->option('report') ?: storage_path('app/whmcs/'.$prefix.now()->format('Ymd-His').'.md');
 
         if (! is_dir(dirname($path))) {
             mkdir(dirname($path), 0755, true);
