@@ -7,9 +7,11 @@ use App\Enums\InvoiceStatus;
 use App\Events\InvoiceIssued;
 use App\Models\InvoiceItem;
 use App\Models\Setting;
+use App\Models\TaxRule;
 use App\Support\Money;
 use Carbon\CarbonInterface;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use RuntimeException;
@@ -32,8 +34,11 @@ class BillingComparison
 
     public const ONLY_HERE = 'only here';
 
+    /** WHMCS invoice line types for things the importer doesn't bring over. */
+    private const NOT_IMPORTED = ['Addon', 'Domain', 'DomainRegister', 'DomainTransfer'];
+
     /**
-     * @return list<array{result: string, service_id: int, service: string, period_start: string, whmcs: ?int, here: ?int, currency: string}>
+     * @return list<array<string, mixed>>
      *
      * @throws RuntimeException when nothing has been imported yet
      */
@@ -75,18 +80,26 @@ class BillingComparison
         return (int) $saved['last_invoice_id'];
     }
 
-    /** @return list<array{result: string, service_id: int, service: string, period_start: string, whmcs: ?int, here: ?int, currency: string}> */
+    /** @return list<array<string, mixed>> */
     private function lines(ConnectionInterface $source, int $after, CarbonInterface $from, CarbonInterface $to): array
     {
+        $inclusive = $source->getSchemaBuilder()->hasTable('tblconfiguration')
+            && $source->table('tblconfiguration')->where('setting', 'TaxType')->value('value') === 'Inclusive';
+
+        // Renewals of services, plus add-ons and domains, which aren't imported, so they show as WHMCS-only.
         $whmcs = $source->table('tblinvoiceitems')
             ->join('tblinvoices', 'tblinvoices.id', '=', 'tblinvoiceitems.invoiceid')
             ->where('tblinvoices.id', '>', $after)
             ->where('tblinvoices.status', '!=', 'Cancelled')
-            ->where('tblinvoiceitems.type', 'Hosting')
+            ->whereIn('tblinvoiceitems.type', ['Hosting', ...self::NOT_IMPORTED])
             ->whereBetween('tblinvoiceitems.duedate', [$from->toDateString(), $to->toDateString()])
-            ->get(['tblinvoiceitems.relid', 'tblinvoiceitems.duedate', 'tblinvoiceitems.amount'])
-            ->groupBy(fn ($row) => (int) $row->relid.'|'.Whmcs::date($row->duedate))
-            ->map(fn ($rows) => $rows->sum(fn ($row) => Whmcs::cents($row->amount)));
+            ->get(['tblinvoiceitems.type', 'tblinvoiceitems.relid', 'tblinvoiceitems.duedate', 'tblinvoiceitems.amount', 'tblinvoiceitems.taxed', 'tblinvoices.taxrate', 'tblinvoices.taxrate2'])
+            ->groupBy(fn ($row) => ($row->type === 'Hosting' ? '' : "{$row->type}:").(int) $row->relid.'|'.Whmcs::date($row->duedate))
+            ->map(fn ($rows) => $this->totals($rows->map(fn ($row) => [
+                Whmcs::cents($row->amount),
+                Whmcs::on($row->taxed) ? [Whmcs::cents($row->taxrate), Whmcs::cents($row->taxrate2 ?? 0)] : [],
+                $inclusive,
+            ])));
 
         $here = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -95,21 +108,26 @@ class BillingComparison
             ->where('invoice_items.type', InvoiceItem::TYPE_SERVICE)
             ->whereDate('invoice_items.period_start', '>=', $from->toDateString())
             ->whereDate('invoice_items.period_start', '<=', $to->toDateString())
-            ->get(['invoice_items.service_id', 'invoice_items.period_start', 'invoice_items.amount'])
+            ->get(['invoice_items.service_id', 'invoice_items.period_start', 'invoice_items.amount', 'invoice_items.taxable', 'invoices.tax_rate', 'invoices.tax_inclusive'])
             ->groupBy(fn ($row) => (int) $row->service_id.'|'.substr((string) $row->period_start, 0, 10))
-            ->map(fn ($rows) => (int) $rows->sum('amount'));
+            ->map(fn ($rows) => $this->totals($rows->map(fn ($row) => [
+                (int) $row->amount,
+                $row->taxable ? [(int) $row->tax_rate] : [],
+                (bool) $row->tax_inclusive,
+            ])));
 
         $keys = $whmcs->keys()->merge($here->keys())->unique()->sort()->values();
         $services = DB::table('services')
             ->join('clients', 'clients.id', '=', 'services.client_id')
             ->join('products', 'products.id', '=', 'services.product_id')
-            ->whereIn('services.id', $keys->map(fn (string $key) => (int) explode('|', $key)[0])->unique()->all())
+            ->whereIn('services.id', $keys->filter(fn (string $key) => ! str_contains($key, ':'))->map(fn (string $key) => (int) explode('|', $key)[0])->unique()->all())
             ->get(['services.id', 'services.label', 'products.name', 'clients.first_name', 'clients.last_name', 'clients.currency'])
             ->keyBy('id');
 
         return $keys->map(function (string $key) use ($whmcs, $here, $services) {
-            [$serviceId, $start] = explode('|', $key);
-            $service = $services->get((int) $serviceId);
+            [$item, $start] = explode('|', $key);
+            [$type, $id] = str_contains($item, ':') ? explode(':', $item) : [null, $item];
+            $service = $type === null ? $services->get((int) $id) : null;
             $theirs = $whmcs->get($key);
             $ours = $here->get($key);
 
@@ -120,19 +138,40 @@ class BillingComparison
                     $theirs === $ours => self::MATCHED,
                     default => self::DIFFERENT,
                 },
-                'service_id' => (int) $serviceId,
-                'service' => $service
-                    ? trim("{$service->name} {$service->label}")." ({$service->first_name} {$service->last_name})"
-                    : "Service {$serviceId} (not imported)",
+                'service_id' => (int) $id,
+                'service' => match (true) {
+                    $type !== null => "WHMCS {$type} {$id} (not imported: add it as a service or invoice line by hand)",
+                    $service !== null => trim("{$service->name} {$service->label}")." ({$service->first_name} {$service->last_name})",
+                    default => "Service {$id} (not imported)",
+                },
                 'period_start' => $start,
-                'whmcs' => $theirs,
-                'here' => $ours,
+                'whmcs' => $theirs['amount'] ?? null,
+                'here' => $ours['amount'] ?? null,
+                'whmcs_tax' => $theirs['tax'] ?? null,
+                'here_tax' => $ours['tax'] ?? null,
                 'currency' => $service->currency ?? (string) config('billing.currency'),
             ];
         })->all();
     }
 
-    /** @param  list<array{result: string, service_id: int, service: string, period_start: string, whmcs: ?int, here: ?int, currency: string}>  $lines */
+    /**
+     * Amount and tax of a group of lines, each [amount, rates in hundredths of a percent, tax inclusive].
+     *
+     * @param  Collection<int, array{0: int, 1: list<int>, 2: bool}>  $lines
+     * @return array{amount: int, tax: int}
+     */
+    private function totals(Collection $lines): array
+    {
+        return [
+            'amount' => (int) $lines->sum(fn (array $line) => $line[0]),
+            'tax' => (int) $lines->sum(fn (array $line) => array_sum(array_map(
+                fn (int $rate) => $line[2] ? TaxRule::taxIncludedIn($line[0], $rate) : TaxRule::taxOn($line[0], $rate),
+                $line[1],
+            ))),
+        ];
+    }
+
+    /** @param  list<array<string, mixed>>  $lines */
     public static function toMarkdown(array $lines, CarbonInterface $from, CarbonInterface $to, bool $simulate): string
     {
         $counts = array_count_values(array_column($lines, 'result'));
@@ -147,7 +186,7 @@ class BillingComparison
             $out[] = '- '.ucfirst($result).': '.($counts[$result] ?? 0);
         }
 
-        $out = [...$out, '', '| Result | Service | Period starts | WHMCS | Here |', '| --- | --- | --- | ---: | ---: |'];
+        $out = [...$out, '', '| Result | Service | Period starts | WHMCS | Tax | Here | Tax |', '| --- | --- | --- | ---: | ---: | ---: | ---: |'];
 
         foreach ($lines as $line) {
             if ($line['result'] === self::MATCHED) {
@@ -155,7 +194,7 @@ class BillingComparison
             }
 
             $format = fn (?int $cents) => $cents === null ? '-' : Money::format($cents, $line['currency']);
-            $out[] = "| {$line['result']} | {$line['service']} | {$line['period_start']} | {$format($line['whmcs'])} | {$format($line['here'])} |";
+            $out[] = "| {$line['result']} | {$line['service']} | {$line['period_start']} | {$format($line['whmcs'])} | {$format($line['whmcs_tax'])} | {$format($line['here'])} | {$format($line['here_tax'])} |";
         }
 
         return implode("\n", $out)."\n";

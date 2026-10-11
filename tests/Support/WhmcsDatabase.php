@@ -176,6 +176,22 @@ class WhmcsDatabase
             $t->integer('invoiceid')->default(0);
             $t->integer('refundid')->default(0);
         });
+        $schema->create('tblhostingaddons', function (Blueprint $t) {
+            $t->id();
+            $t->integer('hostingid');
+            $t->string('name')->nullable();
+            $t->decimal('recurring', 16, 2)->default(0);
+            $t->string('billingcycle')->nullable();
+            $t->string('status');
+        });
+        $schema->create('tbldomains', function (Blueprint $t) {
+            $t->id();
+            $t->integer('userid');
+            $t->string('domain');
+            $t->decimal('recurringamount', 16, 2)->default(0);
+            $t->date('nextduedate')->nullable();
+            $t->string('status');
+        });
         $schema->create('tblticketdepartments', function (Blueprint $t) {
             $t->id();
             $t->string('name');

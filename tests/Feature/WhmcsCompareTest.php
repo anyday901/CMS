@@ -8,6 +8,7 @@ use App\Import\Whmcs\WhmcsImporter;
 use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Models\TaxRule;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -61,6 +62,28 @@ class WhmcsCompareTest extends TestCase
         $this->assertStringContainsString('Service 77 (not imported)', BillingComparison::toMarkdown($lines->values()->all(), Carbon::parse(self::FROM), Carbon::parse(self::TO), true));
     }
 
+    public function test_tax_must_match_too(): void
+    {
+        $this->whmcs->table('tblinvoices')->where('id', 102)->update(['taxrate' => '10.00']);
+        $this->whmcs->table('tblinvoiceitems')->where('invoiceid', 102)->update(['taxed' => 1]);
+
+        $line = $this->compare(simulate: true)[0];
+        $this->assertSame([BillingComparison::DIFFERENT, 130, 0], [$line['result'], $line['whmcs_tax'], $line['here_tax']]);
+
+        TaxRule::create(['name' => 'Sales tax', 'rate' => 1000]);
+        $this->assertSame(BillingComparison::MATCHED, $this->compare(simulate: true)[0]['result']);
+    }
+
+    public function test_add_ons_and_domains_whmcs_bills_are_listed(): void
+    {
+        $this->whmcsRenewal(104, 9, '2026-12-15', '2.00', 'Addon');
+
+        $lines = collect($this->compare(simulate: true))->keyBy('result');
+
+        $this->assertStringContainsString('WHMCS Addon 9 (not imported', $lines[BillingComparison::ONLY_WHMCS]['service']);
+        $this->assertSame(BillingComparison::MATCHED, $lines[BillingComparison::MATCHED]['result']);
+    }
+
     public function test_it_compares_invoices_this_app_really_made(): void
     {
         $this->assertSame(BillingComparison::ONLY_WHMCS, $this->compare(simulate: false)[0]['result']);
@@ -88,9 +111,9 @@ class WhmcsCompareTest extends TestCase
         return app(BillingComparison::class)->compare($this->whmcs, Carbon::parse(self::FROM), Carbon::parse(self::TO), $simulate);
     }
 
-    private function whmcsRenewal(int $id, int $serviceId, string $due, string $amount): void
+    private function whmcsRenewal(int $id, int $serviceId, string $due, string $amount, string $type = 'Hosting', string $taxRate = '0'): void
     {
-        $this->whmcs->table('tblinvoices')->insert(['id' => $id, 'userid' => 7, 'date' => $due, 'duedate' => $due, 'subtotal' => $amount, 'total' => $amount, 'status' => 'Unpaid']);
-        $this->whmcs->table('tblinvoiceitems')->insert(['invoiceid' => $id, 'userid' => 7, 'type' => 'Hosting', 'relid' => $serviceId, 'description' => 'Renewal', 'amount' => $amount, 'duedate' => $due]);
+        $this->whmcs->table('tblinvoices')->insert(['id' => $id, 'userid' => 7, 'date' => $due, 'duedate' => $due, 'subtotal' => $amount, 'total' => $amount, 'taxrate' => $taxRate, 'status' => 'Unpaid']);
+        $this->whmcs->table('tblinvoiceitems')->insert(['invoiceid' => $id, 'userid' => 7, 'type' => $type, 'relid' => $serviceId, 'description' => 'Renewal', 'amount' => $amount, 'taxed' => $taxRate === '0' ? 0 : 1, 'duedate' => $due]);
     }
 }

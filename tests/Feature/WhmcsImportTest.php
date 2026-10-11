@@ -148,6 +148,22 @@ class WhmcsImportTest extends TestCase
         $this->assertContains('Recurring amount of active and suspended services (USD)', array_column($report->mismatches(), 'label'));
     }
 
+    public function test_add_ons_domains_tax_and_per_cycle_setup_fees_are_reported(): void
+    {
+        $this->whmcs->table('tblhostingaddons')->insert(['hostingid' => 40, 'name' => 'Backups', 'recurring' => '2.00', 'billingcycle' => 'Monthly', 'status' => 'Active']);
+        $this->whmcs->table('tbldomains')->insert(['userid' => 7, 'domain' => 'ada.example', 'recurringamount' => '12.00', 'nextduedate' => '2027-01-01', 'status' => 'Active']);
+        $this->whmcs->table('tblinvoices')->where('id', 101)->update(['taxrate' => '8.25']);
+        $this->whmcs->table('tblpricing')->where('type', 'configoptions')->update(['msetupfee' => '1.00', 'asetupfee' => '5.00']);
+
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: true);
+        $markdown = $report->toMarkdown();
+
+        $this->assertSame(['found' => 1, 'imported' => 0, 'skipped' => 1], $report->counts()['Service add-ons']);
+        $this->assertSame(['found' => 1, 'imported' => 0, 'skipped' => 1], $report->counts()['Domains']);
+        $this->assertStringContainsString('no tax rules here yet', $markdown);
+        $this->assertStringContainsString('different setup fee per billing cycle', $markdown);
+    }
+
     public function test_ticket_attachments_come_over_from_the_attachments_folder(): void
     {
         Storage::fake('local');

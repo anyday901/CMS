@@ -285,7 +285,7 @@ Keep `.env` somewhere safe too: without `APP_KEY` you can't read encrypted data 
    sudo -u www-data php artisan whmcs:compare --simulate --from=2026-12-01 --to=2026-12-31
    ```
 
-   With `--simulate`, this app generates its renewal invoices for those dates and throws them away (no emails, nothing saved), then lists every renewal where it and WHMCS disagree: a different amount, or an invoice only one of them made. Only WHMCS invoices made after the import are compared, so you can run this while WHMCS keeps billing as usual. Without `--simulate` it compares the invoices this app has really made, if you let its billing run go live for a cycle. Don't let both systems email clients at once: keep `MAIL_MAILER=log` here until you switch.
+   With `--simulate`, this app generates its renewal invoices for those dates and throws them away (no emails, nothing saved), then lists every renewal where it and WHMCS disagree: a different amount or tax, or an invoice only one of them made. WHMCS add-on and domain renewals always show as WHMCS-only, since those aren't imported. Only WHMCS invoices made after the import are compared, so you can run this while WHMCS keeps billing as usual. Without `--simulate` it compares the invoices this app has really made, if you let its billing run go live for a cycle. Don't let both systems email clients at once: keep `MAIL_MAILER=log` here until you switch.
 
 6. **Switch over.** Turn off the WHMCS cron, move payment gateway webhooks to this app, point your support addresses at it (see [Tickets by email](../README.md#tickets-by-email)), set real `MAIL_*` settings, and tell clients the new address.
 
@@ -296,6 +296,9 @@ What changes for clients:
 - Contacts with their own WHMCS logins become contacts without a login, since contacts can't log in here yet.
 - Custom WHMCS invoice numbers (from sequential paid invoice numbering) are kept in the invoice notes; the invoice number here is the WHMCS invoice id.
 - Products that used a WHMCS server module (such as cPanel) need a provisioning module chosen on their product page.
+- Product add-ons and domains aren't supported yet, so they aren't imported. The report lists every active one, so you can fold an add-on into its service's price or bill it by hand.
+- Tax rules aren't imported. Add yours under **Tax** before the first billing run; the report reminds you when WHMCS charged tax.
+- Configurable options have one setup fee here. Where WHMCS had a different setup fee per billing cycle, the monthly one is kept and the report says so.
 
 ## Docker Compose
 

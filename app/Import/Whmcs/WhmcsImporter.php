@@ -67,6 +67,10 @@ class WhmcsImporter
 
     private const ATTACHMENTS = 'Ticket attachments';
 
+    private const ADDONS = 'Service add-ons';
+
+    private const DOMAINS = 'Domains';
+
     private ConnectionInterface $source;
 
     private ImportReport $report;
@@ -167,7 +171,36 @@ class WhmcsImporter
         $this->importTransactions();
         $this->importDepartments();
         $this->importTickets();
+        $this->reportNotImported();
         $this->flushAll();
+    }
+
+    /**
+     * Things WHMCS bills that this app doesn't have yet: listed so nothing
+     * recurring is lost without anyone noticing, and so staff can bill them
+     * another way (whmcs:compare lists their renewals as WHMCS-only).
+     */
+    private function reportNotImported(): void
+    {
+        $billed = ['Active', 'Suspended', 'Pending'];
+
+        if ($this->hasTables('tblhostingaddons')) {
+            foreach ($this->source->table('tblhostingaddons')->whereIn('status', $billed)->orderBy('id')->cursor() as $addon) {
+                $this->report->found(self::ADDONS);
+                $this->report->skipped(self::ADDONS, "Add-on {$addon->id} (".Whmcs::text($addon->name ?? '').") on service {$addon->hostingid}, {$addon->recurring} {$addon->billingcycle}: add-ons aren't supported yet, so add it to the service's price or bill it by hand.");
+            }
+        }
+
+        if ($this->hasTables('tbldomains')) {
+            foreach ($this->source->table('tbldomains')->whereIn('status', $billed)->orderBy('id')->cursor() as $domain) {
+                $this->report->found(self::DOMAINS);
+                $this->report->skipped(self::DOMAINS, "Domain {$domain->domain} of client {$domain->userid}, {$domain->recurringamount} due {$domain->nextduedate}: domains aren't supported yet.");
+            }
+        }
+
+        if (DB::table('tax_rules')->doesntExist() && $this->source->table('tblinvoices')->where('taxrate', '>', 0)->exists()) {
+            $this->report->note(self::INVOICES, 'WHMCS charged tax on some invoices, but there are no tax rules here yet. Add them under Tax before the first billing run, or new invoices will have no tax.');
+        }
     }
 
     private function loadCurrencies(): void
@@ -318,6 +351,10 @@ class WhmcsImporter
                     $price = $prices->get($sub->id);
                     $cyclePrices = $price ? $this->optionPrices($price, $product['onetime']) : [];
 
+                    if ($price && $this->setupFeesDiffer($price)) {
+                        $this->report->note(self::OPTIONS, '"'.Whmcs::label($option->optionname).': '.Whmcs::label($sub->optionname).'" has a different setup fee per billing cycle in WHMCS. Options have one setup fee here, so the monthly one was kept.');
+                    }
+
                     $local['choices'][(int) $sub->id] = [
                         'id' => DB::table('product_option_choices')->insertGetId([
                             'product_option_id' => $optionId,
@@ -336,6 +373,14 @@ class WhmcsImporter
                 $this->report->imported(self::OPTIONS);
             }
         }
+    }
+
+    private function setupFeesDiffer(object $row): bool
+    {
+        $fees = array_map(fn (array $columns) => Whmcs::cents($row->{$columns[1]} ?? 0), Whmcs::PRICE_COLUMNS);
+
+        return count(array_unique(array_filter($fees, fn (int $fee) => $fee > 0))) > 1
+            || (max($fees) > 0 && Whmcs::cents($row->msetupfee) <= 0);
     }
 
     /** @return array<string, int> */
