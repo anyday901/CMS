@@ -6,7 +6,7 @@
                class="rounded-full px-3 py-1 {{ $filters['status'] === $value ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-ink-300' }}">{{ $label }}</a>
         @endforeach
         <input type="hidden" name="status" value="{{ $filters['status'] === 'waiting' ? '' : $filters['status'] }}">
-        <select name="department" onchange="this.form.submit()" class="ml-auto rounded-md px-3 py-1.5 ring-1 ring-ink-300">
+        <select name="department" aria-label="Department" onchange="this.form.submit()" class="ml-auto rounded-md px-3 py-1.5 ring-1 ring-ink-300">
             <option value="">All departments</option>
             @foreach ($departments as $department)
                 <option value="{{ $department->id }}" @selected($filters['department'] === $department->id)>{{ $department->name }}</option>

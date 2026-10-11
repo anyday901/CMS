@@ -144,11 +144,11 @@ class InboundMail
         $text = str_replace(["\r\n", "\r"], "\n", (string) $text);
 
         // Cut at our marker, or at the "On <date>, <name> wrote:" line most mail apps add.
-        $cut = [mb_stripos($text, EmailTemplates::REPLY_MARKER)];
+        $cut = [stripos($text, EmailTemplates::REPLY_MARKER)];
         if (preg_match('/^(On\s.+wrote:|-{2,}\s*Original Message\s*-{2,}|From:\s.+)$/mi', $text, $m, PREG_OFFSET_CAPTURE)) {
             $cut[] = $m[0][1];
         }
-        $cut = array_filter($cut, fn ($position) => $position !== false && $position !== null);
+        $cut = array_filter($cut, fn ($position) => $position !== false);
 
         if ($cut !== []) {
             $text = substr($text, 0, min($cut));
