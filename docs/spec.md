@@ -6,6 +6,8 @@ Status: draft for Corey's review. Assumptions are marked **(assumed)**.
 
 A free, self-hosted billing and client management app that can fully replace WHMCS for Corey's business (about 2,500 active clients) and then be published as open source.
 
+Beyond v1, the aim is a direct open source rival to WHMCS: the same breadth of features (ordering, domains, control panel modules, knowledge base, reports, API and so on), so any WHMCS user can switch. v1 stays narrow so Corey can switch first; the parity roadmap is milestones 5 to 12 in [TODO.md](../TODO.md).
+
 ## Stack
 
 - **Laravel 13 (PHP 8.3+)**, MySQL/MariaDB, Redis for queues, Blade + Livewire for the UI. **(assumed, Corey has not objected)**
@@ -66,7 +68,8 @@ Corey uses no control panel, so v1 provisioning is:
 - Dry-run mode with a report of counts and mismatches.
 - Client passwords: WHMCS hashes may not be reusable. Plan is to try to verify old hashes on first login and rehash; if that fails, clients get a reset link.
 
-## Out of scope for v1
+## Out of scope for v1 (planned after v1)
+These come after the switchover, as part of WHMCS parity:
 - Domain registration and registrar modules.
 - Control panel modules.
 - Affiliates, quotes, knowledge base, multi-currency, multi-language.
@@ -77,6 +80,7 @@ Corey uses no control panel, so v1 provisioning is:
 2. Billing core: clients, products, services, invoices, recurring engine, client portal, PayPal.
 3. Venmo and Cash App, provisioning (manual and webhook), tickets, email.
 4. WHMCS importer, a side-by-side billing cycle on Corey's data, then switchover and public release.
+5. to 12. WHMCS parity: ordering and cart, billing, domains, provisioning modules, support, clients and security, reports and integrations, platform and community. See [TODO.md](../TODO.md).
 
 ## Open questions for Corey
 - AGPL-3.0 or MIT.
