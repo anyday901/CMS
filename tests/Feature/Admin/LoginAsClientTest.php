@@ -16,6 +16,8 @@ class LoginAsClientTest extends TestCase
 
     private const BANNER = 'from the admin area';
 
+    private const PORTAL = '/portal';
+
     public function test_staff_log_in_as_a_client_and_come_back(): void
     {
         $staff = User::factory()->create(['name' => 'Sam Staff']);
@@ -23,9 +25,9 @@ class LoginAsClientTest extends TestCase
         $this->actingAs($staff, 'web');
 
         $this->get("/admin/clients/{$client->id}")->assertSee('Log in as client');
-        $this->post("/admin/clients/{$client->id}/login-as")->assertRedirect('/portal');
+        $this->post("/admin/clients/{$client->id}/login-as")->assertRedirect(self::PORTAL);
         $this->assertAuthenticatedAs($client, 'client');
-        $this->get('/portal')->assertOk()->assertSee(self::BANNER)->assertSee('Jane Doe');
+        $this->get(self::PORTAL)->assertOk()->assertSee(self::BANNER)->assertSee('Jane Doe');
 
         // What staff do in the portal is logged under them.
         $this->put('/portal/account', ['first_name' => 'Janet', 'last_name' => 'Doe', 'email' => $client->email])->assertRedirect();
@@ -71,8 +73,8 @@ class LoginAsClientTest extends TestCase
         $client = Client::factory()->create();
         $this->actingAs($client, 'client');
 
-        $this->get('/portal')->assertOk()->assertDontSee(self::BANNER);
-        $this->post('/portal/back-to-admin')->assertRedirect('/portal');
+        $this->get(self::PORTAL)->assertOk()->assertDontSee(self::BANNER);
+        $this->post('/portal/back-to-admin')->assertRedirect(self::PORTAL);
         $this->assertAuthenticatedAs($client, 'client');
     }
 }
