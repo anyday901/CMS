@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class InvoiceItem extends Model
 {
@@ -34,6 +36,17 @@ class InvoiceItem extends Model
     }
 
     protected $attributes = ['taxable' => true];
+
+    /** "Web hosting - example.com (01/01/2026 - 01/31/2026), Disk: 50 GB, Backups", cut to fit the column. */
+    public static function serviceDescription(Service $service, CarbonInterface $start, ?CarbonInterface $end): string
+    {
+        $description = $end
+            ? sprintf('%s (%s - %s)', $service->description(), $start->format('m/d/Y'), $end->format('m/d/Y'))
+            : $service->description();
+        $options = $service->optionSummary();
+
+        return Str::limit($options === '' ? $description : "{$description}, {$options}", 255, '');
+    }
 
     public function invoice(): BelongsTo
     {

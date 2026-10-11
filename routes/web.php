@@ -52,6 +52,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
         Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
         Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
+        Route::resource('account/contacts', Portal\ContactController::class)->except(['index', 'show'])->parameters(['contacts' => 'contact'])->names('contacts');
     });
 });
 
@@ -62,21 +63,27 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     Route::middleware('auth:web')->group(function () {
+        $service = 'services/{service}';
+
         Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
         // Creating and editing come first so "create" isn't read as a client id.
-        Route::middleware('can:manage-clients')->group(function () {
+        Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
             Route::post('emails/{email}/resend', [Admin\EmailLogController::class, 'resend'])->name('emails.resend');
+            Route::get('clients/{client}/contacts/create', [Admin\ClientContactController::class, 'create'])->name('contacts.create');
+            Route::post('clients/{client}/contacts', [Admin\ClientContactController::class, 'store'])->name('contacts.store');
+            Route::resource('contacts', Admin\ClientContactController::class)->only(['edit', 'update', 'destroy']);
             Route::post('clients/{client}/login-as', [Admin\ImpersonationController::class, 'store'])->name('clients.login-as');
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
             Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
+            Route::put($service, [Admin\ServiceController::class, 'update'])->name('services.update');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
@@ -98,7 +105,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Every staff role can look.
         Route::get('clients', [Admin\ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [Admin\ClientController::class, 'show'])->name('clients.show');
-        Route::get('services/{service}', [Admin\ServiceController::class, 'show'])->name('services.show');
+        Route::get($service, [Admin\ServiceController::class, 'show'])->name('services.show');
         Route::get('tasks', [Admin\TaskController::class, 'index'])->name('tasks.index');
         Route::get('tasks/{task}', [Admin\TaskController::class, 'show'])->name('tasks.show');
         Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);
@@ -114,6 +121,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         Route::middleware('can:manage-settings')->group(function () {
+            Route::resource('custom-fields', Admin\CustomFieldController::class)->except(['show', 'create']);
             Route::resource('departments', Admin\DepartmentController::class)->only(['index', 'store', 'edit', 'update']);
             Route::get('email-templates', [Admin\EmailTemplateController::class, 'index'])->name('email-templates.index');
             Route::get('email-templates/{key}', [Admin\EmailTemplateController::class, 'edit'])->name('email-templates.edit');
@@ -121,6 +129,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('emails', [Admin\EmailLogController::class, 'index'])->name('emails.index');
             Route::get('emails/{email}', [Admin\EmailLogController::class, 'show'])->name('emails.show');
             Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
+            Route::get('products/{product}/options', [Admin\ProductOptionController::class, 'index'])->name('product-options.index');
+            Route::post('products/{product}/options', [Admin\ProductOptionController::class, 'store'])->name('product-options.store');
+            Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\ConfigurableOptions;
+use App\Billing\OrderChoices;
 use App\Billing\OrderService;
 use App\Billing\ServiceLifecycle;
 use App\Enums\BillingCycle;
@@ -9,6 +11,7 @@ use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\CustomField;
 use App\Models\Product;
 use App\Models\Service;
 use App\Provisioning\ModuleRegistry;
@@ -16,6 +19,7 @@ use App\Provisioning\Provisioner;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -25,9 +29,10 @@ class ServiceController extends Controller
 {
     public function create(Client $client): View
     {
-        $products = Product::where('active', true)->with('prices')->orderBy('name')->get();
+        $products = Product::where('active', true)->with(['prices', 'options.choices'])->orderBy('name')->get();
+        $serviceFields = CustomField::where('entity', CustomField::SERVICE)->ordered()->get();
 
-        return view('admin.services.create', compact('client', 'products'));
+        return view('admin.services.create', compact('client', 'products', 'serviceFields'));
     }
 
     public function store(Request $request, Client $client, OrderService $orders): RedirectResponse
@@ -37,7 +42,10 @@ class ServiceController extends Controller
             'billing_cycle' => ['required', Rule::enum(BillingCycle::class)],
             'start_date' => ['required', 'date'],
             'label' => ['nullable', 'string', 'max:255'],
+            'options' => ['array'],
         ]);
+        $fields = CustomField::forService((int) $data['product_id'])->get();
+        $request->validate(CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         try {
             $result = $orders->create(
@@ -47,6 +55,7 @@ class ServiceController extends Controller
                 CarbonImmutable::parse($data['start_date']),
                 $data['label'] ?? null,
                 $request->boolean('invoice'),
+                new OrderChoices($data['options'] ?? [], CustomField::merge($fields, (array) $request->input('custom_fields', []), null)),
             );
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['billing_cycle' => $e->getMessage()]);
@@ -59,9 +68,49 @@ class ServiceController extends Controller
 
     public function show(Service $service): View
     {
-        $service->load(['client', 'product', 'invoiceItems.invoice']);
+        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice']);
 
-        return view('admin.services.show', compact('service'));
+        return view('admin.services.show', [
+            'service' => $service,
+            'fields' => CustomField::forService($service->product_id)->get(),
+        ]);
+    }
+
+    /**
+     * Custom fields and configurable options. Options added are priced at
+     * today's prices and options removed come off at the price they were
+     * billed at; the difference applies from the next invoice, and the
+     * current period isn't re-invoiced.
+     */
+    public function update(Request $request, Service $service, ConfigurableOptions $options): RedirectResponse
+    {
+        $fields = CustomField::forService($service->product_id)->get();
+        $request->validate(['options' => ['array']] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+
+        try {
+            $selected = $options->select($service->product, (array) $request->input('options', []), $service->billing_cycle, $service->options);
+            $options->assertCurrency($selected, $service->client);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['options' => $e->getMessage()]);
+        }
+
+        DB::transaction(function () use ($request, $service, $options, $selected, $fields) {
+            $before = $service->optionSummary();
+            $change = $options->recurring($selected) - $options->recurring($service->options);
+
+            $options->save($service, $selected);
+            $service->forceFill([
+                'recurring_amount' => max(0, $service->recurring_amount + $change),
+                'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $service->custom_fields),
+            ])->save();
+
+            Activity::record("Updated {$service->description()}", $service, array_filter([
+                'options' => $before !== $service->optionSummary() ? ['from' => $before, 'to' => $service->optionSummary()] : null,
+                'recurring_change' => $change ?: null,
+            ]));
+        });
+
+        return back()->with('status', 'Service updated.');
     }
 
     public function action(Service $service, string $action, ServiceLifecycle $lifecycle): RedirectResponse

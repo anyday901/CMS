@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomField;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -19,6 +20,9 @@ class ServiceController extends Controller
     {
         $service = $request->user('client')->services()->with('product')->findOrFail($service);
 
-        return view('portal.services.show', compact('service'));
+        return view('portal.services.show', [
+            'service' => $service,
+            'fields' => CustomField::forService($service->product_id)->where('admin_only', false)->get(),
+        ]);
     }
 }

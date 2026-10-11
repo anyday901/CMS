@@ -29,6 +29,11 @@ class Product extends Model
         return $this->hasMany(ProductPrice::class);
     }
 
+    public function options(): HasMany
+    {
+        return $this->hasMany(ProductOption::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);

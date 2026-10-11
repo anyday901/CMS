@@ -15,7 +15,7 @@ class EmailLog extends Model
     public const FAILED = 'failed';
 
     protected $fillable = [
-        'client_id', 'invoice_id', 'ticket_id', 'template', 'to', 'subject', 'body',
+        'client_id', 'invoice_id', 'ticket_id', 'template', 'to', 'cc', 'subject', 'body',
         'status', 'error', 'attach_invoice_pdf', 'reply_to', 'sent_at',
     ];
 
@@ -23,6 +23,7 @@ class EmailLog extends Model
     {
         return [
             'attach_invoice_pdf' => 'boolean',
+            'cc' => 'array',
             'sent_at' => 'datetime',
         ];
     }

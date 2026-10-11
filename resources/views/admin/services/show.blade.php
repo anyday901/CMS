@@ -28,7 +28,32 @@
         <div><div class="text-ink-500">Registered</div>{{ $service->registration_date->format('M j, Y') }}</div>
         @if ($service->suspended_at)<div><div class="text-ink-500">Suspended</div>{{ $service->suspended_at->format('M j, Y') }} ({{ $service->suspension_reason }})</div>@endif
         @if ($service->terminated_at)<div><div class="text-ink-500">Terminated</div>{{ $service->terminated_at->format('M j, Y') }}</div>@endif
+        @foreach ($service->options->load(['option', 'choice'])->sortBy(fn ($chosen) => [$chosen->option->sort_order, $chosen->option->id]) as $chosen)
+            <div><div class="text-ink-500">{{ $chosen->option->name }}</div>{{ match ($chosen->option->type) { 'dropdown' => $chosen->choice->name, 'quantity' => $chosen->quantity, default => 'Yes' } }}</div>
+        @endforeach
+        @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'md:col-span-3', 'showAdminOnly' => true])
     </div>
+
+    @can('manage-clients')
+        @if ($service->product->options->isNotEmpty() || $fields->isNotEmpty())
+            <details class="mb-8 text-sm" @if ($errors->any()) open @endif>
+                <summary class="cursor-pointer text-brand-600">Change options and fields</summary>
+                <form method="POST" action="{{ route('admin.services.update', $service) }}" class="mt-3 grid max-w-3xl gap-4 rounded-lg border border-ink-200 bg-white p-4 md:grid-cols-2">
+                    @csrf @method('PUT')
+                    @include('services._options', [
+                        'options' => $service->product->options,
+                        'values' => $service->options->mapWithKeys(fn ($chosen) => [$chosen->product_option_id => match ($chosen->option->type) { 'dropdown' => $chosen->product_option_choice_id, 'quantity' => $chosen->quantity, default => '1' }])->all(),
+                        'cycleHint' => $service->billing_cycle,
+                    ])
+                    @include('custom-fields._inputs', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'md:col-span-2'])
+                    @if ($service->product->options->isNotEmpty())
+                        <p class="text-ink-500 md:col-span-2">A change in option prices is added to or taken off the recurring amount from the next invoice.</p>
+                    @endif
+                    <div class="md:col-span-2"><button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button></div>
+                </form>
+            </details>
+        @endif
+    @endcan
 
     @php $module = app(App\Provisioning\ModuleRegistry::class)->find($service->product->module); @endphp
     @if ($module)

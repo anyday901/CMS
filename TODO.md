@@ -42,9 +42,9 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Canned replies for tickets
 - [x] Welcome email when a service is activated
 - [x] Admin can log in as a client
-- [ ] Client contacts (extra people on an account)
-- [ ] Configurable options on products (choices that change the price)
-- [ ] Custom fields on clients and services
+- [x] Client contacts (extra people on an account)
+- [x] Configurable options on products (choices that change the price)
+- [x] Custom fields on clients and services
 - [x] Support tickets with departments, priorities, assignment and attachments
 - [x] Inbound email piping for tickets
 - [x] Email templates and email log

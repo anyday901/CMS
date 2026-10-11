@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Models\CustomField;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,14 +15,18 @@ class AccountController extends Controller
 {
     public function edit(Request $request): View
     {
-        return view('portal.account', ['client' => $request->user('client')]);
+        return view('portal.account', [
+            'client' => $request->user('client'),
+            'fields' => CustomField::forClients()->where('admin_only', false)->get(),
+        ]);
     }
 
     public function update(Request $request): RedirectResponse
     {
         $client = $request->user('client');
+        $fields = CustomField::forClients()->where('admin_only', false)->get();
 
-        $client->update($request->validate([
+        $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'company' => ['nullable', 'string', 'max:255'],
@@ -33,7 +38,12 @@ class AccountController extends Controller
             'state' => ['nullable', 'string', 'max:255'],
             'postcode' => ['nullable', 'string', 'max:20'],
             'country' => ['nullable', 'string', 'size:2'],
-        ]));
+        ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+
+        $client->update([
+            ...$data,
+            'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client->custom_fields),
+        ]);
 
         Activity::record('Updated their contact details', $client, ['changed' => array_keys($client->getChanges())]);
 

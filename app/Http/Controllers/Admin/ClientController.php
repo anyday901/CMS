@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\CustomField;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -34,7 +35,7 @@ class ClientController extends Controller
 
     public function create(): View
     {
-        return view('admin.clients.form', ['client' => new Client]);
+        return view('admin.clients.form', ['client' => new Client, 'fields' => CustomField::forClients()->get()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -60,12 +61,14 @@ class ClientController extends Controller
 
         $emails = $client->emailLogs()->latest('id')->limit(10)->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails'));
+        $fields = CustomField::forClients()->get();
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields'));
     }
 
     public function edit(Client $client): View
     {
-        return view('admin.clients.form', compact('client'));
+        return view('admin.clients.form', ['client' => $client, 'fields' => CustomField::forClients()->get()]);
     }
 
     public function update(Request $request, Client $client): RedirectResponse
@@ -88,7 +91,9 @@ class ClientController extends Controller
 
     private function validated(Request $request, ?Client $client = null): array
     {
-        return $request->validate([
+        $fields = CustomField::forClients()->get();
+
+        $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'company' => ['nullable', 'string', 'max:255'],
@@ -103,6 +108,12 @@ class ClientController extends Controller
             'status' => ['required', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
-        ]) + ['tax_exempt' => $request->boolean('tax_exempt')];
+        ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+
+        return [
+            ...$data,
+            'tax_exempt' => $request->boolean('tax_exempt'),
+            'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client?->custom_fields),
+        ];
     }
 }

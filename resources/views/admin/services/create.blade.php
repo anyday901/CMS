@@ -23,6 +23,17 @@
             </label>
             <input type="hidden" name="product_id" value="{{ old('product_id') }}">
             <input type="hidden" name="billing_cycle" value="{{ old('billing_cycle') }}">
+            @foreach ($products as $product)
+                @php $productFields = $serviceFields->where('product_id', $product->id); @endphp
+                @if ($product->options->isNotEmpty() || $productFields->isNotEmpty())
+                    <fieldset data-product="{{ $product->id }}" class="space-y-3" hidden>
+                        <legend class="mb-1 font-semibold">{{ $product->name }} options</legend>
+                        @include('services._options', ['options' => $product->options, 'values' => []])
+                        @include('custom-fields._inputs', ['fields' => $productFields, 'values' => []])
+                    </fieldset>
+                @endif
+            @endforeach
+            @include('custom-fields._inputs', ['fields' => $serviceFields->whereNull('product_id'), 'values' => []])
             <label class="block">Label (optional, e.g. a domain or hostname)
                 <input name="label" value="{{ old('label') }}" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
@@ -34,5 +45,20 @@
                 <span>Create the first invoice now. The service stays pending until it's paid. Untick this for an existing service that's already been paid for.</span></label>
             <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Add service</button>
         </form>
+        <script>
+            // Show only the chosen product's options and fields; hidden ones are disabled so they aren't sent or required.
+            (() => {
+                const form = document.querySelector('form[action="{{ route('admin.services.store', $client) }}"]');
+                const sync = () => form.querySelectorAll('[data-product]').forEach(set => {
+                    set.hidden = set.dataset.product !== form.product_id.value;
+                    set.disabled = set.hidden;
+                });
+                form.product_cycle.addEventListener('change', sync);
+                if (form.product_id.value) {
+                    form.product_cycle.value = form.product_id.value + '|' + form.billing_cycle.value;
+                }
+                sync();
+            })();
+        </script>
     @endif
 </x-admin-layout>

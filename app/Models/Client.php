@@ -16,7 +16,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'tax_exempt', 'status', 'notes',
+        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -41,7 +41,13 @@ class Client extends Authenticatable
             'status' => ClientStatus::class,
             'credit_balance' => 'integer',
             'tax_exempt' => 'boolean',
+            'custom_fields' => 'array',
         ];
+    }
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(ClientContact::class)->orderBy('first_name')->orderBy('last_name');
     }
 
     public function services(): HasMany

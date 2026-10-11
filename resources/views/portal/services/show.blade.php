@@ -8,6 +8,8 @@
         <div><div class="text-ink-500">Price</div>{{ Money::format($service->recurring_amount, auth('client')->user()->currency) }} {{ strtolower($service->billing_cycle->label()) }}</div>
         <div><div class="text-ink-500">Next due</div>{{ $service->next_due_date?->format('M j, Y') ?? '—' }}</div>
         <div><div class="text-ink-500">Started</div>{{ $service->registration_date->format('M j, Y') }}</div>
+        @if ($service->optionSummary() !== '')<div class="sm:col-span-3"><div class="text-ink-500">Options</div>{{ $service->optionSummary() }}</div>@endif
+        @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'sm:col-span-3'])
         @if ($service->product->description)<div class="sm:col-span-3"><div class="text-ink-500">About</div>{!! nl2br(e($service->product->description)) !!}</div>@endif
     </div>
     @if ($service->status->value === 'suspended')

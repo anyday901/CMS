@@ -20,7 +20,9 @@ class EmailTemplates
     public const REPLY_MARKER = '-- Reply above this line --';
 
     /**
-     * @return array<string, array{name: string, description: string, subject: string, body: string, placeholders: list<string>, sensitive?: bool, replyable?: bool}>
+     * Contacts with the 'contacts' flag set get a copy.
+     *
+     * @return array<string, array{name: string, description: string, subject: string, body: string, placeholders: list<string>, contacts?: string, sensitive?: bool, replyable?: bool}>
      */
     public static function definitions(): array
     {
@@ -30,6 +32,7 @@ class EmailTemplates
                 'description' => 'Sent when an invoice is issued: renewals, new orders and invoices staff create or publish. The PDF is attached when that setting is on.',
                 'subject' => 'Invoice #{invoice_number} from {company_name}',
                 'body' => "Hello {client_first_name},\n\nWe've issued invoice #{invoice_number} for {invoice_total}, due on {invoice_due_date}.\n\n[View and pay the invoice]({invoice_url})\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url'],
             ],
             'invoice_overdue' => [
@@ -37,6 +40,7 @@ class EmailTemplates
                 'description' => 'Sent by the nightly billing run when an invoice is overdue by each number of days in BILLING_REMINDER_DAYS.',
                 'subject' => 'Reminder: invoice #{invoice_number} is overdue',
                 'body' => "Hello {client_first_name},\n\nInvoice #{invoice_number} was due on {invoice_due_date} and {invoice_balance} is still unpaid.\n\n[Pay the invoice]({invoice_url})\n\nIf you've already paid, please ignore this email.\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url', 'days_overdue'],
             ],
             'payment_receipt' => [
@@ -44,6 +48,7 @@ class EmailTemplates
                 'description' => 'Sent when an invoice is paid in full.',
                 'subject' => 'Receipt for invoice #{invoice_number}',
                 'body' => "Hello {client_first_name},\n\nThank you for your payment. Invoice #{invoice_number} for {invoice_total} is now paid in full.\n\n[View the invoice]({invoice_url})\n\n{company_name}",
+                'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_url'],
             ],
             'service_welcome' => [
@@ -66,6 +71,7 @@ class EmailTemplates
                 'description' => 'Sent when a client opens a ticket, in the portal or by email.',
                 'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
                 'body' => "Hello {client_first_name},\n\nWe've received your request and will get back to you soon. You can reply to this email to add to it.\n\n[View the ticket]({ticket_url})\n\n{company_name}",
+                'contacts' => 'support_emails',
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department'],
                 'replyable' => true,
             ],
@@ -74,6 +80,7 @@ class EmailTemplates
                 'description' => 'Sent when staff reply to a ticket. Internal notes are never emailed.',
                 'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
                 'body' => "Hello {client_first_name},\n\n{staff_name} replied to your ticket:\n\n{reply}\n\n[View the ticket]({ticket_url})\n\n{company_name}",
+                'contacts' => 'support_emails',
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department', 'staff_name', 'reply'],
                 'replyable' => true,
             ],

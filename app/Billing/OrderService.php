@@ -20,7 +20,7 @@ use InvalidArgumentException;
 /** Creates new services for a client, with their first invoice. */
 class OrderService
 {
-    public function __construct(private CreditApplier $credit) {}
+    public function __construct(private CreditApplier $credit, private ConfigurableOptions $options) {}
 
     /**
      * With $invoice true the service starts pending and activates when the
@@ -36,21 +36,28 @@ class OrderService
         CarbonInterface $start,
         ?string $label = null,
         bool $invoice = true,
+        OrderChoices $choices = new OrderChoices,
     ): array {
         $price = $product->priceFor($cycle, $client->currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$client->currency}.");
+        $selected = $this->options->select($product, $choices->options, $cycle);
+        $this->options->assertCurrency($selected, $client);
+        $recurring = $price->price + $this->options->recurring($selected);
+        $setupFee = $price->setup_fee + $this->options->setupFee($selected);
 
-        $order = DB::transaction(function () use ($client, $product, $cycle, $start, $label, $invoice, $price) {
+        $order = DB::transaction(function () use ($client, $product, $cycle, $start, $label, $invoice, $choices, $selected, $recurring, $setupFee) {
             $service = Service::create([
                 'client_id' => $client->id,
                 'product_id' => $product->id,
                 'label' => $label,
                 'billing_cycle' => $cycle,
-                'recurring_amount' => $price->price,
+                'recurring_amount' => $recurring,
                 'status' => $invoice ? ServiceStatus::Pending : ServiceStatus::Active,
                 'registration_date' => $start,
                 'next_due_date' => $start,
+                'custom_fields' => $choices->customFields,
             ]);
+            $this->options->save($service, $selected);
             Activity::record("Ordered {$service->description()} ({$cycle->label()})", $service);
 
             if (! $invoice) {
@@ -70,21 +77,19 @@ class OrderService
             $first->items()->create([
                 'service_id' => $service->id,
                 'type' => InvoiceItem::TYPE_SERVICE,
-                'description' => $end
-                    ? sprintf('%s (%s - %s)', $service->description(), $start->format('m/d/Y'), $end->format('m/d/Y'))
-                    : $service->description(),
-                'amount' => $price->price,
+                'description' => InvoiceItem::serviceDescription($service, $start, $end),
+                'amount' => $recurring,
                 'taxable' => $product->taxable,
                 'period_start' => $start,
                 'period_end' => $end,
             ]);
 
-            if ($price->setup_fee > 0) {
+            if ($setupFee > 0) {
                 $first->items()->create([
                     'service_id' => $service->id,
                     'type' => InvoiceItem::TYPE_SETUP_FEE,
                     'description' => "Setup fee: {$service->description()}",
-                    'amount' => $price->setup_fee,
+                    'amount' => $setupFee,
                     'taxable' => $product->taxable,
                 ]);
             }
