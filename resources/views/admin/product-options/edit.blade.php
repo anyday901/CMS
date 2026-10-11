@@ -43,12 +43,11 @@
                 <tbody>
                     @foreach ($rows as $i => $choice)
                         <tr>
-                            <input type="hidden" name="choices[{{ $i }}][id]" value="{{ $choice->id }}">
                             @unless ($option->hasOneChoice())
-                                <td class="py-1 pr-3"><label for="choice-{{ $i }}" class="sr-only">Choice {{ $i + 1 }} name</label><input id="choice-{{ $i }}" name="choices[{{ $i }}][name]" value="{{ old("choices.{$i}.name", $choice->name) }}" placeholder="{{ $choice->exists ? '' : 'New choice' }}" class="w-40 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
+                                <td class="py-1 pr-3"><input type="hidden" name="choices[{{ $i }}][id]" value="{{ $choice->id }}"><label for="choice-{{ $i }}" class="sr-only">Choice {{ $i + 1 }} name</label><input id="choice-{{ $i }}" name="choices[{{ $i }}][name]" value="{{ old("choices.{$i}.name", $choice->name) }}" placeholder="{{ $choice->exists ? '' : 'New choice' }}" class="w-40 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
                             @endunless
                             @foreach ($cycles as $cycle)
-                                <td class="py-1 pr-3"><label for="price-{{ $i }}-{{ $cycle->value }}" class="sr-only">{{ $cycle->label() }} price</label><input id="price-{{ $i }}-{{ $cycle->value }}" name="choices[{{ $i }}][prices][{{ $cycle->value }}]" value="{{ old("choices.{$i}.prices.{$cycle->value}", isset($choice->prices[$cycle->value]) ? Money::toInput($choice->prices[$cycle->value]) : '') }}" placeholder="0.00" class="w-24 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
+                                <td class="py-1 pr-3">@if ($loop->first && $option->hasOneChoice())<input type="hidden" name="choices[{{ $i }}][id]" value="{{ $choice->id }}">@endif<label for="price-{{ $i }}-{{ $cycle->value }}" class="sr-only">{{ $cycle->label() }} price</label><input id="price-{{ $i }}-{{ $cycle->value }}" name="choices[{{ $i }}][prices][{{ $cycle->value }}]" value="{{ old("choices.{$i}.prices.{$cycle->value}", isset($choice->prices[$cycle->value]) ? Money::toInput($choice->prices[$cycle->value]) : '') }}" placeholder="0.00" class="w-24 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
                             @endforeach
                             <td class="py-1 pr-3"><label for="setup-{{ $i }}" class="sr-only">Setup fee</label><input id="setup-{{ $i }}" name="choices[{{ $i }}][setup_fee]" value="{{ old("choices.{$i}.setup_fee", $choice->setup_fee ? Money::toInput($choice->setup_fee) : '') }}" placeholder="0.00" class="w-24 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
                             @unless ($option->hasOneChoice())
