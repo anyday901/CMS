@@ -109,17 +109,19 @@ class WhmcsImportTest extends TestCase
 
     public function test_the_billing_run_does_not_invoice_a_period_whmcs_already_invoiced(): void
     {
-        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
-
-        $this->assertCount(0, app(InvoiceGenerator::class)->generate(Carbon::parse('2026-11-10')));
-
-        // Once that renewal is paid, the next one is invoiced as usual, numbered after the imported ones.
         Mail::fake();
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        $generator = app(InvoiceGenerator::class);
+
+        $this->assertCount(0, $generator->generate(Carbon::parse('2026-11-10')));
+
+        // With that renewal cancelled, the period is invoiced again, once, numbered after the imported invoices.
         Invoice::findOrFail(101)->forceFill(['status' => InvoiceStatus::Cancelled])->save();
-        Service::findOrFail(40)->forceFill(['next_due_date' => '2026-12-15'])->save();
-        $invoice = app(InvoiceGenerator::class)->generate(Carbon::parse('2026-12-10'))->sole();
+        $invoice = $generator->generate(Carbon::parse('2026-11-10'))->sole();
         $this->assertGreaterThan(101, $invoice->id);
+        $this->assertSame((string) $invoice->id, $invoice->number);
         $this->assertSame(1300, $invoice->items()->sole()->amount);
+        $this->assertCount(0, $generator->generate(Carbon::parse('2026-11-11')));
     }
 
     public function test_it_refuses_an_install_that_already_has_data(): void

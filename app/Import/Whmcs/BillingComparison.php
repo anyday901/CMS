@@ -93,7 +93,8 @@ class BillingComparison
             ->where('invoices.id', '>', $after)
             ->where('invoices.status', '!=', InvoiceStatus::Cancelled->value)
             ->where('invoice_items.type', InvoiceItem::TYPE_SERVICE)
-            ->whereBetween('invoice_items.period_start', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('invoice_items.period_start', '>=', $from->toDateString())
+            ->whereDate('invoice_items.period_start', '<=', $to->toDateString())
             ->get(['invoice_items.service_id', 'invoice_items.period_start', 'invoice_items.amount'])
             ->groupBy(fn ($row) => (int) $row->service_id.'|'.substr((string) $row->period_start, 0, 10))
             ->map(fn ($rows) => (int) $rows->sum('amount'));

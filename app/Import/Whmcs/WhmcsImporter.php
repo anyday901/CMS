@@ -12,6 +12,8 @@ use App\Models\ProductOption;
 use App\Models\Setting;
 use App\Support\Money;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -591,8 +593,8 @@ class WhmcsImporter
                 'billing_cycle' => $cycle->value,
                 'recurring_amount' => $free ? 0 : Whmcs::cents($row->amount),
                 'status' => $status->value,
-                'registration_date' => $registered,
-                'next_due_date' => $cycle->isRecurring() ? Whmcs::date($row->nextduedate) : null,
+                'registration_date' => $this->day($registered),
+                'next_due_date' => $cycle->isRecurring() ? $this->day(Whmcs::date($row->nextduedate)) : null,
                 'suspended_at' => $status === ServiceStatus::Suspended ? $this->now : null,
                 'suspension_reason' => $status === ServiceStatus::Suspended ? (Str::limit(Whmcs::text($row->suspendreason ?? ''), 250, '') ?: 'Suspended in WHMCS') : null,
                 'terminated_at' => $status === ServiceStatus::Terminated ? Whmcs::dateTime($row->termination_date ?? null) ?? $this->now : null,
@@ -647,75 +649,84 @@ class WhmcsImporter
     private function importInvoices(): void
     {
         $taxInclusive = $this->setting('TaxType') === 'Inclusive';
-        $items = $this->source->table('tblinvoiceitems')->orderBy('id')->get()->groupBy('invoiceid');
 
-        foreach ($this->source->table('tblinvoices')->orderBy('id')->cursor() as $row) {
-            $this->report->found(self::INVOICES);
-            $lines = $items->get($row->id, collect());
-            $this->report->found(self::LINES, $lines->count());
+        // In batches, so a large WHMCS install's invoice lines never all sit in memory.
+        $this->source->table('tblinvoices')->chunkById(self::BATCH, function ($rows) use ($taxInclusive) {
+            $items = $this->source->table('tblinvoiceitems')->whereIn('invoiceid', $rows->pluck('id'))->orderBy('id')->get()->groupBy('invoiceid');
 
-            if (! isset($this->clients[(int) $row->userid])) {
-                $this->report->skipped(self::INVOICES, "Invoice {$row->id} belongs to client {$row->userid}, which wasn't imported.");
-
-                continue;
+            foreach ($rows as $row) {
+                $this->importInvoice($row, $items->get($row->id, collect()), $taxInclusive);
             }
+        });
+    }
 
-            $currency = $this->clients[(int) $row->userid];
-            $credit = Whmcs::cents($row->credit ?? 0);
-            $number = trim((string) ($row->invoicenum ?? ''));
-            $notes = Whmcs::text($row->notes ?? '');
+    /** @param  Collection<int, object>  $lines */
+    private function importInvoice(object $row, Collection $lines, bool $taxInclusive): void
+    {
+        $this->report->found(self::INVOICES);
+        $this->report->found(self::LINES, $lines->count());
 
-            // Custom WHMCS invoice numbers are kept in the notes: numbers here are the invoice id.
-            if ($number !== '' && $number !== (string) $row->id) {
-                $notes = trim("WHMCS invoice number: {$number}\n\n{$notes}");
-            }
+        if (! isset($this->clients[(int) $row->userid])) {
+            $this->report->skipped(self::INVOICES, "Invoice {$row->id} belongs to client {$row->userid}, which wasn't imported.");
 
-            DB::table('invoices')->insert([
-                'id' => (int) $row->id,
-                'number' => (string) $row->id,
+            return;
+        }
+
+        $currency = $this->clients[(int) $row->userid];
+        $credit = Whmcs::cents($row->credit ?? 0);
+        $number = trim((string) ($row->invoicenum ?? ''));
+        $notes = Whmcs::text($row->notes ?? '');
+
+        // Custom WHMCS invoice numbers are kept in the notes: numbers here are the invoice id.
+        if ($number !== '' && $number !== (string) $row->id) {
+            $notes = trim("WHMCS invoice number: {$number}\n\n{$notes}");
+        }
+
+        DB::table('invoices')->insert([
+            'id' => (int) $row->id,
+            'number' => (string) $row->id,
+            'client_id' => (int) $row->userid,
+            'status' => Whmcs::invoiceStatus($row->status)->value,
+            'currency' => $currency,
+            'issue_date' => $this->day(Whmcs::date($row->date) ?? substr($this->now, 0, 10)),
+            'due_date' => $this->day(Whmcs::date($row->duedate) ?? Whmcs::date($row->date) ?? substr($this->now, 0, 10)),
+            'subtotal' => Whmcs::cents($row->subtotal),
+            'tax_name' => null,
+            'tax_rate' => max(0, Whmcs::cents($row->taxrate ?? 0)),
+            'tax_inclusive' => $taxInclusive,
+            'tax' => Whmcs::cents($row->tax ?? 0) + Whmcs::cents($row->tax2 ?? 0),
+            // WHMCS takes applied credit off the total; here it is a payment on the invoice.
+            'total' => Whmcs::cents($row->total) + $credit,
+            'paid_at' => Whmcs::invoiceStatus($row->status) === InvoiceStatus::Paid ? Whmcs::dateTime($row->datepaid) : null,
+            'notes' => $notes ?: null,
+            'created_at' => Whmcs::dateTime($row->created_at ?? null) ?? Whmcs::dateTime($row->date) ?? $this->now,
+            'updated_at' => $this->now,
+        ]);
+
+        if ((float) ($row->taxrate2 ?? 0) > 0) {
+            $this->report->note(self::INVOICES, "Invoice {$row->id} had a second tax rate. Its tax total is kept, but only the first rate is shown.");
+        }
+
+        foreach ($lines as $line) {
+            $this->queue('invoice_items', $this->line($line));
+            $this->report->imported(self::LINES);
+        }
+
+        if ($credit > 0) {
+            $this->queue('transactions', [
                 'client_id' => (int) $row->userid,
-                'status' => Whmcs::invoiceStatus($row->status)->value,
+                'invoice_id' => (int) $row->id,
+                'gateway' => CreditApplier::GATEWAY,
                 'currency' => $currency,
-                'issue_date' => Whmcs::date($row->date) ?? substr($this->now, 0, 10),
-                'due_date' => Whmcs::date($row->duedate) ?? Whmcs::date($row->date) ?? substr($this->now, 0, 10),
-                'subtotal' => Whmcs::cents($row->subtotal),
-                'tax_name' => null,
-                'tax_rate' => max(0, Whmcs::cents($row->taxrate ?? 0)),
-                'tax_inclusive' => $taxInclusive,
-                'tax' => Whmcs::cents($row->tax ?? 0) + Whmcs::cents($row->tax2 ?? 0),
-                // WHMCS takes applied credit off the total; here it is a payment on the invoice.
-                'total' => Whmcs::cents($row->total) + $credit,
-                'paid_at' => Whmcs::invoiceStatus($row->status) === InvoiceStatus::Paid ? Whmcs::dateTime($row->datepaid) : null,
-                'notes' => $notes ?: null,
-                'created_at' => Whmcs::dateTime($row->created_at ?? null) ?? Whmcs::dateTime($row->date) ?? $this->now,
+                'amount' => $credit,
+                'fee' => 0,
+                'created_at' => Whmcs::dateTime($row->datepaid) ?? Whmcs::dateTime($row->date) ?? $this->now,
                 'updated_at' => $this->now,
             ]);
-
-            if ((float) ($row->taxrate2 ?? 0) > 0) {
-                $this->report->note(self::INVOICES, "Invoice {$row->id} had a second tax rate. Its tax total is kept, but only the first rate is shown.");
-            }
-
-            foreach ($lines as $line) {
-                $this->queue('invoice_items', $this->line($line));
-                $this->report->imported(self::LINES);
-            }
-
-            if ($credit > 0) {
-                $this->queue('transactions', [
-                    'client_id' => (int) $row->userid,
-                    'invoice_id' => (int) $row->id,
-                    'gateway' => CreditApplier::GATEWAY,
-                    'currency' => $currency,
-                    'amount' => $credit,
-                    'fee' => 0,
-                    'created_at' => Whmcs::dateTime($row->datepaid) ?? Whmcs::dateTime($row->date) ?? $this->now,
-                    'updated_at' => $this->now,
-                ]);
-            }
-
-            $this->invoices[(int) $row->id] = $currency;
-            $this->report->imported(self::INVOICES);
         }
+
+        $this->invoices[(int) $row->id] = $currency;
+        $this->report->imported(self::INVOICES);
     }
 
     /** @return array<string, mixed> */
@@ -751,8 +762,8 @@ class WhmcsImporter
             'description' => Str::limit($description, 255, '') ?: '-',
             'amount' => Whmcs::cents($line->amount),
             'taxable' => Whmcs::on($line->taxed ?? ''),
-            'period_start' => $start,
-            'period_end' => $end,
+            'period_start' => $this->day($start),
+            'period_end' => $this->day($end),
             'created_at' => $this->now,
             'updated_at' => $this->now,
         ];
@@ -855,51 +866,58 @@ class WhmcsImporter
 
     private function importTickets(): void
     {
-        $replies = $this->source->table('tblticketreplies')->orderBy('id')->get()->groupBy('tid');
+        $this->source->table('tbltickets')->chunkById(self::BATCH, function ($rows) {
+            $replies = $this->source->table('tblticketreplies')->whereIn('tid', $rows->pluck('id'))->orderBy('id')->get()->groupBy('tid');
 
-        foreach ($this->source->table('tbltickets')->orderBy('id')->cursor() as $row) {
-            $this->report->found(self::TICKETS);
-            $messages = $replies->get($row->id, collect());
-            $this->report->found(self::REPLIES, $messages->count());
-
-            $problem = match (true) {
-                (int) $row->userid === 0 => 'was sent by someone without a client account',
-                ! isset($this->clients[(int) $row->userid]) => "belongs to client {$row->userid}, which wasn't imported",
-                ! isset($this->departments[(int) $row->did]) => "is in department {$row->did}, which wasn't found",
-                (int) ($row->merged_ticket_id ?? 0) > 0 => "was merged into ticket {$row->merged_ticket_id}",
-                default => null,
-            };
-
-            if ($problem !== null) {
-                $this->report->skipped(self::TICKETS, "Ticket #{$row->tid} ({$row->title}) {$problem}.");
-
-                continue;
+            foreach ($rows as $row) {
+                $this->importTicket($row, $replies->get($row->id, collect()));
             }
+        });
+    }
 
-            $opened = Whmcs::dateTime($row->date) ?? $this->now;
+    /** @param  Collection<int, object>  $messages */
+    private function importTicket(object $row, Collection $messages): void
+    {
+        $this->report->found(self::TICKETS);
+        $this->report->found(self::REPLIES, $messages->count());
 
-            DB::table('tickets')->insert([
-                'id' => (int) $row->id,
-                'whmcs_tid' => Str::limit((string) $row->tid, 32, ''),
-                'client_id' => (int) $row->userid,
-                'department_id' => $this->departments[(int) $row->did],
-                'subject' => Str::limit(Whmcs::text($row->title), 250, '') ?: '(No subject)',
-                'status' => Whmcs::ticketStatus($row->status)->value,
-                'priority' => Whmcs::priority($row->urgency)->value,
-                'last_reply_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
-                'created_at' => $opened,
-                'updated_at' => $this->now,
-            ]);
+        $problem = match (true) {
+            (int) $row->userid === 0 => 'was sent by someone without a client account',
+            ! isset($this->clients[(int) $row->userid]) => "belongs to client {$row->userid}, which wasn't imported",
+            ! isset($this->departments[(int) $row->did]) => "is in department {$row->did}, which wasn't found",
+            (int) ($row->merged_ticket_id ?? 0) > 0 => "was merged into ticket {$row->merged_ticket_id}",
+            default => null,
+        };
 
-            $this->message((int) $row->id, (int) $row->userid, $row, $opened);
+        if ($problem !== null) {
+            $this->report->skipped(self::TICKETS, "Ticket #{$row->tid} ({$row->title}) {$problem}.");
 
-            foreach ($messages as $reply) {
-                $this->message((int) $row->id, (int) $row->userid, $reply, Whmcs::dateTime($reply->date) ?? $opened);
-                $this->report->imported(self::REPLIES);
-            }
-
-            $this->report->imported(self::TICKETS);
+            return;
         }
+
+        $opened = Whmcs::dateTime($row->date) ?? $this->now;
+
+        DB::table('tickets')->insert([
+            'id' => (int) $row->id,
+            'whmcs_tid' => Str::limit((string) $row->tid, 32, ''),
+            'client_id' => (int) $row->userid,
+            'department_id' => $this->departments[(int) $row->did],
+            'subject' => Str::limit(Whmcs::text($row->title), 250, '') ?: '(No subject)',
+            'status' => Whmcs::ticketStatus($row->status)->value,
+            'priority' => Whmcs::priority($row->urgency)->value,
+            'last_reply_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
+            'created_at' => $opened,
+            'updated_at' => $this->now,
+        ]);
+
+        $this->message((int) $row->id, (int) $row->userid, $row, $opened);
+
+        foreach ($messages as $reply) {
+            $this->message((int) $row->id, (int) $row->userid, $reply, Whmcs::dateTime($reply->date) ?? $opened);
+            $this->report->imported(self::REPLIES);
+        }
+
+        $this->report->imported(self::TICKETS);
     }
 
     /** A ticket's first message (kept on the ticket row in WHMCS) or one of its replies. */
@@ -1064,6 +1082,15 @@ class WhmcsImporter
             'imported_at' => $this->now,
             'last_invoice_id' => (int) $this->source->table('tblinvoices')->max('id'),
         ])]);
+    }
+
+    /**
+     * A date as Eloquent writes it on this database, so imported dates
+     * compare equal to ones the app saves later (SQLite keeps them as text).
+     */
+    private function day(?string $date): ?string
+    {
+        return $date === null ? null : Carbon::parse($date)->format(DB::getQueryGrammar()->getDateFormat());
     }
 
     private function setting(string $name): ?string
