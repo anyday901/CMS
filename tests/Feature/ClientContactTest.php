@@ -24,6 +24,8 @@ class ClientContactTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SUPPORT_EMAIL = 'support@example.com';
+
     private const BOOKKEEPER = 'books@example.com';
 
     private const DEVELOPER = 'dev@example.com';
@@ -106,7 +108,7 @@ class ClientContactTest extends TestCase
         $client->sendPasswordResetNotification('token');
         $this->assertNull(EmailLog::where('template', 'password_reset')->sole()->cc);
 
-        $department = Department::create(['name' => 'Technical', 'email' => 'support@example.com', 'active' => true]);
+        $department = Department::create(['name' => 'Technical', 'email' => self::SUPPORT_EMAIL, 'active' => true]);
         $this->actingAs($client, 'client')->post('/portal/support', ['department_id' => $department->id, 'subject' => 'Help', 'priority' => 'low', 'body' => 'Hi']);
         $this->assertSame([self::DEVELOPER], EmailLog::where('template', 'ticket_opened')->sole()->cc);
     }
@@ -116,7 +118,7 @@ class ClientContactTest extends TestCase
         Mail::fake();
         Notification::fake();
         Storage::fake('local');
-        Department::create(['name' => 'Technical', 'email' => 'support@example.com', 'active' => true]);
+        Department::create(['name' => 'Technical', 'email' => self::SUPPORT_EMAIL, 'active' => true]);
         $client = Client::factory()->create();
         $this->contact($client, self::DEVELOPER, ['support_emails' => true]);
         $this->contact($client, self::BOOKKEEPER, ['invoice_emails' => true]);
@@ -135,7 +137,7 @@ class ClientContactTest extends TestCase
         Mail::fake();
         Notification::fake();
         Storage::fake('local');
-        Department::create(['name' => 'Technical', 'email' => 'support@example.com', 'active' => true]);
+        Department::create(['name' => 'Technical', 'email' => self::SUPPORT_EMAIL, 'active' => true]);
         [$first, $second] = Client::factory()->count(2)->create();
         $this->contact($first, self::DEVELOPER, ['support_emails' => true]);
         $this->contact($second, self::DEVELOPER, ['support_emails' => true]);

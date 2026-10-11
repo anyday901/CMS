@@ -18,6 +18,8 @@ class CustomFieldTest extends TestCase
 
     private const FIELDS = '/admin/custom-fields';
 
+    private const ACCOUNT = '/portal/account';
+
     private const VAT = 'GB123456789';
 
     private const VAT_NAME = 'VAT number';
@@ -63,8 +65,8 @@ class CustomFieldTest extends TestCase
         $details = ['first_name' => 'Jane', 'last_name' => 'Doe', 'email' => $client->email];
         $this->actingAs($client, 'client');
 
-        $this->put('/portal/account', $details + ['custom_fields' => [$terms->id => '0']])->assertSessionHasErrors("custom_fields.{$terms->id}");
-        $this->put('/portal/account', $details + ['custom_fields' => [$terms->id => '1']])->assertSessionHasNoErrors();
+        $this->put(self::ACCOUNT, $details + ['custom_fields' => [$terms->id => '0']])->assertSessionHasErrors("custom_fields.{$terms->id}");
+        $this->put(self::ACCOUNT, $details + ['custom_fields' => [$terms->id => '1']])->assertSessionHasNoErrors();
         $this->assertSame([(string) $terms->id => '1'], $client->fresh()->custom_fields);
     }
 
@@ -83,8 +85,8 @@ class CustomFieldTest extends TestCase
 
         // Clients see and change only the fields that aren't staff only.
         $this->actingAs($client->fresh(), 'client');
-        $this->get('/portal/account')->assertSee(self::VAT_NAME)->assertDontSee('Risk notes');
-        $this->put('/portal/account', $details + ['custom_fields' => [$vat->id => 'GB999', $note->id => 'All good']])->assertRedirect();
+        $this->get(self::ACCOUNT)->assertSee(self::VAT_NAME)->assertDontSee('Risk notes');
+        $this->put(self::ACCOUNT, $details + ['custom_fields' => [$vat->id => 'GB999', $note->id => 'All good']])->assertRedirect();
         $this->assertSame([(string) $vat->id => 'GB999', (string) $note->id => self::RISK_NOTE], $client->fresh()->custom_fields);
     }
 

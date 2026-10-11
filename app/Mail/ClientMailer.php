@@ -41,9 +41,7 @@ class ClientMailer
             'ticket_id' => $ticket?->id,
             'template' => $template,
             'to' => $client->email,
-            'cc' => isset($definition['contacts'])
-                ? $client->contacts()->where($definition['contacts'], true)->pluck('email')->unique()->values()->all() ?: null
-                : null,
+            'cc' => $this->contactCopies($client, $definition['contacts'] ?? null),
             'subject' => $rendered['subject'],
             'body' => $sensitive ? '(Not kept: this email contains a private link.)' : $body,
             'status' => EmailLog::QUEUED,
@@ -54,6 +52,22 @@ class ClientMailer
         SendLoggedEmail::dispatch($log->id, $sensitive ? $body : null);
 
         return $log;
+    }
+
+    /**
+     * Addresses of the contacts who asked for this kind of email, or null.
+     *
+     * @return list<string>|null
+     */
+    private function contactCopies(Client $client, ?string $flag): ?array
+    {
+        if ($flag === null) {
+            return null;
+        }
+
+        $emails = $client->contacts()->where($flag, true)->pluck('email')->unique()->values()->all();
+
+        return $emails === [] ? null : $emails;
     }
 
     private function common(Client $client): array

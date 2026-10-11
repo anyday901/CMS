@@ -63,11 +63,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
     });
 
     Route::middleware('auth:web')->group(function () {
+        $service = 'services/{service}';
+
         Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
         // Creating and editing come first so "create" isn't read as a client id.
-        Route::middleware('can:manage-clients')->group(function () {
+        Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
@@ -81,7 +83,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
             Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
-            Route::put('services/{service}', [Admin\ServiceController::class, 'update'])->name('services.update');
+            Route::put($service, [Admin\ServiceController::class, 'update'])->name('services.update');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
@@ -103,7 +105,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Every staff role can look.
         Route::get('clients', [Admin\ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [Admin\ClientController::class, 'show'])->name('clients.show');
-        Route::get('services/{service}', [Admin\ServiceController::class, 'show'])->name('services.show');
+        Route::get($service, [Admin\ServiceController::class, 'show'])->name('services.show');
         Route::get('tasks', [Admin\TaskController::class, 'index'])->name('tasks.index');
         Route::get('tasks/{task}', [Admin\TaskController::class, 'show'])->name('tasks.show');
         Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);

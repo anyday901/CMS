@@ -113,9 +113,10 @@ class CustomField extends Model
         $values = collect($saved ?? [])->mapWithKeys(fn ($value, $id) => [(string) $id => (string) $value]);
 
         foreach ($fields as $field) {
-            $value = $field->type === self::CHECKBOX
-                ? (($input[$field->id] ?? '0') === '1' ? '1' : '')
-                : trim((string) ($input[$field->id] ?? ''));
+            $value = trim((string) ($input[$field->id] ?? ''));
+            if ($field->type === self::CHECKBOX && $value !== '1') {
+                $value = '';
+            }
 
             $value === '' ? $values->forget((string) $field->id) : $values->put((string) $field->id, $value);
         }
