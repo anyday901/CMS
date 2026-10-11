@@ -29,7 +29,7 @@ class StaffController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $user = User::create($this->validated($request));
+        $user = User::create($this->withPermissions($this->validated($request)));
         Activity::record("Added staff member {$user->name} ({$user->role->label()})", $user);
 
         return redirect()->route(self::INDEX)->with('status', 'Staff member added.');
@@ -58,10 +58,10 @@ class StaffController extends Controller
                 $this->ensureAnotherAdmin($user);
             }
 
-            $user->update($data);
+            $user->update($this->withPermissions($data));
         });
 
-        Activity::record("Updated staff member {$user->name}", $user, ['role' => $user->role->value]);
+        Activity::record("Updated staff member {$user->name}", $user, array_filter(['role' => $user->role->value, 'permissions' => $user->permissions]));
 
         return redirect()->route(self::INDEX)->with('status', 'Staff member updated.');
     }
@@ -99,7 +99,19 @@ class StaffController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
             'role' => ['required', Rule::enum(StaffRole::class)],
+            'permissions' => ['array'],
+            'permissions.*' => [Rule::in(StaffRole::ABILITIES)],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:12', 'confirmed'],
         ]);
+    }
+
+    /** Ticked permissions only count for the custom role; other roles keep none. */
+    private function withPermissions(array $data): array
+    {
+        $data['permissions'] = $data['role'] === StaffRole::Custom->value
+            ? array_values(array_intersect(StaffRole::ABILITIES, $data['permissions'] ?? []))
+            : null;
+
+        return $data;
     }
 }

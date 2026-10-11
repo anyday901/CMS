@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Support tickets: clients open tickets in the portal under **Support**, choosing a department and priority, and reply or close them there. Staff work them on a new **Tickets** page, filtered by status, department and "assigned to me", with the most urgent and longest waiting first. Staff reply, add internal notes clients never see, and change the status, priority, department and assignee. Clients and staff can attach up to 5 files of 10 MB each (images, PDFs, text, office documents and zip). Files are kept on the private disk and always downloaded, never shown in the browser.
+- Ticket departments under **Settings > Departments**, each with an optional email address used as the reply-to on ticket emails and for piped mail.
+- Inbound email for tickets: `php artisan tickets:pipe` reads an email on standard input (for a mail server pipe), and `POST /webhooks/email` takes the same raw email over HTTP when `TICKETS_INBOUND_SECRET` is set. A reply with `[Ticket #N]` in the subject from that ticket's client is added to the ticket; an email from a known client to a department address opens a new one. Quoted text and unsafe attachments are dropped, and strangers, auto-replies and bulk mail are ignored.
+- Staff who handle tickets are emailed about new tickets and client replies; when a ticket is assigned, only the assignee is.
+- Client emails: new invoice, overdue reminder, payment receipt, password link, ticket received and ticket reply emails, each with a default subject and Markdown body that staff can change or turn off under **Email templates**, using placeholders like `{invoice_number}`.
+- Email log: every email to a client is listed under **Emails** with its status and full text, and a client's page shows their recent emails. Emails are sent from the queue and retried; staff can send a failed email again. Password links are left out of the log.
+- New invoice emails attach the invoice PDF (turn off on the **Settings** page or with `BILLING_ATTACH_INVOICE_PDF=false`).
+- Overdue reminders: `billing:run` emails a reminder when an unpaid invoice is overdue by each number of days in `BILLING_REMINDER_DAYS` (default 1 and 7).
+- Custom staff role: tick exactly which abilities a staff member has (staff, settings, clients, billing, tickets) instead of using a built-in role.
+- Activity log retention: set how many days to keep entries on the **Settings** page or with `ACTIVITY_RETENTION_DAYS`, and `php artisan activity:prune` (run nightly by the scheduler) deletes older ones.
+- The dashboard lists tickets waiting on staff.
+
+### Changed
+- Support staff can now handle tickets, and billing staff can too. Everything else about the built-in roles is unchanged.
+- Portal password emails use the editable "Password link" template and appear in the email log.
 - PayPal disputes: the PayPal webhook now takes the customer dispute events. Disputed PayPal and Venmo payments are flagged on the invoice, and a dispute resolved in the buyer's favour or accepted is recorded as a refund of the disputed amount.
 - Staff emails when a provisioning action fails, a manual task opens, or a payment is disputed or its dispute changes. Admin and billing staff get provisioning and task emails; staff who manage billing get dispute emails.
 - Manual fulfillment module: each provisioning action opens a task with the product's checklist. A new **Tasks** page lists open and finished tasks, staff tick steps, add notes and mark tasks done, and open tasks show on the dashboard and the service page.

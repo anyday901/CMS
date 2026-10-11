@@ -5,6 +5,7 @@ namespace App\Billing;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
+use App\Events\InvoiceIssued;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -36,6 +37,7 @@ class InvoiceGenerator
             ->filter()
             ->each(fn (Invoice $invoice) => $this->credit->applyIfEnabled($invoice))
             ->map(fn (Invoice $invoice) => $invoice->refresh())
+            ->each(fn (Invoice $invoice) => InvoiceIssued::dispatch($invoice))
             ->values();
     }
 

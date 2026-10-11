@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'role', 'password'])]
+#[Fillable(['name', 'email', 'role', 'permissions', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,6 +31,15 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => StaffRole::class,
+            'permissions' => 'array',
         ];
+    }
+
+    /** Whether this staff member has an ability, from their role or, for a custom role, their ticked permissions. */
+    public function allows(string $ability): bool
+    {
+        return $this->role === StaffRole::Custom
+            ? in_array($ability, $this->permissions ?? [], true)
+            : $this->role->allows($ability);
     }
 }

@@ -39,4 +39,12 @@ return [
     // percent of the invoice total (e.g. "10" for 10%).
     'late_fee_type' => env('BILLING_LATE_FEE_TYPE', 'fixed'),
     'late_fee_amount' => env('BILLING_LATE_FEE_AMOUNT', '0'),
+
+    // Attach the invoice PDF to new invoice emails. Can also be set on the
+    // admin Settings page.
+    'attach_invoice_pdf' => (bool) env('BILLING_ATTACH_INVOICE_PDF', true),
+
+    // Send an overdue reminder when an unpaid invoice is this many days past
+    // its due date, once for each number. Empty turns reminders off.
+    'reminder_days' => array_values(array_filter(array_map('intval', explode(',', (string) env('BILLING_REMINDER_DAYS', '1,7'))))),
 ];

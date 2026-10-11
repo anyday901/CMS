@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\InboundEmailController;
 use App\Http\Controllers\Portal;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureClientCanLogIn;
@@ -10,6 +11,7 @@ Route::redirect('/', '/portal');
 
 Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
 Route::post('webhooks/square', [WebhookController::class, 'square'])->name('webhooks.square');
+Route::post('webhooks/email', InboundEmailController::class)->middleware('throttle:60,1')->name('webhooks.email');
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::middleware('guest:client')->group(function () {
@@ -37,6 +39,15 @@ Route::prefix('portal')->name('portal.')->group(function () {
         });
         Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
         Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');
+        Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
+        Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
+        Route::middleware('throttle:20,1')->group(function () {
+            Route::post('support', [Portal\TicketController::class, 'store'])->name('tickets.store');
+            Route::post('support/{ticket}/reply', [Portal\TicketController::class, 'reply'])->name('tickets.reply');
+        });
+        Route::get('support/{ticket}', [Portal\TicketController::class, 'show'])->name('tickets.show');
+        Route::post('support/{ticket}/close', [Portal\TicketController::class, 'close'])->name('tickets.close');
+        Route::get('support/{ticket}/files/{attachment}', [Portal\TicketController::class, 'attachment'])->name('tickets.attachment');
         Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
         Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
         Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
@@ -59,6 +70,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
+            Route::post('emails/{email}/resend', [Admin\EmailLogController::class, 'resend'])->name('emails.resend');
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
@@ -90,7 +102,21 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 
+        Route::middleware('can:manage-tickets')->group(function () {
+            Route::get('tickets', [Admin\TicketController::class, 'index'])->name('tickets.index');
+            Route::get('tickets/{ticket}', [Admin\TicketController::class, 'show'])->name('tickets.show');
+            Route::put('tickets/{ticket}', [Admin\TicketController::class, 'update'])->name('tickets.update');
+            Route::post('tickets/{ticket}/reply', [Admin\TicketController::class, 'reply'])->name('tickets.reply');
+            Route::get('tickets/{ticket}/files/{attachment}', [Admin\TicketController::class, 'attachment'])->name('tickets.attachment');
+        });
+
         Route::middleware('can:manage-settings')->group(function () {
+            Route::resource('departments', Admin\DepartmentController::class)->only(['index', 'store', 'edit', 'update']);
+            Route::get('email-templates', [Admin\EmailTemplateController::class, 'index'])->name('email-templates.index');
+            Route::get('email-templates/{key}', [Admin\EmailTemplateController::class, 'edit'])->name('email-templates.edit');
+            Route::put('email-templates/{key}', [Admin\EmailTemplateController::class, 'update'])->name('email-templates.update');
+            Route::get('emails', [Admin\EmailLogController::class, 'index'])->name('emails.index');
+            Route::get('emails/{email}', [Admin\EmailLogController::class, 'show'])->name('emails.show');
             Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');

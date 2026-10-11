@@ -103,6 +103,20 @@
         </div>
     @endif
 
+    <h2 class="mt-8 mb-3 text-lg font-semibold">Tickets</h2>
+    @if ($tickets->isEmpty())
+        <p class="text-sm text-ink-500">No tickets.</p>
+    @else
+        @include('admin.tickets._table', ['hideClient' => true])
+    @endif
+
+    <h2 class="mt-8 mb-3 text-lg font-semibold">Recent emails</h2>
+    @if ($emails->isEmpty())
+        <p class="text-sm text-ink-500">No emails sent yet.</p>
+    @else
+        @include('admin.emails._table')
+    @endif
+
     <h2 class="mt-8 mb-3 text-lg font-semibold">Recent activity</h2>
     @if ($activity->isEmpty())
         <p class="text-sm text-ink-500">Nothing logged yet.</p>

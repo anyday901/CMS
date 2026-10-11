@@ -56,7 +56,11 @@ class ClientController extends Controller
 
         $credit = $client->creditEntries()->with(['invoice', 'user'])->latest('id')->limit(25)->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit'));
+        $tickets = $client->tickets()->with(['department', 'assignee'])->latest('last_reply_at')->limit(10)->get()->each->setRelation('client', $client);
+
+        $emails = $client->emailLogs()->latest('id')->limit(10)->get();
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails'));
     }
 
     public function edit(Client $client): View
