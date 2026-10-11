@@ -13,6 +13,7 @@ use App\Events\ServiceUnsuspended;
 use App\Mail\ClientMailer;
 use App\Models\User;
 use App\Provisioning\Provisioner;
+use App\Support\Money;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -56,5 +57,16 @@ class AppServiceProvider extends ServiceProvider
             }
         });
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(ClientMailer::class)->send($e->invoice->client, 'payment_receipt', invoice: $e->invoice));
+        Event::listen(ServiceActivated::class, function (ServiceActivated $e) {
+            $service = $e->service;
+            app(ClientMailer::class)->send($service->client, 'service_welcome', [
+                'service_name' => $service->description(),
+                'product_name' => $service->product->name,
+                'service_url' => route('portal.services.show', $service),
+                'next_due_date' => $service->next_due_date?->format('M j, Y') ?? '',
+                'recurring_amount' => Money::format((int) $service->recurring_amount, $service->client->currency),
+                'product_welcome' => trim((string) $service->product->welcome_email),
+            ]);
+        });
     }
 }

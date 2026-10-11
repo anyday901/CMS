@@ -39,9 +39,9 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Manual fulfillment tasks
 - [x] Webhook provisioning module
 - [ ] Corey's custom provisioning module
-- [ ] Canned replies for tickets
-- [ ] Welcome email when a service is activated
-- [ ] Admin can log in as a client
+- [x] Canned replies for tickets
+- [x] Welcome email when a service is activated
+- [x] Admin can log in as a client
 - [ ] Client contacts (extra people on an account)
 - [ ] Configurable options on products (choices that change the price)
 - [ ] Custom fields on clients and services

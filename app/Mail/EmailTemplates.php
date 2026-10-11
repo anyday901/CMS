@@ -46,6 +46,13 @@ class EmailTemplates
                 'body' => "Hello {client_first_name},\n\nThank you for your payment. Invoice #{invoice_number} for {invoice_total} is now paid in full.\n\n[View the invoice]({invoice_url})\n\n{company_name}",
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_url'],
             ],
+            'service_welcome' => [
+                'name' => 'Service welcome',
+                'description' => 'Sent when a service is activated: once its first invoice is paid, or when staff add it without an invoice. Each product can add its own text under Products.',
+                'subject' => 'Your {service_name} is ready',
+                'body' => "Hello {client_first_name},\n\nThank you for your order. Your {service_name} is now active.\n\n{product_welcome}\n\n[View your service]({service_url})\n\nThank you,\n{company_name}",
+                'placeholders' => ['service_name', 'product_name', 'service_url', 'next_due_date', 'recurring_amount', 'product_welcome'],
+            ],
             'password_reset' => [
                 'name' => 'Password link',
                 'description' => 'Sent when a client asks to set or reset their password, or staff send them a password link. The link is left out of the email log.',

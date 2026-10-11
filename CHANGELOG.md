@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom staff role: tick exactly which abilities a staff member has (staff, settings, clients, billing, tickets) instead of using a built-in role.
 - Activity log retention: set how many days to keep entries on the **Settings** page or with `ACTIVITY_RETENTION_DAYS`, and `php artisan activity:prune` (run nightly by the scheduler) deletes older ones.
 - The dashboard lists tickets waiting on staff.
+- Canned replies: staff save common ticket answers under **Tickets > Canned replies** and insert one into a reply from the ticket page. Placeholders such as `{client_first_name}`, `{ticket_id}` and `{staff_name}` are filled in for that ticket.
+- Service welcome email, sent when a service is activated (its first invoice is paid, or staff add it without an invoice). Each product can add its own text to it, such as how to log in, with the new **Welcome email text** field. Staff can edit or turn it off like the other templates.
+- Log in as client: staff who manage clients can open the portal as a client from the client's page. A banner shows while they do, everything they do there is logged under their own name, and **Back to admin** (or logging out of the portal) returns them to the client's page still signed in as staff.
 
 ### Changed
 - The roadmap in `TODO.md` and `docs/spec.md` now aims at full WHMCS feature parity after v1 (milestones 5 to 12).

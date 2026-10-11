@@ -109,7 +109,11 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+
+### Logging in as a client
+
+Staff who can manage clients can use **Log in as client** on a client's page to see the portal as that client, for example to check what they see or to help them through a step. A banner shows while you are signed in as the client, and anything you do is recorded in the activity log under your own name. **Back to admin**, or logging out of the portal, signs you out of the client account and takes you back to their page, still signed in to the admin area. Closed accounts can't be opened this way.
 
 ### Staff roles
 
@@ -149,7 +153,7 @@ Staff are emailed when something needs a person: a provisioning action fails or 
 
 Add at least one department under **Settings > Departments** (for example Sales and Technical) so clients can open tickets. Give a department an email address to make it the reply-to on ticket emails and to accept tickets by email.
 
-Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department and assignee. A client reply reopens a closed ticket. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
+Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department and assignee. A client reply reopens a closed ticket. Save answers you give often under **Tickets > Canned replies**; on a ticket, pick one from **Canned reply** to add it to your reply, with placeholders like `{client_first_name}`, `{ticket_id}` and `{staff_name}` filled in. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
 
 ### Tickets by email
 
@@ -168,7 +172,7 @@ Deliver mail to the app in one of two ways:
 
 ### Client emails
 
-The app emails clients when an invoice is issued (with the PDF attached, unless turned off on the **Settings** page), when an invoice becomes overdue, when an invoice is paid in full, when they ask for a password link, and when a ticket is opened or staff reply to it. Draft invoices are never emailed.
+The app emails clients when an invoice is issued (with the PDF attached, unless turned off on the **Settings** page), when an invoice becomes overdue, when an invoice is paid in full, when a service is activated (the welcome email), when they ask for a password link, and when a ticket is opened or staff reply to it. Draft invoices are never emailed. To add product-specific instructions to the welcome email, such as a control panel address, fill in **Welcome email text** on the product; it goes where the template says `{product_welcome}`.
 
 Change the subject and wording of each email under **Emails > Email templates**. Bodies are Markdown with placeholders such as `{client_first_name}` and `{invoice_url}`; each template lists the ones it can use. You can turn an email off, or reset it to the default. HTML typed into a template or a ticket reply is shown as text.
 

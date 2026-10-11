@@ -25,6 +25,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
 
     Route::middleware(['auth:client', EnsureClientCanLogIn::class])->group(function () {
         Route::post('logout', [Portal\AuthController::class, 'destroy'])->name('logout');
+        Route::post('back-to-admin', [Admin\ImpersonationController::class, 'destroy'])->name('impersonation.stop');
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
         Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
         Route::prefix('invoices/{invoice}')->group(function () {
@@ -71,6 +72,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
             Route::post('emails/{email}/resend', [Admin\EmailLogController::class, 'resend'])->name('emails.resend');
+            Route::post('clients/{client}/login-as', [Admin\ImpersonationController::class, 'store'])->name('clients.login-as');
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
@@ -103,6 +105,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 
         Route::middleware('can:manage-tickets')->group(function () {
+            Route::resource('canned-replies', Admin\CannedReplyController::class)->except(['show', 'create']);
             Route::get('tickets', [Admin\TicketController::class, 'index'])->name('tickets.index');
             Route::get('tickets/{ticket}', [Admin\TicketController::class, 'show'])->name('tickets.show');
             Route::put('tickets/{ticket}', [Admin\TicketController::class, 'update'])->name('tickets.update');

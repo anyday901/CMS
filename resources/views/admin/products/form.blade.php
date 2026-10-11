@@ -11,6 +11,10 @@
         <label class="block">Description
             <textarea name="description" rows="3" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('description', $product->description) }}</textarea>
         </label>
+        <label class="block">Welcome email text (optional)
+            <textarea name="welcome_email" rows="4" placeholder="Log in to your control panel at https://panel.example.com with the details we sent." class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('welcome_email', $product->welcome_email) }}</textarea>
+            <span class="text-ink-500">Added to the <a href="{{ route('admin.email-templates.edit', 'service_welcome') }}" class="text-brand-600">service welcome email</a> where it says {product_welcome}. Markdown works.</span>
+        </label>
         <input type="hidden" name="active" value="0">
         <label class="flex items-center gap-2"><input type="checkbox" name="active" value="1" @checked(old('active', $product->exists ? $product->active : true))> Available for new orders</label>
         <input type="hidden" name="taxable" value="0">

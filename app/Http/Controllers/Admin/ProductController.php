@@ -61,6 +61,7 @@ class ProductController extends Controller
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'welcome_email' => ['nullable', 'string', 'max:20000'],
             'active' => ['boolean'],
             'taxable' => ['boolean'],
         ];
@@ -73,6 +74,7 @@ class ProductController extends Controller
         $product->fill([
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
+            'welcome_email' => $data['welcome_email'] ?? null,
             'active' => $request->boolean('active'),
             'taxable' => $request->boolean('taxable'),
             ...$this->moduleSettings($request),

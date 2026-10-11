@@ -8,6 +8,17 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-ink-50 text-ink-900 antialiased {{ auth('client')->check() ? '' : 'harbor-backdrop' }}">
+    @if (App\Support\Impersonation::active())
+        <div class="bg-sun-300/60 text-sm text-amber-900">
+            <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-2">
+                <span>You're signed in as <strong>{{ auth('client')->user()->fullName() }}</strong> from the admin area. What you do here is logged under {{ auth('web')->user()->name }}.</span>
+                <form method="POST" action="{{ route('portal.impersonation.stop') }}" class="ml-auto">
+                    @csrf
+                    <button class="rounded-full bg-white px-3 py-1 font-medium ring-1 ring-ink-300 hover:bg-ink-50">Back to admin</button>
+                </form>
+            </div>
+        </div>
+    @endif
     @auth('client')
         <nav class="border-b border-ink-200 bg-white">
             <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">

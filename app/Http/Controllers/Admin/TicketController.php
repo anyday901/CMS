@@ -6,6 +6,7 @@ use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Models\CannedReply;
 use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
@@ -49,12 +50,14 @@ class TicketController extends Controller
         ]);
     }
 
-    public function show(Ticket $ticket): View
+    public function show(Request $request, Ticket $ticket): View
     {
         $ticket->load(['client', 'department', 'assignee', 'messages.user', 'messages.client', 'messages.attachments']);
 
         return view('admin.tickets.show', [
             'ticket' => $ticket,
+            'cannedReplies' => CannedReply::orderBy('title')->get()
+                ->map(fn (CannedReply $reply) => ['title' => $reply->title, 'body' => $reply->bodyFor($ticket, $request->user())]),
             'departments' => Department::orderBy('name')->get(),
             'staff' => User::orderBy('name')->get()->filter(fn (User $user) => $user->allows('manage-tickets')),
         ]);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Impersonation;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,13 @@ class EnsureClientCanLogIn
     public function handle(Request $request, Closure $next): Response
     {
         $client = $request->user('client');
+
+        if ($client && ! $client->canLogIn() && Impersonation::active()) {
+            $client = Impersonation::stop();
+
+            return redirect()->route('admin.clients.show', $client)
+                ->withErrors(['client' => 'This account is closed, so you were signed out of its portal.']);
+        }
 
         if ($client && ! $client->canLogIn()) {
             Auth::guard('client')->logout();
