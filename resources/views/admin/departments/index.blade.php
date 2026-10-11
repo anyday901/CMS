@@ -9,7 +9,7 @@
             @else
                 <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Email</th><th class="px-4 py-2">Tickets</th><th class="px-4 py-2"></th></tr></thead>
+                        <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Email</th><th class="px-4 py-2">Tickets</th><th class="px-4 py-2"><span class="sr-only">Status</span></th></tr></thead>
                         <tbody class="divide-y divide-ink-100">
                             @foreach ($departments as $item)
                                 <tr>

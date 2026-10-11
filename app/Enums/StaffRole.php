@@ -21,6 +21,7 @@ enum StaffRole: string
             'manage-clients' => 'Add and edit clients and services, and run provisioning',
             'manage-billing' => 'Create and edit invoices, record payments, apply credit and refund',
             'manage-tickets' => 'Answer, assign and close support tickets',
+            default => $ability,
         };
     }
 
@@ -40,7 +41,7 @@ enum StaffRole: string
             self::Admin => 'Everything, including staff, products, tax rules and the activity log.',
             self::Billing => 'Clients, services, invoices and support tickets: create, edit, payments, credit and refunds.',
             self::Support => 'Answers support tickets; read-only access to clients, services and invoices.',
-            self::Custom => 'Only the permissions ticked below. Everyone can look at clients, services, invoices and tickets.',
+            self::Custom => 'Only the permissions ticked below. Everyone can look at clients, services and invoices.',
         };
     }
 
