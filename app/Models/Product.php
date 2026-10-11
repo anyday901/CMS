@@ -11,7 +11,7 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'active', 'taxable', 'module', 'module_config'];
+    protected $fillable = ['name', 'description', 'welcome_email', 'active', 'taxable', 'module', 'module_config'];
 
     protected $attributes = ['active' => true, 'taxable' => true];
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portal;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Support\Impersonation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,6 +37,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        Impersonation::forget();
         Activity::record('Logged in to the portal', $request->user('client'));
 
         return redirect()->intended(route('portal.dashboard'));
@@ -43,6 +45,13 @@ class AuthController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        // Staff signed in as this client: leave the client account, keep the staff login.
+        if (Impersonation::active()) {
+            $client = Impersonation::stop();
+
+            return redirect()->route('admin.clients.show', $client);
+        }
+
         Activity::record('Logged out of the portal', $request->user('client'));
         Auth::guard('client')->logout();
         $request->session()->invalidate();

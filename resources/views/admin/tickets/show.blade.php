@@ -14,12 +14,42 @@
 
             <form method="POST" action="{{ route('admin.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
                 @csrf
-                <label for="reply-body" class="block font-display text-base font-semibold">Reply</label>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <label for="reply-body" class="block font-display text-base font-semibold">Reply</label>
+                    @if ($cannedReplies->isNotEmpty())
+                        <label class="flex items-center gap-1.5 text-ink-600">Canned reply
+                            <select id="canned-reply" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
+                                <option value="">Insert…</option>
+                                @foreach ($cannedReplies as $canned)
+                                    <option value="{{ $loop->index }}" data-body="{{ $canned['body'] }}">{{ $canned['title'] }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    @endif
+                </div>
                 <textarea id="reply-body" name="body" rows="6" required class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300" placeholder="Write to {{ $ticket->client->first_name }}…">{{ old('body') }}</textarea>
                 @include('tickets._attachments')
                 <label class="flex items-center gap-2"><input type="checkbox" name="internal" value="1" @checked(old('internal'))> Internal note: only staff see it and nothing is emailed</label>
                 <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Send</button>
+                <a href="{{ route('admin.canned-replies.index') }}" class="ml-2 text-brand-600">Manage canned replies</a>
             </form>
+            @if ($cannedReplies->isNotEmpty())
+                <script>
+                    // Add the picked canned reply at the end of what's already written.
+                    (() => {
+                        const select = document.getElementById('canned-reply');
+                        const body = document.getElementById('reply-body');
+                        select.addEventListener('change', () => {
+                            const text = select.selectedOptions[0]?.dataset.body;
+                            if (text) {
+                                body.value = body.value.trim() === '' ? text : body.value.replace(/\s*$/, '\n\n') + text;
+                                body.focus();
+                            }
+                            select.value = '';
+                        });
+                    })();
+                </script>
+            @endif
         </div>
 
         <aside class="space-y-4">

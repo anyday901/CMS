@@ -1,5 +1,8 @@
 <x-admin-layout title="Tickets">
-    <h1 class="mb-4 text-2xl font-semibold">Tickets</h1>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-2xl font-semibold">Tickets</h1>
+        <a href="{{ route('admin.canned-replies.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Canned replies</a>
+    </div>
     <form method="GET" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
         @foreach (['waiting' => 'Waiting on us', 'answered' => 'Answered', 'on_hold' => 'On hold', 'closed' => 'Closed', 'all' => 'All'] as $value => $label)
             <a href="{{ route('admin.tickets.index', array_filter(['status' => $value === 'waiting' ? null : $value, 'department' => $filters['department'], 'mine' => $filters['mine'] ? 1 : null])) }}"

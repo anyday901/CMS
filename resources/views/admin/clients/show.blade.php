@@ -8,6 +8,11 @@
                 <form method="POST" action="{{ route('admin.clients.password-link', $client) }}">@csrf
                     <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Email portal password link</button>
                 </form>
+                @if ($client->canLogIn())
+                    <form method="POST" action="{{ route('admin.clients.login-as', $client) }}">@csrf
+                        <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Log in as client</button>
+                    </form>
+                @endif
                 <a href="{{ route('admin.clients.edit', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Edit</a>
             @endcan
             @can('manage-billing')

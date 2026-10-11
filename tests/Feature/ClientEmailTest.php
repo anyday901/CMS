@@ -86,6 +86,48 @@ class ClientEmailTest extends TestCase
         $this->assertSame(['payment_receipt'], EmailLog::pluck('template')->all());
     }
 
+    public function test_paying_for_a_new_order_sends_the_welcome_email_with_the_product_text(): void
+    {
+        Mail::fake();
+        $client = Client::factory()->create(['first_name' => 'Jane']);
+        $product = Product::factory()->create(['name' => 'Web hosting', 'welcome_email' => 'Your panel is at https://panel.example.com']);
+        $product->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 1500]);
+        $order = app(OrderService::class)->create($client, $product, BillingCycle::Monthly, today());
+
+        app(PaymentRecorder::class)->record($order['invoice'], $order['invoice']->total, 'cash');
+
+        $this->assertEqualsCanonicalizing(['invoice_created', 'payment_receipt', 'service_welcome'], EmailLog::pluck('template')->all());
+        $log = EmailLog::where('template', 'service_welcome')->sole();
+        $this->assertSame('Your Web hosting is ready', $log->subject);
+        $this->assertStringContainsString('Hello Jane', $log->body);
+        $this->assertStringContainsString('Your panel is at https://panel.example.com', $log->body);
+        $this->assertStringContainsString(route('portal.services.show', $order['service']), $log->body);
+    }
+
+    public function test_services_added_without_an_invoice_get_the_welcome_email_unless_it_is_off(): void
+    {
+        Mail::fake();
+        $product = Product::factory()->create();
+        $product->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 1500]);
+
+        app(OrderService::class)->create(Client::factory()->create(), $product, BillingCycle::Monthly, today(), invoice: false);
+        $this->assertSame(['service_welcome'], EmailLog::pluck('template')->all());
+
+        EmailTemplate::create(['key' => 'service_welcome', 'subject' => 'x', 'body' => 'y', 'enabled' => false]);
+        app(OrderService::class)->create(Client::factory()->create(), $product, BillingCycle::Monthly, today(), invoice: false);
+        $this->assertSame(1, EmailLog::count());
+    }
+
+    public function test_staff_set_a_products_welcome_text(): void
+    {
+        $this->actingAs(User::factory()->create());
+        $product = Product::factory()->create();
+
+        $this->get("/admin/products/{$product->id}/edit")->assertOk()->assertSee('Welcome email text');
+        $this->put("/admin/products/{$product->id}", ['name' => $product->name, 'welcome_email' => 'Log in at panel.example.com'])->assertRedirect();
+        $this->assertSame('Log in at panel.example.com', $product->fresh()->welcome_email);
+    }
+
     public function test_staff_edits_and_turn_off_templates(): void
     {
         Mail::fake();
