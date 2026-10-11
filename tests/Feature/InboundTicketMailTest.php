@@ -19,6 +19,12 @@ class InboundTicketMailTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SUBJECT = 'Cannot log in';
+
+    private const RAW_EMAIL = 'message/rfc822';
+
+    private const ENDPOINT = '/webhooks/email';
+
     private Department $department;
 
     private Client $client;
@@ -40,11 +46,11 @@ class InboundTicketMailTest extends TestCase
 
     public function test_an_email_to_a_department_opens_a_ticket_and_a_reply_adds_to_it(): void
     {
-        [$outcome] = app(InboundMail::class)->handle($this->email('Cannot log in', "Help please.\n\nJane"));
+        [$outcome] = app(InboundMail::class)->handle($this->email(self::SUBJECT, "Help please.\n\nJane"));
         $this->assertSame(InboundMail::OPENED, $outcome);
 
         $ticket = Ticket::sole();
-        $this->assertSame(['Cannot log in', $this->client->id, $this->department->id], [$ticket->subject, $ticket->client_id, $ticket->department_id]);
+        $this->assertSame([self::SUBJECT, $this->client->id, $this->department->id], [$ticket->subject, $ticket->client_id, $ticket->department_id]);
         $this->assertSame(['Help please.'."\n\nJane", 'email'], [TicketMessage::sole()->body, TicketMessage::sole()->via]);
 
         $ticket->update(['status' => TicketStatus::Answered]);
@@ -58,7 +64,7 @@ class InboundTicketMailTest extends TestCase
 
     public function test_a_redelivered_email_is_only_added_once(): void
     {
-        $raw = $this->email('Cannot log in', 'Help please.');
+        $raw = $this->email(self::SUBJECT, 'Help please.');
         $inbound = app(InboundMail::class);
 
         $this->assertSame(InboundMail::OPENED, $inbound->handle($raw)[0]);
@@ -126,13 +132,13 @@ class InboundTicketMailTest extends TestCase
     {
         $raw = $this->email('Via HTTP', 'Hello');
 
-        $this->call('POST', '/webhooks/email', [], [], [], ['CONTENT_TYPE' => 'message/rfc822'], $raw)->assertNotFound();
+        $this->call('POST', self::ENDPOINT, [], [], [], ['CONTENT_TYPE' => self::RAW_EMAIL], $raw)->assertNotFound();
 
         config(['tickets.inbound_secret' => 'pipe-secret']);
-        $this->call('POST', '/webhooks/email', [], [], [], ['CONTENT_TYPE' => 'message/rfc822', 'HTTP_X_INBOUND_SECRET' => 'wrong'], $raw)->assertForbidden();
-        $this->call('POST', '/webhooks/email', [], [], [], ['CONTENT_TYPE' => 'message/rfc822', 'HTTP_X_INBOUND_SECRET' => 'pipe-secret'], $raw)
+        $this->call('POST', self::ENDPOINT, [], [], [], ['CONTENT_TYPE' => self::RAW_EMAIL, 'HTTP_X_INBOUND_SECRET' => 'wrong'], $raw)->assertForbidden();
+        $this->call('POST', self::ENDPOINT, [], [], [], ['CONTENT_TYPE' => self::RAW_EMAIL, 'HTTP_X_INBOUND_SECRET' => 'pipe-secret'], $raw)
             ->assertOk()->assertSee('opened');
-        $this->call('POST', '/webhooks/email?key=pipe-secret', [], [], [], ['CONTENT_TYPE' => 'message/rfc822'], $this->email('Second', 'Again'))->assertOk();
+        $this->call('POST', '/webhooks/email?key=pipe-secret', [], [], [], ['CONTENT_TYPE' => self::RAW_EMAIL], $this->email('Second', 'Again'))->assertOk();
 
         $this->assertSame(['Via HTTP', 'Second'], Ticket::orderBy('id')->pluck('subject')->all());
     }

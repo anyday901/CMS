@@ -18,8 +18,8 @@
 
         <form method="POST" action="{{ route('portal.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
             @csrf
-            <h2 class="font-semibold">{{ $ticket->status === TicketStatus::Closed ? 'Reply to reopen this ticket' : 'Reply' }}</h2>
-            <textarea name="body" rows="5" required aria-label="Reply" class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('body') }}</textarea>
+            <label for="reply-body" class="block font-display text-base font-semibold">{{ $ticket->status === TicketStatus::Closed ? 'Reply to reopen this ticket' : 'Reply' }}</label>
+            <textarea id="reply-body" name="body" rows="5" required class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('body') }}</textarea>
             @include('tickets._attachments')
             <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Send reply</button>
         </form>

@@ -63,9 +63,9 @@ class TicketDesk
     }
 
     /** @param  list<array{name: string, mime: ?string, contents: string}>  $files */
-    public function open(Client $client, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], string $via = 'web', ?string $emailMessageId = null): Ticket
+    public function open(Client $client, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], ?EmailOrigin $email = null): Ticket
     {
-        $ticket = DB::transaction(function () use ($client, $department, $subject, $body, $priority, $files, $via, $emailMessageId) {
+        $ticket = DB::transaction(function () use ($client, $department, $subject, $body, $priority, $files, $email) {
             $ticket = Ticket::create([
                 'client_id' => $client->id,
                 'department_id' => $department->id,
@@ -74,8 +74,8 @@ class TicketDesk
                 'priority' => $priority,
                 'last_reply_at' => now(),
             ]);
-            $this->addMessage($ticket, ['client_id' => $client->id, 'via' => $via, 'email_message_id' => $emailMessageId], $body, $files);
-            Activity::record("Opened ticket #{$ticket->id}: {$ticket->subject}", $ticket, $via === 'email' ? ['via' => 'email'] : []);
+            $this->addMessage($ticket, ['client_id' => $client->id] + ($email?->attributes() ?? []), $body, $files);
+            Activity::record("Opened ticket #{$ticket->id}: {$ticket->subject}", $ticket, $email ? ['via' => 'email'] : []);
 
             return $ticket;
         });
@@ -91,12 +91,12 @@ class TicketDesk
      *
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
      */
-    public function clientReply(Ticket $ticket, string $body, array $files = [], string $via = 'web', ?string $emailMessageId = null): TicketMessage
+    public function clientReply(Ticket $ticket, string $body, array $files = [], ?EmailOrigin $email = null): TicketMessage
     {
-        $message = DB::transaction(function () use ($ticket, $body, $files, $via, $emailMessageId) {
-            $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id, 'via' => $via, 'email_message_id' => $emailMessageId], $body, $files);
+        $message = DB::transaction(function () use ($ticket, $body, $files, $email) {
+            $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id] + ($email?->attributes() ?? []), $body, $files);
             $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now()]);
-            Activity::record("Client replied to ticket #{$ticket->id}", $ticket, $via === 'email' ? ['via' => 'email'] : []);
+            Activity::record("Client replied to ticket #{$ticket->id}", $ticket, $email ? ['via' => 'email'] : []);
 
             return $message;
         });

@@ -38,37 +38,24 @@ class InboundMail
     {
         $message = Message::from($raw, false);
         $from = strtolower((string) $message->getHeader('From')?->getEmail());
-
-        if ($from === '') {
-            return $this->ignore('no sender address');
-        }
-
-        if ($this->isAutomatic($message)) {
-            return $this->ignore("automatic message from {$from}");
-        }
-
-        $client = Client::whereRaw('lower(email) = ?', [$from])->first();
-
-        if ($client === null) {
-            return $this->ignore("sender {$from} is not a client");
-        }
-
-        $subject = trim((string) $message->getSubject());
+        $client = $from === '' ? null : Client::whereRaw('lower(email) = ?', [$from])->first();
         $body = $this->body($message);
         $files = $this->attachments($message);
-
-        if ($body === '' && $files === []) {
-            return $this->ignore("empty message from {$from}");
-        }
-
         $messageId = Str::limit(trim((string) $message->getMessageId()), 250, '') ?: null;
 
-        if ($messageId !== null && TicketMessage::where('email_message_id', $messageId)->exists()) {
-            return $this->ignore("already received {$messageId}");
-        }
+        $rejected = match (true) {
+            $from === '' => 'no sender address',
+            $this->isAutomatic($message) => "automatic message from {$from}",
+            $client === null => "sender {$from} is not a client",
+            $body === '' && $files === [] => "empty message from {$from}",
+            $messageId !== null && TicketMessage::where('email_message_id', $messageId)->exists() => "already received {$messageId}",
+            default => null,
+        };
 
         try {
-            return $this->apply($client, $from, $subject, $body, $files, $department, $message, $messageId);
+            return $rejected === null
+                ? $this->apply($client, $message, $body, $files, $department, new EmailOrigin($messageId))
+                : $this->ignore($rejected);
         } catch (UniqueConstraintViolationException) {
             // The same email arrived twice at once and the other delivery won.
             return $this->ignore("already received {$messageId}");
@@ -79,35 +66,29 @@ class InboundMail
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
      * @return array{0: string, 1: string}
      */
-    private function apply(Client $client, string $from, string $subject, string $body, array $files, ?Department $department, IMessage $message, ?string $messageId): array
+    private function apply(Client $client, IMessage $message, string $body, array $files, ?Department $department, EmailOrigin $origin): array
     {
-        if (preg_match('/\[Ticket #(\d+)\]/i', $subject, $m)) {
-            $ticket = Ticket::where('client_id', $client->id)->find((int) $m[1]);
+        $subject = trim((string) $message->getSubject());
+        $body = $body !== '' ? $body : '(Attachments only.)';
+        $ticket = preg_match('/\[Ticket #(\d+)\]/i', $subject, $m)
+            ? Ticket::where('client_id', $client->id)->find((int) $m[1])
+            : null;
 
-            if ($ticket !== null) {
-                $this->desk->clientReply($ticket, $body !== '' ? $body : '(Attachments only.)', $files, 'email', $messageId);
+        if ($ticket !== null) {
+            $this->desk->clientReply($ticket, $body, $files, $origin);
 
-                return [self::REPLIED, "reply on ticket #{$ticket->id} from {$from}"];
-            }
+            return [self::REPLIED, "reply on ticket #{$ticket->id} from {$client->email}"];
         }
 
         $department ??= $this->departmentFor($message);
 
         if ($department === null) {
-            return $this->ignore("no department uses any address the email from {$from} was sent to");
+            return $this->ignore("no department uses any address the email from {$client->email} was sent to");
         }
 
-        $ticket = $this->desk->open(
-            $client,
-            $department,
-            $subject !== '' ? $subject : '(No subject)',
-            $body !== '' ? $body : '(Attachments only.)',
-            files: $files,
-            via: 'email',
-            emailMessageId: $messageId,
-        );
+        $ticket = $this->desk->open($client, $department, $subject !== '' ? $subject : '(No subject)', $body, files: $files, email: $origin);
 
-        return [self::OPENED, "ticket #{$ticket->id} from {$from}"];
+        return [self::OPENED, "ticket #{$ticket->id} from {$client->email}"];
     }
 
     /** @return array{0: string, 1: string} */

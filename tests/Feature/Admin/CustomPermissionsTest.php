@@ -13,11 +13,13 @@ class CustomPermissionsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const CASEY = 'casey@example.com';
+
     private const STAFF = '/admin/staff';
 
     private function save(array $data, ?User $user = null): TestResponse
     {
-        $data += ['name' => 'Casey', 'email' => 'casey@example.com', 'password' => 'a-long-password', 'password_confirmation' => 'a-long-password'];
+        $data += ['name' => 'Casey', 'email' => self::CASEY, 'password' => 'a-long-password', 'password_confirmation' => 'a-long-password'];
 
         return $user ? $this->put(self::STAFF."/{$user->id}", $data) : $this->post(self::STAFF, $data);
     }
@@ -29,7 +31,7 @@ class CustomPermissionsTest extends TestCase
         $this->save(['role' => 'custom', 'permissions' => ['manage-billing', 'own-everything']])->assertSessionHasErrors('permissions.1');
         $this->save(['role' => 'custom', 'permissions' => ['manage-billing', 'manage-tickets']])->assertRedirect(self::STAFF);
 
-        $casey = User::where('email', 'casey@example.com')->sole();
+        $casey = User::where('email', self::CASEY)->sole();
         $this->assertSame(StaffRole::Custom, $casey->role);
         $this->assertSame(['manage-billing', 'manage-tickets'], $casey->permissions);
         $this->get(self::STAFF)->assertSee('2 permissions');
@@ -56,7 +58,7 @@ class CustomPermissionsTest extends TestCase
     public function test_permissions_are_dropped_when_moving_to_a_built_in_role(): void
     {
         $this->actingAs(User::factory()->create());
-        $casey = User::factory()->create(['email' => 'casey@example.com', 'role' => StaffRole::Custom, 'permissions' => ['manage-clients']]);
+        $casey = User::factory()->create(['email' => self::CASEY, 'role' => StaffRole::Custom, 'permissions' => ['manage-clients']]);
 
         $this->save(['role' => 'support', 'permissions' => ['manage-staff'], 'password' => '', 'password_confirmation' => ''], $casey)->assertRedirect(self::STAFF);
 

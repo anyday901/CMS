@@ -23,6 +23,10 @@ class ClientEmailTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const TEMPLATES = '/admin/email-templates';
+
+    private const INVOICE_TEMPLATE = '/admin/email-templates/invoice_created';
+
     private function invoiceFor(Client $client, string $due = '2026-10-11'): Invoice
     {
         $invoice = Invoice::create(['client_id' => $client->id, 'currency' => 'USD', 'issue_date' => $due, 'due_date' => $due]);
@@ -87,15 +91,15 @@ class ClientEmailTest extends TestCase
         Mail::fake();
         $this->actingAs(User::factory()->create());
 
-        $this->get('/admin/email-templates')->assertOk()->assertSee('Overdue reminder');
-        $this->get('/admin/email-templates/invoice_created')->assertOk()->assertSee('{invoice_number}');
+        $this->get(self::TEMPLATES)->assertOk()->assertSee('Overdue reminder');
+        $this->get(self::INVOICE_TEMPLATE)->assertOk()->assertSee('{invoice_number}');
         $this->get('/admin/email-templates/nope')->assertNotFound();
 
-        $this->put('/admin/email-templates/invoice_created', [
+        $this->put(self::INVOICE_TEMPLATE, [
             'subject' => 'Bill {invoice_number} {unknown}',
             'body' => 'Hi {client_first_name}, <script>alert(1)</script> pay [here]({invoice_url}).',
             'enabled' => '1',
-        ])->assertRedirect('/admin/email-templates');
+        ])->assertRedirect(self::TEMPLATES);
 
         $client = Client::factory()->create(['first_name' => 'Jo']);
         $invoice = $this->invoiceFor($client);
@@ -115,7 +119,7 @@ class ClientEmailTest extends TestCase
         InvoiceIssued::dispatch($invoice);
         $this->assertSame(1, EmailLog::count());
 
-        $this->put('/admin/email-templates/invoice_created', ['reset' => '1'])->assertRedirect('/admin/email-templates');
+        $this->put(self::INVOICE_TEMPLATE, ['reset' => '1'])->assertRedirect(self::TEMPLATES);
         $this->assertNull(EmailTemplate::find('invoice_created'));
     }
 

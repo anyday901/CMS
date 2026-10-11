@@ -23,6 +23,18 @@ class TicketTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SUPPORT_EMAIL = 'support@example.com';
+
+    private const PORTAL = '/portal/support';
+
+    private const SUBJECT = 'Site is down';
+
+    private const REPLY = 'Fixed, please check.';
+
+    private const SALES_EMAIL = 'sales@example.com';
+
+    private const DEPARTMENTS = '/admin/departments';
+
     private Department $department;
 
     protected function setUp(): void
@@ -31,15 +43,15 @@ class TicketTest extends TestCase
         Storage::fake('local');
         Mail::fake();
         Notification::fake();
-        $this->department = Department::create(['name' => 'Technical', 'email' => 'support@example.com', 'active' => true]);
+        $this->department = Department::create(['name' => 'Technical', 'email' => self::SUPPORT_EMAIL, 'active' => true]);
     }
 
     private function openTicket(Client $client): Ticket
     {
         $this->actingAs($client, 'client');
-        $this->post('/portal/support', [
+        $this->post(self::PORTAL, [
             'department_id' => $this->department->id,
-            'subject' => 'Site is down',
+            'subject' => self::SUBJECT,
             'priority' => 'high',
             'body' => 'My site returns a 500 error.',
             'attachments' => [UploadedFile::fake()->createWithContent('error.txt', 'stack trace')],
@@ -62,13 +74,13 @@ class TicketTest extends TestCase
         Storage::disk('local')->assertExists($file->path);
 
         $log = EmailLog::sole();
-        $this->assertSame(['ticket_opened', "[Ticket #{$ticket->id}] Site is down", 'support@example.com'], [$log->template, $log->subject, $log->reply_to]);
-        Mail::assertSent(LoggedEmail::class, fn (LoggedEmail $mail) => $mail->hasReplyTo('support@example.com'));
+        $this->assertSame(['ticket_opened', "[Ticket #{$ticket->id}] Site is down", self::SUPPORT_EMAIL], [$log->template, $log->subject, $log->reply_to]);
+        Mail::assertSent(LoggedEmail::class, fn (LoggedEmail $mail) => $mail->hasReplyTo(self::SUPPORT_EMAIL));
 
         Notification::assertSentTo($support, StaffAlert::class);
         Notification::assertNotSentTo($nobody, StaffAlert::class);
 
-        $this->get('/portal/support')->assertOk()->assertSee('Site is down');
+        $this->get(self::PORTAL)->assertOk()->assertSee(self::SUBJECT);
         $this->get("/portal/support/{$ticket->id}")->assertOk()->assertSee('My site returns a 500 error.');
         $this->get("/portal/support/{$ticket->id}/files/{$file->id}")->assertOk()->assertDownload('error.txt');
     }
@@ -88,13 +100,13 @@ class TicketTest extends TestCase
     public function test_attachments_must_be_allowed_types(): void
     {
         $this->actingAs(Client::factory()->create(), 'client');
-        $this->post('/portal/support', [
+        $this->post(self::PORTAL, [
             'department_id' => $this->department->id, 'subject' => 'X', 'priority' => 'low', 'body' => 'Y',
             'attachments' => [UploadedFile::fake()->createWithContent('run.php', '<?php echo 1;')],
         ])->assertSessionHasErrors('attachments.0');
 
         $off = Department::create(['name' => 'Closed', 'active' => false]);
-        $this->post('/portal/support', ['department_id' => $off->id, 'subject' => 'X', 'priority' => 'low', 'body' => 'Y'])
+        $this->post(self::PORTAL, ['department_id' => $off->id, 'subject' => 'X', 'priority' => 'low', 'body' => 'Y'])
             ->assertSessionHasErrors('department_id');
         $this->assertSame(0, Ticket::count());
     }
@@ -106,20 +118,20 @@ class TicketTest extends TestCase
         $staff = User::factory()->create(['name' => 'Riley', 'role' => StaffRole::Support]);
         $this->actingAs($staff, 'web');
 
-        $this->get('/admin/tickets')->assertOk()->assertSee('Site is down');
+        $this->get('/admin/tickets')->assertOk()->assertSee(self::SUBJECT);
         $this->post("/admin/tickets/{$ticket->id}/reply", ['body' => 'Only staff should see this', 'internal' => '1'])->assertRedirect();
         $this->assertSame(TicketStatus::Open, $ticket->fresh()->status);
         $this->assertSame(1, EmailLog::count());
 
-        $this->post("/admin/tickets/{$ticket->id}/reply", ['body' => 'Fixed, please check.'])->assertRedirect();
+        $this->post("/admin/tickets/{$ticket->id}/reply", ['body' => self::REPLY])->assertRedirect();
         $this->assertSame(TicketStatus::Answered, $ticket->fresh()->status);
         $reply = EmailLog::where('template', 'ticket_reply')->sole();
         $this->assertStringContainsString('Riley replied', $reply->body);
-        $this->assertStringContainsString('Fixed, please check.', $reply->body);
+        $this->assertStringContainsString(self::REPLY, $reply->body);
         $this->assertStringStartsWith('-- Reply above this line --', $reply->body);
 
         $this->actingAs($client, 'client');
-        $this->get("/portal/support/{$ticket->id}")->assertSee('Fixed, please check.')->assertDontSee('Only staff should see this');
+        $this->get("/portal/support/{$ticket->id}")->assertSee(self::REPLY)->assertDontSee('Only staff should see this');
     }
 
     public function test_staff_assign_and_the_assignee_gets_client_replies(): void
@@ -134,7 +146,7 @@ class TicketTest extends TestCase
             'status' => 'on_hold', 'priority' => 'urgent', 'department_id' => $this->department->id, 'assigned_to' => $sam->id,
         ])->assertRedirect();
         $this->assertSame([TicketStatus::OnHold, 'urgent', $sam->id], [$ticket->fresh()->status, $ticket->fresh()->priority->value, $ticket->fresh()->assigned_to]);
-        $this->get('/admin/tickets?mine=1&status=all')->assertDontSee('Site is down');
+        $this->get('/admin/tickets?mine=1&status=all')->assertDontSee(self::SUBJECT);
 
         Notification::fake();
         $this->actingAs($client, 'client');
@@ -167,14 +179,14 @@ class TicketTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
-        $this->post('/admin/departments', ['name' => 'Sales', 'email' => 'sales@example.com', 'active' => '1'])->assertRedirect('/admin/departments');
-        $this->post('/admin/departments', ['name' => 'Dupe', 'email' => 'sales@example.com'])->assertSessionHasErrors('email');
+        $this->post(self::DEPARTMENTS, ['name' => 'Sales', 'email' => self::SALES_EMAIL, 'active' => '1'])->assertRedirect(self::DEPARTMENTS);
+        $this->post(self::DEPARTMENTS, ['name' => 'Dupe', 'email' => self::SALES_EMAIL])->assertSessionHasErrors('email');
         $sales = Department::where('name', 'Sales')->sole();
-        $this->put("/admin/departments/{$sales->id}", ['name' => 'Sales', 'email' => 'sales@example.com'])->assertRedirect();
+        $this->put("/admin/departments/{$sales->id}", ['name' => 'Sales', 'email' => self::SALES_EMAIL])->assertRedirect();
         $this->assertFalse($sales->fresh()->active);
-        $this->get('/admin/departments')->assertOk()->assertSee('sales@example.com');
+        $this->get(self::DEPARTMENTS)->assertOk()->assertSee(self::SALES_EMAIL);
 
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]));
-        $this->get('/admin/departments')->assertForbidden();
+        $this->get(self::DEPARTMENTS)->assertForbidden();
     }
 }
