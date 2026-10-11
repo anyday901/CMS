@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The dashboard lists tickets waiting on staff.
 
 ### Changed
+- The roadmap in `TODO.md` and `docs/spec.md` now aims at full WHMCS feature parity after v1 (milestones 5 to 12).
 - Support staff can now handle tickets, and billing staff can too. Everything else about the built-in roles is unchanged.
 - Portal password emails use the editable "Password link" template and appear in the email log.
 - PayPal disputes: the PayPal webhook now takes the customer dispute events. Disputed PayPal and Venmo payments are flagged on the invoice, and a dispute resolved in the buyer's favour or accepted is recorded as a refund of the disputed amount.
