@@ -60,6 +60,31 @@ class Service extends Model
         return $this->hasMany(InvoiceItem::class);
     }
 
+    public function options(): HasMany
+    {
+        return $this->hasMany(ServiceOption::class);
+    }
+
+    /** The chosen configurable options in one line, or '' when there are none. */
+    public function optionSummary(): string
+    {
+        return $this->options
+            ->loadMissing(['option', 'choice'])
+            ->sortBy(fn (ServiceOption $chosen) => [$chosen->option->sort_order, $chosen->option->id])
+            ->map->label()
+            ->join(', ');
+    }
+
+    /**
+     * Custom field values by field name, for modules and the webhook.
+     *
+     * @return array<string, string>
+     */
+    public function customFieldsByName(): array
+    {
+        return CustomField::byName(CustomField::forService($this->product_id)->get(), $this->custom_fields ?? []);
+    }
+
     public function description(): string
     {
         return $this->label

@@ -42,7 +42,7 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
                 ? ['data' => $pdfs->output($log->invoice), 'name' => $pdfs->filename($log->invoice)]
                 : null;
 
-            Mail::to($log->to)->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf));
+            Mail::to($log->to)->cc($log->cc ?? [])->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf));
         } catch (Throwable $e) {
             $log->update(['status' => EmailLog::FAILED, 'error' => Str::limit($e->getMessage(), 1000)]);
             report($e);

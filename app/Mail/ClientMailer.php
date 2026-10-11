@@ -12,7 +12,8 @@ use App\Support\Money;
 /**
  * Sends template emails to clients: fills in the template, writes the email
  * log, and queues the send. Returns null when the template is turned off or
- * the client has no email address.
+ * the client has no email address. Contacts who asked for that kind of
+ * email are copied in.
  */
 class ClientMailer
 {
@@ -40,6 +41,9 @@ class ClientMailer
             'ticket_id' => $ticket?->id,
             'template' => $template,
             'to' => $client->email,
+            'cc' => isset($definition['contacts'])
+                ? $client->contacts()->where($definition['contacts'], true)->pluck('email')->unique()->values()->all() ?: null
+                : null,
             'subject' => $rendered['subject'],
             'body' => $sensitive ? '(Not kept: this email contains a private link.)' : $body,
             'status' => EmailLog::QUEUED,

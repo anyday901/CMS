@@ -4,6 +4,7 @@ namespace App\Tickets;
 
 use App\Mail\EmailTemplates;
 use App\Models\Client;
+use App\Models\ClientContact;
 use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
@@ -19,7 +20,8 @@ use ZBateson\MailMimeParser\Message\IMessagePart;
  * Turns a piped email into a ticket reply or a new ticket.
  *
  * A message whose subject carries "[Ticket #123]" from the address of that
- * ticket's client is a reply. Otherwise a message from a known client to a
+ * ticket's client (or one of their contacts who gets support emails) is a
+ * reply. Otherwise a message from a known client or such a contact to a
  * department's address opens a new ticket. Anything else is ignored, so
  * strangers and spam can't open tickets.
  */
@@ -38,7 +40,7 @@ class InboundMail
     {
         $message = Message::from($raw, false);
         $from = strtolower((string) $message->getHeader('From')?->getEmail());
-        $client = $from === '' ? null : Client::whereRaw('lower(email) = ?', [$from])->first();
+        $client = $from === '' ? null : $this->clientFor($from);
         $body = $this->body($message);
         $files = $this->attachments($message);
         $messageId = Str::limit(trim((string) $message->getMessageId()), 250, '') ?: null;
@@ -89,6 +91,13 @@ class InboundMail
         $ticket = $this->desk->open($client, $department, $subject !== '' ? $subject : '(No subject)', $body, files: $files, email: $origin);
 
         return [self::OPENED, "ticket #{$ticket->id} from {$client->email}"];
+    }
+
+    /** The client with this address, or the client of a contact who gets support emails. */
+    private function clientFor(string $from): ?Client
+    {
+        return Client::whereRaw('lower(email) = ?', [$from])->first()
+            ?? ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->oldest('id')->first()?->client;
     }
 
     /** @return array{0: string, 1: string} */

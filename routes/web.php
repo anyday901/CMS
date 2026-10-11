@@ -52,6 +52,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
         Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
         Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
+        Route::resource('account/contacts', Portal\ContactController::class)->except(['index', 'show'])->parameters(['contacts' => 'contact'])->names('contacts');
     });
 });
 
@@ -72,11 +73,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
             Route::post('emails/{email}/resend', [Admin\EmailLogController::class, 'resend'])->name('emails.resend');
+            Route::get('clients/{client}/contacts/create', [Admin\ClientContactController::class, 'create'])->name('contacts.create');
+            Route::post('clients/{client}/contacts', [Admin\ClientContactController::class, 'store'])->name('contacts.store');
+            Route::resource('contacts', Admin\ClientContactController::class)->only(['edit', 'update', 'destroy']);
             Route::post('clients/{client}/login-as', [Admin\ImpersonationController::class, 'store'])->name('clients.login-as');
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
             Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
+            Route::put('services/{service}', [Admin\ServiceController::class, 'update'])->name('services.update');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
@@ -114,6 +119,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         Route::middleware('can:manage-settings')->group(function () {
+            Route::resource('custom-fields', Admin\CustomFieldController::class)->except(['show', 'create']);
             Route::resource('departments', Admin\DepartmentController::class)->only(['index', 'store', 'edit', 'update']);
             Route::get('email-templates', [Admin\EmailTemplateController::class, 'index'])->name('email-templates.index');
             Route::get('email-templates/{key}', [Admin\EmailTemplateController::class, 'edit'])->name('email-templates.edit');
@@ -121,6 +127,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('emails', [Admin\EmailLogController::class, 'index'])->name('emails.index');
             Route::get('emails/{email}', [Admin\EmailLogController::class, 'show'])->name('emails.show');
             Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
+            Route::get('products/{product}/options', [Admin\ProductOptionController::class, 'index'])->name('product-options.index');
+            Route::post('products/{product}/options', [Admin\ProductOptionController::class, 'store'])->name('product-options.store');
+            Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');

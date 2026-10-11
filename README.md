@@ -55,7 +55,7 @@ Run the tests with `php artisan test`.
 
 ## Client portal
 
-Clients log in at `/portal` to see their services and invoices and update their details. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
+Clients log in at `/portal` to see their services and invoices, update their details and add contacts. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
 
 Clients open and follow support tickets under **Support**.
 
@@ -109,7 +109,19 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients, products and pricing, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing and configurable options, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+
+### Contacts
+
+A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client. Contacts can't sign in to the portal.
+
+### Configurable options
+
+Products can have configurable options, set under **Products > (product) > Configurable options**: a dropdown of choices (such as disk size), a checkbox (such as backups) or a quantity (such as extra IP addresses, with a minimum and maximum). Each choice has a price per billing cycle and a setup fee, in the billing currency; a blank price is free. When staff add a service they pick its options, which are added to the recurring amount and listed on its invoices, and their setup fees are added to the first invoice. Staff can change a service's options later on the service page; the price difference applies from the next invoice. Options in use by a service can't be deleted. Clients billed in another currency can only be given free options.
+
+### Custom fields
+
+Add extra fields to clients and services under **Settings > Custom fields**: text, a text area, a dropdown or a checkbox, optionally required. A service field can be for every product or one product. Fields marked staff only are hidden from clients; the others show on the client's portal account page (where they can fill them in) and on their service pages (read only). Service fields and options are sent to provisioning modules, including the webhook module.
 
 ### Logging in as a client
 
@@ -159,8 +171,8 @@ Clients open tickets in the portal under **Support**, choosing a department and 
 
 Clients can open and reply to tickets by email. Ticket emails carry `[Ticket #N]` in the subject and a "Reply above this line" marker, and use the department's address as the reply-to. When an email arrives:
 
-- a subject with `[Ticket #N]` from the address of that ticket's client adds a reply to it;
-- otherwise, an email from a client's address to a department's address opens a new ticket in that department;
+- a subject with `[Ticket #N]` from the address of that ticket's client (or a contact of theirs who gets support emails) adds a reply to it;
+- otherwise, an email from a client's address (or such a contact's) to a department's address opens a new ticket in that department;
 - anything else (unknown senders, auto-replies, bulk mail) is ignored and noted in the Laravel log.
 
 Quoted text below the marker or an "On ... wrote:" line is dropped, and attachments of other types or over 10 MB are skipped. Anyone can fake a sender address, so treat tickets by email with the same care as any email.

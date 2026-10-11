@@ -11,7 +11,8 @@
         @endif
     </div>
     <div class="mb-6 grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm md:grid-cols-3">
-        <div><div class="text-ink-500">To</div>{{ $email->to }}@if ($email->client) (<a href="{{ route('admin.clients.show', $email->client) }}" class="text-brand-600">{{ $email->client->fullName() }}</a>)@endif</div>
+        <div><div class="text-ink-500">To</div>{{ $email->to }}@if ($email->client) (<a href="{{ route('admin.clients.show', $email->client) }}" class="text-brand-600">{{ $email->client->fullName() }}</a>)@endif
+            @if ($email->cc)<div class="mt-1 text-ink-500">Copy to {{ implode(', ', $email->cc) }}</div>@endif</div>
         <div><div class="text-ink-500">Queued</div>{{ $email->created_at->format('M j, Y g:ia') }}</div>
         <div><div class="text-ink-500">Sent</div>{{ $email->sent_at?->format('M j, Y g:ia') ?? '—' }}@if ($email->attach_invoice_pdf) · invoice PDF attached @endif</div>
     </div>

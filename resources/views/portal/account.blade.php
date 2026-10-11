@@ -14,6 +14,7 @@
                            @if ($field === 'email') type="email" @endif class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 </label>
             @endforeach
+            @include('custom-fields._inputs', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-2'])
             <div class="md:col-span-2"><button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save details</button></div>
         </form>
 
@@ -27,4 +28,11 @@
             <button class="w-full rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Change password</button>
         </form>
     </div>
+
+    <div class="mt-8 mb-3 flex items-center gap-3">
+        <h2 class="text-lg font-semibold">Contacts</h2>
+        <a href="{{ route('portal.contacts.create') }}" class="text-sm text-brand-600">Add contact</a>
+    </div>
+    <p class="mb-3 max-w-2xl text-sm text-ink-600">Other people on your account, such as a bookkeeper. They can get copies of your emails but can't sign in.</p>
+    @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => 'portal.contacts.edit', 'destroyRoute' => 'portal.contacts.destroy'])
 </x-portal-layout>

@@ -21,6 +21,7 @@
                 @endforeach
             </select>
         </label>
+        @include('custom-fields._inputs', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-2'])
         <div class="md:col-span-2">
             <input type="hidden" name="tax_exempt" value="0">
             <label class="flex items-center gap-2"><input type="checkbox" name="tax_exempt" value="1" @checked(old('tax_exempt', $client->tax_exempt))> Tax exempt</label>

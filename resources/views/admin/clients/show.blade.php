@@ -32,7 +32,16 @@
         <div><div class="text-ink-500">Credit balance</div>{{ Money::format($client->credit_balance, $client->currency) }}</div>
         <div><div class="text-ink-500">Tax</div>{{ $client->tax_exempt ? 'Exempt' : (App\Models\TaxRule::forClient($client)?->name ?? 'None') }}</div>
         <div><div class="text-ink-500">Client since</div>{{ $client->created_at->format('M j, Y') }}</div>
+        @include('custom-fields._values', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-3', 'showAdminOnly' => true])
         @if ($client->notes)<div class="md:col-span-3"><div class="text-ink-500">Notes</div>{!! nl2br(e($client->notes)) !!}</div>@endif
+    </div>
+
+    <div class="mb-3 flex items-center gap-3">
+        <h2 class="text-lg font-semibold">Contacts</h2>
+        @can('manage-clients')<a href="{{ route('admin.contacts.create', $client) }}" class="text-sm text-brand-600">Add contact</a>@endcan
+    </div>
+    <div class="mb-8">
+        @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => auth()->user()->can('manage-clients') ? 'admin.contacts.edit' : null, 'destroyRoute' => 'admin.contacts.destroy'])
     </div>
 
     <h2 class="mb-3 text-lg font-semibold">Services</h2>

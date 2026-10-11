@@ -1,6 +1,11 @@
 @php use App\Support\Money; @endphp
 <x-admin-layout :title="$product->exists ? 'Edit product' : 'Add product'">
-    <h1 class="mb-6 text-2xl font-semibold">{{ $product->exists ? 'Edit '.$product->name : 'Add product' }}</h1>
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+        <h1 class="text-2xl font-semibold">{{ $product->exists ? 'Edit '.$product->name : 'Add product' }}</h1>
+        @if ($product->exists)
+            <a href="{{ route('admin.product-options.index', $product) }}" class="ml-auto rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Configurable options ({{ $product->options()->count() }})</a>
+        @endif
+    </div>
     <form method="POST" action="{{ $product->exists ? route('admin.products.update', $product) : route('admin.products.store') }}"
           class="max-w-3xl space-y-4 rounded-lg border border-ink-200 bg-white p-6 text-sm">
         @csrf

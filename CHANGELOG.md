@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canned replies: staff save common ticket answers under **Tickets > Canned replies** and insert one into a reply from the ticket page. Placeholders such as `{client_first_name}`, `{ticket_id}` and `{staff_name}` are filled in for that ticket.
 - Service welcome email, sent when a service is activated (its first invoice is paid, or staff add it without an invoice). Each product can add its own text to it, such as how to log in, with the new **Welcome email text** field. Staff can edit or turn it off like the other templates.
 - Log in as client: staff who manage clients can open the portal as a client from the client's page. A banner shows while they do, everything they do there is logged under their own name, and **Back to admin** (or logging out of the portal) returns them to the client's page still signed in as staff.
+- Client contacts: extra people on a client's account, added by staff on the client's page or by the client under **Account**. Contacts can be copied on invoice emails, support emails or both, and a contact who gets support emails can open and reply to tickets by email. The email log shows who was copied.
+- Configurable options on products: dropdowns, checkboxes and quantities, each choice with a price per billing cycle and a setup fee. Options are picked when a service is added, priced into its recurring amount and first invoice, listed on its invoices, and can be changed later by staff.
+- Custom fields on clients and services (text, text area, dropdown or checkbox, optionally required or staff only), set under **Settings > Custom fields**. Service fields can apply to every product or one product. Clients fill in their own fields on the portal account page and see service fields on the service page.
+- The webhook provisioning module now sends custom fields by name and the service's configurable options.
 
 ### Changed
 - The roadmap in `TODO.md` and `docs/spec.md` now aims at full WHMCS feature parity after v1 (milestones 5 to 12).

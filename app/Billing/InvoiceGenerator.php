@@ -66,7 +66,7 @@ class InvoiceGenerator
 
             $services = $this->dueServices($cutoff)
                 ->where('client_id', $clientId)
-                ->with('product')
+                ->with(['product', 'options.option', 'options.choice'])
                 ->orderBy('id')
                 ->get();
 
@@ -89,12 +89,7 @@ class InvoiceGenerator
                 $invoice->items()->create([
                     'service_id' => $service->id,
                     'type' => InvoiceItem::TYPE_SERVICE,
-                    'description' => sprintf(
-                        '%s (%s - %s)',
-                        $service->description(),
-                        $start->format('m/d/Y'),
-                        $end->format('m/d/Y'),
-                    ),
+                    'description' => InvoiceItem::serviceDescription($service, $start, $end),
                     'amount' => $service->recurring_amount,
                     'taxable' => $service->product->taxable,
                     'period_start' => $start,

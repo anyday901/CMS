@@ -113,7 +113,12 @@ class Webhook implements ProvisioningModule
                 'currency' => $client->currency,
                 'registration_date' => $service->registration_date?->toDateString(),
                 'next_due_date' => $service->next_due_date?->toDateString(),
-                'custom_fields' => $service->custom_fields ?? (object) [],
+                'custom_fields' => $service->customFieldsByName() ?: (object) [],
+                'options' => $service->options->loadMissing(['option', 'choice'])->map(fn ($chosen) => [
+                    'option' => $chosen->option->name,
+                    'choice' => $chosen->choice->name,
+                    'quantity' => $chosen->quantity,
+                ])->values()->all(),
                 'provisioning_data' => $service->provisioning_data ?? (object) [],
             ],
             'client' => [
