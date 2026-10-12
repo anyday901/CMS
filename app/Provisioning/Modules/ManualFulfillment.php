@@ -6,6 +6,7 @@ use App\Models\Activity;
 use App\Models\FulfillmentTask;
 use App\Models\Service;
 use App\Notifications\StaffAlert;
+use App\Provisioning\ChangesPackage;
 use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
 
@@ -13,13 +14,14 @@ use App\Provisioning\ProvisioningResult;
  * For products set up by hand: each action opens a task for staff with the
  * product's checklist for that action, and emails staff about it.
  */
-class ManualFulfillment implements ProvisioningModule
+class ManualFulfillment implements ChangesPackage, ProvisioningModule
 {
     private const DEFAULT_CHECKLISTS = [
         'create' => ['Set up the service', 'Send the client their details'],
         'suspend' => ['Suspend the service'],
         'unsuspend' => ['Unsuspend the service'],
         'terminate' => ['Remove the service and its data'],
+        'change_package' => ['Move the service to its new product and options'],
     ];
 
     public function key(): string
@@ -41,6 +43,7 @@ class ManualFulfillment implements ProvisioningModule
             'suspend_checklist' => ['label' => 'Suspend checklist', 'type' => 'textarea', 'help' => $help],
             'unsuspend_checklist' => ['label' => 'Unsuspend checklist', 'type' => 'textarea', 'help' => $help],
             'terminate_checklist' => ['label' => 'Terminate checklist', 'type' => 'textarea', 'help' => $help],
+            'change_package_checklist' => ['label' => 'Upgrade or downgrade checklist', 'type' => 'textarea', 'help' => $help],
         ];
     }
 
@@ -62,6 +65,11 @@ class ManualFulfillment implements ProvisioningModule
     public function terminate(Service $service): ProvisioningResult
     {
         return $this->open($service, 'terminate');
+    }
+
+    public function changePackage(Service $service): ProvisioningResult
+    {
+        return $this->open($service, 'change_package');
     }
 
     private function open(Service $service, string $action): ProvisioningResult

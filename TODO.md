@@ -21,7 +21,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Own visual theme (Harbor) for the admin area and client portal
 - [ ] Use the Harbor colors on PDF invoices
 - [ ] Client 2FA
-- [ ] Client sign-up and ordering from the portal
+- [x] Client sign-up and ordering from the portal
 - [x] PayPal gateway (one-time checkout per invoice)
 - [x] Payment gateway plugin interface
 - [ ] Test PayPal, Venmo and Cash App with real sandbox accounts
@@ -64,11 +64,11 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)
 
 ## Milestone 5: Ordering and cart
-- [ ] Public product catalogue with product groups
-- [ ] Shopping cart and checkout with account sign-up
-- [ ] Product add-ons
-- [ ] Promotion codes (percent or fixed, recurring or first payment, expiry and usage limits)
-- [ ] Upgrades and downgrades with prorated charges or credit
+- [x] Public product catalogue with product groups
+- [x] Shopping cart and checkout with account sign-up
+- [x] Product add-ons
+- [x] Promotion codes (percent or fixed, recurring or first payment, expiry and usage limits)
+- [x] Upgrades and downgrades with prorated charges or credit
 - [ ] Prorated billing to a fixed day of the month
 - [ ] Free trials
 - [ ] Stock control on products
@@ -76,6 +76,8 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Fraud checks on new orders (pluggable, e.g. MaxMind)
 - [ ] Client cancellation requests (immediate or end of period)
 - [ ] Order and invoice email templates for new orders
+- [ ] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
+- [ ] Orders list in the admin area (each checkout is already saved as an order)
 
 ## Milestone 6: Billing parity
 - [ ] Multiple currencies with exchange rates and per-currency prices

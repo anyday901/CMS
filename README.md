@@ -7,6 +7,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 ## What it does (v1 goals)
 
 - Client accounts and a client portal
+- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, and upgrades and downgrades
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
@@ -74,6 +75,14 @@ Clients log in at `/portal` to see their services and invoices, update their det
 
 Clients open and follow support tickets under **Support**.
 
+## Store and ordering
+
+The public store is at `/store`. It lists active products by product group (set up groups under **Products > Groups**), with add-ons and hidden or unpriced products left out. Anyone can pick a product, its billing cycle, configurable options, add-ons and a hostname, and add it to the cart at `/cart`. At checkout a new client creates their account (name, address, email and password); an existing client logs in first. Each checkout creates the services, pending, on one invoice, and they activate when it is paid. An order with nothing to pay activates at once. Logged-in clients reach the store from **Order** in the portal.
+
+- **Add-ons** are products marked as add-ons on the product form, then ticked under **Add-ons offered with this product** on the products they go with. Each add-on becomes its own service linked to the main one, billed on the same cycle (or once, if that's how it's priced). Clients can also add one later from the service page. Add-ons are suspended, unsuspended and terminated with their service.
+- **Promotion codes** are set up under **Products > Promotions**: a percent or a fixed amount off the price of the products a code covers (not setup fees), on the first payment only or on every renewal, with optional start and expiry dates, a maximum number of uses, and a once-per-client limit. The discount shows as its own line on invoices.
+- **Upgrades and downgrades**: tick the products a service can move to under **Clients can upgrade or downgrade to** on the product form. Clients choose **Upgrade or downgrade** on the service page and pick the new product and its options; the billing cycle and due date stay the same. The rest of the paid period is prorated by day: if the new product costs more, the difference is invoiced and the move happens once it's paid; if it costs less, the move happens at once and the difference goes to the client's credit. Services with an unpaid invoice wait until it's settled. Modules that implement `App\Provisioning\ChangesPackage` (both built-in ones do) get a `change_package` action after the move.
+
 ## Online payments
 
 Clients pay each invoice from the portal. A payment method appears on unpaid invoices once its settings are in `.env`. Leave them blank to hide it.
@@ -124,7 +133,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing and configurable options, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, promotion codes, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
 ### Contacts
 
@@ -163,13 +172,13 @@ Admins change late fees, tax-inclusive pricing, whether invoice emails attach th
 
 ### Provisioning modules
 
-A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
+A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. A module that also implements `App\Provisioning\ChangesPackage` gets `changePackage` when a service is upgraded or downgraded. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
 
 Actions for one service run one at a time, in the order they happened. A service's page shows the last action and any error. Failed actions are not retried on their own, because repeating a half-finished action on another system can do more harm than good; fix the cause and use **Run again**. Products without a module keep working as before.
 
 Two modules come with the app:
 
-- **Manual fulfillment** opens a task under **Tasks** for each action, with a checklist you write per product (one step per line, for set-up, suspend, unsuspend and terminate). Staff tick the steps, add notes and mark the task done. Open tasks are listed on the dashboard and counted in the menu.
+- **Manual fulfillment** opens a task under **Tasks** for each action, with a checklist you write per product (one step per line, for set-up, suspend, unsuspend, terminate and upgrade or downgrade). Staff tick the steps, add notes and mark the task done. Open tasks are listed on the dashboard and counted in the menu.
 - **Webhook** sends each action as a JSON POST to a URL you set on the product. The body has the action, the service (including anything saved from earlier replies) and the client. With a signing secret, the `X-Webhook-Signature` header is `sha256=` plus the hex HMAC-SHA256 of the raw body. `X-Webhook-Delivery` stays the same when staff run a failed action again, so the receiver can ignore work it already did when only its reply was lost. Any 2xx reply counts as done; a JSON reply can include `message`, shown to staff, and `data`, an object saved on the service and sent with later actions.
 
 ### Staff emails

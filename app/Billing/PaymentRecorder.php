@@ -98,6 +98,30 @@ class PaymentRecorder
     }
 
     /**
+     * Marks an unpaid invoice with nothing left to pay as paid, such as an
+     * order made free by a promotion code, so its services activate.
+     */
+    public function settleIfNothingDue(Invoice $invoice): void
+    {
+        $paid = DB::transaction(function () use ($invoice) {
+            $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
+
+            if ($invoice->status !== InvoiceStatus::Unpaid || $invoice->balance() > 0) {
+                return false;
+            }
+
+            $this->markPaid($invoice);
+            Activity::record("Marked invoice #{$invoice->number} paid: nothing to pay", $invoice);
+
+            return true;
+        });
+
+        if ($paid) {
+            InvoicePaid::dispatch($invoice->refresh());
+        }
+    }
+
+    /**
      * The transaction already recorded under this gateway reference, if any.
      * A reference already used on a different invoice is an error, not a retry.
      */
@@ -131,7 +155,8 @@ class PaymentRecorder
             ->get();
 
         foreach ($items as $item) {
-            $service = $item->service;
+            // Fresh, since an earlier line's service may have changed its add-ons.
+            $service = $item->service?->refresh();
 
             if ($service === null) {
                 continue;

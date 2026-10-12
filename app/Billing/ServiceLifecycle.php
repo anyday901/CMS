@@ -12,7 +12,8 @@ use App\Models\Service;
 
 /**
  * Status changes for services. Each change fires an event so provisioning
- * modules can act on it without the billing core knowing about them.
+ * modules can act on it without the billing core knowing about them. A
+ * service's add-ons are suspended, unsuspended and terminated with it.
  */
 class ServiceLifecycle
 {
@@ -37,10 +38,15 @@ class ServiceLifecycle
         Activity::record("Suspended {$service->description()} ({$reason})", $service);
 
         ServiceSuspended::dispatch($service);
+
+        foreach ($service->addons()->where('status', ServiceStatus::Active)->get() as $addon) {
+            $this->suspend($addon, $reason);
+        }
     }
 
     public function unsuspend(Service $service): void
     {
+        $reason = $service->suspension_reason;
         $service->forceFill([
             'status' => ServiceStatus::Active,
             'suspended_at' => null,
@@ -49,6 +55,11 @@ class ServiceLifecycle
         Activity::record("Unsuspended {$service->description()}", $service);
 
         ServiceUnsuspended::dispatch($service);
+
+        // Only add-ons suspended for the same reason, so one suspended on its own stays so.
+        foreach ($service->addons()->where('status', ServiceStatus::Suspended)->where('suspension_reason', $reason)->get() as $addon) {
+            $this->unsuspend($addon);
+        }
     }
 
     public function terminate(Service $service): void
@@ -60,5 +71,9 @@ class ServiceLifecycle
         Activity::record("Terminated {$service->description()}", $service);
 
         ServiceTerminated::dispatch($service);
+
+        foreach ($service->addons()->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->get() as $addon) {
+            $this->terminate($addon);
+        }
     }
 }

@@ -68,7 +68,7 @@ class ServiceController extends Controller
 
     public function show(Service $service): View
     {
-        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice']);
+        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice']);
 
         return view('admin.services.show', [
             'service' => $service,
@@ -89,7 +89,7 @@ class ServiceController extends Controller
 
         try {
             $selected = $options->select($service->product, (array) $request->input('options', []), $service->billing_cycle, $service->options);
-            $options->assertCurrency($selected, $service->client);
+            $options->assertCurrency($selected, $service->client->currency);
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['options' => $e->getMessage()]);
         }
@@ -137,7 +137,9 @@ class ServiceController extends Controller
     {
         $data = $request->validate(['action' => ['required', Rule::in(Provisioner::ACTIONS)]]);
 
-        abort_if($modules->find($service->product->module) === null, 422, 'This service\'s product has no provisioning module.');
+        $module = $modules->find($service->product->module);
+        abort_if($module === null, 422, 'This service\'s product has no provisioning module.');
+        abort_unless(Provisioner::supports($module, $data['action']), 422, 'This module can\'t change packages.');
 
         $provisioner->queue($service, $data['action'], retry: true);
         Activity::record("Queued {$data['action']} on the provisioning module for {$service->description()}", $service);

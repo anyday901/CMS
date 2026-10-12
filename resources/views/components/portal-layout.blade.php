@@ -1,4 +1,5 @@
-@props(['title' => null])
+@props(['title' => null, 'store' => false])
+@php $cartCount = $store || auth('client')->check() ? app(App\Ordering\Cart::class)->count() : 0; @endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +8,7 @@
     <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-ink-50 text-ink-900 antialiased {{ auth('client')->check() ? '' : 'harbor-backdrop' }}">
+<body class="min-h-screen bg-ink-50 text-ink-900 antialiased {{ auth('client')->check() || $store ? '' : 'harbor-backdrop' }}">
     @if (App\Support\Impersonation::active())
         <div class="bg-sun-300/60 text-sm text-amber-900">
             <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-2">
@@ -29,14 +30,27 @@
                     'portal.invoices.index' => 'Invoices',
                     'portal.tickets.index' => 'Support',
                     'portal.account.edit' => 'Account',
+                    'store.index' => 'Order',
                 ] as $route => $label)
                     <a href="{{ route($route) }}"
                        class="text-sm {{ request()->routeIs(preg_replace('/\.(index|edit)$/', '.*', $route)) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
-                <form method="POST" action="{{ route('portal.logout') }}" class="ml-auto">
+                @if ($cartCount)
+                    <a href="{{ route('cart.index') }}" class="ml-auto rounded-full px-3 py-1 text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Cart ({{ $cartCount }})</a>
+                @endif
+                <form method="POST" action="{{ route('portal.logout') }}" class="{{ $cartCount ? '' : 'ml-auto' }}">
                     @csrf
                     <button class="rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log out</button>
                 </form>
+            </div>
+        </nav>
+    @elseif ($store)
+        <nav class="border-b border-ink-200 bg-white">
+            <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
+                <a href="{{ route('store.index') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</a>
+                <a href="{{ route('store.index') }}" class="text-sm {{ request()->routeIs('store.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Products</a>
+                <a href="{{ route('cart.index') }}" class="text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Cart{{ $cartCount ? " ({$cartCount})" : '' }}</a>
+                <a href="{{ route('portal.login') }}" class="ml-auto rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log in</a>
             </div>
         </nav>
     @endauth

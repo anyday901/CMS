@@ -25,6 +25,10 @@ class OverdueProcessor
         if ($terminateAfter !== null) {
             $services = $this->overdueServices($today, (int) $terminateAfter, ServiceStatus::billable());
             foreach ($services as $service) {
+                // An add-on may already have gone with its service.
+                if (! in_array($service->refresh()->status, ServiceStatus::billable(), true)) {
+                    continue;
+                }
                 $this->lifecycle->terminate($service);
                 $counts['terminated']++;
             }
@@ -34,6 +38,9 @@ class OverdueProcessor
         if ($suspendAfter !== null) {
             $services = $this->overdueServices($today, (int) $suspendAfter, [ServiceStatus::Active]);
             foreach ($services as $service) {
+                if ($service->refresh()->status !== ServiceStatus::Active) {
+                    continue;
+                }
                 $this->lifecycle->suspend($service, ServiceLifecycle::REASON_OVERDUE);
                 $counts['suspended']++;
             }

@@ -6,6 +6,7 @@ use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Product;
+use App\Models\ProductGroup;
 use App\Provisioning\ModuleRegistry;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
@@ -20,14 +21,14 @@ class ProductController extends Controller
 
     public function index(): View
     {
-        $products = Product::with('prices')->withCount('services')->orderBy('name')->get();
+        $products = Product::with(['prices', 'group'])->withCount('services')->orderBy('is_addon')->orderBy('name')->get();
 
         return view('admin.products.index', compact('products'));
     }
 
     public function create(): View
     {
-        return view('admin.products.form', ['product' => new Product, 'prices' => collect(), 'modules' => $this->modules->all()]);
+        return view('admin.products.form', ['product' => new Product, 'prices' => collect()] + $this->formData(new Product));
     }
 
     public function store(Request $request): RedirectResponse
@@ -44,7 +45,7 @@ class ProductController extends Controller
         $prices = $product->prices()->where('currency', config('billing.currency'))->get()
             ->keyBy(fn ($price) => $price->billing_cycle->value);
 
-        return view('admin.products.form', ['product' => $product, 'prices' => $prices, 'modules' => $this->modules->all()]);
+        return view('admin.products.form', ['product' => $product, 'prices' => $prices] + $this->formData($product));
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -53,6 +54,21 @@ class ProductController extends Controller
         Activity::record("Updated product {$product->name}", $product);
 
         return redirect()->route('admin.products.index')->with('status', 'Product updated.');
+    }
+
+    /** @return array<string, mixed> */
+    private function formData(Product $product): array
+    {
+        $others = Product::whereKeyNot($product->id ?? 0)->orderBy('name')->get();
+
+        return [
+            'modules' => $this->modules->all(),
+            'groups' => ProductGroup::ordered()->get(),
+            'addonProducts' => $others->where('is_addon', true),
+            'upgradeProducts' => $others->where('is_addon', false),
+            'chosenAddons' => $product->exists ? $product->addons()->pluck('products.id')->all() : [],
+            'chosenUpgrades' => $product->exists ? $product->upgrades()->pluck('products.id')->all() : [],
+        ];
     }
 
     private function save(Request $request, Product $product): void
@@ -64,6 +80,13 @@ class ProductController extends Controller
             'welcome_email' => ['nullable', 'string', 'max:20000'],
             'active' => ['boolean'],
             'taxable' => ['boolean'],
+            'is_addon' => ['boolean'],
+            'product_group_id' => ['nullable', Rule::exists('product_groups', 'id')],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'addons' => ['array'],
+            'addons.*' => [Rule::exists('products', 'id')->where('is_addon', true)],
+            'upgrades' => ['array'],
+            'upgrades.*' => [Rule::exists('products', 'id')->where('is_addon', false)],
         ];
         foreach (BillingCycle::cases() as $cycle) {
             $rules["prices.{$cycle->value}.price"] = $money;
@@ -77,8 +100,15 @@ class ProductController extends Controller
             'welcome_email' => $data['welcome_email'] ?? null,
             'active' => $request->boolean('active'),
             'taxable' => $request->boolean('taxable'),
+            'is_addon' => $request->boolean('is_addon'),
+            'product_group_id' => $data['product_group_id'] ?? null,
+            'sort_order' => (int) ($data['sort_order'] ?? 0),
             ...$this->moduleSettings($request),
         ])->save();
+
+        // Add-ons don't have add-ons or upgrades of their own.
+        $product->addons()->sync($product->is_addon ? [] : array_map('intval', $data['addons'] ?? []));
+        $product->upgrades()->sync($product->is_addon ? [] : array_diff(array_map('intval', $data['upgrades'] ?? []), [$product->id]));
 
         $currency = config('billing.currency');
         foreach (BillingCycle::cases() as $cycle) {

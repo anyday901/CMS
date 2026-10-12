@@ -23,7 +23,13 @@
 
     <div class="mb-8 grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm md:grid-cols-3">
         <div><div class="text-ink-500">Client</div><a href="{{ route('admin.clients.show', $service->client) }}" class="text-brand-600">{{ $service->client->fullName() }}</a></div>
-        <div><div class="text-ink-500">Billing</div>{{ Money::format($service->recurring_amount, $service->client->currency) }} {{ strtolower($service->billing_cycle->label()) }}</div>
+        <div><div class="text-ink-500">Billing</div>{{ Money::format($service->recurring_amount, $service->client->currency) }} {{ strtolower($service->billing_cycle->label()) }}@if ($service->recurring_discount)<div class="text-ink-500">less {{ Money::format($service->recurring_discount, $service->client->currency) }} each renewal{{ $service->promotion ? " ({$service->promotion->code})" : '' }}</div>@endif</div>
+        @if ($service->parent)<div><div class="text-ink-500">Add-on for</div><a href="{{ route('admin.services.show', $service->parent) }}" class="text-brand-600">{{ $service->parent->description() }}</a></div>@endif
+        @if ($service->addons->isNotEmpty())<div><div class="text-ink-500">Add-ons</div>@foreach ($service->addons as $addon)<a href="{{ route('admin.services.show', $addon) }}" class="text-brand-600">{{ $addon->product->name }}</a> <span class="text-ink-500">({{ $addon->status->value }})</span>@if (! $loop->last), @endif @endforeach</div>@endif
+        @if ($service->order_id)<div><div class="text-ink-500">Order</div>#{{ $service->order_id }}@if ($service->order?->promotion_code) with {{ $service->order->promotion_code }}@endif</div>@endif
+        @foreach ($service->upgrades->where('status', 'pending') as $upgrade)
+            <div class="md:col-span-3"><div class="text-ink-500">Pending move</div>To {{ $upgrade->toProduct->name }} when @if ($upgrade->invoice)<a href="{{ route('admin.invoices.show', $upgrade->invoice) }}" class="text-brand-600">invoice #{{ $upgrade->invoice->number }}</a>@else its invoice @endif is paid</div>
+        @endforeach
         <div><div class="text-ink-500">Next due</div>{{ $service->next_due_date?->format('M j, Y') ?? '—' }}</div>
         <div><div class="text-ink-500">Registered</div>{{ $service->registration_date->format('M j, Y') }}</div>
         @if ($service->suspended_at)<div><div class="text-ink-500">Suspended</div>{{ $service->suspended_at->format('M j, Y') }} ({{ $service->suspension_reason }})</div>@endif
@@ -70,8 +76,8 @@
                     @csrf
                     <label class="block">Run
                         <select name="action" class="mt-1 block rounded-md px-2 py-1 ring-1 ring-ink-300">
-                            @foreach (App\Provisioning\Provisioner::ACTIONS as $action)
-                                <option value="{{ $action }}" @selected($service->provisioning_action === $action)>{{ ucfirst($action) }}</option>
+                            @foreach (array_filter(App\Provisioning\Provisioner::ACTIONS, fn ($action) => App\Provisioning\Provisioner::supports($module, $action)) as $action)
+                                <option value="{{ $action }}" @selected($service->provisioning_action === $action)>{{ App\Provisioning\Provisioner::label($action) }}</option>
                             @endforeach
                         </select>
                     </label>

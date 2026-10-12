@@ -14,8 +14,8 @@ class Service extends Model
     use HasFactory;
 
     protected $fillable = [
-        'client_id', 'product_id', 'label', 'billing_cycle', 'recurring_amount',
-        'status', 'registration_date', 'next_due_date', 'custom_fields',
+        'client_id', 'product_id', 'order_id', 'parent_service_id', 'label', 'billing_cycle', 'recurring_amount',
+        'promotion_id', 'recurring_discount', 'status', 'registration_date', 'next_due_date', 'custom_fields',
     ];
 
     protected $attributes = [
@@ -35,6 +35,7 @@ class Service extends Model
             'billing_cycle' => BillingCycle::class,
             'status' => ServiceStatus::class,
             'recurring_amount' => 'integer',
+            'recurring_discount' => 'integer',
             'registration_date' => 'date',
             'next_due_date' => 'date',
             'suspended_at' => 'datetime',
@@ -53,6 +54,39 @@ class Service extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function promotion(): BelongsTo
+    {
+        return $this->belongsTo(Promotion::class);
+    }
+
+    /** The service an add-on was ordered for. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_service_id');
+    }
+
+    /** Add-ons ordered for this service. */
+    public function addons(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_service_id');
+    }
+
+    public function upgrades(): HasMany
+    {
+        return $this->hasMany(ServiceUpgrade::class);
+    }
+
+    /** What the client pays each period: the recurring amount less any recurring discount. */
+    public function netRecurring(): int
+    {
+        return max(0, $this->recurring_amount - $this->recurring_discount);
     }
 
     public function invoiceItems(): HasMany

@@ -86,7 +86,7 @@ class RunProvisioningAction implements ShouldQueue
         $service->provisioningOperation = $this->operation;
 
         try {
-            return $module->{$this->action}($service);
+            return $module->{Provisioner::method($this->action)}($service);
         } catch (Throwable $e) {
             Log::error('Provisioning action failed', ['service' => $service->id, 'action' => $this->action, 'exception' => $e]);
 
@@ -112,7 +112,7 @@ class RunProvisioningAction implements ShouldQueue
         ])->save();
 
         Activity::record(
-            ucfirst($this->action)." on {$module->label()} ".($result->ok ? 'done' : 'failed').' for '.$service->description()
+            Provisioner::label($this->action)." on {$module->label()} ".($result->ok ? 'done' : 'failed').' for '.$service->description()
                 .($result->message ? ": {$result->message}" : ''),
             $service,
         );
@@ -126,7 +126,7 @@ class RunProvisioningAction implements ShouldQueue
     {
         StaffAlert::send(
             'manage-clients',
-            "Provisioning failed: {$this->action} for {$service->description()}",
+            'Provisioning failed: '.str_replace('_', ' ', $this->action)." for {$service->description()}",
             array_values(array_filter([
                 "The {$this->action} action failed for {$service->description()} ({$service->client->fullName()}).",
                 $error ? "Error: {$error}" : null,
