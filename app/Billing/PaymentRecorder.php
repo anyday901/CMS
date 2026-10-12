@@ -3,11 +3,13 @@
 namespace App\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\OrderStatus;
 use App\Enums\ServiceStatus;
 use App\Events\InvoicePaid;
 use App\Models\Activity;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Service;
 use App\Models\Transaction;
 use App\Support\Money;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -163,13 +165,17 @@ class PaymentRecorder
             }
 
             if ($service->next_due_date?->equalTo($item->period_start)) {
-                $service->next_due_date = $service->billing_cycle->isRecurring()
-                    ? $service->billing_cycle->advance($service->next_due_date)
-                    : null;
+                // The day after the paid period: a whole cycle on, or the end of
+                // a free trial or of a period prorated to the product's billing day.
+                $service->next_due_date = match (true) {
+                    $item->period_end !== null => $item->period_end->copy()->addDay(),
+                    $service->billing_cycle->isRecurring() => $service->billing_cycle->advance($service->next_due_date),
+                    default => null,
+                };
                 $service->save();
             }
 
-            if ($service->status === ServiceStatus::Pending) {
+            if ($service->status === ServiceStatus::Pending && ! $this->awaitingReview($service)) {
                 $this->lifecycle->activate($service);
             } elseif (
                 $service->status === ServiceStatus::Suspended
@@ -179,6 +185,17 @@ class PaymentRecorder
                 $this->lifecycle->unsuspend($service);
             }
         }
+    }
+
+    /**
+     * A paid order waits for staff to accept it before its services activate,
+     * when new orders are held for review.
+     */
+    private function awaitingReview(Service $service): bool
+    {
+        return config('billing.hold_new_orders')
+            && $service->order_id !== null
+            && $service->order()->where('status', OrderStatus::Pending)->exists();
     }
 
     private function hasOverdueInvoices(int $serviceId): bool

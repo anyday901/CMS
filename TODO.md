@@ -69,15 +69,15 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Product add-ons
 - [x] Promotion codes (percent or fixed, recurring or first payment, expiry and usage limits)
 - [x] Upgrades and downgrades with prorated charges or credit
-- [ ] Prorated billing to a fixed day of the month
-- [ ] Free trials
-- [ ] Stock control on products
-- [ ] Pending orders queue: accept, cancel or mark fraud
+- [x] Prorated billing to a fixed day of the month
+- [x] Free trials
+- [x] Stock control on products
+- [x] Pending orders queue: accept, cancel or mark fraud
 - [ ] Fraud checks on new orders (pluggable, e.g. MaxMind)
 - [ ] Client cancellation requests (immediate or end of period)
 - [ ] Order and invoice email templates for new orders
 - [ ] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
-- [ ] Orders list in the admin area (each checkout is already saved as an order)
+- [x] Orders list in the admin area
 
 ## Milestone 6: Billing parity
 - [ ] Multiple currencies with exchange rates and per-currency prices

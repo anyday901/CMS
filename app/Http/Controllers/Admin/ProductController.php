@@ -87,6 +87,11 @@ class ProductController extends Controller
             'addons.*' => [Rule::exists('products', 'id')->where('is_addon', true)],
             'upgrades' => ['array'],
             'upgrades.*' => [Rule::exists('products', 'id')->where('is_addon', false)],
+            'prorata_day' => ['nullable', 'integer', 'min:1', 'max:28'],
+            'prorata_extend_day' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'trial_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'stock_control' => ['boolean'],
+            'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000'],
         ];
         foreach (BillingCycle::cases() as $cycle) {
             $rules["prices.{$cycle->value}.price"] = $money;
@@ -103,6 +108,12 @@ class ProductController extends Controller
             'is_addon' => $request->boolean('is_addon'),
             'product_group_id' => $data['product_group_id'] ?? null,
             'sort_order' => (int) ($data['sort_order'] ?? 0),
+            'prorata_day' => $data['prorata_day'] ?? null,
+            // Only meaningful with a billing day.
+            'prorata_extend_day' => filled($data['prorata_day'] ?? null) ? ($data['prorata_extend_day'] ?? null) : null,
+            'trial_days' => $data['trial_days'] ?? null,
+            'stock_control' => $request->boolean('stock_control'),
+            'stock_quantity' => (int) ($data['stock_quantity'] ?? 0),
             ...$this->moduleSettings($request),
         ])->save();
 

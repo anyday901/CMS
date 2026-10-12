@@ -44,6 +44,15 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Orders</legend>
+            <input type="hidden" name="hold_new_orders" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="hold_new_orders" value="1" class="mt-1" @checked(old('hold_new_orders', $holdNewOrders))>
+                <span>Hold new orders for review. Services from the store stay pending, even once paid, until staff accept the order under <a href="{{ route('admin.orders.index') }}" class="text-brand-600">Orders</a>.</span>
+            </label>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Clients and services</legend>
             <p class="text-ink-600">Add extra fields to clients and services under <a href="{{ route('admin.custom-fields.index') }}" class="text-brand-600">Custom fields</a>.</p>
         </fieldset>

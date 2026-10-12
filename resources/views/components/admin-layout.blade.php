@@ -18,6 +18,7 @@
                         'admin.dashboard' => 'Dashboard',
                         'admin.clients.index' => 'Clients',
                         'admin.products.index' => $settings ? 'Products' : null,
+                        'admin.orders.index' => 'Orders'.(($pendingOrders = App\Models\Order::where('status', App\Enums\OrderStatus::Pending)->count()) ? " ({$pendingOrders})" : ''),
                         'admin.invoices.index' => 'Invoices',
                         'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),

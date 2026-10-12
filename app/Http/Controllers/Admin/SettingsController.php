@@ -24,6 +24,7 @@ class SettingsController extends Controller
             'lateFeeAmount' => config('billing.late_fee_amount'),
             'taxInclusive' => (bool) config('billing.tax_inclusive'),
             'attachInvoicePdf' => (bool) config('billing.attach_invoice_pdf'),
+            'holdNewOrders' => (bool) config('billing.hold_new_orders'),
             'activityRetentionDays' => config('activity.retention_days'),
         ]);
     }
@@ -36,6 +37,7 @@ class SettingsController extends Controller
             'late_fee_amount' => ['nullable', Money::rule()],
             'tax_inclusive' => ['boolean'],
             'attach_invoice_pdf' => ['boolean'],
+            'hold_new_orders' => ['boolean'],
             'activity_retention_days' => ['nullable', 'integer', 'min:1', 'max:36500'],
         ]);
 
@@ -55,6 +57,7 @@ class SettingsController extends Controller
             'billing.late_fee_amount' => Money::toInput($amount),
             'billing.tax_inclusive' => $request->boolean('tax_inclusive'),
             'billing.attach_invoice_pdf' => $request->boolean('attach_invoice_pdf'),
+            'billing.hold_new_orders' => $request->boolean('hold_new_orders'),
             'activity.retention_days' => filled($data['activity_retention_days'] ?? null) ? (int) $data['activity_retention_days'] : null,
         ]);
 
@@ -64,6 +67,7 @@ class SettingsController extends Controller
             'late_fee_amount' => config('billing.late_fee_amount'),
             'tax_inclusive' => (bool) config('billing.tax_inclusive'),
             'attach_invoice_pdf' => (bool) config('billing.attach_invoice_pdf'),
+            'hold_new_orders' => (bool) config('billing.hold_new_orders'),
             'activity_retention_days' => config('activity.retention_days'),
         ]);
 

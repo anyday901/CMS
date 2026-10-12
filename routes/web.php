@@ -122,6 +122,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
             Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
             Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
+            Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
+            Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
+            Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
         });
 
         // Every staff role can look.
@@ -131,6 +134,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('tasks', [Admin\TaskController::class, 'index'])->name('tasks.index');
         Route::get('tasks/{task}', [Admin\TaskController::class, 'show'])->name('tasks.show');
         Route::resource('invoices', Admin\InvoiceController::class)->only(['index', 'show']);
+        Route::resource('orders', Admin\OrderController::class)->only(['index', 'show']);
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 
         Route::middleware('can:manage-tickets')->group(function () {

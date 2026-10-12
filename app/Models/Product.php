@@ -17,10 +17,10 @@ class Product extends Model
 
     protected $fillable = [
         'product_group_id', 'name', 'description', 'welcome_email', 'active', 'taxable', 'is_addon', 'sort_order',
-        'module', 'module_config',
+        'module', 'module_config', 'prorata_day', 'prorata_extend_day', 'trial_days', 'stock_control', 'stock_quantity',
     ];
 
-    protected $attributes = ['active' => true, 'taxable' => true, 'is_addon' => false, 'sort_order' => 0];
+    protected $attributes = ['active' => true, 'taxable' => true, 'is_addon' => false, 'sort_order' => 0, 'stock_control' => false, 'stock_quantity' => 0];
 
     protected function casts(): array
     {
@@ -30,6 +30,11 @@ class Product extends Model
             'is_addon' => 'boolean',
             'sort_order' => 'integer',
             'module_config' => 'array',
+            'prorata_day' => 'integer',
+            'prorata_extend_day' => 'integer',
+            'trial_days' => 'integer',
+            'stock_control' => 'boolean',
+            'stock_quantity' => 'integer',
         ];
     }
 
@@ -105,5 +110,16 @@ class Product extends Model
             $cycles->contains(BillingCycle::OneTime) => BillingCycle::OneTime,
             default => null,
         };
+    }
+
+    /** Whether $quantity more can be ordered: always, unless stock is counted. */
+    public function hasStock(int $quantity = 1): bool
+    {
+        return ! $this->stock_control || $this->stock_quantity >= $quantity;
+    }
+
+    public function outOfStock(): bool
+    {
+        return ! $this->hasStock();
     }
 }

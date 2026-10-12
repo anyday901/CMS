@@ -41,6 +41,7 @@ class ServiceUpgrader
             $service->status !== ServiceStatus::Active => 'Only active services can be upgraded or downgraded.',
             ! $service->billing_cycle->isRecurring() || $service->next_due_date === null => 'One-time services can\'t be upgraded or downgraded.',
             $service->next_due_date->lte(today()) => 'Pay the renewal for this service first.',
+            $service->inTrial() => 'Upgrades and downgrades are available once the free trial ends.',
             $this->hasUnpaidInvoice($service) => 'This service has an unpaid invoice. Pay or wait for it to be cancelled first.',
             default => null,
         };
@@ -85,8 +86,8 @@ class ServiceUpgrader
             $discount,
             $daysLeft,
             $periodDays,
-            $this->prorate($service->netRecurring(), $daysLeft, $periodDays),
-            $this->prorate(max(0, $recurring - $discount), $daysLeft, $periodDays),
+            Money::prorate($service->netRecurring(), $daysLeft, $periodDays),
+            Money::prorate(max(0, $recurring - $discount), $daysLeft, $periodDays),
         );
     }
 
@@ -225,12 +226,6 @@ class ServiceUpgrader
         return $amount + TaxRule::taxOn($amount, TaxRule::forClient($service->client)?->rate ?? 0);
     }
 
-    /** $amount for $days of $periodDays, rounded half up. */
-    private function prorate(int $amount, int $days, int $periodDays): int
-    {
-        return $periodDays > 0 ? intdiv($amount * $days * 2 + $periodDays, 2 * $periodDays) : 0;
-    }
-
     /**
      * Where the paid period ending at the next due date began. Taken from the
      * invoice line that billed it, since month-end dates are clamped going
@@ -245,8 +240,13 @@ class ServiceUpgrader
             ->latest('id')
             ->value('period_start');
 
-        return $billed !== null
-            ? CarbonImmutable::parse($billed)
+        $start = $billed !== null ? CarbonImmutable::parse($billed) : null;
+
+        // A first invoice prorated to the product's billing day covers a part
+        // period (or a part and a whole one), so the move is prorated over the
+        // whole cycle ending at the due date instead.
+        return $start !== null && $service->billing_cycle->advance($start)->equalTo($service->next_due_date)
+            ? $start
             : $service->next_due_date->copy()->subMonthsNoOverflow($service->billing_cycle->months());
     }
 

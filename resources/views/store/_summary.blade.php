@@ -17,13 +17,15 @@
                         <div class="font-medium">{{ $row['addon'] ? '+ ' : '' }}{{ $line->product->name }}@if ($line->label) <span class="font-normal text-ink-500">({{ $line->label }})</span>@endif</div>
                         @if ($line->parentService)<div class="text-ink-500">For {{ $line->parentService->description() }}</div>@endif
                         @if ($options !== '')<div class="text-ink-500">{{ $options }}</div>@endif
+                        @if ($row['first']->trial)<div class="text-brand-700">Free until {{ $row['first']->nextDue()->format('M j, Y') }}</div>
+                        @elseif ($row['first']->prorated)<div class="text-ink-500">Prorated to {{ $row['first']->nextDue()->format('M j, Y') }}</div>@endif
                         @if ($row['discount'] > 0)<div class="text-brand-700">{{ $quote->promotion->code }}: {{ Money::format($row['discount'], $quote->currency) }} off{{ $quote->promotion->recurring && $line->cycle->isRecurring() ? ' every payment' : '' }}</div>@endif
                     </td>
                     <td class="whitespace-nowrap px-4 py-3 text-right">
                         {{ Money::format($row['priced']->recurring, $quote->currency) }} <span class="text-ink-500">{{ strtolower($line->cycle->label()) }}</span>
                         @if ($row['priced']->setupFee)<div class="text-ink-500">+ {{ Money::format($row['priced']->setupFee, $quote->currency) }} setup</div>@endif
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 text-right">{{ Money::format($row['priced']->recurring + $row['priced']->setupFee - $row['discount'], $quote->currency) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right">{{ Money::format($row['first']->amount + $row['priced']->setupFee - $row['discount'], $quote->currency) }}</td>
                     @if ($removable)
                         <td class="px-4 py-3 text-right">
                             @if ($first)

@@ -6,6 +6,16 @@
     </p>
     <h1 class="mb-2 text-2xl font-semibold">{{ $product->name }}</h1>
     @if ($product->description)<p class="mb-6 max-w-2xl text-sm text-ink-600">{!! nl2br(e($product->description)) !!}</p>@endif
+    @if ($product->trial_days || $product->prorata_day)
+        <ul class="mb-6 max-w-2xl space-y-1 text-sm text-ink-600">
+            @if ($product->trial_days)<li><span class="font-medium text-brand-700">Free for {{ $product->trial_days }} days{{ $prices->contains(fn ($price) => ! $price->billing_cycle->isRecurring()) ? ' on recurring billing cycles' : '' }}.</span> Your first invoice comes when the trial ends{{ $prices->contains(fn ($price) => $price->setup_fee > 0) ? '; any setup fee is due now' : '' }}. One trial per customer.</li>@endif
+            @if ($product->prorata_day)<li>Billed on day {{ $product->prorata_day }} of the month. Your first payment covers the days until then.</li>@endif
+        </ul>
+    @endif
+
+    @if ($product->outOfStock())
+        <p class="max-w-xl rounded-lg border border-ink-200 bg-white p-6 text-sm">{{ $product->name }} is out of stock right now. Please check back later.</p>
+    @else
 
     <form method="POST" action="{{ route('cart.store', $product) }}" class="max-w-xl space-y-5 rounded-lg border border-ink-200 bg-white p-6 text-sm">
         @csrf
@@ -53,4 +63,5 @@
 
         <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">Add to cart</button>
     </form>
+    @endif
 </x-portal-layout>

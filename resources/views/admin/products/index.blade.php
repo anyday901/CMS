@@ -11,7 +11,7 @@
     @else
         <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
             <table class="min-w-full text-sm">
-                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Group</th><th class="px-4 py-2">Pricing</th><th class="px-4 py-2">Services</th><th class="px-4 py-2">Status</th></tr></thead>
+                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Group</th><th class="px-4 py-2">Pricing</th><th class="px-4 py-2">Services</th><th class="px-4 py-2">Stock</th><th class="px-4 py-2">Status</th></tr></thead>
                 <tbody class="divide-y divide-ink-100">
                     @foreach ($products as $product)
                         <tr>
@@ -19,6 +19,7 @@
                             <td class="px-4 py-2">{{ $product->group?->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $product->prices->sortBy(fn ($p) => $p->billing_cycle->months() ?? 0)->map(fn ($p) => Money::format($p->price, $p->currency).' '.strtolower($p->billing_cycle->label()))->join(', ') ?: '—' }}</td>
                             <td class="px-4 py-2">{{ $product->services_count }}</td>
+                            <td class="px-4 py-2">{{ $product->stock_control ? number_format($product->stock_quantity) : '—' }}</td>
                             <td class="px-4 py-2"><x-status-badge :status="$product->active ? 'active' : 'inactive'" /></td>
                         </tr>
                     @endforeach
