@@ -9,7 +9,7 @@
 </head>
 <body class="min-h-screen bg-ink-50 text-ink-900 antialiased {{ auth()->check() ? '' : 'harbor-backdrop' }}">
     @auth
-        <nav class="border-b border-ink-200 bg-white">
+        <nav class="border-b border-ink-200 bg-white" aria-label="Admin">
             <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
                 <a href="{{ route('admin.dashboard') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</a>
                 @php

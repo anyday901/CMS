@@ -20,6 +20,12 @@ class InvoiceItem extends Model
 
     public const TYPE_LATE_FEE = 'late_fee';
 
+    /** A promotion code's discount on a service line, as a negative amount. */
+    public const TYPE_PROMOTION = 'promotion';
+
+    /** The prorated charge for moving a service to a dearer product. */
+    public const TYPE_UPGRADE = 'upgrade';
+
     protected $fillable = [
         'invoice_id', 'service_id', 'type', 'description', 'amount', 'taxable',
         'period_start', 'period_end',
@@ -46,6 +52,12 @@ class InvoiceItem extends Model
         $options = $service->optionSummary();
 
         return Str::limit($options === '' ? $description : "{$description}, {$options}", 255, '');
+    }
+
+    /** "Promotion code SAVE10: Web hosting - example.com" */
+    public static function promotionDescription(Service $service, ?string $code): string
+    {
+        return Str::limit(($code ? "Promotion code {$code}" : 'Discount').": {$service->description()}", 255, '');
     }
 
     public function invoice(): BelongsTo

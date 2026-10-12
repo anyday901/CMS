@@ -44,6 +44,7 @@ class FulfillmentTask extends Model
     {
         $verb = match ($this->action) {
             'create' => 'Set up',
+            'change_package' => 'Change package of',
             default => ucfirst($this->action),
         };
 

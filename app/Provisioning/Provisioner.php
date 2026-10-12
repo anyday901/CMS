@@ -5,11 +5,12 @@ namespace App\Provisioning;
 use App\Jobs\RunProvisioningAction;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** Queues module actions for services whose product uses a provisioning module. */
 class Provisioner
 {
-    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate'];
+    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate', 'change_package'];
 
     public const PENDING = 'pending';
 
@@ -19,6 +20,24 @@ class Provisioner
 
     public function __construct(private ModuleRegistry $modules) {}
 
+    /** Changing package is optional for modules; the other actions aren't. */
+    public static function supports(ProvisioningModule $module, string $action): bool
+    {
+        return $action !== 'change_package' || $module instanceof ChangesPackage;
+    }
+
+    /** The module method for an action, e.g. changePackage. */
+    public static function method(string $action): string
+    {
+        return Str::camel($action);
+    }
+
+    /** "Change package" */
+    public static function label(string $action): string
+    {
+        return ucfirst(str_replace('_', ' ', $action));
+    }
+
     /**
      * Queues an action. Each action is a new operation, except when staff
      * retry the action that just failed: that keeps its operation number, so
@@ -26,7 +45,9 @@ class Provisioner
      */
     public function queue(Service $service, string $action, bool $retry = false): void
     {
-        if ($this->modules->find($service->product->module) === null) {
+        $module = $this->modules->find($service->product->module);
+
+        if ($module === null || ! self::supports($module, $action)) {
             return;
         }
 

@@ -3,6 +3,7 @@
 namespace App\Provisioning\Modules;
 
 use App\Models\Service;
+use App\Provisioning\ChangesPackage;
 use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
  * to staff) and "data" (an object saved on the service and sent back on later
  * actions, e.g. a remote account id).
  */
-class Webhook implements ProvisioningModule
+class Webhook implements ChangesPackage, ProvisioningModule
 {
     public function key(): string
     {
@@ -34,7 +35,7 @@ class Webhook implements ProvisioningModule
     public function configFields(): array
     {
         return [
-            'url' => ['label' => 'URL', 'type' => 'url', 'required' => true, 'help' => 'Receives a JSON POST for create, suspend, unsuspend and terminate.'],
+            'url' => ['label' => 'URL', 'type' => 'url', 'required' => true, 'help' => 'Receives a JSON POST for create, suspend, unsuspend, terminate and change_package.'],
             'secret' => ['label' => 'Signing secret', 'help' => 'Optional. Signs each request so the receiver can check it came from here.'],
         ];
     }
@@ -57,6 +58,11 @@ class Webhook implements ProvisioningModule
     public function terminate(Service $service): ProvisioningResult
     {
         return $this->send($service, 'terminate');
+    }
+
+    public function changePackage(Service $service): ProvisioningResult
+    {
+        return $this->send($service, 'change_package');
     }
 
     private function send(Service $service, string $action): ProvisioningResult

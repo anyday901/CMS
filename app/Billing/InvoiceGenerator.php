@@ -66,7 +66,7 @@ class InvoiceGenerator
 
             $services = $this->dueServices($cutoff)
                 ->where('client_id', $clientId)
-                ->with(['product', 'options.option', 'options.choice'])
+                ->with(['product', 'promotion', 'options.option', 'options.choice'])
                 ->orderBy('id')
                 ->get();
 
@@ -95,6 +95,16 @@ class InvoiceGenerator
                     'period_start' => $start,
                     'period_end' => $end,
                 ]);
+
+                if ($service->recurring_discount > 0) {
+                    $invoice->items()->create([
+                        'service_id' => $service->id,
+                        'type' => InvoiceItem::TYPE_PROMOTION,
+                        'description' => InvoiceItem::promotionDescription($service, $service->promotion?->code),
+                        'amount' => -min($service->recurring_discount, $service->recurring_amount),
+                        'taxable' => $service->product->taxable,
+                    ]);
+                }
             }
 
             $invoice->recalculate();

@@ -13,6 +13,21 @@
         <label class="block">Name
             <input name="name" value="{{ old('name', $product->name) }}" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
         </label>
+        <div class="grid gap-4 sm:grid-cols-2">
+            <label class="block">Group in the store
+                <select name="product_group_id" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    <option value="">None</option>
+                    @foreach ($groups as $group)
+                        <option value="{{ $group->id }}" @selected((string) old('product_group_id', $product->product_group_id) === (string) $group->id)>{{ $group->name }}</option>
+                    @endforeach
+                </select>
+                <span class="text-ink-500"><a href="{{ route('admin.product-groups.index') }}" class="text-brand-600">Manage groups</a></span>
+            </label>
+            <label class="block">Sort order
+                <input type="number" name="sort_order" min="0" value="{{ old('sort_order', $product->sort_order ?? 0) }}" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">Lower numbers come first in the store.</span>
+            </label>
+        </div>
         <label class="block">Description
             <textarea name="description" rows="3" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('description', $product->description) }}</textarea>
         </label>
@@ -24,6 +39,40 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="active" value="1" @checked(old('active', $product->exists ? $product->active : true))> Available for new orders</label>
         <input type="hidden" name="taxable" value="0">
         <label class="flex items-center gap-2"><input type="checkbox" name="taxable" value="1" @checked(old('taxable', $product->exists ? $product->taxable : true))> Taxable</label>
+        <input type="hidden" name="is_addon" value="0">
+        <label class="flex items-start gap-2"><input type="checkbox" name="is_addon" value="1" class="mt-0.5" @checked(old('is_addon', $product->is_addon))>
+            <span>This is an add-on. Add-ons aren't listed in the store on their own; clients add them to the products chosen below on those products' forms, or to a service they already have.</span></label>
+
+        @if ($addonProducts->isNotEmpty())
+            <fieldset data-not-addon>
+                <legend class="mb-1 font-semibold">Add-ons offered with this product</legend>
+                <div class="grid gap-1 sm:grid-cols-2">
+                    @foreach ($addonProducts as $addon)
+                        <label class="flex items-center gap-2"><input type="checkbox" name="addons[]" value="{{ $addon->id }}" @checked(in_array($addon->id, array_map('intval', (array) old('addons', $chosenAddons))))> {{ $addon->name }}</label>
+                    @endforeach
+                </div>
+            </fieldset>
+        @endif
+        @if ($upgradeProducts->isNotEmpty())
+            <fieldset data-not-addon>
+                <legend class="mb-1 font-semibold">Clients can upgrade or downgrade to</legend>
+                <p class="mb-2 text-ink-500">From the service page in the portal, on the same billing cycle. The rest of the period is prorated: a dearer product is invoiced, a cheaper one is added to the client's credit.</p>
+                <div class="grid gap-1 sm:grid-cols-2">
+                    @foreach ($upgradeProducts as $other)
+                        <label class="flex items-center gap-2"><input type="checkbox" name="upgrades[]" value="{{ $other->id }}" @checked(in_array($other->id, array_map('intval', (array) old('upgrades', $chosenUpgrades))))> {{ $other->name }}</label>
+                    @endforeach
+                </div>
+            </fieldset>
+        @endif
+        <script>
+            // Add-ons have no add-ons or upgrades of their own.
+            (() => {
+                const box = document.querySelector('input[type=checkbox][name=is_addon]');
+                const sync = () => document.querySelectorAll('[data-not-addon]').forEach(el => { el.hidden = box.checked; });
+                box.addEventListener('change', sync);
+                sync();
+            })();
+        </script>
 
         <div>
             <h2 class="mb-1 font-semibold">Pricing ({{ config('billing.currency') }})</h2>

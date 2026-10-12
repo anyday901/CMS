@@ -13,12 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: ['webhooks/*']);
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('portal*')
-            ? route('portal.login')
-            : route('admin.login'));
-        $middleware->redirectUsersTo(fn (Request $request) => $request->is('portal*')
-            ? route('portal.dashboard')
-            : route('admin.dashboard'));
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin*')
+            ? route('admin.login')
+            : route('portal.login'));
+        $middleware->redirectUsersTo(fn (Request $request) => match (true) {
+            $request->is('checkout*') => route('checkout.show'),
+            $request->is('admin*') => route('admin.dashboard'),
+            default => route('portal.dashboard'),
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\InboundEmailController;
 use App\Http\Controllers\Portal;
+use App\Http\Controllers\Store;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureClientCanLogIn;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,24 @@ Route::redirect('/', '/portal');
 Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
 Route::post('webhooks/square', [WebhookController::class, 'square'])->name('webhooks.square');
 Route::post('webhooks/email', InboundEmailController::class)->middleware('throttle:60,1')->name('webhooks.email');
+
+// The public store. Guests can browse and fill a cart; checkout signs them up.
+Route::middleware(EnsureClientCanLogIn::class)->group(function () {
+    Route::get('store', [Store\CatalogController::class, 'index'])->name('store.index');
+    Route::get('store/order/{product}', [Store\CatalogController::class, 'product'])->name('store.product');
+    Route::get('store/{group}', [Store\CatalogController::class, 'group'])->name('store.group');
+    Route::get('cart', [Store\CartController::class, 'index'])->name('cart.index');
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::post('store/order/{product}', [Store\CartController::class, 'store'])->name('cart.store');
+        Route::post('cart/addons', [Store\CartController::class, 'addon'])->middleware('auth:client')->name('cart.addon');
+        Route::delete('cart/lines/{line}', [Store\CartController::class, 'destroy'])->name('cart.destroy');
+        Route::post('cart/promotion', [Store\CartController::class, 'promotion'])->name('cart.promotion');
+        Route::delete('cart/promotion', [Store\CartController::class, 'removePromotion'])->name('cart.promotion.destroy');
+    });
+    Route::get('checkout', [Store\CheckoutController::class, 'show'])->name('checkout.show');
+    Route::post('checkout', [Store\CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
+    Route::get('checkout/login', [Store\CheckoutController::class, 'login'])->middleware('guest:client')->name('checkout.login');
+});
 
 Route::prefix('portal')->name('portal.')->group(function () {
     Route::middleware('guest:client')->group(function () {
@@ -40,6 +59,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
         });
         Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
         Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');
+        Route::get('services/{service}/upgrade', [Portal\UpgradeController::class, 'index'])->name('services.upgrade');
+        Route::get('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'show'])->name('services.upgrade.show');
+        Route::post('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'store'])->middleware('throttle:10,1')->name('services.upgrade.store');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
         Route::middleware('throttle:20,1')->group(function () {
@@ -129,6 +151,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('emails', [Admin\EmailLogController::class, 'index'])->name('emails.index');
             Route::get('emails/{email}', [Admin\EmailLogController::class, 'show'])->name('emails.show');
             Route::resource('products', Admin\ProductController::class)->except(['show', 'destroy']);
+            Route::resource('product-groups', Admin\ProductGroupController::class)->except(['show', 'create']);
+            Route::resource('promotions', Admin\PromotionController::class)->except(['show', 'create']);
             Route::get('products/{product}/options', [Admin\ProductOptionController::class, 'index'])->name('product-options.index');
             Route::post('products/{product}/options', [Admin\ProductOptionController::class, 'store'])->name('product-options.store');
             Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);

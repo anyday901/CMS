@@ -2,15 +2,18 @@
 
 namespace App\Providers;
 
+use App\Billing\ServiceUpgrader;
 use App\Enums\InvoiceStatus;
 use App\Enums\StaffRole;
 use App\Events\InvoiceIssued;
 use App\Events\InvoicePaid;
 use App\Events\ServiceActivated;
+use App\Events\ServiceChanged;
 use App\Events\ServiceSuspended;
 use App\Events\ServiceTerminated;
 use App\Events\ServiceUnsuspended;
 use App\Mail\ClientMailer;
+use App\Models\ServiceUpgrade;
 use App\Models\User;
 use App\Provisioning\Provisioner;
 use App\Support\Money;
@@ -43,12 +46,19 @@ class AppServiceProvider extends ServiceProvider
         // Module actions follow service status changes, after they are saved.
         foreach ([
             ServiceActivated::class => 'create',
+            ServiceChanged::class => 'change_package',
             ServiceSuspended::class => 'suspend',
             ServiceUnsuspended::class => 'unsuspend',
             ServiceTerminated::class => 'terminate',
         ] as $event => $action) {
             Event::listen($event, fn ($e) => app(Provisioner::class)->queue($e->service, $action));
         }
+
+        // An upgrade waits for its invoice; paying it moves the service.
+        Event::listen(InvoicePaid::class, function (InvoicePaid $e) {
+            ServiceUpgrade::where('invoice_id', $e->invoice->id)->where('status', ServiceUpgrade::PENDING)->get()
+                ->each(fn (ServiceUpgrade $upgrade) => app(ServiceUpgrader::class)->apply($upgrade));
+        });
 
         // Client emails. An invoice paid from credit as it is issued gets only the receipt.
         Event::listen(InvoiceIssued::class, function (InvoiceIssued $e) {

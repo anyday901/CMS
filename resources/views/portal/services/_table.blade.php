@@ -8,7 +8,7 @@
             @foreach ($services as $service)
                 <tr>
                     <td class="px-4 py-2"><a href="{{ route('portal.services.show', $service) }}" class="text-brand-600">{{ $service->description() }}</a></td>
-                    <td class="px-4 py-2">{{ Money::format($service->recurring_amount, auth('client')->user()->currency) }} {{ strtolower($service->billing_cycle->label()) }}</td>
+                    <td class="px-4 py-2">{{ Money::format($service->netRecurring(), auth('client')->user()->currency) }} {{ strtolower($service->billing_cycle->label()) }}</td>
                     <td class="px-4 py-2">{{ $service->next_due_date?->format('M j, Y') ?? '—' }}</td>
                     <td class="px-4 py-2"><x-status-badge :status="$service->status" /></td>
                 </tr>

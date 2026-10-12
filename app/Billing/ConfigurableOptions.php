@@ -3,7 +3,6 @@
 namespace App\Billing;
 
 use App\Enums\BillingCycle;
-use App\Models\Client;
 use App\Models\Product;
 use App\Models\ProductOption;
 use App\Models\Service;
@@ -95,10 +94,10 @@ class ConfigurableOptions
      *
      * @param  Collection<int, ServiceOption>  $selected
      */
-    public function assertCurrency(Collection $selected, Client $client): void
+    public function assertCurrency(Collection $selected, string $currency): void
     {
-        if ($client->currency !== config('billing.currency') && ($this->recurring($selected) > 0 || $this->setupFee($selected) > 0)) {
-            throw new InvalidArgumentException('Configurable option prices are only set in '.config('billing.currency').", but this client is billed in {$client->currency}.");
+        if ($currency !== config('billing.currency') && ($this->recurring($selected) > 0 || $this->setupFee($selected) > 0)) {
+            throw new InvalidArgumentException('Configurable option prices are only set in '.config('billing.currency').", but this client is billed in {$currency}.");
         }
     }
 
