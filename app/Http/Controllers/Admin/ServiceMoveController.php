@@ -18,6 +18,10 @@ use InvalidArgumentException;
 /** Staff move a service to another product or billing cycle, charging for it or not. */
 class ServiceMoveController extends Controller
 {
+    private const CHARGE = 'charge';
+
+    private const PRODUCT_ID = 'product_id';
+
     public function __construct(private ServiceUpgrader $upgrader) {}
 
     /** The move form, and with a product and cycle chosen, what the move costs. */
@@ -26,7 +30,7 @@ class ServiceMoveController extends Controller
         $service->load(['client', 'product', 'promotion']);
         $quote = null;
 
-        if ($request->filled('product_id')) {
+        if ($request->filled(self::PRODUCT_ID)) {
             $quote = $this->quote($request, $service);
         }
 
@@ -34,8 +38,8 @@ class ServiceMoveController extends Controller
             'service' => $service,
             'products' => Product::where('active', true)->orWhere('id', $service->product_id)->with(['prices', 'options.choices'])->orderBy('name')->get(),
             'quote' => $quote,
-            'charge' => $request->boolean('charge', true),
-            'problem' => $this->upgrader->staffProblem($service, $request->boolean('charge', true)),
+            self::CHARGE => $request->boolean(self::CHARGE, true),
+            'problem' => $this->upgrader->staffProblem($service, $request->boolean(self::CHARGE, true)),
             'canMoveFree' => $this->upgrader->staffProblem($service, false) === null,
         ]);
     }
@@ -43,10 +47,10 @@ class ServiceMoveController extends Controller
     public function store(Request $request, Service $service): RedirectResponse
     {
         $data = $this->validated($request);
-        $product = Product::findOrFail($data['product_id']);
+        $product = Product::findOrFail($data[self::PRODUCT_ID]);
 
         try {
-            $upgrade = $this->upgrader->staffMove($service, $product, BillingCycle::from($data['billing_cycle']), $data['options'] ?? [], $request->boolean('charge'), $request->user());
+            $upgrade = $this->upgrader->staffMove($service, $product, BillingCycle::from($data['billing_cycle']), $data['options'] ?? [], $request->boolean(self::CHARGE), $request->user());
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['move' => $e->getMessage()]);
         }
@@ -61,7 +65,7 @@ class ServiceMoveController extends Controller
         $data = $this->validated($request);
 
         try {
-            return $this->upgrader->staffQuote($service, Product::findOrFail($data['product_id']), BillingCycle::from($data['billing_cycle']), $data['options'] ?? [], $request->boolean('charge'));
+            return $this->upgrader->staffQuote($service, Product::findOrFail($data[self::PRODUCT_ID]), BillingCycle::from($data['billing_cycle']), $data['options'] ?? [], $request->boolean(self::CHARGE));
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['move' => $e->getMessage()]);
         }
@@ -71,7 +75,7 @@ class ServiceMoveController extends Controller
     private function validated(Request $request): array
     {
         return $request->validate([
-            'product_id' => ['required', Rule::exists('products', 'id')],
+            self::PRODUCT_ID => ['required', Rule::exists('products', 'id')],
             'billing_cycle' => ['required', Rule::enum(BillingCycle::class)],
             'options' => ['array'],
         ]);

@@ -21,6 +21,8 @@ use InvalidArgumentException;
  */
 class ServiceCanceller
 {
+    private const SERVICE_ID = 'service_id';
+
     public function __construct(private ServiceLifecycle $lifecycle, private InvoiceCanceller $invoices) {}
 
     /** Why cancellation can't be requested for this service, or null when it can. */
@@ -115,7 +117,7 @@ class ServiceCanceller
 
             // Its add-ons went with it, so their own requests are done too.
             CancellationRequest::pending()
-                ->where(fn ($query) => $query->whereKey($request->id)->orWhereIn('service_id', $service->addons()->select('id')))
+                ->where(fn ($query) => $query->whereKey($request->id)->orWhereIn(self::SERVICE_ID, $service->addons()->select('id')))
                 ->update(['status' => CancellationRequest::COMPLETED, 'completed_at' => now()]);
 
             return $live;
@@ -151,14 +153,14 @@ class ServiceCanceller
         $ids = $service->addons()->pluck('id')->push($service->id)->all();
 
         $invoices = Invoice::whereIn('status', [InvoiceStatus::Draft, InvoiceStatus::Unpaid])
-            ->whereHas('items', fn ($items) => $items->whereIn('service_id', $ids))
+            ->whereHas('items', fn ($items) => $items->whereIn(self::SERVICE_ID, $ids))
             ->orderBy('id')
             ->get()
             ->filter(fn (Invoice $invoice) => $invoice->amountPaid() === 0);
 
         foreach ($invoices as $invoice) {
-            if ($invoice->items()->whereNotNull('service_id')->whereNotIn('service_id', $ids)->exists()) {
-                $invoice->items()->whereIn('service_id', $ids)->delete();
+            if ($invoice->items()->whereNotNull(self::SERVICE_ID)->whereNotIn(self::SERVICE_ID, $ids)->exists()) {
+                $invoice->items()->whereIn(self::SERVICE_ID, $ids)->delete();
                 $invoice->recalculate();
                 Activity::record("Took {$service->description()} off invoice #{$invoice->number} after its cancellation request", $invoice);
             } else {

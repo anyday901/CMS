@@ -17,18 +17,20 @@ use InvalidArgumentException;
 /** Orders from the store, with the pending ones first in line for review. */
 class OrderController extends Controller
 {
+    private const CLIENT = 'client';
+
     public function __construct(private OrderReview $review) {}
 
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('q'));
-        $client = $request->filled('client') ? Client::find((int) $request->query('client')) : null;
+        $client = $request->filled(self::CLIENT) ? Client::find((int) $request->query(self::CLIENT)) : null;
         // Looking someone up searches every order unless a status is picked.
         $default = $search !== '' || $client ? 'all' : OrderStatus::Pending->value;
         $status = OrderStatus::tryFrom((string) $request->query('status', $default));
 
         $orders = Order::query()
-            ->with(['client', 'invoice', 'services.product'])
+            ->with([self::CLIENT, 'invoice', 'services.product'])
             ->when($status, fn ($query) => $query->where('status', $status))
             ->when($client, fn ($query) => $query->where('client_id', $client->id))
             ->when($search !== '', fn ($query) => $this->search($query, $search))
@@ -47,7 +49,7 @@ class OrderController extends Controller
 
         $query->where(fn (Builder $query) => $query
             ->when(ctype_digit($number), fn ($query) => $query->whereKey((int) $number))
-            ->orWhereHas('client', fn (Builder $clients) => $clients
+            ->orWhereHas(self::CLIENT, fn (Builder $clients) => $clients
                 ->where('first_name', 'like', "%{$search}%")
                 ->orWhere('last_name', 'like', "%{$search}%")
                 ->orWhere('company', 'like', "%{$search}%")
