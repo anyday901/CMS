@@ -46,6 +46,9 @@ class ImportWizard
 
     private const PASSWORD = 'password';
 
+    /** Session key of the dry run summary, also the run name in report links. */
+    public const DRY_RUN_SUMMARY = 'dry_run';
+
     /** WHMCS tables counted when connecting, to show the right database was picked. */
     private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets'];
 
@@ -59,7 +62,7 @@ class ImportWizard
     {
         return match (true) {
             $this->imported() !== null => self::FINISH,
-            $this->summary('dry_run') !== null => self::IMPORT,
+            $this->summary(self::DRY_RUN_SUMMARY) !== null => self::IMPORT,
             $this->connection() !== null => self::DRY_RUN,
             WhmcsImporter::blockers() === [] => self::CONNECT,
             default => self::PREPARE,
@@ -124,13 +127,17 @@ class ImportWizard
     {
         $details = $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
 
+        if (! $dryRun && $this->summary(self::DRY_RUN_SUMMARY) === null) {
+            throw new ImportException('Run the dry run before importing.');
+        }
+
         // A big WHMCS install can take minutes; let it finish even if the browser gives up waiting.
         set_time_limit(0);
         ignore_user_abort(true);
 
         $report = (new WhmcsImporter(self::attachments($details)))
             ->run($this->open($details), $dryRun);
-        $this->session->put(self::SESSION.'.'.($dryRun ? 'dry_run' : 'import'), $this->summarize($report));
+        $this->session->put(self::SESSION.'.'.($dryRun ? self::DRY_RUN_SUMMARY : 'import'), $this->summarize($report));
 
         return $report;
     }

@@ -144,6 +144,10 @@ class WhmcsImportWizardTest extends TestCase
         $this->post(self::IMPORT, self::CONFIRMED)->assertSessionHasErrors(self::ERROR);
         $this->get(self::URL.'/report/dry_run')->assertNotFound();
 
+        $this->post(self::CONNECT, self::FROM_ENV);
+        $this->post(self::IMPORT, self::CONFIRMED)->assertSessionHasErrors([self::ERROR => 'Run the dry run before importing.']);
+        $this->assertSame(0, Client::count());
+
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
         $this->get(self::URL)->assertForbidden();
         $this->post(self::CONNECT, self::FROM_ENV)->assertForbidden();
