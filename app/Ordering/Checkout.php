@@ -109,17 +109,10 @@ class Checkout
             return "The code {$code} isn't valid.";
         }
 
-        if ($problem = $promotion->problem($client, $currency, today())) {
-            return $problem;
-        }
+        $applies = collect($lines)->contains(fn (OrderLine $line) => $promotion->appliesTo($line->product));
 
-        foreach ($lines as $line) {
-            if ($promotion->appliesTo($line->product)) {
-                return null;
-            }
-        }
-
-        return "The code {$code} doesn't apply to anything in your cart.";
+        return $promotion->problem($client, $currency, today())
+            ?? ($applies ? null : "The code {$code} doesn't apply to anything in your cart.");
     }
 
     /**
@@ -131,7 +124,6 @@ class Checkout
      */
     public function resolve(Cart $cart, ?Client $client): array
     {
-        $currency = self::currencyFor($client);
         $lines = [];
         $keys = [];
         $errors = [];

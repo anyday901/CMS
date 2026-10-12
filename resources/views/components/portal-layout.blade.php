@@ -21,7 +21,7 @@
         </div>
     @endif
     @auth('client')
-        <nav class="border-b border-ink-200 bg-white">
+        <nav class="border-b border-ink-200 bg-white" aria-label="Portal">
             <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
                 <a href="{{ route('portal.dashboard') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</a>
                 @foreach ([
@@ -45,7 +45,7 @@
             </div>
         </nav>
     @elseif ($store)
-        <nav class="border-b border-ink-200 bg-white">
+        <nav class="border-b border-ink-200 bg-white" aria-label="Store">
             <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
                 <a href="{{ route('store.index') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</a>
                 <a href="{{ route('store.index') }}" class="text-sm {{ request()->routeIs('store.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Products</a>

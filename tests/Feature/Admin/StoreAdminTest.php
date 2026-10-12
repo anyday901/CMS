@@ -13,6 +13,8 @@ class StoreAdminTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SMALL_VPS = 'Small VPS';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -46,7 +48,7 @@ class StoreAdminTest extends TestCase
         $bigger = Product::factory()->create(['name' => 'Bigger']);
 
         $this->post(route('admin.products.store'), [
-            'name' => 'Small VPS',
+            'name' => self::SMALL_VPS,
             'product_group_id' => $group->id,
             'sort_order' => 3,
             'active' => '1',
@@ -55,7 +57,7 @@ class StoreAdminTest extends TestCase
             'prices' => ['monthly' => ['price' => '5.00']],
         ])->assertRedirect();
 
-        $product = Product::where('name', 'Small VPS')->sole();
+        $product = Product::where('name', self::SMALL_VPS)->sole();
         $this->assertSame($group->id, $product->product_group_id);
         $this->assertSame(3, $product->sort_order);
         $this->assertSame([$addon->id], $product->addons()->pluck('products.id')->all());
@@ -63,8 +65,8 @@ class StoreAdminTest extends TestCase
         $this->get(route('admin.products.edit', $product))->assertOk()->assertSee('Add-ons offered with this product');
 
         // Only add-ons can be add-ons, and an add-on has none of its own.
-        $this->put(route('admin.products.update', $product), ['name' => 'Small VPS', 'addons' => [$bigger->id]])->assertSessionHasErrors('addons.0');
-        $this->put(route('admin.products.update', $product), ['name' => 'Small VPS', 'is_addon' => '1', 'addons' => [$addon->id]])->assertRedirect();
+        $this->put(route('admin.products.update', $product), ['name' => self::SMALL_VPS, 'addons' => [$bigger->id]])->assertSessionHasErrors('addons.0');
+        $this->put(route('admin.products.update', $product), ['name' => self::SMALL_VPS, 'is_addon' => '1', 'addons' => [$addon->id]])->assertRedirect();
         $this->assertSame([], $product->addons()->pluck('products.id')->all());
     }
 

@@ -28,6 +28,10 @@ class UpgradeTest extends TestCase
 
     private const MONTHLY = 'monthly';
 
+    private const DUE_DATE = '2026-11-01';
+
+    private const MONTH_END = '2026-01-31';
+
     private Client $client;
 
     private Product $small;
@@ -55,7 +59,7 @@ class UpgradeTest extends TestCase
             'client_id' => $this->client->id,
             'product_id' => $this->small->id,
             'recurring_amount' => 1000,
-            'next_due_date' => '2026-11-01',
+            'next_due_date' => self::DUE_DATE,
         ]);
     }
 
@@ -93,7 +97,7 @@ class UpgradeTest extends TestCase
         $service = $this->service->refresh();
         $this->assertSame($this->large->id, $service->product_id);
         $this->assertSame(2000, $service->recurring_amount);
-        $this->assertSame('2026-11-01', $service->next_due_date->toDateString());
+        $this->assertSame(self::DUE_DATE, $service->next_due_date->toDateString());
         $this->assertSame(ServiceUpgrade::APPLIED, $upgrade->refresh()->status);
         $this->assertSame('change_package', FulfillmentTask::sole()->action);
     }
@@ -127,8 +131,8 @@ class UpgradeTest extends TestCase
     {
         $this->travelTo(CarbonImmutable::parse('2026-02-14'));
         $this->service->update(['next_due_date' => '2026-02-28']);
-        $paid = Invoice::create(['client_id' => $this->client->id, 'status' => InvoiceStatus::Paid, 'currency' => 'USD', 'issue_date' => '2026-01-31', 'due_date' => '2026-01-31']);
-        $paid->items()->create(['service_id' => $this->service->id, 'type' => InvoiceItem::TYPE_SERVICE, 'description' => 'Small', 'amount' => 1000, 'period_start' => '2026-01-31', 'period_end' => '2026-02-27']);
+        $paid = Invoice::create(['client_id' => $this->client->id, 'status' => InvoiceStatus::Paid, 'currency' => 'USD', 'issue_date' => self::MONTH_END, 'due_date' => self::MONTH_END]);
+        $paid->items()->create(['service_id' => $this->service->id, 'type' => InvoiceItem::TYPE_SERVICE, 'description' => 'Small', 'amount' => 1000, 'period_start' => self::MONTH_END, 'period_end' => '2026-02-27']);
 
         $quote = app(ServiceUpgrader::class)->quote($this->service, $this->large);
 
@@ -192,8 +196,8 @@ class UpgradeTest extends TestCase
         $this->service->update(['status' => 'active', 'next_due_date' => '2026-10-11']);
         $this->expectsProblem(fn () => $upgrader->quote($this->service, $this->large), 'renewal');
 
-        $this->service->update(['next_due_date' => '2026-11-01']);
-        $renewal = Invoice::create(['client_id' => $this->client->id, 'status' => InvoiceStatus::Unpaid, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => '2026-11-01']);
+        $this->service->update(['next_due_date' => self::DUE_DATE]);
+        $renewal = Invoice::create(['client_id' => $this->client->id, 'status' => InvoiceStatus::Unpaid, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => self::DUE_DATE]);
         $renewal->items()->create(['service_id' => $this->service->id, 'type' => InvoiceItem::TYPE_SERVICE, 'description' => 'Renewal', 'amount' => 1000]);
         $this->expectsProblem(fn () => $upgrader->quote($this->service, $this->large), 'unpaid invoice');
 

@@ -83,7 +83,7 @@ class OrderService
 
             $services = [];
             foreach ($priced as $line) {
-                $services[] = $this->createService($client, $line, $services, $start, $invoice, $promotion, $order, $first);
+                $services[] = $this->createService($client, $line, $services, $start, $promotion, $order, $first);
             }
 
             return ['services' => $services, 'invoice' => $first?->recalculate()];
@@ -130,13 +130,15 @@ class OrderService
         );
     }
 
-    /** @param  list<Service>  $created  Services made earlier in this order. */
+    /**
+     * @param  list<Service>  $created  Services made earlier in this order.
+     * @param  Invoice|null  $first  The order's invoice; null when it isn't invoiced and starts active.
+     */
     private function createService(
         Client $client,
         PricedLine $priced,
         array $created,
         CarbonInterface $start,
-        bool $invoice,
         ?Promotion $promotion,
         ?Order $order,
         ?Invoice $first,
@@ -154,7 +156,7 @@ class OrderService
             'recurring_amount' => $priced->recurring,
             'promotion_id' => $discount > 0 ? $promotion->id : null,
             'recurring_discount' => $discount > 0 && $promotion->recurring && $line->cycle->isRecurring() ? $discount : 0,
-            'status' => $invoice ? ServiceStatus::Pending : ServiceStatus::Active,
+            'status' => $first !== null ? ServiceStatus::Pending : ServiceStatus::Active,
             'registration_date' => $start,
             'next_due_date' => $start,
             'custom_fields' => $line->choices->customFields,
