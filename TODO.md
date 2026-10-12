@@ -53,12 +53,14 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Activity log retention setting
 
 ## Milestone 4: Migration and release
-- [ ] WHMCS importer with dry-run report
-- [ ] Rehash WHMCS client passwords on first login
-- [ ] Side-by-side billing cycle on production data
-- [ ] Install guide (Nginx, PHP-FPM, cron, queue worker)
-- [ ] Docker Compose setup
-- [ ] Public v1.0.0 release
+- [x] WHMCS importer with dry-run report
+- [x] Rehash WHMCS client passwords on first login
+- [x] Side-by-side billing comparison tool (`whmcs:compare`)
+- [ ] Side-by-side billing cycle on production data (Corey runs it; see docs/install.md)
+- [x] Install guide (Nginx, PHP-FPM, cron, queue worker)
+- [x] Docker Compose setup
+- [x] Release checklist and steps (docs/release.md)
+- [ ] Public v1.0.0 release (waits on the switchover and Corey's go-ahead)
 - [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)
 
 ## Milestone 5: Ordering and cart

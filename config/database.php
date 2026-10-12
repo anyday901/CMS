@@ -64,6 +64,23 @@ return [
             ]) : [],
         ],
 
+        // A WHMCS database to import from (php artisan whmcs:import). Use a
+        // read-only user, or a copy of the database restored from a dump.
+        'whmcs' => [
+            'driver' => env('WHMCS_DB_DRIVER', 'mysql'),
+            'host' => env('WHMCS_DB_HOST', '127.0.0.1'),
+            'port' => env('WHMCS_DB_PORT', '3306'),
+            'database' => env('WHMCS_DB_DATABASE', 'whmcs'),
+            'username' => env('WHMCS_DB_USERNAME', 'root'),
+            'password' => env('WHMCS_DB_PASSWORD', ''),
+            'unix_socket' => env('WHMCS_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => false,
+            'engine' => null,
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

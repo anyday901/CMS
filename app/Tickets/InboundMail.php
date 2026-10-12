@@ -35,6 +35,9 @@ class InboundMail
 
     private const TICKET_PATTERN = '/\[Ticket #(\d+)\]/i';
 
+    /** Subjects of emails sent by WHMCS before the switch, such as "[Ticket ID: 482913]". */
+    private const WHMCS_TICKET_PATTERN = '/\[Ticket ID: ([A-Z0-9-]+)\]/i';
+
     public function __construct(private TicketDesk $desk) {}
 
     /** @return array{0: string, 1: string} The outcome and a short reason, for logs and command output. */
@@ -74,9 +77,8 @@ class InboundMail
     {
         $subject = trim((string) $message->getSubject());
         $body = $body !== '' ? $body : '(Attachments only.)';
-        $ticket = preg_match(self::TICKET_PATTERN, $subject, $m)
-            ? Ticket::where('client_id', $client->id)->find((int) $m[1])
-            : null;
+        $ticket = $this->ticketIn($subject);
+        $ticket = $ticket?->client_id === $client->id ? $ticket : null;
 
         if ($ticket !== null) {
             $this->desk->clientReply($ticket, $body, $files, $origin);
@@ -109,13 +111,25 @@ class InboundMail
         }
 
         $clientIds = ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->distinct()->pluck('client_id');
-        $ticketClient = preg_match(self::TICKET_PATTERN, $subject, $m) ? Ticket::find((int) $m[1])?->client_id : null;
+        $ticketClient = $this->ticketIn($subject)?->client_id;
 
         return match (true) {
             $ticketClient !== null && $clientIds->contains($ticketClient) => Client::find($ticketClient),
             $clientIds->count() === 1 => Client::find($clientIds->first()),
             default => null,
         };
+    }
+
+    /** The ticket a subject line names, by its number here or its old WHMCS number. */
+    private function ticketIn(string $subject): ?Ticket
+    {
+        if (preg_match(self::TICKET_PATTERN, $subject, $m)) {
+            return Ticket::find((int) $m[1]);
+        }
+
+        return preg_match(self::WHMCS_TICKET_PATTERN, $subject, $m)
+            ? Ticket::where('whmcs_tid', $m[1])->first()
+            : null;
     }
 
     /** @return array{0: string, 1: string} */

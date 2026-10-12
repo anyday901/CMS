@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable options on products: dropdowns, checkboxes and quantities, each choice with a price per billing cycle and a setup fee. Options are picked when a service is added, priced into its recurring amount and first invoice, listed on its invoices, and can be changed later by staff.
 - Custom fields on clients and services (text, text area, dropdown or checkbox, optionally required or staff only), set under **Settings > Custom fields**. Service fields can apply to every product or one product. Clients fill in their own fields on the portal account page and see service fields on the service page.
 - The webhook provisioning module now sends custom fields by name and the service's configurable options.
+- WHMCS importer: `php artisan whmcs:import` copies clients, contacts, products and prices, configurable options, custom fields, services, invoices, payments and refunds, credit balances, ticket departments, tickets, replies and (with `--attachments`) ticket attachments from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids. `--dry-run` undoes everything afterwards, and every run compares totals with WHMCS and writes a report of skipped records to `storage/app/whmcs/`. Connection settings are `WHMCS_DB_*` in `.env`.
+- Clients imported from WHMCS log in with their old password, which is then stored again with this app's hashing. Only bcrypt and Argon2 hashes are kept; clients with older md5-era hashes reset their password by email.
+- `php artisan whmcs:compare` lists the renewals WHMCS and this app billed differently (amount or tax) for a period after the import, including WHMCS add-on and domain renewals, which aren't imported; `--simulate` generates this app's renewals for the period without saving them, so the two can run side by side before switching.
+- Replies to old WHMCS ticket emails (`[Ticket ID: 123456]` in the subject) are added to the imported ticket.
+- Triennial billing cycle.
+- Install guide for Ubuntu with Nginx, PHP-FPM, MariaDB, cron and a systemd queue worker, with updates, backups and the move from WHMCS: [docs/install.md](docs/install.md).
+- Docker Compose setup: `Dockerfile` and `docker-compose.yml` run the app with Nginx, MariaDB, Redis, a queue worker and the scheduler. The app image runs as www-data, the web image is unprivileged Nginx, and PHP session cookies are HttpOnly and Secure.
+- Release checklist and steps for v1.0.0: [docs/release.md](docs/release.md).
 
 ### Changed
 - The roadmap in `TODO.md` and `docs/spec.md` now aims at full WHMCS feature parity after v1 (milestones 5 to 12).

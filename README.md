@@ -53,6 +53,21 @@ Then open http://localhost:8000/admin and log in with the staff account you just
 
 Run the tests with `php artisan test`.
 
+## Installing on a server
+
+[docs/install.md](docs/install.md) walks through a production install on Ubuntu with Nginx, PHP-FPM, MariaDB, cron for the scheduler and a systemd queue worker, plus updates and backups. It also covers the included Docker Compose setup (`Dockerfile` and `docker-compose.yml`), which runs the app with Nginx, MariaDB, Redis, a queue worker and the scheduler.
+
+## Moving from WHMCS
+
+`php artisan whmcs:import` copies clients and contacts, products with prices and configurable options, custom fields, services, invoices, payments, refunds, credit balances, ticket departments, tickets and replies (and, with `--attachments`, ticket attachments) from a WHMCS database into a new install. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
+
+- `--dry-run` imports everything, compares totals with WHMCS (recurring revenue, balance due, payments and credit, per currency) and then undoes it, saving a report of every skipped record to `storage/app/whmcs/`.
+- Clients log in with their WHMCS password. It is checked once against the old WHMCS hash and then stored again with this app's own hashing.
+- Replies to old WHMCS ticket emails, with `[Ticket ID: 123456]` in the subject, still reach the right ticket.
+- `php artisan whmcs:compare --simulate` checks that this app would bill the same renewals as WHMCS for a period after the import, without saving anything, so both can run side by side for a cycle before you switch.
+
+The full steps, and what changes for clients, are in [docs/install.md](docs/install.md#moving-from-whmcs).
+
 ## Client portal
 
 Clients log in at `/portal` to see their services and invoices, update their details and add contacts. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
@@ -221,7 +236,7 @@ To refund a payment, open its invoice and use **Refund** under the payment. PayP
 
 ## Scheduled jobs
 
-Add the Laravel scheduler to cron so billing and activity log clean-up run daily:
+Add the Laravel scheduler to cron so billing and activity log clean-up run daily (see [docs/install.md](docs/install.md#6-cron-for-the-scheduler)):
 
 ```cron
 * * * * * cd /path/to/cms && php artisan schedule:run >> /dev/null 2>&1

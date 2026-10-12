@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Auth\LegacyPassword;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
@@ -32,6 +33,8 @@ class AuthController extends Controller
             $request->boolean('remember'),
         );
 
+        $ok = $ok || $this->attemptLegacy($credentials['email'], $credentials['password'], $request->boolean('remember'));
+
         if (! $ok) {
             throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);
         }
@@ -41,6 +44,25 @@ class AuthController extends Controller
         Activity::record('Logged in to the portal', $request->user('client'));
 
         return redirect()->intended(route('portal.dashboard'));
+    }
+
+    /**
+     * Clients imported from WHMCS keep their old password: the first time it
+     * matches, it is saved as a new hash and the old one is dropped.
+     */
+    private function attemptLegacy(string $email, string $password, bool $remember): bool
+    {
+        $client = Client::where('email', $email)->whereNotNull('legacy_password')->first();
+
+        if ($client === null || ! $client->canLogIn() || ! LegacyPassword::verify($password, $client->legacy_password)) {
+            return false;
+        }
+
+        $client->forceFill(['password' => $password])->save();
+        Auth::guard('client')->login($client, $remember);
+        Activity::record('Moved their WHMCS password to a new hash', $client);
+
+        return true;
     }
 
     public function destroy(Request $request): RedirectResponse

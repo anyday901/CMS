@@ -12,6 +12,7 @@ enum BillingCycle: string
     case SemiAnnually = 'semi_annually';
     case Annually = 'annually';
     case Biennially = 'biennially';
+    case Triennially = 'triennially';
 
     public function months(): ?int
     {
@@ -22,6 +23,7 @@ enum BillingCycle: string
             self::SemiAnnually => 6,
             self::Annually => 12,
             self::Biennially => 24,
+            self::Triennially => 36,
         };
     }
 
@@ -48,6 +50,7 @@ enum BillingCycle: string
             self::SemiAnnually => 'Semi-Annually',
             self::Annually => 'Annually',
             self::Biennially => 'Biennially',
+            self::Triennially => 'Triennially',
         };
     }
 }
