@@ -2,7 +2,7 @@
 @php
     // A collapsible list of product checkboxes, grouped by store group, so a long catalogue
     // doesn't stretch the form. Works as a plain <details> list without JavaScript; the script
-    // below adds a filter box and keeps the summary count current.
+    // below adds a filter box, select all and clear buttons, and keeps the summary count current.
     $chosen = array_map('intval', (array) old($name, $chosen));
     $byGroup = $products
         ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
@@ -16,10 +16,16 @@
         <span aria-hidden="true" class="text-ink-500 transition group-open/picker:rotate-180">&#9662;</span>
     </summary>
     <div class="mt-1 rounded-md bg-white p-2 shadow-lg ring-1 ring-ink-300">
-        <label class="mb-2 block" data-picker-filter-wrap hidden>
-            <span class="sr-only">Filter products</span>
-            <input type="search" data-picker-filter placeholder="Filter products" class="w-full rounded-md px-3 py-1.5 ring-1 ring-ink-300">
-        </label>
+        <div class="mb-2 space-y-1.5" data-picker-tools hidden>
+            <label class="block">
+                <span class="sr-only">Filter products</span>
+                <input type="search" data-picker-filter placeholder="Filter products" class="w-full rounded-md px-3 py-1.5 ring-1 ring-ink-300">
+            </label>
+            <div class="flex gap-3 px-1 text-brand-600">
+                <button type="button" data-picker-all class="hover:underline">Select all</button>
+                <button type="button" data-picker-none class="hover:underline">Clear</button>
+            </div>
+        </div>
         <div class="max-h-64 space-y-2 overflow-y-auto pr-1">
             @foreach ($byGroup as $groupName => $items)
                 <div data-picker-group>
@@ -43,7 +49,7 @@
                 const summary = picker.querySelector('[data-picker-summary]');
                 const filter = picker.querySelector('[data-picker-filter]');
                 const boxes = [...picker.querySelectorAll('input[type=checkbox]')];
-                picker.querySelector('[data-picker-filter-wrap]').hidden = false;
+                picker.querySelector('[data-picker-tools]').hidden = false;
 
                 const count = () => {
                     const ticked = boxes.filter(box => box.checked);
@@ -68,6 +74,17 @@
                         shown += inGroup;
                     });
                     picker.querySelector('[data-picker-empty]').hidden = shown > 0;
+                });
+                // Select all and Clear act on the products the filter is showing.
+                const selectAll = picker.querySelector('[data-picker-all]');
+                const setShown = checked => {
+                    boxes.filter(box => !box.closest('[data-picker-item]').hidden).forEach(box => { box.checked = checked; });
+                    count();
+                };
+                selectAll.addEventListener('click', () => setShown(true));
+                picker.querySelector('[data-picker-none]').addEventListener('click', () => setShown(false));
+                filter.addEventListener('input', () => {
+                    selectAll.textContent = filter.value.trim() ? 'Select all shown' : 'Select all';
                 });
                 filter.addEventListener('keydown', event => {
                     if (event.key === 'Enter') event.preventDefault();

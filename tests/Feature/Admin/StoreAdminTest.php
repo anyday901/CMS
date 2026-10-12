@@ -80,6 +80,7 @@ class StoreAdminTest extends TestCase
 
         $this->get(route('admin.products.edit', $product))->assertOk()
             ->assertSee('data-product-picker', false)
+            ->assertSee('data-picker-all', false)
             ->assertSeeInOrder(['Clients can upgrade or downgrade to', '1 selected', 'VPS', 'Bigger VPS', 'No group', 'Shared Hosting'])
             ->assertSee('name="upgrades[]" value="'.$bigger->id.'" checked', false);
     }
