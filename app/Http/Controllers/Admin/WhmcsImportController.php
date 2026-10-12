@@ -19,6 +19,8 @@ class WhmcsImportController extends Controller
 {
     private const SHOW = 'admin.whmcs-import.show';
 
+    private const STEP = 'step';
+
     /** A connection detail, needed when it's typed in rather than read from .env. */
     private const DETAIL = ['required_if:source,form', 'nullable', 'string', 'max:255'];
 
@@ -27,11 +29,11 @@ class WhmcsImportController extends Controller
         $reachable = $wizard->reachable();
         // A fresh walkthrough opens on the checklist; later visits go back to where it was left.
         $default = $reachable === ImportWizard::CONNECT ? ImportWizard::PREPARE : $reachable;
-        $step = $reachable === ImportWizard::FINISH ? $reachable : min(max((int) $request->query('step', $default), 1), $reachable);
+        $step = $reachable === ImportWizard::FINISH ? $reachable : min(max((int) $request->query(self::STEP, $default), 1), $reachable);
 
         return view('admin.whmcs-import.show', [
             'wizard' => $wizard,
-            'step' => $step,
+            self::STEP => $step,
             'reachable' => $reachable,
             'blockers' => WhmcsImporter::blockers(),
         ]);
@@ -92,6 +94,6 @@ class WhmcsImportController extends Controller
             return back()->withInput(request()->except('password'))->withErrors(['whmcs' => $e->getMessage()]);
         }
 
-        return redirect()->route(self::SHOW, ['step' => $next])->with('status', $status);
+        return redirect()->route(self::SHOW, [self::STEP => $next])->with('status', $status);
     }
 }

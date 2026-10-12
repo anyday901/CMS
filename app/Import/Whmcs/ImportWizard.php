@@ -44,6 +44,8 @@ class ImportWizard
 
     private const CONNECTION_KEY = self::SESSION.'.connection';
 
+    private const PASSWORD = 'password';
+
     /** WHMCS tables counted when connecting, to show the right database was picked. */
     private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets'];
 
@@ -77,7 +79,7 @@ class ImportWizard
     {
         $connection = $this->session->get(self::CONNECTION_KEY);
 
-        return $connection === null ? null : array_diff_key($connection, ['password' => true]);
+        return $connection === null ? null : array_diff_key($connection, [self::PASSWORD => true]);
     }
 
     /** @return array<string, mixed> the .env connection, for showing which database it points at */
@@ -95,11 +97,13 @@ class ImportWizard
      */
     public function connect(array $details): void
     {
-        if (filled($details['attachments'] ?? null) && ! is_dir($details['attachments'])) {
-            throw new ImportException("No folder at {$details['attachments']} on this server.");
+        $attachments = self::attachments($details);
+
+        if ($attachments !== null && ! is_dir($attachments)) {
+            throw new ImportException("No folder at {$attachments} on this server.");
         }
 
-        $details['password'] = Crypt::encryptString((string) ($details['password'] ?? ''));
+        $details[self::PASSWORD] = Crypt::encryptString((string) ($details[self::PASSWORD] ?? ''));
         $source = $this->open($details);
 
         if (! $source->getSchemaBuilder()->hasTable('tblclients')) {
@@ -124,7 +128,7 @@ class ImportWizard
         set_time_limit(0);
         ignore_user_abort(true);
 
-        $report = (new WhmcsImporter(filled($details['attachments'] ?? null) ? $details['attachments'] : null))
+        $report = (new WhmcsImporter(self::attachments($details)))
             ->run($this->open($details), $dryRun);
         $this->session->put(self::SESSION.'.'.($dryRun ? 'dry_run' : 'import'), $this->summarize($report));
 
@@ -156,7 +160,7 @@ class ImportWizard
             $name = self::FORM_CONNECTION;
             config(['database.connections.'.$name => [
                 ...array_intersect_key($details, array_flip(['driver', 'host', 'port', 'database', 'username'])),
-                'password' => Crypt::decryptString($details['password']),
+                self::PASSWORD => Crypt::decryptString($details[self::PASSWORD]),
                 'charset' => 'utf8mb4',
                 'collation' => 'utf8mb4_unicode_ci',
                 'prefix' => '',
@@ -173,6 +177,12 @@ class ImportWizard
         }
 
         return $source;
+    }
+
+    /** @param  array<string, mixed>  $details */
+    private static function attachments(array $details): ?string
+    {
+        return filled($details['attachments'] ?? null) ? (string) $details['attachments'] : null;
     }
 
     /** @return array<string, int|null> */
