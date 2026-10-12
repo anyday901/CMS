@@ -240,6 +240,5 @@ class OrderService
                 'taxable' => $taxable,
             ]);
         }
-
     }
 }
