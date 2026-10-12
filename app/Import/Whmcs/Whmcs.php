@@ -9,6 +9,9 @@ use App\Enums\ServiceStatus;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Models\InvoiceItem;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** Converts WHMCS column values to this app's values. */
 class Whmcs
@@ -70,6 +73,43 @@ class Whmcs
         $pipe = strpos($text, '|');
 
         return $pipe === false ? $text : trim(substr($text, $pipe + 1));
+    }
+
+    /** Decoded text cut to fit a column, or null when empty. */
+    public static function short(mixed $value, int $length = 250): ?string
+    {
+        return Str::limit(self::text($value), $length, '') ?: null;
+    }
+
+    /** A client's or contact's full name. */
+    public static function name(object $row): string
+    {
+        return trim(self::text($row->firstname ?? '').' '.self::text($row->lastname ?? '')) ?: 'no name';
+    }
+
+    /** Product descriptions in WHMCS are HTML. */
+    public static function plain(string $html): string
+    {
+        return trim(strip_tags(preg_replace('/<br\s*\/?>/i', "\n", self::text($html)) ?? ''));
+    }
+
+    /**
+     * A date as Eloquent writes it on this database, so imported dates
+     * compare equal to ones the app saves later (SQLite keeps them as text).
+     */
+    public static function day(?string $date): ?string
+    {
+        return $date === null ? null : Carbon::parse($date)->format(DB::getQueryGrammar()->getDateFormat());
+    }
+
+    /**
+     * Custom field values as stored in a custom_fields column.
+     *
+     * @param  array<int, string>  $values  local field id => value
+     */
+    public static function fieldValues(array $values): ?string
+    {
+        return $values === [] ? null : json_encode(array_combine(array_map('strval', array_keys($values)), $values));
     }
 
     public static function on(mixed $value): bool
