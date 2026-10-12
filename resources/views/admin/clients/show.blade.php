@@ -66,6 +66,12 @@
         </div>
     @endif
 
+    @if ($orders->isNotEmpty())
+        <h2 class="mb-3 text-lg font-semibold">Orders</h2>
+        @include('admin.orders._table')
+        <a href="{{ route('admin.orders.index', ['client' => $client->id]) }}" class="mb-8 mt-2 inline-block text-sm text-brand-600">View all orders</a>
+    @endif
+
     <h2 class="mb-3 text-lg font-semibold">Invoices</h2>
     @if ($client->invoices->isEmpty())
         <p class="text-sm text-ink-500">No invoices yet.</p>

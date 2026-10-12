@@ -7,6 +7,7 @@ use App\Billing\OrderLine;
 use App\Billing\OrderService;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use App\Events\OrderPlaced;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Order;
@@ -99,13 +100,13 @@ class Checkout
                 'ip_address' => $ip,
             ]);
             $placed = $this->orders->place($client, $lines, today(), true, $promotion, $order);
-            $order->update(['invoice_id' => $placed['invoice']->id]);
             Activity::record("Placed order #{$order->id}", $order, array_filter(['promotion_code' => $promotion?->code]));
 
             return ['order' => $order, 'services' => $placed['services']];
         });
 
         $cart->clear();
+        OrderPlaced::dispatch($result['order']);
 
         return $result;
     }

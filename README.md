@@ -7,7 +7,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 ## What it does (v1 goals)
 
 - Client accounts and a client portal
-- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, and a pending orders queue
+- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, and client cancellation requests
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
@@ -82,9 +82,12 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Add-ons** are products marked as add-ons on the product form, then ticked under **Add-ons offered with this product** on the products they go with. Each add-on becomes its own service linked to the main one, billed on the same cycle (or once, if that's how it's priced). Clients can also add one later from the service page. Add-ons are suspended, unsuspended and terminated with their service.
 - **Promotion codes** are set up under **Products > Promotions**: a percent or a fixed amount off the price of the products a code covers (not setup fees), on the first payment only or on every renewal, with optional start and expiry dates, a maximum number of uses, and a once-per-client limit. The discount shows as its own line on invoices.
 - **Upgrades and downgrades**: tick the products a service can move to under **Clients can upgrade or downgrade to** on the product form. Clients choose **Upgrade or downgrade** on the service page and pick the new product and its options; the billing cycle and due date stay the same. The rest of the paid period is prorated by day: if the new product costs more, the difference is invoiced and the move happens once it's paid; if it costs less, the move happens at once and the difference goes to the client's credit. Services with an unpaid invoice wait until it's settled. Modules that implement `App\Provisioning\ChangesPackage` (both built-in ones do) get a `change_package` action after the move.
+- **Staff upgrades and downgrades**: **Upgrade or downgrade** on a service's admin page moves it to any product and any recurring billing cycle the product is priced on, with the new product's options. With **Charge or credit the difference** ticked, the move is prorated as above; if the billing cycle changes too, the unused time is credited and a whole period of the new cycle is invoiced from today, which becomes the start of the new billing period. Untick it to move at once without charging, keeping the next due date and billing the new price from the next renewal. A change of billing cycle alone doesn't run the provisioning module.
+- **Cancellation requests**: clients choose **Cancel this service** on the service page in the portal, staff use **Request cancellation for the client** on the admin service page. A request is for straight away or for the end of the billing period (the next due date). Either way the service isn't invoiced again, and its unpaid charges come off invoices with nothing paid on them (an invoice with nothing else on it is cancelled). An end-of-period request is carried out by the nightly `billing:run` on the due date; until then the client or staff can withdraw it. Cancelling marks the service and its add-ons cancelled and runs the module's terminate action. Upcoming cancellations are listed on the dashboard.
 - **Billing on a fixed day**: set **Bill on day of the month** (1 to 28) on the product form and every new service of it renews on that day. The first invoice covers the days from the order to that day, prorated from the cycle's price; with **Also charge the next period from day** set, orders on or after that day pay the short period and the next whole cycle together. Add-ons without a billing day of their own follow the product they're ordered with.
 - **Free trials**: set **Free trial days** on the product form. A client's first service of that product on a recurring cycle is free for that many days: the order invoice shows the trial at no charge (plus any setup fee), the service starts at once, and the first renewal invoice comes when the trial ends. A client who has had the product before pays from the start. Upgrades and downgrades open once the trial is over.
 - **Stock control**: tick **Count stock** on the product form and set how many are in stock. Each store order takes one per service, the store shows the product as out of stock at none, and the cart and checkout stop orders for more than is left. Cancelling an order or marking it as fraud puts its stock back.
+- **Orders**: every checkout is saved as an order. **Orders** in the admin area lists them by status and finds them by order number or the client's name, company or email; a client's page shows their latest orders.
 - **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
 
 ## Online payments
@@ -137,7 +140,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
 ### Contacts
 
@@ -212,7 +215,7 @@ Deliver mail to the app in one of two ways:
 
 ### Client emails
 
-The app emails clients when an invoice is issued (with the PDF attached, unless turned off on the **Settings** page), when an invoice becomes overdue, when an invoice is paid in full, when a service is activated (the welcome email), when they ask for a password link, and when a ticket is opened or staff reply to it. Draft invoices are never emailed. To add product-specific instructions to the welcome email, such as a control panel address, fill in **Welcome email text** on the product; it goes where the template says `{product_welcome}`.
+The app emails clients when they place an order in the store (an order confirmation listing what they ordered, and the order's invoice with its own template), when an invoice is issued (with the PDF attached, unless turned off on the **Settings** page), when an invoice becomes overdue, when an invoice is paid in full, when a service is activated (the welcome email), when they ask for a password link, and when a ticket is opened or staff reply to it. Draft invoices are never emailed. To add product-specific instructions to the welcome email, such as a control panel address, fill in **Welcome email text** on the product; it goes where the template says `{product_welcome}`.
 
 Change the subject and wording of each email under **Emails > Email templates**. Bodies are Markdown with placeholders such as `{client_first_name}` and `{invoice_url}`; each template lists the ones it can use. You can turn an email off, or reset it to the default. HTML typed into a template or a ticket reply is shown as text.
 
@@ -255,7 +258,7 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 * * * * * cd /path/to/cms && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-`php artisan billing:run` generates renewal invoices, adds late fees, suspends or terminates overdue services and emails overdue reminders. Its settings are in `config/billing.php` and can be set from `.env`:
+`php artisan billing:run` carries out end-of-period cancellation requests, generates renewal invoices, adds late fees, suspends or terminates overdue services and emails overdue reminders. Its settings are in `config/billing.php` and can be set from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |

@@ -173,7 +173,7 @@ class BillingDayAndTrialTest extends TestCase
 
         $quote = app(ServiceUpgrader::class)->quote(Service::sole(), $bigger);
 
-        $this->assertSame([20, 31], [$quote->daysLeft, $quote->periodDays]);
+        $this->assertSame([20, 31], [$quote->proration->daysLeft, $quote->proration->periodDays]);
         $this->assertSame(4000 - 2000, $quote->net());
     }
 

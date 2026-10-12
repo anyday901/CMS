@@ -57,6 +57,11 @@ class Client extends Authenticatable
         return $this->hasMany(ClientContact::class)->orderBy('first_name')->orderBy('last_name');
     }
 
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);

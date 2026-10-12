@@ -54,7 +54,7 @@ Corey uses no control panel, so v1 provisioning is:
 - Canned replies.
 
 ### Email
-- Templated emails for invoices, reminders, receipts, welcome, password reset, ticket updates.
+- Templated emails for invoices, reminders, receipts, welcome, password reset, ticket updates, and (with the store) order confirmations and new order invoices.
 - SMTP configuration, with an email log.
 
 ### Admin
@@ -67,6 +67,17 @@ Corey uses no control panel, so v1 provisioning is:
 - Imports clients, contacts, products, services, invoices, transactions, tickets and replies.
 - Dry-run mode with a report of counts and mismatches.
 - Client passwords: WHMCS hashes may not be reusable. Plan is to try to verify old hashes on first login and rehash; if that fails, clients get a reset link.
+
+## Built ahead of the switchover
+Parts of milestone 5 (ordering and cart) are already in, so they ship with v1:
+- Public store, cart and checkout with sign-up; product groups, add-ons, configurable options and promotion codes.
+- Free trials, billing on a fixed day of the month, and stock control.
+- Every checkout saved as an order, with an admin orders list (search by order number or client) and a pending orders queue to accept, cancel or mark as fraud.
+- Order confirmation and new order invoice emails.
+- Upgrades and downgrades: clients move to the products set as upgrades, prorated by day; staff move a service to any product and billing cycle, with or without charging.
+- Cancellation requests from the portal (or by staff for the client), straight away or at the end of the billing period. A request stops renewals; end-of-period ones are carried out by the nightly billing run and can be withdrawn until then.
+
+Still to come in milestone 5: fraud checks on new orders. See [TODO.md](../TODO.md).
 
 ## Out of scope for v1 (planned after v1)
 These come after the switchover, as part of WHMCS parity:

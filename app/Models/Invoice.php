@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Invoice extends Model
 {
@@ -74,6 +75,12 @@ class Invoice extends Model
     public function taxLabel(): string
     {
         return ($this->tax_name ?? 'Tax').($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
+    }
+
+    /** The store order this is the first invoice of, if any. */
+    public function order(): HasOne
+    {
+        return $this->hasOne(Order::class);
     }
 
     public function transactions(): HasMany

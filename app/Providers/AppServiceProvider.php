@@ -7,6 +7,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\StaffRole;
 use App\Events\InvoiceIssued;
 use App\Events\InvoicePaid;
+use App\Events\OrderPlaced;
 use App\Events\ServiceActivated;
 use App\Events\ServiceChanged;
 use App\Events\ServiceSuspended;
@@ -62,10 +63,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Client emails. An invoice paid from credit as it is issued gets only the receipt.
         Event::listen(InvoiceIssued::class, function (InvoiceIssued $e) {
-            if ($e->invoice->status === InvoiceStatus::Unpaid) {
-                app(ClientMailer::class)->send($e->invoice->client, 'invoice_created', invoice: $e->invoice);
+            if ($e->invoice->status !== InvoiceStatus::Unpaid) {
+                return;
             }
+            $order = $e->invoice->order;
+            app(ClientMailer::class)->send(
+                $e->invoice->client,
+                $order ? 'order_invoice' : 'invoice_created',
+                $order ? ['order_number' => $order->id] : [],
+                invoice: $e->invoice,
+            );
         });
+        Event::listen(OrderPlaced::class, fn (OrderPlaced $e) => app(ClientMailer::class)->orderConfirmation($e->order));
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(ClientMailer::class)->send($e->invoice->client, 'payment_receipt', invoice: $e->invoice));
         Event::listen(ServiceActivated::class, function (ServiceActivated $e) {
             $service = $e->service;

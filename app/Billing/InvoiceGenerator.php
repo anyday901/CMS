@@ -7,6 +7,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
 use App\Events\InvoiceIssued;
 use App\Models\Activity;
+use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -48,6 +49,9 @@ class InvoiceGenerator
             ->where('billing_cycle', '!=', BillingCycle::OneTime)
             ->whereNotNull('next_due_date')
             ->whereDate('next_due_date', '<=', $cutoff)
+            // Set to be cancelled, or an add-on of one that is, so not renewed.
+            ->whereDoesntHave('cancellationRequests', fn (Builder $requests) => $requests->where('status', CancellationRequest::PENDING))
+            ->whereDoesntHave('parent.cancellationRequests', fn (Builder $requests) => $requests->where('status', CancellationRequest::PENDING))
             ->whereDoesntHave('invoiceItems', function (Builder $items) {
                 $items->whereColumn('invoice_items.period_start', 'services.next_due_date')
                     ->whereHas('invoice', fn (Builder $invoice) => $invoice

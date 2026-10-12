@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Billing\ServiceCanceller;
 use App\Billing\ServiceUpgrader;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
@@ -20,10 +21,10 @@ class ServiceController extends Controller
         return view('portal.services.index', compact('services'));
     }
 
-    public function show(Request $request, int $service, ServiceUpgrader $upgrader): View
+    public function show(Request $request, int $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller): View
     {
         $service = $request->user('client')->services()
-            ->with(['product.upgrades', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
+            ->with(['product.upgrades', 'pendingCancellation', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
             ->findOrFail($service);
         $currency = $request->user('client')->currency;
         $owned = $service->addons->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->pluck('product_id');
@@ -37,6 +38,7 @@ class ServiceController extends Controller
                     ->reject(fn (Product $addon) => $owned->contains($addon->id) || $addon->addonCycleFor($service->billing_cycle, $currency) === null)
                 : collect(),
             'canUpgrade' => $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
+            'canCancel' => $canceller->problem($service) === null,
         ]);
     }
 }

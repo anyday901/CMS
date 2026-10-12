@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Billing\ConfigurableOptions;
 use App\Billing\OrderChoices;
 use App\Billing\OrderService;
+use App\Billing\ServiceCanceller;
 use App\Billing\ServiceLifecycle;
+use App\Billing\ServiceUpgrader;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
@@ -66,13 +68,15 @@ class ServiceController extends Controller
             : redirect()->route('admin.services.show', $result['service'])->with('status', 'Service created.');
     }
 
-    public function show(Service $service): View
+    public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller): View
     {
-        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice']);
+        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester']);
 
         return view('admin.services.show', [
             'service' => $service,
             'fields' => CustomField::forService($service->product_id)->get(),
+            'canMove' => $upgrader->staffProblem($service, false) === null,
+            'canCancel' => $canceller->problem($service) === null,
         ]);
     }
 

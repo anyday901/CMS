@@ -16,6 +16,9 @@ class EmailTemplates
     /** Placeholders every template can use. */
     public const COMMON = ['client_first_name', 'client_name', 'company_name', 'portal_url'];
 
+    /** Templates that carry an invoice, and get its PDF attached when that setting is on. */
+    public const INVOICE_TEMPLATES = ['invoice_created', 'order_invoice'];
+
     /** Put at the top of emails clients can reply to; everything below it is dropped from the reply. */
     public const REPLY_MARKER = '-- Reply above this line --';
 
@@ -29,11 +32,27 @@ class EmailTemplates
         return [
             'invoice_created' => [
                 'name' => 'New invoice',
-                'description' => 'Sent when an invoice is issued: renewals, new orders and invoices staff create or publish. The PDF is attached when that setting is on.',
+                'description' => 'Sent when an invoice is issued: renewals, services staff add, and invoices staff create or publish. Store orders use the new order invoice instead. The PDF is attached when that setting is on.',
                 'subject' => 'Invoice #{invoice_number} from {company_name}',
                 'body' => "Hello {client_first_name},\n\nWe've issued invoice #{invoice_number} for {invoice_total}, due on {invoice_due_date}.\n\n[View and pay the invoice]({invoice_url})\n\nThank you,\n{company_name}",
                 'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url'],
+            ],
+            'order_confirmation' => [
+                'name' => 'Order confirmation',
+                'description' => 'Sent when a client places an order in the store, listing what they ordered.',
+                'subject' => 'Order #{order_number} confirmation',
+                'body' => "Hello {client_first_name},\n\nThank you for your order. Here's what you ordered on {order_date}:\n\n{order_items}\n\nOrder total: {order_total}\n\n[View the invoice]({invoice_url})\n\nWe'll let you know when each service is ready.\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => ['order_number', 'order_date', 'order_items', 'order_total', 'invoice_number', 'invoice_url'],
+            ],
+            'order_invoice' => [
+                'name' => 'New order invoice',
+                'description' => 'Sent with the first invoice of a store order, when there is something to pay. The PDF is attached when that setting is on.',
+                'subject' => 'Invoice #{invoice_number} for order #{order_number}',
+                'body' => "Hello {client_first_name},\n\nHere is the invoice for order #{order_number}: {invoice_total}, due on {invoice_due_date}. Your services are set up once it's paid.\n\n[View and pay the invoice]({invoice_url})\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => ['order_number', 'invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url'],
             ],
             'invoice_overdue' => [
                 'name' => 'Overdue reminder',

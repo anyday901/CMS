@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Service extends Model
 {
@@ -83,6 +84,17 @@ class Service extends Model
     public function upgrades(): HasMany
     {
         return $this->hasMany(ServiceUpgrade::class);
+    }
+
+    public function cancellationRequests(): HasMany
+    {
+        return $this->hasMany(CancellationRequest::class);
+    }
+
+    /** The cancellation request still to be carried out, if there is one. */
+    public function pendingCancellation(): HasOne
+    {
+        return $this->hasOne(CancellationRequest::class)->ofMany(['id' => 'max'], fn ($query) => $query->where('status', CancellationRequest::PENDING));
     }
 
     /** What the client pays each period: the recurring amount less any recurring discount. */

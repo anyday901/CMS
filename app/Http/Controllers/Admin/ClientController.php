@@ -61,9 +61,11 @@ class ClientController extends Controller
 
         $emails = $client->emailLogs()->latest('id')->limit(10)->get();
 
+        $orders = $client->orders()->with(['invoice', 'services.product'])->latest('id')->limit(5)->get()->each->setRelation('client', $client);
+
         $fields = CustomField::forClients()->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields'));
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders'));
     }
 
     public function edit(Client $client): View
