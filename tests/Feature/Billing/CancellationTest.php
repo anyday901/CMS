@@ -174,6 +174,7 @@ class CancellationTest extends TestCase
 
         $this->service->update(['status' => ServiceStatus::Terminated]);
         $this->expectsProblem(fn () => $canceller->request($this->service, CancellationRequest::IMMEDIATE), 'Only active or suspended');
+        $this->assertSame(0, CancellationRequest::count());
     }
 
     public function test_overdue_services_asking_for_end_of_period_go_now(): void

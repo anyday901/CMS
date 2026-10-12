@@ -156,5 +156,6 @@ class StaffMoveTest extends TestCase
 
         $this->service->update(['status' => 'terminated']);
         $this->expectsProblem(fn () => $this->move($this->large, self::MONTHLY, false), 'Only active or suspended');
+        $this->assertSame($this->small->id, $this->service->refresh()->product_id);
     }
 }
