@@ -65,13 +65,7 @@ class OrderService
         ?Promotion $promotion = null,
         ?Order $order = null,
     ): array {
-        $priced = [];
-        foreach (array_values($lines) as $i => $line) {
-            if ($line->parentLine !== null && ($line->parentLine >= $i || $line->parentLine < 0)) {
-                throw new InvalidArgumentException('An add-on must come after the service it is for.');
-            }
-            $priced[] = $this->price($line, $client->currency);
-        }
+        $priced = $this->priceAll($lines, $client->currency);
 
         $result = DB::transaction(function () use ($client, $priced, $start, $invoice, $promotion, $order) {
             // Serializes a client's orders, so two at once can't both take a product's free trial.
@@ -84,27 +78,12 @@ class OrderService
                 'due_date' => $start,
             ]) : null;
 
-            $services = [];
-            foreach ($priced as $line) {
-                $parent = $line->line->parentLine !== null ? $priced[$line->line->parentLine]->line : null;
-                $period = $first !== null ? $this->firstPeriod($line, $start, $client, $parent) : null;
-                $service = $this->createService($client, $line, $services, $start, $promotion, $order, $period);
-                if ($first !== null) {
-                    $this->invoiceFirstPeriod($first, $service, $line, $period, $promotion);
-                }
-                $services[] = $service;
-            }
+            $services = $this->createServices($client, $priced, $start, $first, $promotion, $order);
 
             return ['services' => $services, 'invoice' => $first?->recalculate()];
         });
 
-        $this->credit->applyIfEnabled($result['invoice']);
-
-        if ($result['invoice']) {
-            $this->payments->settleIfNothingDue($result['invoice']);
-            $result['invoice']->refresh();
-            InvoiceIssued::dispatch($result['invoice']);
-        }
+        $this->issue($result['invoice']);
 
         foreach ($result['services'] as $service) {
             $service->refresh();
@@ -116,6 +95,61 @@ class OrderService
         }
 
         return $result;
+    }
+
+    /**
+     * @param  list<OrderLine>  $lines
+     * @return list<PricedLine>
+     */
+    private function priceAll(array $lines, string $currency): array
+    {
+        $priced = [];
+        foreach (array_values($lines) as $i => $line) {
+            if ($line->parentLine !== null && ($line->parentLine >= $i || $line->parentLine < 0)) {
+                throw new InvalidArgumentException('An add-on must come after the service it is for.');
+            }
+            $priced[] = $this->price($line, $currency);
+        }
+
+        return $priced;
+    }
+
+    /**
+     * Creates each line's service, with its lines on $first when the order is invoiced.
+     *
+     * @param  list<PricedLine>  $priced
+     * @return list<Service>
+     */
+    private function createServices(Client $client, array $priced, CarbonInterface $start, ?Invoice $first, ?Promotion $promotion, ?Order $order): array
+    {
+        $services = [];
+        foreach ($priced as $line) {
+            $period = null;
+            if ($first !== null) {
+                $parent = $line->line->parentLine !== null ? $priced[$line->line->parentLine]->line : null;
+                $period = $this->firstPeriod($line, $start, $client, $parent);
+            }
+            $service = $this->createService($client, $line, $services, $start, $promotion, $order, $period);
+            if ($first !== null) {
+                $this->invoiceFirstPeriod($first, $service, $line, $period, $promotion);
+            }
+            $services[] = $service;
+        }
+
+        return $services;
+    }
+
+    /** Applies credit to the order's invoice, settles it when nothing is due, and sends it. */
+    private function issue(?Invoice $invoice): void
+    {
+        if ($invoice === null) {
+            return;
+        }
+
+        $this->credit->applyIfEnabled($invoice);
+        $this->payments->settleIfNothingDue($invoice);
+        $invoice->refresh();
+        InvoiceIssued::dispatch($invoice);
     }
 
     /**
