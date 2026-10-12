@@ -27,7 +27,13 @@ class BillingDayAndTrialTest extends TestCase
 
     private const MONTHLY = 'monthly';
 
+    private const CART = '/cart';
+
     private const CHECKOUT = '/checkout';
+
+    private const CYCLE = 'billing_cycle';
+
+    private const PRORATA_DAY = 'prorata_day';
 
     private const MANUAL = 'manual';
 
@@ -50,14 +56,14 @@ class BillingDayAndTrialTest extends TestCase
     private function product(string $name, int $monthly, array $attributes = []): Product
     {
         $product = Product::factory()->create(['name' => $name, ...$attributes]);
-        $product->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => $monthly]);
+        $product->prices()->create([self::CYCLE => self::MONTHLY, 'currency' => 'USD', 'price' => $monthly]);
 
         return $product;
     }
 
     private function billOnDay(int $day, ?int $extendFrom = null): void
     {
-        $this->vps->update(['prorata_day' => $day, 'prorata_extend_day' => $extendFrom]);
+        $this->vps->update([self::PRORATA_DAY => $day, 'prorata_extend_day' => $extendFrom]);
     }
 
     private function withTrial(int $days): void
@@ -68,7 +74,7 @@ class BillingDayAndTrialTest extends TestCase
     private function addToCart(array $data = [], ?Product $product = null): void
     {
         $this->actingAs($this->client, 'client');
-        $this->post(route('cart.store', $product ?? $this->vps), ['billing_cycle' => self::MONTHLY, ...$data])->assertSessionHasNoErrors();
+        $this->post(route('cart.store', $product ?? $this->vps), [self::CYCLE => self::MONTHLY, ...$data])->assertSessionHasNoErrors();
     }
 
     private function order(?Product $product = null, array $data = []): Invoice
@@ -91,7 +97,7 @@ class BillingDayAndTrialTest extends TestCase
         $this->billOnDay(1);
 
         $this->addToCart();
-        $this->get('/cart')->assertSee('Prorated to Nov 1, 2026')->assertSee('$20.00');
+        $this->get(self::CART)->assertSee('Prorated to Nov 1, 2026')->assertSee('$20.00');
         $this->post(self::CHECKOUT)->assertRedirect();
 
         $invoice = Invoice::sole();
@@ -177,7 +183,7 @@ class BillingDayAndTrialTest extends TestCase
         $this->get(route('store.product', $this->vps))->assertSee('Free for 14 days.');
 
         $this->addToCart();
-        $this->get('/cart')->assertSee('Free until Oct 26, 2026')->assertSee('$0.00');
+        $this->get(self::CART)->assertSee('Free until Oct 26, 2026')->assertSee('$0.00');
         $this->post(self::CHECKOUT)->assertRedirect(route('portal.services.index'));
 
         $invoice = Invoice::sole();
@@ -212,7 +218,7 @@ class BillingDayAndTrialTest extends TestCase
         $this->addToCart();
         $this->addToCart();
 
-        $this->get('/cart')->assertSee('Free until Oct 26, 2026')->assertSee('$31.00');
+        $this->get(self::CART)->assertSee('Free until Oct 26, 2026')->assertSee('$31.00');
         $this->post(self::CHECKOUT)->assertRedirect();
 
         $this->assertSame(3100, Invoice::sole()->total);
@@ -222,10 +228,10 @@ class BillingDayAndTrialTest extends TestCase
     public function test_one_time_prices_have_no_trial(): void
     {
         $this->withTrial(14);
-        $this->vps->prices()->create(['billing_cycle' => 'one_time', 'currency' => 'USD', 'price' => 9900]);
+        $this->vps->prices()->create([self::CYCLE => 'one_time', 'currency' => 'USD', 'price' => 9900]);
         $this->get(route('store.product', $this->vps))->assertSee('on recurring billing cycles');
 
-        $invoice = $this->order(data: ['billing_cycle' => 'one_time']);
+        $invoice = $this->order(data: [self::CYCLE => 'one_time']);
 
         $this->assertSame(9900, $invoice->total);
         $this->assertNull(Service::sole()->trial_ends_on);
@@ -262,12 +268,12 @@ class BillingDayAndTrialTest extends TestCase
 
         $this->put(route('admin.products.update', $this->vps), [
             'name' => 'VPS', 'active' => '1', 'prices' => [self::MONTHLY => ['price' => '31.00']],
-            'prorata_day' => '1', 'prorata_extend_day' => '25', 'trial_days' => '30', 'stock_control' => '1', 'stock_quantity' => '5',
+            self::PRORATA_DAY => '1', 'prorata_extend_day' => '25', 'trial_days' => '30', 'stock_control' => '1', 'stock_quantity' => '5',
         ])->assertSessionHasNoErrors();
 
         $this->vps->refresh();
         $this->assertSame([1, 25, 30, true, 5], [$this->vps->prorata_day, $this->vps->prorata_extend_day, $this->vps->trial_days, $this->vps->stock_control, $this->vps->stock_quantity]);
-        $this->put(route('admin.products.update', $this->vps), ['name' => 'VPS', 'prorata_day' => '29'])->assertSessionHasErrors('prorata_day');
+        $this->put(route('admin.products.update', $this->vps), ['name' => 'VPS', self::PRORATA_DAY => '29'])->assertSessionHasErrors(self::PRORATA_DAY);
         $this->get(route('admin.products.edit', $this->vps))->assertOk()->assertSee('Free trial days');
     }
 }
