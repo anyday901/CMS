@@ -70,6 +70,11 @@
             </label>
         </fieldset>
 
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Moving from WHMCS</legend>
+            <p class="text-ink-600">Bring clients, services, invoices and tickets over from WHMCS, step by step, with a dry run first: <a href="{{ route('admin.whmcs-import.show') }}" class="text-brand-600">Import from WHMCS</a>.</p>
+        </fieldset>
+
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save settings</button>
     </form>
 </x-admin-layout>

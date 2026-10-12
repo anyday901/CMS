@@ -170,6 +170,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');
             Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
+            Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('connect', 'connect')->name('connect');
+                Route::post('dry-run', 'dryRun')->name('dry-run');
+                Route::post('import', 'import')->name('import');
+                Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
+                Route::delete('/', 'reset')->name('reset');
+            });
         });
 
         Route::middleware('can:manage-staff')->group(function () {

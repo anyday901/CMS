@@ -111,6 +111,21 @@ class ImportReport
         return implode("\n", $lines)."\n";
     }
 
+    /** Writes the Markdown report, by default to storage/app/whmcs/, and returns its path. */
+    public function save(?string $path = null): string
+    {
+        $prefix = $this->dryRun ? 'import-dry-run-' : 'import-';
+        $path = $path ?: storage_path('app/whmcs/'.$prefix.now()->format('Ymd-His').'.md');
+
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0755, true);
+        }
+
+        file_put_contents($path, $this->toMarkdown());
+
+        return $path;
+    }
+
     private function bump(string $section, string $key, int $count): void
     {
         $this->counts[$section] ??= ['found' => 0, 'imported' => 0, 'skipped' => 0];

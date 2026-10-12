@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- WHMCS import walkthrough under **Settings > Import from WHMCS**: a five-step guide with a progress bar that checks the install is empty, connects to the WHMCS database (the `WHMCS_DB_*` settings, or details typed in and kept encrypted in the staff member's session), runs a dry run and shows its record counts, totals compared and notes, then imports and lists what to do next. Both reports can be downloaded. It runs the same importer as `php artisan whmcs:import`.
 - Public store at `/store`: active products listed by product group, each with an order page for its billing cycle, configurable options, add-ons, hostname and service custom fields. Staff set up groups (name, web address, description, order, shown or hidden) under **Products > Groups** and choose each product's group and sort order on the product form.
 - Shopping cart at `/cart` and checkout at `/checkout`. Guests create their account at checkout (name, address, email, password and client custom fields), or log in and come back to it. Each checkout is saved as an order, creates its services as pending on one invoice, and sends the client to that invoice. An order with nothing to pay is marked paid and activated at once. Logged-in clients reach the store from **Order** in the portal, and the portal login page links to it.
 - Product add-ons: a product marked as an add-on is offered with the products it is ticked on, at checkout or later from a service's page in the portal. Each add-on is its own service linked to the main one, billed on the same cycle where it's priced for it (otherwise once), and is suspended, unsuspended and terminated with its service.
@@ -50,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release checklist and steps for v1.0.0: [docs/release.md](docs/release.md).
 
 ### Changed
+- `whmcs:import` saves its report through `ImportReport::save()`, shared with the walkthrough.
 - The first invoice of a store order is emailed with the new **New order invoice** template instead of **New invoice**. Staff who edited **New invoice** for orders should copy their wording across.
 - `billing:run` carries out end-of-period cancellation requests before it generates renewal invoices.
 - Paying a service's invoice line now moves its next due date to the day after the period that line covers, so trials and prorated first periods end where they should. Whole-cycle lines work as before.
