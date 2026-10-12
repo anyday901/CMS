@@ -26,8 +26,8 @@ return new class extends Migration
         Schema::table('service_upgrades', function (Blueprint $table) {
             // Set when the move also changes the billing cycle; the new period starts on the move.
             $table->string('from_cycle', 20)->nullable()->after('to_amount');
-            $table->string('to_cycle', 20)->nullable()->after('from_cycle');
-            $table->date('next_due_date')->nullable()->after('to_cycle');
+            $table->string('to_cycle', 20)->nullable();
+            $table->date('next_due_date')->nullable();
             // Set when staff made the move.
             $table->foreignId('moved_by')->nullable()->after('status')->constrained('users')->nullOnDelete();
         });

@@ -67,9 +67,12 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
             $order = $e->invoice->order;
-            $order
-                ? app(ClientMailer::class)->send($e->invoice->client, 'order_invoice', ['order_number' => $order->id], invoice: $e->invoice)
-                : app(ClientMailer::class)->send($e->invoice->client, 'invoice_created', invoice: $e->invoice);
+            app(ClientMailer::class)->send(
+                $e->invoice->client,
+                $order ? 'order_invoice' : 'invoice_created',
+                $order ? ['order_number' => $order->id] : [],
+                invoice: $e->invoice,
+            );
         });
         Event::listen(OrderPlaced::class, fn (OrderPlaced $e) => app(ClientMailer::class)->orderConfirmation($e->order));
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(ClientMailer::class)->send($e->invoice->client, 'payment_receipt', invoice: $e->invoice));
