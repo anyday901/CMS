@@ -26,6 +26,10 @@ class WhmcsImportWizardTest extends TestCase
 
     private const CONNECT = self::URL.'/connect';
 
+    private const IMPORT = self::URL.'/import';
+
+    private const CONFIRMED = ['confirm' => '1'];
+
     /** Connect with the WHMCS_DB_* connection, which the tests point at a WHMCS database in memory. */
     private const FROM_ENV = ['source' => 'env'];
 
@@ -80,10 +84,10 @@ class WhmcsImportWizardTest extends TestCase
         $this->get(self::URL.'/report/dry_run')->assertOk()->assertDownload();
 
         $this->get(self::URL.'?step=4')->assertOk()->assertSee('Import now');
-        $this->post(self::URL.'/import')->assertSessionHasErrors('confirm');
+        $this->post(self::IMPORT)->assertSessionHasErrors('confirm');
         $this->assertSame(0, Client::count());
 
-        $this->post(self::URL.'/import', ['confirm' => '1'])->assertRedirect(self::URL.'?step=5');
+        $this->post(self::IMPORT, self::CONFIRMED)->assertRedirect(self::URL.'?step=5');
         $this->assertSame(1, Client::count());
         $this->assertSame(2, Invoice::count());
         $this->assertNotNull(Setting::find(WhmcsImporter::SETTING));
@@ -137,7 +141,7 @@ class WhmcsImportWizardTest extends TestCase
 
     public function test_the_import_needs_a_dry_run_and_staff_who_manage_settings(): void
     {
-        $this->post(self::URL.'/import', ['confirm' => '1'])->assertSessionHasErrors(self::ERROR);
+        $this->post(self::IMPORT, self::CONFIRMED)->assertSessionHasErrors(self::ERROR);
         $this->get(self::URL.'/report/dry_run')->assertNotFound();
 
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
