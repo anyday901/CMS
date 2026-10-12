@@ -87,7 +87,7 @@
                 </label>
                 <label class="block">Free trial days
                     <input type="number" name="trial_days" min="1" max="365" value="{{ old('trial_days', $product->trial_days) }}" placeholder="No trial" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-                    <span class="text-ink-500">Once per client. The first invoice comes when the trial ends; any setup fee is charged up front.</span>
+                    <span class="text-ink-500">Once per client, on recurring cycles only. The first invoice comes when the trial ends; any setup fee is charged up front.</span>
                 </label>
             </div>
         </fieldset>

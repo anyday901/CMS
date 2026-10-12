@@ -74,6 +74,8 @@ class OrderService
         }
 
         $result = DB::transaction(function () use ($client, $priced, $start, $invoice, $promotion, $order) {
+            // Serializes a client's orders, so two at once can't both take a product's free trial.
+            Client::lockForUpdate()->find($client->id);
             $first = $invoice ? Invoice::create([
                 'client_id' => $client->id,
                 'status' => InvoiceStatus::Unpaid,
@@ -143,12 +145,16 @@ class OrderService
      * product's billing day when it has one, or a whole cycle. An add-on with
      * no billing day of its own follows the one of the product it's ordered
      * with, when it's billed on the same cycle.
+     *
+     * @param  list<int>  $trialsTaken  Products whose trial an earlier line not yet saved has taken.
      */
-    public function firstPeriod(PricedLine $priced, CarbonInterface $start, ?Client $client, ?OrderLine $parent = null): FirstPeriod
+    public function firstPeriod(PricedLine $priced, CarbonInterface $start, ?Client $client, ?OrderLine $parent = null, array $trialsTaken = []): FirstPeriod
     {
         $product = $priced->line->product;
         $billedBy = $product->prorata_day === null && $parent?->cycle === $priced->line->cycle ? $parent->product : $product;
-        $trial = $product->trial_days > 0 && ! $client?->services()->where('product_id', $product->id)->exists();
+        $trial = $product->trial_days > 0
+            && ! in_array($product->id, $trialsTaken, true)
+            && ! $client?->services()->where('product_id', $product->id)->exists();
 
         return FirstPeriod::for(
             $priced->line->cycle,

@@ -206,6 +206,31 @@ class BillingDayAndTrialTest extends TestCase
         $this->assertNull(Service::latest('id')->first()->trial_ends_on);
     }
 
+    public function test_only_the_first_of_a_trial_product_in_the_cart_is_free(): void
+    {
+        $this->withTrial(14);
+        $this->addToCart();
+        $this->addToCart();
+
+        $this->get('/cart')->assertSee('Free until Oct 26, 2026')->assertSee('$31.00');
+        $this->post(self::CHECKOUT)->assertRedirect();
+
+        $this->assertSame(3100, Invoice::sole()->total);
+        $this->assertSame(1, Service::whereNotNull('trial_ends_on')->count());
+    }
+
+    public function test_one_time_prices_have_no_trial(): void
+    {
+        $this->withTrial(14);
+        $this->vps->prices()->create(['billing_cycle' => 'one_time', 'currency' => 'USD', 'price' => 9900]);
+        $this->get(route('store.product', $this->vps))->assertSee('on recurring billing cycles');
+
+        $invoice = $this->order(data: ['billing_cycle' => 'one_time']);
+
+        $this->assertSame(9900, $invoice->total);
+        $this->assertNull(Service::sole()->trial_ends_on);
+    }
+
     public function test_setup_fees_are_still_due_with_a_trial(): void
     {
         $this->withTrial(7);

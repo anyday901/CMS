@@ -40,9 +40,14 @@ class Checkout
         }
 
         $rows = [];
+        $trialsTaken = [];
         foreach ($lines as $i => $line) {
             $priced = $this->orders->price($line, $currency);
-            $first = $this->orders->firstPeriod($priced, today(), $client, $line->parentLine !== null ? $lines[$line->parentLine] : null);
+            // Only the first of a product in the cart gets its trial, as when the order is placed.
+            $first = $this->orders->firstPeriod($priced, today(), $client, $line->parentLine !== null ? $lines[$line->parentLine] : null, $trialsTaken);
+            if ($first->trial) {
+                $trialsTaken[] = $line->product->id;
+            }
             $rows[] = [
                 'key' => $keys[$i],
                 'priced' => $priced,
