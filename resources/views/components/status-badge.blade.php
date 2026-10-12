@@ -5,7 +5,7 @@
         'active', 'paid', 'done', 'sent', 'answered' => 'bg-brand-100 text-brand-800',
         'pending', 'unpaid', 'draft', 'open', 'queued', 'customer_reply' => 'bg-sun-300/60 text-amber-900',
         'suspended', 'overdue', 'on_hold', 'high' => 'bg-orange-100 text-orange-800',
-        'failed', 'urgent' => 'bg-red-100 text-red-800',
+        'failed', 'urgent', 'fraud' => 'bg-red-100 text-red-800',
         'terminated', 'cancelled', 'closed', 'refunded' => 'bg-ink-200 text-ink-700',
         default => 'bg-ink-100 text-ink-700',
     };

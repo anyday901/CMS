@@ -24,11 +24,12 @@ class Settings
         'billing.late_fee_amount',
         'billing.tax_inclusive',
         'billing.attach_invoice_pdf',
+        'billing.hold_new_orders',
         'activity.retention_days',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf'];
+    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

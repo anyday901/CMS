@@ -2,6 +2,7 @@
 
 namespace App\Ordering;
 
+use App\Billing\FirstPeriod;
 use App\Billing\PricedLine;
 use App\Models\Promotion;
 
@@ -9,7 +10,7 @@ use App\Models\Promotion;
 readonly class CartQuote
 {
     /**
-     * @param  list<array{key: string, priced: PricedLine, discount: int, addon: bool}>  $rows
+     * @param  list<array{key: string, priced: PricedLine, first: FirstPeriod, discount: int, addon: bool}>  $rows
      * @param  array<string, string>  $errors  Problems by cart line key; those lines aren't priced.
      */
     public function __construct(
@@ -22,7 +23,7 @@ readonly class CartQuote
 
     public function subtotal(): int
     {
-        return array_sum(array_map(fn (array $row) => $row['priced']->recurring + $row['priced']->setupFee, $this->rows));
+        return array_sum(array_map(fn (array $row) => $row['first']->amount + $row['priced']->setupFee, $this->rows));
     }
 
     public function discount(): int

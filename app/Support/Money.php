@@ -15,6 +15,12 @@ class Money
         return $formatter->formatCurrency($cents / 100, $currency);
     }
 
+    /** $cents for $days of a $periodDays-day period, rounded half up. */
+    public static function prorate(int $cents, int $days, int $periodDays): int
+    {
+        return $periodDays > 0 ? intdiv($cents * $days * 2 + $periodDays, 2 * $periodDays) : 0;
+    }
+
     /** Value for a form input, e.g. 1234 -> "12.34". */
     public static function toInput(int $cents): string
     {

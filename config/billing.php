@@ -47,4 +47,9 @@ return [
     // Send an overdue reminder when an unpaid invoice is this many days past
     // its due date, once for each number. Empty turns reminders off.
     'reminder_days' => array_values(array_filter(array_map('intval', explode(',', (string) env('BILLING_REMINDER_DAYS', '1,7'))))),
+
+    // Keep the services of new store orders pending, even once paid, until
+    // staff accept the order in the pending orders queue. Can also be set
+    // on the admin Settings page.
+    'hold_new_orders' => (bool) env('BILLING_HOLD_NEW_ORDERS', false),
 ];

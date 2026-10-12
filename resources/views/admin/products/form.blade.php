@@ -74,6 +74,34 @@
             })();
         </script>
 
+        <fieldset class="space-y-3">
+            <legend class="mb-1 font-semibold">Billing</legend>
+            <div class="grid gap-4 sm:grid-cols-3">
+                <label class="block">Bill on day of the month
+                    <input type="number" name="prorata_day" min="1" max="28" value="{{ old('prorata_day', $product->prorata_day) }}" placeholder="Order date" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    <span class="text-ink-500">1 to 28. The first invoice is prorated up to this day, so every service renews on it.</span>
+                </label>
+                <label class="block">Also charge the next period from day
+                    <input type="number" name="prorata_extend_day" min="1" max="31" value="{{ old('prorata_extend_day', $product->prorata_extend_day) }}" placeholder="Never" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    <span class="text-ink-500">Orders on or after this day pay the short period and the next full one together.</span>
+                </label>
+                <label class="block">Free trial days
+                    <input type="number" name="trial_days" min="1" max="365" value="{{ old('trial_days', $product->trial_days) }}" placeholder="No trial" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    <span class="text-ink-500">Once per client. The first invoice comes when the trial ends; any setup fee is charged up front.</span>
+                </label>
+            </div>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 font-semibold">Stock</legend>
+            <input type="hidden" name="stock_control" value="0">
+            <label class="flex items-center gap-2"><input type="checkbox" name="stock_control" value="1" @checked(old('stock_control', $product->stock_control))> Count stock. Each order from the store takes one; the store shows it as out of stock at none.</label>
+            <label class="block">In stock
+                <input type="number" name="stock_quantity" min="0" value="{{ old('stock_quantity', $product->stock_quantity ?? 0) }}" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">Cancelling an order or marking it as fraud puts its stock back.</span>
+            </label>
+        </fieldset>
+
         <div>
             <h2 class="mb-1 font-semibold">Pricing ({{ config('billing.currency') }})</h2>
             <p class="mb-3 text-ink-500">Leave a price blank to not offer that billing cycle.</p>

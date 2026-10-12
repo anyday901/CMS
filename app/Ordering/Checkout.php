@@ -42,10 +42,12 @@ class Checkout
         $rows = [];
         foreach ($lines as $i => $line) {
             $priced = $this->orders->price($line, $currency);
+            $first = $this->orders->firstPeriod($priced, today(), $client, $line->parentLine !== null ? $lines[$line->parentLine] : null);
             $rows[] = [
                 'key' => $keys[$i],
                 'priced' => $priced,
-                'discount' => $promotion?->appliesTo($line->product) ? $promotion->discountOn($priced->recurring) : 0,
+                'first' => $first,
+                'discount' => $promotion?->appliesTo($line->product) ? $promotion->discountOn($first->amount) : 0,
                 'addon' => $line->parentLine !== null || $line->parentService !== null,
             ];
         }
@@ -83,6 +85,7 @@ class Checkout
                 }
                 $promotion->increment('uses');
             }
+            $this->takeStock($lines);
 
             $order = Order::create([
                 'client_id' => $client->id,
@@ -100,6 +103,37 @@ class Checkout
         $cart->clear();
 
         return $result;
+    }
+
+    /**
+     * Counts the order's products out of stock, locked so two checkouts
+     * can't both take the last one.
+     *
+     * @param  list<OrderLine>  $lines
+     *
+     * @throws InvalidArgumentException when there isn't enough left.
+     */
+    private function takeStock(array $lines): void
+    {
+        $wanted = array_count_values(array_map(fn (OrderLine $line) => $line->product->id, $lines));
+        $products = Product::whereKey(array_keys($wanted))->where('stock_control', true)->lockForUpdate()->get();
+
+        foreach ($products as $product) {
+            if ($problem = self::stockProblem($product, $wanted[$product->id])) {
+                throw new InvalidArgumentException($problem);
+            }
+            $product->decrement('stock_quantity', $wanted[$product->id]);
+        }
+    }
+
+    /** Why $quantity of a product can't be ordered, or null when they can. */
+    public static function stockProblem(Product $product, int $quantity = 1): ?string
+    {
+        return match (true) {
+            $product->hasStock($quantity) => null,
+            $product->stock_quantity > 0 => "Only {$product->stock_quantity} of {$product->name} left in stock.",
+            default => "{$product->name} is out of stock.",
+        };
     }
 
     /** @param  list<OrderLine>  $lines */
@@ -129,11 +163,11 @@ class Checkout
         $errors = [];
 
         $addonsForServices = [];
+        $taken = [];
 
         foreach ($cart->lines() as $key => $data) {
             try {
                 $resolved = $this->check($data, $client, count($lines));
-
                 if ($data['parent_service_id'] ?? null) {
                     $pair = $data['parent_service_id'].'-'.$data['product_id'];
                     if (isset($addonsForServices[$pair])) {
@@ -141,6 +175,7 @@ class Checkout
                     }
                     $addonsForServices[$pair] = true;
                 }
+                $taken = $this->countStock($resolved, $taken);
             } catch (InvalidArgumentException $e) {
                 $errors[$key] = $e->getMessage();
 
@@ -154,6 +189,29 @@ class Checkout
         }
 
         return ['lines' => $lines, 'keys' => $keys, 'errors' => $errors];
+    }
+
+    /**
+     * Adds a cart line's products to the stock the cart takes so far.
+     *
+     * @param  list<OrderLine>  $lines
+     * @param  array<int, int>  $taken  Quantities by product id.
+     * @return array<int, int>
+     *
+     * @throws InvalidArgumentException when there isn't enough stock for them too.
+     */
+    private function countStock(array $lines, array $taken): array
+    {
+        foreach ($lines as $line) {
+            $id = $line->product->id;
+            $taken[$id] = ($taken[$id] ?? 0) + 1;
+
+            if ($problem = self::stockProblem($line->product, $taken[$id])) {
+                throw new InvalidArgumentException($problem);
+            }
+        }
+
+        return $taken;
     }
 
     /**
@@ -175,6 +233,7 @@ class Checkout
         foreach ($lines as $line) {
             $this->orders->price($line, $currency);
         }
+        $this->countStock($lines, []);
 
         return $lines;
     }

@@ -16,7 +16,7 @@
     @endforeach
     <div class="grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm sm:grid-cols-3">
         <div><div class="text-ink-500">Price</div>{{ Money::format($service->netRecurring(), auth('client')->user()->currency) }} {{ strtolower($service->billing_cycle->label()) }}@if ($service->recurring_discount) <span class="text-ink-500">({{ Money::format($service->recurring_discount, auth('client')->user()->currency) }} off{{ $service->promotion ? ' with '.$service->promotion->code : '' }})</span>@endif</div>
-        <div><div class="text-ink-500">Next due</div>{{ $service->next_due_date?->format('M j, Y') ?? '—' }}</div>
+        <div><div class="text-ink-500">Next due</div>{{ $service->next_due_date?->format('M j, Y') ?? '—' }}@if ($service->inTrial())<div class="text-brand-700">Free trial until then</div>@endif</div>
         <div><div class="text-ink-500">Started</div>{{ $service->registration_date->format('M j, Y') }}</div>
         @if ($service->optionSummary() !== '')<div class="sm:col-span-3"><div class="text-ink-500">Options</div>{{ $service->optionSummary() }}</div>@endif
         @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'sm:col-span-3'])

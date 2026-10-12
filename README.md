@@ -7,7 +7,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 ## What it does (v1 goals)
 
 - Client accounts and a client portal
-- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, and upgrades and downgrades
+- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, and a pending orders queue
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
@@ -82,6 +82,10 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Add-ons** are products marked as add-ons on the product form, then ticked under **Add-ons offered with this product** on the products they go with. Each add-on becomes its own service linked to the main one, billed on the same cycle (or once, if that's how it's priced). Clients can also add one later from the service page. Add-ons are suspended, unsuspended and terminated with their service.
 - **Promotion codes** are set up under **Products > Promotions**: a percent or a fixed amount off the price of the products a code covers (not setup fees), on the first payment only or on every renewal, with optional start and expiry dates, a maximum number of uses, and a once-per-client limit. The discount shows as its own line on invoices.
 - **Upgrades and downgrades**: tick the products a service can move to under **Clients can upgrade or downgrade to** on the product form. Clients choose **Upgrade or downgrade** on the service page and pick the new product and its options; the billing cycle and due date stay the same. The rest of the paid period is prorated by day: if the new product costs more, the difference is invoiced and the move happens once it's paid; if it costs less, the move happens at once and the difference goes to the client's credit. Services with an unpaid invoice wait until it's settled. Modules that implement `App\Provisioning\ChangesPackage` (both built-in ones do) get a `change_package` action after the move.
+- **Billing on a fixed day**: set **Bill on day of the month** (1 to 28) on the product form and every new service of it renews on that day. The first invoice covers the days from the order to that day, prorated from the cycle's price; with **Also charge the next period from day** set, orders on or after that day pay the short period and the next whole cycle together. Add-ons without a billing day of their own follow the product they're ordered with.
+- **Free trials**: set **Free trial days** on the product form. A client's first service of that product is free for that many days: the order invoice shows the trial at no charge (plus any setup fee), the service starts at once, and the first renewal invoice comes when the trial ends. A client who has had the product before pays from the start. Upgrades and downgrades open once the trial is over.
+- **Stock control**: tick **Count stock** on the product form and set how many are in stock. Each store order takes one per service, the store shows the product as out of stock at none, and the cart and checkout stop orders for more than is left. Cancelling an order or marking it as fraud puts its stock back.
+- **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
 
 ## Online payments
 
@@ -133,7 +137,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, promotion codes, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, suspend, unsuspend, terminate), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
 ### Contacts
 
@@ -266,10 +270,11 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_TAX_INCLUSIVE` | `false` | Prices include tax |
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
+| `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF and activity log settings can also be changed on the admin **Settings** page.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review and activity log settings can also be changed on the admin **Settings** page.
 
 ## License
 

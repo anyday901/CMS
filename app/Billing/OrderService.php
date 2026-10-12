@@ -17,6 +17,7 @@ use App\Models\Promotion;
 use App\Models\Service;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /** Creates new services for a client, with their first invoice. */
@@ -83,7 +84,9 @@ class OrderService
 
             $services = [];
             foreach ($priced as $line) {
-                $services[] = $this->createService($client, $line, $services, $start, $promotion, $order, $first);
+                $parent = $line->line->parentLine !== null ? $priced[$line->line->parentLine]->line : null;
+                $period = $first !== null ? $this->firstPeriod($line, $start, $client, $parent) : null;
+                $services[] = $this->createService($client, $line, $services, $start, $promotion, $order, $first, $period);
             }
 
             return ['services' => $services, 'invoice' => $first?->recalculate()];
@@ -131,8 +134,32 @@ class OrderService
     }
 
     /**
+     * What the first invoice charges for a line: a free trial when the product
+     * has one and the client hasn't had it before, a part period up to the
+     * product's billing day when it has one, or a whole cycle. An add-on with
+     * no billing day of its own follows the one of the product it's ordered
+     * with, when it's billed on the same cycle.
+     */
+    public function firstPeriod(PricedLine $priced, CarbonInterface $start, ?Client $client, ?OrderLine $parent = null): FirstPeriod
+    {
+        $product = $priced->line->product;
+        $billedBy = $product->prorata_day === null && $parent?->cycle === $priced->line->cycle ? $parent->product : $product;
+        $trial = $product->trial_days > 0 && ! $client?->services()->where('product_id', $product->id)->exists();
+
+        return FirstPeriod::for(
+            $priced->line->cycle,
+            $priced->recurring,
+            $start,
+            $trial ? $product->trial_days : null,
+            $billedBy->prorata_day,
+            $billedBy->prorata_extend_day,
+        );
+    }
+
+    /**
      * @param  list<Service>  $created  Services made earlier in this order.
      * @param  Invoice|null  $first  The order's invoice; null when it isn't invoiced and starts active.
+     * @param  FirstPeriod|null  $period  What $first charges for the service.
      */
     private function createService(
         Client $client,
@@ -142,6 +169,7 @@ class OrderService
         ?Promotion $promotion,
         ?Order $order,
         ?Invoice $first,
+        ?FirstPeriod $period,
     ): Service {
         $line = $priced->line;
         $discount = $promotion?->appliesTo($line->product) ? $promotion->discountOn($priced->recurring) : 0;
@@ -159,34 +187,40 @@ class OrderService
             'status' => $first !== null ? ServiceStatus::Pending : ServiceStatus::Active,
             'registration_date' => $start,
             'next_due_date' => $start,
+            'trial_ends_on' => $period?->trial ? $period->nextDue() : null,
             'custom_fields' => $line->choices->customFields,
         ]);
         $this->options->save($service, $priced->options);
         Activity::record("Ordered {$service->description()} ({$line->cycle->label()})", $service);
 
-        if ($first === null) {
+        if ($first === null || $period === null) {
             return $service;
         }
 
-        $end = $line->cycle->isRecurring() ? $line->cycle->advance($start)->subDay() : null;
         $taxable = $line->product->taxable;
+        $description = InvoiceItem::serviceDescription($service, $period->start, $period->end);
 
         $first->items()->create([
             'service_id' => $service->id,
             'type' => InvoiceItem::TYPE_SERVICE,
-            'description' => InvoiceItem::serviceDescription($service, $start, $end),
-            'amount' => $priced->recurring,
+            'description' => match (true) {
+                $period->trial => Str::limit("Free trial: {$description}", 255, ''),
+                $period->prorated => Str::limit("Prorated: {$description}", 255, ''),
+                default => $description,
+            },
+            'amount' => $period->amount,
             'taxable' => $taxable,
-            'period_start' => $start,
-            'period_end' => $end,
+            'period_start' => $period->start,
+            'period_end' => $period->end,
         ]);
 
-        if ($discount > 0) {
+        $firstDiscount = $discount > 0 ? $promotion->discountOn($period->amount) : 0;
+        if ($firstDiscount > 0) {
             $first->items()->create([
                 'service_id' => $service->id,
                 'type' => InvoiceItem::TYPE_PROMOTION,
                 'description' => InvoiceItem::promotionDescription($service, $promotion->code),
-                'amount' => -$discount,
+                'amount' => -$firstDiscount,
                 'taxable' => $taxable,
             ]);
         }

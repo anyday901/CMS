@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ class Service extends Model
 
     protected $fillable = [
         'client_id', 'product_id', 'order_id', 'parent_service_id', 'label', 'billing_cycle', 'recurring_amount',
-        'promotion_id', 'recurring_discount', 'status', 'registration_date', 'next_due_date', 'custom_fields',
+        'promotion_id', 'recurring_discount', 'status', 'registration_date', 'next_due_date', 'trial_ends_on', 'custom_fields',
     ];
 
     protected $attributes = [
@@ -38,6 +39,7 @@ class Service extends Model
             'recurring_discount' => 'integer',
             'registration_date' => 'date',
             'next_due_date' => 'date',
+            'trial_ends_on' => 'date',
             'suspended_at' => 'datetime',
             'provisioned_at' => 'datetime',
             'provisioning_data' => 'array',
@@ -87,6 +89,12 @@ class Service extends Model
     public function netRecurring(): int
     {
         return max(0, $this->recurring_amount - $this->recurring_discount);
+    }
+
+    /** Whether the service is still in its free trial on $date (today by default). */
+    public function inTrial(?CarbonInterface $date = null): bool
+    {
+        return $this->trial_ends_on !== null && $this->trial_ends_on->gt($date ?? today());
     }
 
     public function invoiceItems(): HasMany
