@@ -41,6 +41,8 @@ class OrderQueueTest extends TestCase
 
     private const ERROR_KEY = 'order';
 
+    private const CLIENT_NAME = 'Ada Lovelace';
+
     private Client $client;
 
     private Product $vps;
@@ -80,7 +82,7 @@ class OrderQueueTest extends TestCase
         $this->assertSame(OrderStatus::Pending, $order->status);
 
         $this->get(route('admin.dashboard'))->assertSee('Pending orders')->assertSee('Orders (1)');
-        $this->get(route(self::INDEX))->assertOk()->assertSee('#'.$order->id)->assertSee('Ada Lovelace')->assertSee('VPS');
+        $this->get(route(self::INDEX))->assertOk()->assertSee('#'.$order->id)->assertSee(self::CLIENT_NAME)->assertSee('VPS');
         $this->get(route(self::SHOW, $order))->assertOk()->assertSee('Accept')->assertSee(self::FRAUD_BUTTON);
 
         $this->act('accept', $order)->assertRedirect(route(self::SHOW, $order));
@@ -176,9 +178,9 @@ class OrderQueueTest extends TestCase
         $second = Order::latest('id')->first();
         $this->actingAs(User::factory()->create());
 
-        $this->get(route(self::INDEX, ['q' => 'alan@example']))->assertSee('Alan Turing')->assertDontSee('Ada Lovelace');
-        $this->get(route(self::INDEX, ['q' => '#'.$first->id]))->assertSee('Ada Lovelace')->assertDontSee('Alan Turing');
-        $this->get(route(self::INDEX, ['client' => $other->id]))->assertSee('Orders for Alan Turing')->assertSee('#'.$second->id)->assertDontSee('Ada Lovelace');
+        $this->get(route(self::INDEX, ['q' => 'alan@example']))->assertSee('Alan Turing')->assertDontSee(self::CLIENT_NAME);
+        $this->get(route(self::INDEX, ['q' => '#'.$first->id]))->assertSee(self::CLIENT_NAME)->assertDontSee('Alan Turing');
+        $this->get(route(self::INDEX, ['client' => $other->id]))->assertSee('Orders for Alan Turing')->assertSee('#'.$second->id)->assertDontSee(self::CLIENT_NAME);
         $this->get(route('admin.clients.show', $this->client))->assertSee('View all orders')->assertSee('#'.$first->id);
     }
 
