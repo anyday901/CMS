@@ -247,6 +247,8 @@ Keep `.env` somewhere safe too: without `APP_KEY` you can't read encrypted data 
 
 `php artisan whmcs:import` copies clients and their contacts, products with prices and configurable options, custom fields, services, invoices, payments and refunds, credit balances, ticket departments, tickets and replies from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers don't change. Staff accounts are not copied: create them with `php artisan admin:create`.
 
+Steps 2 to 4 can also be done in the admin area under **Settings > Import from WHMCS**, a walkthrough that connects to the WHMCS database (from `.env` or details you type in), runs the dry run, shows the report and then imports. The command line is more reliable for very large installs, since a browser request can time out behind a proxy.
+
 1. **Get a copy of the WHMCS database.** Either give the importer a read-only MySQL user on the live WHMCS database, or restore a dump into a new database:
 
    ```sh

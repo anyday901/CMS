@@ -31,7 +31,7 @@
                 @endphp
                 @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
-                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
+                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
                 <form method="POST" action="{{ route('admin.logout') }}" class="ml-auto">
                     @csrf

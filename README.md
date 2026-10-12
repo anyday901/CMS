@@ -62,6 +62,8 @@ Run the tests with `php artisan test`.
 
 `php artisan whmcs:import` copies clients and contacts, products with prices and configurable options, custom fields, services, invoices, payments, refunds, credit balances, ticket departments, tickets and replies (and, with `--attachments`, ticket attachments) from a WHMCS database into a new install. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
 
+Or use the walkthrough in the admin area under **Settings > Import from WHMCS**: it checks the install is empty, connects to WHMCS (from `.env` or details you type in), runs the dry run and shows its report, then imports and lists the next steps. It runs the same importer; on very large installs the command line is more reliable than a browser request.
+
 - `--dry-run` imports everything, compares totals with WHMCS (recurring revenue, balance due, payments and credit, per currency) and then undoes it, saving a report of every skipped record to `storage/app/whmcs/`.
 - Clients log in with their WHMCS password. It is checked once against the old WHMCS hash and then stored again with this app's own hashing.
 - Replies to old WHMCS ticket emails, with `[Ticket ID: 123456]` in the subject, still reach the right ticket.

@@ -41,7 +41,7 @@ class WhmcsImport extends Command
         }
 
         $this->show($report);
-        $path = $this->save($report);
+        $path = $report->save($this->option('report'));
         $this->newLine();
         $this->line("Full report, with every skipped record: {$path}");
 
@@ -87,19 +87,5 @@ class WhmcsImport extends Command
         $mismatches === 0
             ? $this->info('All totals match.')
             : $this->warn("{$mismatches} total(s) differ. The report lists the skipped records behind them.");
-    }
-
-    private function save(ImportReport $report): string
-    {
-        $prefix = $report->dryRun ? 'import-dry-run-' : 'import-';
-        $path = $this->option('report') ?: storage_path('app/whmcs/'.$prefix.now()->format('Ymd-His').'.md');
-
-        if (! is_dir(dirname($path))) {
-            mkdir(dirname($path), 0755, true);
-        }
-
-        file_put_contents($path, $report->toMarkdown());
-
-        return $path;
     }
 }

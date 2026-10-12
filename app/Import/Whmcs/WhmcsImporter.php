@@ -76,10 +76,10 @@ class WhmcsImporter
     /** @throws ImportException when this install already has data */
     public function run(ConnectionInterface $source, bool $dryRun): ImportReport
     {
-        foreach (self::TARGET_TABLES as $table) {
-            if (DB::table($table)->exists()) {
-                throw new ImportException("This install already has {$table}. Import into a new, empty install (run php artisan migrate:fresh first if it only has test data).");
-            }
+        $blockers = self::blockers();
+
+        if ($blockers !== []) {
+            throw new ImportException("This install already has {$blockers[0]}. Import into a new, empty install (run php artisan migrate:fresh first if it only has test data).");
         }
 
         $this->run = new ImportRun($source, new ImportReport($dryRun));
@@ -103,6 +103,12 @@ class WhmcsImporter
         $dryRun ? DB::rollBack() : DB::commit();
 
         return $this->run->report;
+    }
+
+    /** @return list<string> the tables that already have data here, which stop an import */
+    public static function blockers(): array
+    {
+        return array_values(array_filter(self::TARGET_TABLES, fn (string $table) => DB::table($table)->exists()));
     }
 
     private function import(): void
