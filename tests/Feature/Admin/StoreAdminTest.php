@@ -70,6 +70,20 @@ class StoreAdminTest extends TestCase
         $this->assertSame([], $product->addons()->pluck('products.id')->all());
     }
 
+    public function test_the_product_form_lists_upgrades_in_a_compact_grouped_picker(): void
+    {
+        $group = ProductGroup::create(['name' => 'VPS', 'slug' => 'vps']);
+        $product = Product::factory()->create(['name' => self::SMALL_VPS, 'product_group_id' => $group->id]);
+        $bigger = Product::factory()->create(['name' => 'Bigger VPS', 'product_group_id' => $group->id]);
+        Product::factory()->create(['name' => 'Shared Hosting']);
+        $product->upgrades()->attach($bigger);
+
+        $this->get(route('admin.products.edit', $product))->assertOk()
+            ->assertSee('data-product-picker', false)
+            ->assertSeeInOrder(['Clients can upgrade or downgrade to', '1 selected', 'VPS', 'Bigger VPS', 'No group', 'Shared Hosting'])
+            ->assertSee('name="upgrades[]" value="'.$bigger->id.'" checked', false);
+    }
+
     public function test_staff_manage_promotion_codes(): void
     {
         $product = Product::factory()->create();

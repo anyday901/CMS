@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release checklist and steps for v1.0.0: [docs/release.md](docs/release.md).
 
 ### Changed
+- The product form's **Add-ons offered with this product** and **Clients can upgrade or downgrade to** lists are now compact dropdowns instead of a checkbox for every product. Each shows how many products are chosen and opens to a list grouped by store group, with a filter box to find a product by name. Without JavaScript it opens to the same checkbox list.
 - `whmcs:import` saves its report through `ImportReport::save()`, shared with the walkthrough.
 - The first invoice of a store order is emailed with the new **New order invoice** template instead of **New invoice**. Staff who edited **New invoice** for orders should copy their wording across.
 - `billing:run` carries out end-of-period cancellation requests before it generates renewal invoices.

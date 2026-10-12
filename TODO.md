@@ -79,6 +79,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Order and invoice email templates for new orders
 - [x] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
 - [x] Orders list in the admin area
+- [x] Compact, searchable add-on and upgrade pickers on the product form
 
 ## Milestone 6: Billing parity
 - [ ] Multiple currencies with exchange rates and per-currency prices
