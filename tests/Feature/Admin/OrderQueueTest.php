@@ -8,6 +8,8 @@ use App\Enums\OrderStatus;
 use App\Enums\ServiceStatus;
 use App\Enums\StaffRole;
 use App\Models\Client;
+use App\Models\EmailLog;
+use App\Models\EmailTemplate;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Promotion;
@@ -162,5 +164,48 @@ class OrderQueueTest extends TestCase
         $this->get(route(self::SHOW, $order))->assertOk()->assertDontSee(self::FRAUD_BUTTON);
         $this->act('accept', $order)->assertForbidden();
         $this->act('cancel', $order)->assertForbidden();
+    }
+
+    public function test_orders_list_searches_and_filters_by_client(): void
+    {
+        $first = $this->placeOrder();
+        $other = Client::factory()->create(['first_name' => 'Alan', 'last_name' => 'Turing', 'email' => 'alan@example.com']);
+        $this->actingAs($other, 'client');
+        $this->post(route('cart.store', $this->vps), ['billing_cycle' => self::MONTHLY]);
+        $this->post(self::CHECKOUT);
+        $second = Order::latest('id')->first();
+        $this->actingAs(User::factory()->create());
+
+        $this->get(route(self::INDEX, ['q' => 'alan@example']))->assertSee('Alan Turing')->assertDontSee('Ada Lovelace');
+        $this->get(route(self::INDEX, ['q' => '#'.$first->id]))->assertSee('Ada Lovelace')->assertDontSee('Alan Turing');
+        $this->get(route(self::INDEX, ['client' => $other->id]))->assertSee('Orders for Alan Turing')->assertSee('#'.$second->id)->assertDontSee('Ada Lovelace');
+        $this->get(route('admin.clients.show', $this->client))->assertSee('View all orders')->assertSee('#'.$first->id);
+    }
+
+    public function test_checkout_sends_the_order_confirmation_and_the_order_invoice(): void
+    {
+        $order = $this->placeOrder();
+
+        $templates = EmailLog::orderBy('id')->pluck('template')->all();
+        $this->assertEqualsCanonicalizing(['order_invoice', 'order_confirmation'], $templates);
+
+        $confirmation = EmailLog::where('template', 'order_confirmation')->sole();
+        $this->assertSame("Order #{$order->id} confirmation", $confirmation->subject);
+        $this->assertStringContainsString('- VPS, monthly', $confirmation->body);
+        $this->assertStringContainsString('Order total: $10.00', $confirmation->body);
+        $this->assertFalse($confirmation->attach_invoice_pdf);
+
+        $invoice = EmailLog::where('template', 'order_invoice')->sole();
+        $this->assertSame("Invoice #{$order->invoice->number} for order #{$order->id}", $invoice->subject);
+        $this->assertSame($order->invoice_id, $invoice->invoice_id);
+    }
+
+    public function test_order_emails_can_be_turned_off(): void
+    {
+        EmailTemplate::create(['key' => 'order_confirmation', 'subject' => 'x', 'body' => 'x', 'enabled' => false]);
+
+        $this->placeOrder();
+
+        $this->assertSame(['order_invoice'], EmailLog::pluck('template')->all());
     }
 }

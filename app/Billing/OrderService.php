@@ -77,6 +77,8 @@ class OrderService
                 'issue_date' => today(),
                 'due_date' => $start,
             ]) : null;
+            // Linked now, so the invoice email knows it's for an order.
+            $order?->update(['invoice_id' => $first?->id]);
 
             $services = $this->createServices($client, $priced, $start, $first, $promotion, $order);
 

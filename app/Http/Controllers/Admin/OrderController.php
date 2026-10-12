@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Client;
 use App\Models\Order;
 use App\Ordering\OrderReview;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -19,17 +21,37 @@ class OrderController extends Controller
 
     public function index(Request $request): View
     {
-        $status = OrderStatus::tryFrom((string) $request->query('status', OrderStatus::Pending->value));
+        $search = trim((string) $request->query('q'));
+        $client = $request->filled('client') ? Client::find((int) $request->query('client')) : null;
+        // Looking someone up searches every order unless a status is picked.
+        $default = $search !== '' || $client ? 'all' : OrderStatus::Pending->value;
+        $status = OrderStatus::tryFrom((string) $request->query('status', $default));
 
         $orders = Order::query()
             ->with(['client', 'invoice', 'services.product'])
             ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($client, fn ($query) => $query->where('client_id', $client->id))
+            ->when($search !== '', fn ($query) => $this->search($query, $search))
             // The queue is worked oldest first; everything else newest first.
             ->when($status === OrderStatus::Pending, fn ($query) => $query->oldest('id'), fn ($query) => $query->latest('id'))
             ->paginate(50)
             ->withQueryString();
 
-        return view('admin.orders.index', ['orders' => $orders, 'status' => $status]);
+        return view('admin.orders.index', compact('orders', 'status', 'search', 'client'));
+    }
+
+    /** Matches an order number, or the client's name, company or email. */
+    private function search(Builder $query, string $search): void
+    {
+        $number = ltrim($search, '#');
+
+        $query->where(fn (Builder $query) => $query
+            ->when(ctype_digit($number), fn ($query) => $query->whereKey((int) $number))
+            ->orWhereHas('client', fn (Builder $clients) => $clients
+                ->where('first_name', 'like', "%{$search}%")
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhere('company', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")));
     }
 
     public function show(Order $order): View

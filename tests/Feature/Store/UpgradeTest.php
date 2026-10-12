@@ -19,7 +19,6 @@ use App\Models\TaxRule;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class UpgradeTest extends TestCase
@@ -67,9 +66,9 @@ class UpgradeTest extends TestCase
     {
         $quote = app(ServiceUpgrader::class)->quote($this->service, $this->large);
 
-        $this->assertSame([21, 31], [$quote->daysLeft, $quote->periodDays]);
-        $this->assertSame(677, $quote->credit); // 10.00 x 21/31
-        $this->assertSame(1355, $quote->charge); // 20.00 x 21/31
+        $this->assertSame([21, 31], [$quote->proration->daysLeft, $quote->proration->periodDays]);
+        $this->assertSame(677, $quote->proration->credit); // 10.00 x 21/31
+        $this->assertSame(1355, $quote->proration->charge); // 20.00 x 21/31
         $this->assertSame(678, $quote->net());
     }
 
@@ -136,8 +135,8 @@ class UpgradeTest extends TestCase
 
         $quote = app(ServiceUpgrader::class)->quote($this->service, $this->large);
 
-        $this->assertSame([14, 28], [$quote->daysLeft, $quote->periodDays]);
-        $this->assertSame(500, $quote->credit);
+        $this->assertSame([14, 28], [$quote->proration->daysLeft, $quote->proration->periodDays]);
+        $this->assertSame(500, $quote->proration->credit);
     }
 
     public function test_cancelling_the_invoice_drops_the_pending_move(): void
@@ -175,8 +174,8 @@ class UpgradeTest extends TestCase
 
         $quote = app(ServiceUpgrader::class)->quote($this->service, $this->large);
         $this->assertSame(200, $quote->recurringDiscount);
-        $this->assertSame(610, $quote->credit); // 9.00 x 21/31
-        $this->assertSame(1219, $quote->charge); // 18.00 x 21/31
+        $this->assertSame(610, $quote->proration->credit); // 9.00 x 21/31
+        $this->assertSame(1219, $quote->proration->charge); // 18.00 x 21/31
 
         $promotion->update(['product_ids' => [$this->small->id]]);
         $this->assertSame(0, app(ServiceUpgrader::class)->quote($this->service->refresh(), $this->large)->recurringDiscount);
@@ -204,15 +203,5 @@ class UpgradeTest extends TestCase
         // Someone else's service isn't reachable at all.
         $this->actingAs(Client::factory()->create(), 'client');
         $this->get(route('portal.services.upgrade', $this->service))->assertNotFound();
-    }
-
-    private function expectsProblem(callable $call, string $message): void
-    {
-        try {
-            $call();
-            $this->fail("Expected: {$message}");
-        } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString($message, $e->getMessage());
-        }
     }
 }

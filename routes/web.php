@@ -62,6 +62,8 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::get('services/{service}/upgrade', [Portal\UpgradeController::class, 'index'])->name('services.upgrade');
         Route::get('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'show'])->name('services.upgrade.show');
         Route::post('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'store'])->middleware('throttle:10,1')->name('services.upgrade.store');
+        Route::post('services/{service}/cancel', [Portal\CancellationController::class, 'store'])->middleware('throttle:10,1')->name('services.cancel');
+        Route::delete('services/{service}/cancel', [Portal\CancellationController::class, 'destroy'])->name('services.cancel.destroy');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
         Route::middleware('throttle:20,1')->group(function () {
@@ -106,6 +108,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
             Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
             Route::put($service, [Admin\ServiceController::class, 'update'])->name('services.update');
+            Route::get("{$service}/move", [Admin\ServiceMoveController::class, 'show'])->name('services.move');
+            Route::post("{$service}/move", [Admin\ServiceMoveController::class, 'store'])->name('services.move.store');
+            Route::post("{$service}/cancellations", [Admin\CancellationController::class, 'store'])->name('cancellations.store');
+            Route::delete('cancellations/{cancellation}', [Admin\CancellationController::class, 'destroy'])->name('cancellations.destroy');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])

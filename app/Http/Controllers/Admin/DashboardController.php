@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Enums\ServiceStatus;
 use App\Enums\TicketPriority;
 use App\Http\Controllers\Controller;
+use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\FulfillmentTask;
 use App\Models\Invoice;
@@ -32,6 +33,7 @@ class DashboardController extends Controller
                 // Paying from credit moves money already received, so it isn't new income.
                 ->where('gateway', '!=', CreditApplier::GATEWAY)->sum('amount'),
             'pendingOrders' => Order::where('status', OrderStatus::Pending)->with(['client', 'invoice', 'services.product'])->oldest('id')->limit(10)->get(),
+            'cancellations' => CancellationRequest::pending()->with(['service.client', 'service.product'])->orderBy('cancel_on')->limit(10)->get(),
             'openTasks' => FulfillmentTask::open()->with(['service.client', 'service.product'])->oldest()->limit(10)->get(),
             'waitingTickets' => request()->user()->can('manage-tickets')
                 ? Ticket::awaitingStaff()->with(['client', 'department', 'assignee'])->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at')->limit(10)->get()

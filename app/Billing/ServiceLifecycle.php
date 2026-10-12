@@ -19,6 +19,9 @@ class ServiceLifecycle
 {
     public const REASON_OVERDUE = 'overdue';
 
+    /** Statuses a service can still be ended from. */
+    public const NOT_ENDED = [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended];
+
     public function activate(Service $service): void
     {
         $service->status = ServiceStatus::Active;
@@ -72,8 +75,28 @@ class ServiceLifecycle
 
         ServiceTerminated::dispatch($service);
 
-        foreach ($service->addons()->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->get() as $addon) {
+        foreach ($service->addons()->whereIn('status', self::NOT_ENDED)->get() as $addon) {
             $this->terminate($addon);
+        }
+    }
+
+    /**
+     * Cancels a service at the client's request. The module tears it down as
+     * on termination, but the service shows as cancelled rather than
+     * terminated, so it reads as the client's choice.
+     */
+    public function cancel(Service $service): void
+    {
+        $service->forceFill([
+            'status' => ServiceStatus::Cancelled,
+            'terminated_at' => now(),
+        ])->save();
+        Activity::record("Cancelled {$service->description()}", $service);
+
+        ServiceTerminated::dispatch($service);
+
+        foreach ($service->addons()->whereIn('status', self::NOT_ENDED)->get() as $addon) {
+            $this->cancel($addon);
         }
     }
 }

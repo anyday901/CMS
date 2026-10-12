@@ -5,13 +5,17 @@ use App\Billing\InvoiceReminders;
 use App\Billing\LateFeeProcessor;
 use App\Billing\OverdueProcessor;
 use App\Billing\RefundReconciler;
+use App\Billing\ServiceCanceller;
 use App\Models\Activity;
 use App\Models\Department;
 use App\Tickets\InboundMail;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('billing:run', function (InvoiceGenerator $generator, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
+Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
+    $cancelled = $cancellations->run(today());
+    $this->info("Cancelled {$cancelled} service(s) at the end of their billing period.");
+
     $invoices = $generator->generate(today());
     $this->info("Generated {$invoices->count()} invoice(s).");
 
@@ -26,7 +30,7 @@ Artisan::command('billing:run', function (InvoiceGenerator $generator, LateFeePr
 
     $settled = $refunds->run();
     $this->info("Pending refunds: {$settled['completed']} completed, {$settled['failed']} failed.");
-})->purpose('Generate renewal invoices, add late fees, send overdue reminders, process overdue services and check pending refunds');
+})->purpose('Carry out cancellation requests, generate renewal invoices, add late fees, send overdue reminders, process overdue services and check pending refunds');
 
 Artisan::command('activity:prune', function () {
     $days = config('activity.retention_days');

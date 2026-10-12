@@ -20,7 +20,7 @@ class ServiceUpgrade extends Model
 
     protected $fillable = [
         'service_id', 'invoice_id', 'from_product_id', 'to_product_id', 'from_amount', 'to_amount',
-        'options', 'prorated_amount', 'status', 'applied_at',
+        'from_cycle', 'to_cycle', 'next_due_date', 'options', 'prorated_amount', 'status', 'moved_by', 'applied_at',
     ];
 
     protected $attributes = ['status' => self::PENDING];
@@ -32,6 +32,7 @@ class ServiceUpgrade extends Model
             'from_amount' => 'integer',
             'to_amount' => 'integer',
             'prorated_amount' => 'integer',
+            'next_due_date' => 'date',
             'applied_at' => 'datetime',
         ];
     }
@@ -49,6 +50,12 @@ class ServiceUpgrade extends Model
     public function fromProduct(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'from_product_id');
+    }
+
+    /** The staff member who made the move, when it wasn't the client. */
+    public function mover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'moved_by');
     }
 
     public function toProduct(): BelongsTo

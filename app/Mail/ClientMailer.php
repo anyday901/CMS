@@ -6,6 +6,8 @@ use App\Jobs\SendLoggedEmail;
 use App\Models\Client;
 use App\Models\EmailLog;
 use App\Models\Invoice;
+use App\Models\Order;
+use App\Models\Service;
 use App\Models\Ticket;
 use App\Support\Money;
 
@@ -45,13 +47,29 @@ class ClientMailer
             'subject' => $rendered['subject'],
             'body' => $sensitive ? '(Not kept: this email contains a private link.)' : $body,
             'status' => EmailLog::QUEUED,
-            'attach_invoice_pdf' => $invoice !== null && $template === 'invoice_created' && (bool) config('billing.attach_invoice_pdf'),
+            'attach_invoice_pdf' => $invoice !== null && in_array($template, EmailTemplates::INVOICE_TEMPLATES, true) && (bool) config('billing.attach_invoice_pdf'),
             'reply_to' => $ticket?->department->email,
         ]);
 
         SendLoggedEmail::dispatch($log->id, $sensitive ? $body : null);
 
         return $log;
+    }
+
+    /** Confirms a store order to the client, with what they ordered and its invoice. */
+    public function orderConfirmation(Order $order): ?EmailLog
+    {
+        $order->loadMissing(['client', 'invoice', 'services' => fn ($query) => $query->with(['product', 'parent.product'])->orderBy('id')]);
+        $currency = $order->invoice->currency ?? $order->client->currency;
+
+        return $this->send($order->client, 'order_confirmation', [
+            'order_number' => $order->id,
+            'order_date' => $order->created_at->format('M j, Y'),
+            'order_items' => $order->services->map(fn (Service $service) => '- '.$service->description()
+                .($service->billing_cycle->isRecurring() ? ', '.strtolower($service->billing_cycle->label()) : '')
+                .($service->parent ? " (add-on for {$service->parent->description()})" : ''))->join("\n"),
+            'order_total' => Money::format($order->invoice->total ?? 0, $currency),
+        ], $order->invoice);
     }
 
     /**

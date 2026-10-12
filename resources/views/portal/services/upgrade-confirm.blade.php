@@ -15,8 +15,8 @@
         <div class="max-w-xl rounded-lg border border-ink-200 bg-white p-6 text-sm">
             <dl class="space-y-2">
                 <div class="flex gap-3"><dt class="text-ink-500">New price</dt><dd class="ml-auto">{{ Money::format($quote->newNetRecurring(), $currency) }} {{ strtolower($service->billing_cycle->label()) }}, from {{ $service->next_due_date->format('M j, Y') }}</dd></div>
-                <div class="flex gap-3"><dt class="text-ink-500">{{ $product->name }} for the {{ $quote->daysLeft }} {{ Str::plural('day', $quote->daysLeft) }} left</dt><dd class="ml-auto">{{ Money::format($quote->charge, $currency) }}</dd></div>
-                <div class="flex gap-3"><dt class="text-ink-500">Unused time on {{ $service->product->name }}</dt><dd class="ml-auto">-{{ Money::format($quote->credit, $currency) }}</dd></div>
+                <div class="flex gap-3"><dt class="text-ink-500">{{ $product->name }} for the {{ $quote->proration->daysLeft }} {{ Str::plural('day', $quote->proration->daysLeft) }} left</dt><dd class="ml-auto">{{ Money::format($quote->proration->charge, $currency) }}</dd></div>
+                <div class="flex gap-3"><dt class="text-ink-500">Unused time on {{ $service->product->name }}</dt><dd class="ml-auto">-{{ Money::format($quote->proration->credit, $currency) }}</dd></div>
                 <div class="flex gap-3 border-t border-ink-100 pt-2 font-semibold">
                     @if ($quote->net() > 0)
                         <dt>To pay now (before tax)</dt><dd class="ml-auto">{{ Money::format($quote->net(), $currency) }}</dd>

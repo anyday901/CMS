@@ -5,6 +5,9 @@
         <x-status-badge :status="$service->status" />
         @can('manage-clients')
         <div class="ml-auto flex gap-2">
+            @if ($canMove)
+                <a href="{{ route('admin.services.move', $service) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Upgrade or downgrade</a>
+            @endif
             @foreach (['suspend' => 'active', 'unsuspend' => 'suspended'] as $action => $from)
                 @if ($service->status->value === $from)
                     <form method="POST" action="{{ route('admin.services.action', [$service, $action]) }}">@csrf
@@ -28,8 +31,19 @@
         @if ($service->addons->isNotEmpty())<div><div class="text-ink-500">Add-ons</div>@foreach ($service->addons as $addon)<a href="{{ route('admin.services.show', $addon) }}" class="text-brand-600">{{ $addon->product->name }}</a> <span class="text-ink-500">({{ $addon->status->value }})</span>@if (! $loop->last), @endif @endforeach</div>@endif
         @if ($service->order_id)<div><div class="text-ink-500">Order</div><a href="{{ route('admin.orders.show', $service->order_id) }}" class="text-brand-600">#{{ $service->order_id }}</a>@if ($service->order) <x-status-badge :status="$service->order->status" />@endif @if ($service->order?->promotion_code) with {{ $service->order->promotion_code }}@endif</div>@endif
         @foreach ($service->upgrades->where('status', 'pending') as $upgrade)
-            <div class="md:col-span-3"><div class="text-ink-500">Pending move</div>To {{ $upgrade->toProduct->name }} when @if ($upgrade->invoice)<a href="{{ route('admin.invoices.show', $upgrade->invoice) }}" class="text-brand-600">invoice #{{ $upgrade->invoice->number }}</a>@else its invoice @endif is paid</div>
+            <div class="md:col-span-3"><div class="text-ink-500">Pending move</div>To {{ $upgrade->toProduct->name }}@if ($upgrade->to_cycle), {{ strtolower(App\Enums\BillingCycle::from($upgrade->to_cycle)->label()) }},@endif when @if ($upgrade->invoice)<a href="{{ route('admin.invoices.show', $upgrade->invoice) }}" class="text-brand-600">invoice #{{ $upgrade->invoice->number }}</a>@else its invoice @endif is paid</div>
         @endforeach
+        @if ($cancellation = $service->pendingCancellation)
+            <div class="md:col-span-3 flex flex-wrap items-center gap-3 rounded-md bg-sun-300/40 px-3 py-2 text-amber-900">
+                <div><div class="font-medium">Cancellation requested{{ $cancellation->requester ? " by {$cancellation->requester->name}" : ' by the client' }} on {{ $cancellation->created_at->format('M j, Y') }}</div>
+                    Cancels on {{ $cancellation->cancel_on->format('M j, Y') }} ({{ strtolower($cancellation->typeLabel()) }}) and won't be renewed.@if ($cancellation->reason) Reason: {{ $cancellation->reason }}@endif</div>
+                @can('manage-clients')
+                    <form method="POST" action="{{ route('admin.cancellations.destroy', $cancellation) }}" class="ml-auto">@csrf @method('DELETE')
+                        <button class="rounded-md px-3 py-1.5 ring-1 ring-amber-400 hover:bg-sun-300/40">Withdraw request</button>
+                    </form>
+                @endcan
+            </div>
+        @endif
         <div><div class="text-ink-500">Next due</div>{{ $service->next_due_date?->format('M j, Y') ?? '—' }}@if ($service->trial_ends_on)<div class="text-ink-500">Free trial {{ $service->inTrial() ? 'until' : 'ended' }} {{ $service->trial_ends_on->format('M j, Y') }}</div>@endif</div>
         <div><div class="text-ink-500">Registered</div>{{ $service->registration_date->format('M j, Y') }}</div>
         @if ($service->suspended_at)<div><div class="text-ink-500">Suspended</div>{{ $service->suspended_at->format('M j, Y') }} ({{ $service->suspension_reason }})</div>@endif
@@ -57,6 +71,15 @@
                     @endif
                     <div class="md:col-span-2"><button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button></div>
                 </form>
+            </details>
+        @endif
+    @endcan
+
+    @can('manage-clients')
+        @if ($canCancel)
+            <details class="mb-8 text-sm" @if ($errors->has('cancellation')) open @endif>
+                <summary class="cursor-pointer text-brand-600">Request cancellation for the client</summary>
+                @include('services._cancel-form', ['action' => route('admin.cancellations.store', $service), 'periodEnd' => $service->next_due_date])
             </details>
         @endif
     @endcan

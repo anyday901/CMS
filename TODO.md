@@ -74,9 +74,9 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Stock control on products
 - [x] Pending orders queue: accept, cancel or mark fraud
 - [ ] Fraud checks on new orders (pluggable, e.g. MaxMind)
-- [ ] Client cancellation requests (immediate or end of period)
-- [ ] Order and invoice email templates for new orders
-- [ ] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
+- [x] Client cancellation requests (immediate or end of period)
+- [x] Order and invoice email templates for new orders
+- [x] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
 - [x] Orders list in the admin area
 
 ## Milestone 6: Billing parity

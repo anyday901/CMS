@@ -10,6 +10,14 @@
     @if ($service->parent)
         <p class="mb-4 text-sm text-ink-600">An add-on for <a href="{{ route('portal.services.show', $service->parent) }}" class="text-brand-600">{{ $service->parent->description() }}</a>.</p>
     @endif
+    @if ($service->pendingCancellation)
+        <div class="mb-4 flex flex-wrap items-center gap-3 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">
+            <span>This service will be cancelled on {{ $service->pendingCancellation->cancel_on->format('M j, Y') }} and won't be renewed.</span>
+            <form method="POST" action="{{ route('portal.services.cancel.destroy', $service) }}" class="ml-auto">@csrf @method('DELETE')
+                <button class="font-medium underline">Keep my service</button>
+            </form>
+        </div>
+    @endif
     @foreach ($service->upgrades as $upgrade)
         <p class="mb-4 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">Moving to {{ $upgrade->toProduct->name }} once
             @if ($upgrade->invoice)<a href="{{ route('portal.invoices.show', $upgrade->invoice) }}" class="font-medium underline">invoice #{{ $upgrade->invoice->number }}</a>@else its invoice @endif is paid.</p>
@@ -41,6 +49,12 @@
                 @endforeach
             </div>
         @endif
+    @endif
+    @if ($canCancel)
+        <details class="mt-8 text-sm" @if ($errors->has('cancellation')) open @endif>
+            <summary class="cursor-pointer text-ink-600">Cancel this service</summary>
+            @include('services._cancel-form', ['action' => route('portal.services.cancel', $service), 'periodEnd' => $service->next_due_date])
+        </details>
     @endif
     @if ($service->status->value === 'suspended')
         <p class="mt-4 rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">This service is suspended. If you have an unpaid invoice, paying it will restore the service.</p>
