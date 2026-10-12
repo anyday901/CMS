@@ -111,6 +111,27 @@ class CancellationTest extends TestCase
         $this->assertSame([$other->id], $shared->items()->pluck('service_id')->all());
     }
 
+    public function test_manual_lines_keep_the_invoice_open(): void
+    {
+        $invoice = $this->unpaidInvoice($this->service);
+        $invoice->items()->create(['type' => InvoiceItem::TYPE_MANUAL, 'description' => 'Consulting', 'amount' => 5000]);
+        $invoice->recalculate();
+
+        app(ServiceCanceller::class)->request($this->service, CancellationRequest::END_OF_PERIOD);
+
+        $invoice->refresh();
+        $this->assertSame([InvoiceStatus::Unpaid, 5000], [$invoice->status, $invoice->total]);
+    }
+
+    public function test_add_ons_of_a_service_being_cancelled_are_not_renewed(): void
+    {
+        Service::factory()->create(['client_id' => $this->client->id, 'parent_service_id' => $this->service->id, 'next_due_date' => '2026-10-20']);
+
+        app(ServiceCanceller::class)->request($this->service, CancellationRequest::END_OF_PERIOD);
+
+        $this->assertCount(0, app(InvoiceGenerator::class)->generate(today()));
+    }
+
     public function test_withdrawn_requests_let_the_service_renew_again(): void
     {
         $this->actingAs($this->client, 'client');

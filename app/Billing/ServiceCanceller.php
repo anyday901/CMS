@@ -7,6 +7,7 @@ use App\Enums\ServiceStatus;
 use App\Models\Activity;
 use App\Models\CancellationRequest;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Service;
 use App\Models\User;
 use Carbon\CarbonInterface;
@@ -145,7 +146,7 @@ class ServiceCanceller
     /**
      * Takes the service's (and its add-ons') charges off open invoices with
      * nothing paid: an invoice with nothing else on it is cancelled, and the
-     * lines come off one shared with other services. Invoices with a payment
+     * lines come off one with other services or lines staff added. Invoices with a payment
      * on them are left for staff.
      */
     private function dropUnpaidCharges(Service $service): void
@@ -159,7 +160,12 @@ class ServiceCanceller
             ->filter(fn (Invoice $invoice) => $invoice->amountPaid() === 0);
 
         foreach ($invoices as $invoice) {
-            if ($invoice->items()->whereNotNull(self::SERVICE_ID)->whereNotIn(self::SERVICE_ID, $ids)->exists()) {
+            // Anything else on it keeps it open: other services, or lines staff added. A late fee alone doesn't.
+            $others = $invoice->items()->where(fn ($items) => $items
+                ->whereNotIn(self::SERVICE_ID, $ids)
+                ->orWhere(fn ($unlinked) => $unlinked->whereNull(self::SERVICE_ID)->where('type', '!=', InvoiceItem::TYPE_LATE_FEE)));
+
+            if ($others->exists()) {
                 $invoice->items()->whereIn(self::SERVICE_ID, $ids)->delete();
                 $invoice->recalculate();
                 Activity::record("Took {$service->description()} off invoice #{$invoice->number} after its cancellation request", $invoice);
