@@ -29,6 +29,10 @@ class BillingDayAndTrialTest extends TestCase
 
     private const CHECKOUT = '/checkout';
 
+    private const MANUAL = 'manual';
+
+    private const TRIAL_END = '2026-10-26';
+
     private Client $client;
 
     private Product $vps;
@@ -40,14 +44,36 @@ class BillingDayAndTrialTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-10-12'));
 
         $this->client = Client::factory()->create();
-        $this->vps = Product::factory()->create(['name' => 'VPS']);
-        $this->vps->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => 3100]);
+        $this->vps = $this->product('VPS', 3100);
+    }
+
+    private function product(string $name, int $monthly, array $attributes = []): Product
+    {
+        $product = Product::factory()->create(['name' => $name, ...$attributes]);
+        $product->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => $monthly]);
+
+        return $product;
+    }
+
+    private function billOnDay(int $day, ?int $extendFrom = null): void
+    {
+        $this->vps->update(['prorata_day' => $day, 'prorata_extend_day' => $extendFrom]);
+    }
+
+    private function withTrial(int $days): void
+    {
+        $this->vps->update(['trial_days' => $days]);
+    }
+
+    private function addToCart(array $data = [], ?Product $product = null): void
+    {
+        $this->actingAs($this->client, 'client');
+        $this->post(route('cart.store', $product ?? $this->vps), ['billing_cycle' => self::MONTHLY, ...$data])->assertSessionHasNoErrors();
     }
 
     private function order(?Product $product = null, array $data = []): Invoice
     {
-        $this->actingAs($this->client, 'client');
-        $this->post(route('cart.store', $product ?? $this->vps), ['billing_cycle' => self::MONTHLY, ...$data])->assertSessionHasNoErrors();
+        $this->addToCart($data, $product);
         $this->post(self::CHECKOUT)->assertRedirect();
 
         return $this->client->invoices()->latest('id')->first();
@@ -62,10 +88,9 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_first_invoice_is_prorated_to_the_billing_day_and_renewals_fall_on_it(): void
     {
-        $this->vps->update(['prorata_day' => 1]);
+        $this->billOnDay(1);
 
-        $this->actingAs($this->client, 'client');
-        $this->post(route('cart.store', $this->vps), ['billing_cycle' => self::MONTHLY]);
+        $this->addToCart();
         $this->get('/cart')->assertSee('Prorated to Nov 1, 2026')->assertSee('$20.00');
         $this->post(self::CHECKOUT)->assertRedirect();
 
@@ -76,7 +101,7 @@ class BillingDayAndTrialTest extends TestCase
         $this->assertSame('Prorated: VPS (10/12/2026 - 10/31/2026)', $line->description);
         $this->assertSame('2026-10-31', $line->period_end->toDateString());
 
-        app(PaymentRecorder::class)->record($invoice, 2000, 'manual');
+        app(PaymentRecorder::class)->record($invoice, 2000, self::MANUAL);
         $service = Service::sole();
         $this->assertSame(ServiceStatus::Active, $service->status);
         $this->assertSame('2026-11-01', $service->next_due_date->toDateString());
@@ -88,7 +113,7 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_late_orders_also_pay_the_next_whole_period(): void
     {
-        $this->vps->update(['prorata_day' => 1, 'prorata_extend_day' => 20]);
+        $this->billOnDay(1, 20);
         $this->travelTo(CarbonImmutable::parse('2026-10-25'));
 
         $invoice = $this->order();
@@ -96,13 +121,13 @@ class BillingDayAndTrialTest extends TestCase
         // 7 of 31 days, plus November.
         $this->assertSame(700 + 3100, $invoice->total);
         $this->assertSame('2026-11-30', $this->serviceLine($invoice)->period_end->toDateString());
-        app(PaymentRecorder::class)->record($invoice, 3800, 'manual');
+        app(PaymentRecorder::class)->record($invoice, 3800, self::MANUAL);
         $this->assertSame('2026-12-01', Service::sole()->next_due_date->toDateString());
     }
 
     public function test_orders_on_the_billing_day_pay_a_whole_cycle(): void
     {
-        $this->vps->update(['prorata_day' => 12, 'prorata_extend_day' => 1]);
+        $this->billOnDay(12, 1);
 
         $invoice = $this->order();
 
@@ -112,22 +137,21 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_add_ons_follow_the_billing_day_of_their_product(): void
     {
-        $this->vps->update(['prorata_day' => 1]);
-        $backups = Product::factory()->create(['name' => 'Backups', 'is_addon' => true]);
-        $backups->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => 310]);
+        $this->billOnDay(1);
+        $backups = $this->product('Backups', 310, ['is_addon' => true]);
         $this->vps->addons()->attach($backups);
 
         $invoice = $this->order(data: ['addons' => [$backups->id]]);
 
         $addon = Service::where('product_id', $backups->id)->sole();
         $this->assertSame(200, $this->serviceLine($invoice, $addon)->amount);
-        app(PaymentRecorder::class)->record($invoice, $invoice->total, 'manual');
+        app(PaymentRecorder::class)->record($invoice, $invoice->total, self::MANUAL);
         $this->assertSame('2026-11-01', $addon->refresh()->next_due_date->toDateString());
     }
 
     public function test_staff_added_services_are_prorated_too(): void
     {
-        $this->vps->update(['prorata_day' => 1]);
+        $this->billOnDay(1);
 
         ['invoice' => $invoice] = app(OrderService::class)->create($this->client, $this->vps, BillingCycle::Monthly, today());
 
@@ -136,11 +160,10 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_an_upgrade_in_a_prorated_first_period_is_worked_out_over_the_whole_cycle(): void
     {
-        $this->vps->update(['prorata_day' => 1]);
-        $bigger = Product::factory()->create(['name' => 'Bigger VPS']);
-        $bigger->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => 6200]);
+        $this->billOnDay(1);
+        $bigger = $this->product('Bigger VPS', 6200);
         $this->vps->upgrades()->attach($bigger);
-        app(PaymentRecorder::class)->record($this->order(), 2000, 'manual');
+        app(PaymentRecorder::class)->record($this->order(), 2000, self::MANUAL);
 
         $quote = app(ServiceUpgrader::class)->quote(Service::sole(), $bigger);
 
@@ -150,11 +173,10 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_free_trial_starts_the_service_and_bills_when_it_ends(): void
     {
-        $this->vps->update(['trial_days' => 14]);
+        $this->withTrial(14);
         $this->get(route('store.product', $this->vps))->assertSee('Free for 14 days.');
 
-        $this->actingAs($this->client, 'client');
-        $this->post(route('cart.store', $this->vps), ['billing_cycle' => self::MONTHLY]);
+        $this->addToCart();
         $this->get('/cart')->assertSee('Free until Oct 26, 2026')->assertSee('$0.00');
         $this->post(self::CHECKOUT)->assertRedirect(route('portal.services.index'));
 
@@ -163,19 +185,19 @@ class BillingDayAndTrialTest extends TestCase
         $this->assertSame('Free trial: VPS (10/12/2026 - 10/25/2026)', $this->serviceLine($invoice)->description);
         $service = Service::sole();
         $this->assertSame(ServiceStatus::Active, $service->status);
-        $this->assertSame('2026-10-26', $service->next_due_date->toDateString());
-        $this->assertSame('2026-10-26', $service->trial_ends_on->toDateString());
+        $this->assertSame(self::TRIAL_END, $service->next_due_date->toDateString());
+        $this->assertSame(self::TRIAL_END, $service->trial_ends_on->toDateString());
         $this->assertTrue($service->inTrial());
         $this->get(route('portal.services.show', $service))->assertSee('Free trial until then');
 
         $renewal = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-19'))->sole();
         $this->assertSame(3100, $renewal->total);
-        $this->assertSame('2026-10-26', $renewal->due_date->toDateString());
+        $this->assertSame(self::TRIAL_END, $renewal->due_date->toDateString());
     }
 
     public function test_a_client_gets_one_trial_per_product(): void
     {
-        $this->vps->update(['trial_days' => 14]);
+        $this->withTrial(14);
         $this->order();
 
         $second = $this->order();
@@ -186,14 +208,14 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_setup_fees_are_still_due_with_a_trial(): void
     {
-        $this->vps->update(['trial_days' => 7]);
+        $this->withTrial(7);
         $this->vps->prices()->update(['setup_fee' => 500]);
 
         $invoice = $this->order();
 
         $this->assertSame(500, $invoice->total);
         $this->assertSame(ServiceStatus::Pending, Service::sole()->status);
-        app(PaymentRecorder::class)->record($invoice, 500, 'manual');
+        app(PaymentRecorder::class)->record($invoice, 500, self::MANUAL);
         $service = Service::sole();
         $this->assertSame(ServiceStatus::Active, $service->status);
         $this->assertSame('2026-10-19', $service->next_due_date->toDateString());
@@ -201,7 +223,7 @@ class BillingDayAndTrialTest extends TestCase
 
     public function test_services_in_a_trial_cannot_be_upgraded_yet(): void
     {
-        $this->vps->update(['trial_days' => 14]);
+        $this->withTrial(14);
         $this->order();
 
         $this->expectException(InvalidArgumentException::class);

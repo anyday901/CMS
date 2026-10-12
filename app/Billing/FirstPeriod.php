@@ -41,6 +41,12 @@ readonly class FirstPeriod
             return new self($start, $start->copy()->addDays($trialDays - 1), 0, trial: true);
         }
 
+        return self::toBillingDay($cycle, $recurring, $start, $billingDay, $extendDay);
+    }
+
+    /** A whole cycle, or a part period up to $billingDay (and the next whole cycle from $extendDay). */
+    private static function toBillingDay(BillingCycle $cycle, int $recurring, CarbonInterface $start, ?int $billingDay, ?int $extendDay): self
+    {
         if ($billingDay === null || $start->day === $billingDay) {
             return new self($start, $cycle->advance($start)->subDay(), $recurring);
         }
@@ -50,12 +56,14 @@ readonly class FirstPeriod
             : $start->copy()->addMonthNoOverflow()->day($billingDay);
         $cycleStart = $due->copy()->subMonthsNoOverflow($cycle->months());
         $amount = Money::prorate($recurring, (int) $start->diffInDays($due), (int) $cycleStart->diffInDays($due));
+        $extend = $extendDay !== null && $start->day >= $extendDay;
 
-        if ($extendDay !== null && $start->day >= $extendDay) {
-            return new self($start, $cycle->advance($due)->subDay(), $amount + $recurring, prorated: true);
-        }
-
-        return new self($start, $due->copy()->subDay(), $amount, prorated: true);
+        return new self(
+            $start,
+            ($extend ? $cycle->advance($due) : $due->copy())->subDay(),
+            $amount + ($extend ? $recurring : 0),
+            prorated: true,
+        );
     }
 
     /** The service's next due date once this period is paid. */

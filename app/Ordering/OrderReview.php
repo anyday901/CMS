@@ -20,6 +20,8 @@ use InvalidArgumentException;
 /** Staff decisions on new orders in the pending orders queue. */
 class OrderReview
 {
+    private const STATUS = 'status';
+
     public function __construct(private ServiceLifecycle $lifecycle, private InvoiceCanceller $invoices) {}
 
     /**
@@ -42,7 +44,7 @@ class OrderReview
             Activity::record("Accepted order #{$order->id}", $order, [], $order->client);
 
             if ($invoice?->status === InvoiceStatus::Paid) {
-                foreach ($order->services()->where('status', ServiceStatus::Pending)->orderBy('id')->get() as $service) {
+                foreach ($order->services()->where(self::STATUS, ServiceStatus::Pending)->orderBy('id')->get() as $service) {
                     $this->lifecycle->activate($service);
                 }
             }
@@ -75,7 +77,7 @@ class OrderReview
             }
 
             $services = $order->services()
-                ->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])
+                ->whereIn(self::STATUS, [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])
                 ->with('product')
                 ->orderBy('id')
                 ->get();
@@ -100,7 +102,7 @@ class OrderReview
 
     private function close(Order $order, OrderStatus $status, User $staff): void
     {
-        $order->forceFill(['status' => $status, 'reviewed_at' => now(), 'reviewed_by' => $staff->id])->save();
+        $order->forceFill([self::STATUS => $status, 'reviewed_at' => now(), 'reviewed_by' => $staff->id])->save();
     }
 
     private function done(Order $order): string
@@ -133,7 +135,7 @@ class OrderReview
 
     private function cancelService(Service $service): void
     {
-        $service->update(['status' => ServiceStatus::Cancelled]);
+        $service->update([self::STATUS => ServiceStatus::Cancelled]);
         Activity::record("Cancelled {$service->description()}", $service);
     }
 

@@ -43,7 +43,7 @@ class OrderController extends Controller
     {
         $this->attempt(fn () => $this->review->accept($order, $request->user()));
 
-        return redirect()->route('admin.orders.show', $order)->with('status', "Order #{$order->id} accepted.");
+        return $this->backTo($order, "Order #{$order->id} accepted.");
     }
 
     public function cancel(Request $request, Order $order): RedirectResponse
@@ -62,6 +62,11 @@ class OrderController extends Controller
         $message = ($fraud ? "Order #{$order->id} marked as fraud." : "Order #{$order->id} cancelled.")
             .($paid ? ' Its invoice was paid, so refund it from the invoice if the money should go back.' : '');
 
+        return $this->backTo($order, $message);
+    }
+
+    private function backTo(Order $order, string $message): RedirectResponse
+    {
         return redirect()->route('admin.orders.show', $order)->with('status', $message);
     }
 

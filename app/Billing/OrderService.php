@@ -86,7 +86,11 @@ class OrderService
             foreach ($priced as $line) {
                 $parent = $line->line->parentLine !== null ? $priced[$line->line->parentLine]->line : null;
                 $period = $first !== null ? $this->firstPeriod($line, $start, $client, $parent) : null;
-                $services[] = $this->createService($client, $line, $services, $start, $promotion, $order, $first, $period);
+                $service = $this->createService($client, $line, $services, $start, $promotion, $order, $period);
+                if ($first !== null) {
+                    $this->invoiceFirstPeriod($first, $service, $line, $period, $promotion);
+                }
+                $services[] = $service;
             }
 
             return ['services' => $services, 'invoice' => $first?->recalculate()];
@@ -158,8 +162,7 @@ class OrderService
 
     /**
      * @param  list<Service>  $created  Services made earlier in this order.
-     * @param  Invoice|null  $first  The order's invoice; null when it isn't invoiced and starts active.
-     * @param  FirstPeriod|null  $period  What $first charges for the service.
+     * @param  FirstPeriod|null  $period  What the order's invoice charges; null when it isn't invoiced and starts active.
      */
     private function createService(
         Client $client,
@@ -168,7 +171,6 @@ class OrderService
         CarbonInterface $start,
         ?Promotion $promotion,
         ?Order $order,
-        ?Invoice $first,
         ?FirstPeriod $period,
     ): Service {
         $line = $priced->line;
@@ -184,7 +186,7 @@ class OrderService
             'recurring_amount' => $priced->recurring,
             'promotion_id' => $discount > 0 ? $promotion->id : null,
             'recurring_discount' => $discount > 0 && $promotion->recurring && $line->cycle->isRecurring() ? $discount : 0,
-            'status' => $first !== null ? ServiceStatus::Pending : ServiceStatus::Active,
+            'status' => $period !== null ? ServiceStatus::Pending : ServiceStatus::Active,
             'registration_date' => $start,
             'next_due_date' => $start,
             'trial_ends_on' => $period?->trial ? $period->nextDue() : null,
@@ -193,10 +195,14 @@ class OrderService
         $this->options->save($service, $priced->options);
         Activity::record("Ordered {$service->description()} ({$line->cycle->label()})", $service);
 
-        if ($first === null || $period === null) {
-            return $service;
-        }
+        return $service;
+    }
 
+    /** The service's lines on the order's invoice: its first period, any discount and any setup fee. */
+    private function invoiceFirstPeriod(Invoice $first, Service $service, PricedLine $priced, FirstPeriod $period, ?Promotion $promotion): void
+    {
+        $line = $priced->line;
+        $discount = $promotion?->appliesTo($line->product) ? $promotion->discountOn($priced->recurring) : 0;
         $taxable = $line->product->taxable;
         $description = InvoiceItem::serviceDescription($service, $period->start, $period->end);
 
@@ -235,6 +241,5 @@ class OrderService
             ]);
         }
 
-        return $service;
     }
 }

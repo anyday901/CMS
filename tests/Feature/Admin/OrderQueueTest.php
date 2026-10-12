@@ -16,6 +16,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class OrderQueueTest extends TestCase
@@ -25,6 +26,18 @@ class OrderQueueTest extends TestCase
     private const MONTHLY = 'monthly';
 
     private const CHECKOUT = '/checkout';
+
+    private const MANUAL = 'manual';
+
+    private const FRAUD_BUTTON = 'Mark as fraud';
+
+    private const INDEX = 'admin.orders.index';
+
+    private const SHOW = 'admin.orders.show';
+
+    private const STATUS = 'status';
+
+    private const ERROR_KEY = 'order';
 
     private Client $client;
 
@@ -54,28 +67,33 @@ class OrderQueueTest extends TestCase
         return Order::latest('id')->first();
     }
 
+    private function act(string $action, Order $order): TestResponse
+    {
+        return $this->post(route("admin.orders.{$action}", $order));
+    }
+
     public function test_new_orders_wait_in_the_queue_and_staff_accept_them(): void
     {
         $order = $this->placeOrder();
         $this->assertSame(OrderStatus::Pending, $order->status);
 
         $this->get(route('admin.dashboard'))->assertSee('Pending orders')->assertSee('Orders (1)');
-        $this->get(route('admin.orders.index'))->assertOk()->assertSee('#'.$order->id)->assertSee('Ada Lovelace')->assertSee('VPS');
-        $this->get(route('admin.orders.show', $order))->assertOk()->assertSee('Accept')->assertSee('Mark as fraud');
+        $this->get(route(self::INDEX))->assertOk()->assertSee('#'.$order->id)->assertSee('Ada Lovelace')->assertSee('VPS');
+        $this->get(route(self::SHOW, $order))->assertOk()->assertSee('Accept')->assertSee(self::FRAUD_BUTTON);
 
-        $this->post(route('admin.orders.accept', $order))->assertRedirect(route('admin.orders.show', $order));
+        $this->act('accept', $order)->assertRedirect(route(self::SHOW, $order));
 
         $order->refresh();
         $this->assertSame(OrderStatus::Active, $order->status);
         $this->assertNotNull($order->reviewed_at);
-        $this->get(route('admin.orders.index'))->assertSee('No orders waiting for review.');
-        $this->get(route('admin.orders.index', ['status' => 'active']))->assertSee('#'.$order->id);
-        $this->post(route('admin.orders.accept', $order))->assertSessionHasErrors('order');
+        $this->get(route(self::INDEX))->assertSee('No orders waiting for review.');
+        $this->get(route(self::INDEX, [self::STATUS => 'active']))->assertSee('#'.$order->id);
+        $this->act('accept', $order)->assertSessionHasErrors(self::ERROR_KEY);
 
         // Unpaid, so the service still waits on its invoice.
         $service = Service::sole();
         $this->assertSame(ServiceStatus::Pending, $service->status);
-        app(PaymentRecorder::class)->record($order->invoice, 1000, 'manual');
+        app(PaymentRecorder::class)->record($order->invoice, 1000, self::MANUAL);
         $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
     }
 
@@ -85,13 +103,13 @@ class OrderQueueTest extends TestCase
         $this->assertTrue(config('billing.hold_new_orders'));
 
         $order = $this->placeOrder();
-        app(PaymentRecorder::class)->record($order->invoice, 1000, 'manual');
+        app(PaymentRecorder::class)->record($order->invoice, 1000, self::MANUAL);
 
         $service = Service::sole();
         $this->assertSame(ServiceStatus::Pending, $service->status);
         $this->assertSame('2026-11-12', $service->next_due_date->toDateString());
 
-        $this->post(route('admin.orders.accept', $order))->assertRedirect();
+        $this->act('accept', $order)->assertRedirect();
         $this->assertSame(ServiceStatus::Active, $service->refresh()->status);
     }
 
@@ -103,36 +121,36 @@ class OrderQueueTest extends TestCase
         $this->assertSame(2, $this->vps->refresh()->stock_quantity);
         $this->assertSame(1, Promotion::sole()->uses);
 
-        $this->post(route('admin.orders.cancel', $order))->assertRedirect()->assertSessionHas('status', "Order #{$order->id} cancelled.");
+        $this->act('cancel', $order)->assertRedirect()->assertSessionHas(self::STATUS, "Order #{$order->id} cancelled.");
 
         $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
         $this->assertSame(InvoiceStatus::Cancelled, $order->invoice->status);
         $this->assertSame(ServiceStatus::Cancelled, Service::sole()->status);
         $this->assertSame(3, $this->vps->refresh()->stock_quantity);
         $this->assertSame(0, Promotion::sole()->uses);
-        $this->post(route('admin.orders.fraud', $order))->assertSessionHasErrors('order');
+        $this->act('fraud', $order)->assertSessionHasErrors(self::ERROR_KEY);
     }
 
     public function test_fraud_on_a_paid_order_terminates_its_services_and_leaves_the_invoice_to_refund(): void
     {
         $order = $this->placeOrder();
-        app(PaymentRecorder::class)->record($order->invoice, 1000, 'manual');
+        app(PaymentRecorder::class)->record($order->invoice, 1000, self::MANUAL);
         $this->assertSame(ServiceStatus::Active, Service::sole()->status);
 
-        $this->post(route('admin.orders.fraud', $order))->assertSessionHas('status', fn ($status) => str_contains($status, 'refund it from the invoice'));
+        $this->act('fraud', $order)->assertSessionHas(self::STATUS, fn ($status) => str_contains($status, 'refund it from the invoice'));
 
         $this->assertSame(OrderStatus::Fraud, $order->refresh()->status);
         $this->assertSame(InvoiceStatus::Paid, $order->invoice->status);
         $this->assertSame(ServiceStatus::Terminated, Service::sole()->status);
-        $this->get(route('admin.orders.show', $order))->assertSee('Fraud')->assertDontSee('Mark as fraud');
+        $this->get(route(self::SHOW, $order))->assertSee('Fraud')->assertDontSee(self::FRAUD_BUTTON);
     }
 
     public function test_an_order_with_a_part_paid_invoice_is_refunded_first(): void
     {
         $order = $this->placeOrder();
-        app(PaymentRecorder::class)->record($order->invoice, 400, 'manual');
+        app(PaymentRecorder::class)->record($order->invoice, 400, self::MANUAL);
 
-        $this->post(route('admin.orders.cancel', $order))->assertSessionHasErrors('order');
+        $this->act('cancel', $order)->assertSessionHasErrors(self::ERROR_KEY);
         $this->assertSame(OrderStatus::Pending, $order->refresh()->status);
     }
 
@@ -141,8 +159,8 @@ class OrderQueueTest extends TestCase
         $order = $this->placeOrder();
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
 
-        $this->get(route('admin.orders.show', $order))->assertOk()->assertDontSee('Mark as fraud');
-        $this->post(route('admin.orders.accept', $order))->assertForbidden();
-        $this->post(route('admin.orders.cancel', $order))->assertForbidden();
+        $this->get(route(self::SHOW, $order))->assertOk()->assertDontSee(self::FRAUD_BUTTON);
+        $this->act('accept', $order)->assertForbidden();
+        $this->act('cancel', $order)->assertForbidden();
     }
 }
