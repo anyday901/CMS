@@ -15,6 +15,9 @@ class ServiceUpgrade extends Model
 
     public const APPLIED = 'applied';
 
+    /** Its invoice was cancelled before it was paid. */
+    public const CANCELLED = 'cancelled';
+
     protected $fillable = [
         'service_id', 'invoice_id', 'from_product_id', 'to_product_id', 'from_amount', 'to_amount',
         'options', 'prorated_amount', 'status', 'applied_at',

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Store;
 
+use App\Billing\InvoiceCanceller;
 use App\Billing\PaymentRecorder;
 use App\Billing\ServiceUpgrader;
 use App\Enums\InvoiceStatus;
@@ -14,6 +15,7 @@ use App\Models\ProductOption;
 use App\Models\Promotion;
 use App\Models\Service;
 use App\Models\ServiceUpgrade;
+use App\Models\TaxRule;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -109,6 +111,40 @@ class UpgradeTest extends TestCase
         $this->assertSame(678, $this->client->refresh()->credit_balance);
         $this->assertSame(0, Invoice::count());
         $this->assertSame(-678, ServiceUpgrade::sole()->prorated_amount);
+    }
+
+    public function test_downgrade_credit_includes_the_tax_paid_on_it(): void
+    {
+        TaxRule::create(['name' => 'VAT', 'rate' => 1000]);
+        $this->service->update(['product_id' => $this->large->id, 'recurring_amount' => 2000]);
+
+        app(ServiceUpgrader::class)->request($this->service, $this->small);
+
+        $this->assertSame(746, $this->client->refresh()->credit_balance); // 6.78 + 10%
+    }
+
+    public function test_month_end_periods_use_the_billed_start(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-02-14'));
+        $this->service->update(['next_due_date' => '2026-02-28']);
+        $paid = Invoice::create(['client_id' => $this->client->id, 'status' => InvoiceStatus::Paid, 'currency' => 'USD', 'issue_date' => '2026-01-31', 'due_date' => '2026-01-31']);
+        $paid->items()->create(['service_id' => $this->service->id, 'type' => InvoiceItem::TYPE_SERVICE, 'description' => 'Small', 'amount' => 1000, 'period_start' => '2026-01-31', 'period_end' => '2026-02-27']);
+
+        $quote = app(ServiceUpgrader::class)->quote($this->service, $this->large);
+
+        $this->assertSame([14, 28], [$quote->daysLeft, $quote->periodDays]);
+        $this->assertSame(500, $quote->credit);
+    }
+
+    public function test_cancelling_the_invoice_drops_the_pending_move(): void
+    {
+        $upgrade = app(ServiceUpgrader::class)->request($this->service, $this->large);
+        app(InvoiceCanceller::class)->cancel($upgrade->invoice);
+
+        $this->assertSame(ServiceUpgrade::CANCELLED, $upgrade->refresh()->status);
+        $this->actingAs($this->client, 'client');
+        $this->get(route('portal.services.show', $this->service))->assertDontSee('Moving to');
+        $this->assertNull(app(ServiceUpgrader::class)->problem($this->service->refresh()));
     }
 
     public function test_options_of_the_new_product_are_priced_in(): void

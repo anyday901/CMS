@@ -21,7 +21,7 @@
                     @if ($quote->net() > 0)
                         <dt>To pay now (before tax)</dt><dd class="ml-auto">{{ Money::format($quote->net(), $currency) }}</dd>
                     @else
-                        <dt>Added to your credit</dt><dd class="ml-auto">{{ Money::format(-$quote->net(), $currency) }}</dd>
+                        <dt>Added to your credit (plus any tax you paid on it)</dt><dd class="ml-auto">{{ Money::format(-$quote->net(), $currency) }}</dd>
                     @endif
                 </div>
             </dl>

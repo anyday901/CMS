@@ -12,7 +12,10 @@ use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\Service;
 use App\Models\ServiceUpgrade;
+use App\Models\TaxRule;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -71,7 +74,7 @@ class ServiceUpgrader
         $discount = $promotion?->appliesTo($product) ? $promotion->discountOn($recurring) : 0;
 
         $periodEnd = $service->next_due_date;
-        $periodStart = $periodEnd->copy()->subMonthsNoOverflow($cycle->months());
+        $periodStart = $this->periodStart($service);
         $periodDays = (int) $periodStart->diffInDays($periodEnd);
         $daysLeft = (int) today()->diffInDays($periodEnd);
 
@@ -114,6 +117,9 @@ class ServiceUpgrader
 
             if ($quote->net() > 0) {
                 $upgrade->update(['invoice_id' => $this->invoice($service, $quote)->id]);
+            } else {
+                // Still holding the service lock, so a second request can't apply a move too.
+                $this->apply($upgrade);
             }
 
             return $upgrade;
@@ -123,11 +129,7 @@ class ServiceUpgrader
             Activity::record("Requested a move of {$service->description()} to {$quote->product->name}, invoiced on #{$upgrade->invoice->number}", $service);
             $this->credit->applyIfEnabled($upgrade->invoice);
             InvoiceIssued::dispatch($upgrade->invoice->refresh());
-
-            return $upgrade->refresh();
         }
-
-        $this->apply($upgrade);
 
         return $upgrade->refresh();
     }
@@ -161,7 +163,7 @@ class ServiceUpgrader
             ])->save();
 
             if ($upgrade->prorated_amount < 0) {
-                $this->ledger->change($service->client_id, -$upgrade->prorated_amount, "Unused time on {$from}, moved to {$product->name}");
+                $this->ledger->change($service->client_id, $this->creditWithTax($service, $upgrade->fromProduct, -$upgrade->prorated_amount), "Unused time on {$from}, moved to {$product->name}");
             }
 
             $upgrade->update(['status' => ServiceUpgrade::APPLIED, 'applied_at' => now()]);
@@ -209,10 +211,43 @@ class ServiceUpgrader
         return $invoice->recalculate();
     }
 
+    /**
+     * The credit for a cheaper move. With tax-exclusive pricing the unused
+     * time was paid for with tax on top, so that tax is credited too, at the
+     * client's current rate; tax-inclusive amounts already contain it.
+     */
+    private function creditWithTax(Service $service, Product $from, int $amount): int
+    {
+        if (config('billing.tax_inclusive') || ! $from->taxable) {
+            return $amount;
+        }
+
+        return $amount + TaxRule::taxOn($amount, TaxRule::forClient($service->client)?->rate ?? 0);
+    }
+
     /** $amount for $days of $periodDays, rounded half up. */
     private function prorate(int $amount, int $days, int $periodDays): int
     {
         return $periodDays > 0 ? intdiv($amount * $days * 2 + $periodDays, 2 * $periodDays) : 0;
+    }
+
+    /**
+     * Where the paid period ending at the next due date began. Taken from the
+     * invoice line that billed it, since month-end dates are clamped going
+     * forward (Jan 31 to Feb 28) and can't be worked back from the due date.
+     */
+    private function periodStart(Service $service): CarbonInterface
+    {
+        $billed = $service->invoiceItems()
+            ->where('type', InvoiceItem::TYPE_SERVICE)
+            ->whereDate('period_end', $service->next_due_date->copy()->subDay())
+            ->whereHas('invoice', fn ($invoice) => $invoice->where('status', InvoiceStatus::Paid))
+            ->latest('id')
+            ->value('period_start');
+
+        return $billed !== null
+            ? CarbonImmutable::parse($billed)
+            : $service->next_due_date->copy()->subMonthsNoOverflow($service->billing_cycle->months());
     }
 
     private function hasUnpaidInvoice(Service $service): bool

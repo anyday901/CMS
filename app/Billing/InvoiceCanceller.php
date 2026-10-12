@@ -7,6 +7,7 @@ use App\Enums\ServiceStatus;
 use App\Models\Activity;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Models\ServiceUpgrade;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -14,7 +15,8 @@ class InvoiceCanceller
 {
     /**
      * Cancels a draft or unpaid invoice with no payments. Pending services on it are
-     * cancelled too, since they were waiting on this invoice to activate.
+     * cancelled too, since they were waiting on this invoice to activate, and
+     * so are moves to another product waiting on it.
      * Takes the same invoice lock as PaymentRecorder so a payment and a
      * cancellation cannot both succeed.
      */
@@ -33,6 +35,10 @@ class InvoiceCanceller
             Service::whereIn('id', $invoice->items()->whereNotNull('service_id')->select('service_id'))
                 ->where('status', ServiceStatus::Pending)
                 ->update(['status' => ServiceStatus::Cancelled]);
+
+            // A move waiting on this invoice can no longer happen.
+            ServiceUpgrade::where('invoice_id', $invoice->id)->where('status', ServiceUpgrade::PENDING)
+                ->update(['status' => ServiceUpgrade::CANCELLED]);
         });
     }
 }

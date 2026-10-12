@@ -56,6 +56,12 @@ class CartController extends Controller
             'product_id' => ['required', 'integer'],
         ]);
 
+        foreach ($this->cart->lines() as $line) {
+            if (($line['parent_service_id'] ?? null) === (int) $data['service_id'] && $line['product_id'] === (int) $data['product_id']) {
+                throw ValidationException::withMessages(['product_id' => 'That add-on is already in your cart.']);
+            }
+        }
+
         $this->add(['product_id' => (int) $data['product_id'], 'parent_service_id' => (int) $data['service_id']], $request, 'product_id');
 
         return redirect()->route('cart.index')->with('status', 'The add-on is in your cart.');

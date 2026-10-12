@@ -136,9 +136,19 @@ class Checkout
         $keys = [];
         $errors = [];
 
+        $addonsForServices = [];
+
         foreach ($cart->lines() as $key => $data) {
             try {
                 $resolved = $this->check($data, $client, count($lines));
+
+                if ($data['parent_service_id'] ?? null) {
+                    $pair = $data['parent_service_id'].'-'.$data['product_id'];
+                    if (isset($addonsForServices[$pair])) {
+                        throw new InvalidArgumentException("{$resolved[0]->product->name} is already in your cart for {$resolved[0]->parentService->description()}.");
+                    }
+                    $addonsForServices[$pair] = true;
+                }
             } catch (InvalidArgumentException $e) {
                 $errors[$key] = $e->getMessage();
 
@@ -207,6 +217,10 @@ class Checkout
         }
 
         $addon = $this->addonProduct($service->product, (int) ($data['product_id'] ?? 0));
+
+        if ($service->addons()->where('product_id', $addon->id)->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->exists()) {
+            throw new InvalidArgumentException("{$service->description()} already has {$addon->name}.");
+        }
         $cycle = $addon->addonCycleFor($service->billing_cycle, $currency)
             ?? throw new InvalidArgumentException("{$addon->name} isn't sold for {$service->description()}.");
 

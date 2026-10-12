@@ -291,10 +291,14 @@ class StoreTest extends TestCase
 
         $this->get(route('portal.services.show', $service))->assertSee('Backups')->assertSee('Add to cart');
         $this->post(route('cart.addon'), ['service_id' => $service->id, 'product_id' => $this->backups->id])->assertRedirect(route('cart.index'));
+        $this->post(route('cart.addon'), ['service_id' => $service->id, 'product_id' => $this->backups->id])->assertSessionHasErrors('product_id');
         $this->get('/cart')->assertSee('For VPS');
         $this->post('/checkout')->assertRedirect();
 
         $addon = $service->addons()->sole();
+
+        // The same add-on can't be added twice.
+        $this->post(route('cart.addon'), ['service_id' => $service->id, 'product_id' => $this->backups->id])->assertSessionHasErrors('product_id');
         $this->assertSame($this->backups->id, $addon->product_id);
         $this->assertSame(200, $client->invoices()->sole()->total);
         $this->get(route('portal.services.show', $service))->assertDontSee('Add to cart');
