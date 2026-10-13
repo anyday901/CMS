@@ -6,6 +6,10 @@ namespace App\Import\Whmcs;
  * WHMCS's own encryption of stored passwords (servers, services), keyed by
  * the cc_encryption_hash in its configuration.php. The key never leaves
  * WHMCS's files, so staff type it in to bring passwords over.
+ *
+ * MD5 and SHA-1 are what WHMCS's format uses, so they can't be swapped for
+ * stronger hashes; this only reads WHMCS data once, and passwords are kept
+ * here with Laravel's encryption.
  */
 final class WhmcsCrypt
 {
@@ -13,7 +17,7 @@ final class WhmcsCrypt
 
     public function __construct(string $encryptionHash)
     {
-        $this->key = self::digest(md5(md5($encryptionHash)).md5($encryptionHash));
+        $this->key = self::digest(md5(md5($encryptionHash)).md5($encryptionHash)); // NOSONAR: WHMCS's key derivation
     }
 
     /**
@@ -66,6 +70,6 @@ final class WhmcsCrypt
     /** SHA-1 as raw bytes, as WHMCS's _hash() returns it. */
     private static function digest(string $value): string
     {
-        return sha1($value, true);
+        return sha1($value, true); // NOSONAR: WHMCS's cipher chain
     }
 }
