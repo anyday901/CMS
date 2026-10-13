@@ -4,8 +4,9 @@ namespace App\Provisioning\Modules;
 
 use App\Models\Server;
 use App\Models\Service;
-use App\Provisioning\ModuleError;
+use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ServerAccount;
 
 /**
  * cPanel hosting accounts, through WHM API 1 (/json-api on port 2087). Each
@@ -15,7 +16,7 @@ use App\Provisioning\ProvisioningResult;
  */
 class Cpanel extends ServerModule
 {
-    private const WHM = 'WHM';
+    private const PACKAGE = 'WHM package';
 
     public function key(): string
     {
@@ -30,7 +31,7 @@ class Cpanel extends ServerModule
     public function configFields(): array
     {
         return [
-            'package' => ['label' => 'WHM package', 'required' => true, 'help' => 'The package new accounts get, named exactly as in WHM, e.g. root_basic. An upgrade or downgrade moves the account to the new product\'s package.'],
+            'package' => ['label' => self::PACKAGE, 'required' => true, 'help' => 'The package new accounts get, named exactly as in WHM, e.g. root_basic. An upgrade or downgrade moves the account to the new product\'s package.'],
         ];
     }
 
@@ -65,7 +66,7 @@ class Cpanel extends ServerModule
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        $package = $this->requiredSetting($service, 'package', self::WHM.' package');
+        $package = ProductSettings::of($service)->required('package', self::PACKAGE);
         $existing = $this->account($server, $service->username);
 
         if ($existing !== null) {
@@ -88,7 +89,7 @@ class Cpanel extends ServerModule
 
     protected function suspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $this->whm($server, 'suspendacct', [
             'user' => $username,
             'reason' => 'Suspended by '.config('app.name').($service->suspension_reason ? " ({$service->suspension_reason})" : ''),
@@ -99,7 +100,7 @@ class Cpanel extends ServerModule
 
     protected function unsuspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $this->whm($server, 'unsuspendacct', ['user' => $username]);
 
         return ProvisioningResult::ok("Unsuspended {$username}.");
@@ -107,7 +108,7 @@ class Cpanel extends ServerModule
 
     protected function terminateAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
 
         if ($this->account($server, $username) === null) {
             return ProvisioningResult::ok("The account {$username} was already gone from {$server->name}.");
@@ -120,8 +121,8 @@ class Cpanel extends ServerModule
 
     protected function changeAccountPackage(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
-        $package = $this->requiredSetting($service, 'package', self::WHM.' package');
+        $username = ServerAccount::username($service);
+        $package = ProductSettings::of($service)->required('package', self::PACKAGE);
         $this->whm($server, 'changepackage', ['user' => $username, 'pkg' => $package]);
 
         return ProvisioningResult::ok("Moved {$username} to the package {$package}.");
@@ -129,7 +130,7 @@ class Cpanel extends ServerModule
 
     protected function changeAccountPassword(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $this->whm($server, 'passwd', ['user' => $username, 'password' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username}.");
@@ -144,26 +145,13 @@ class Cpanel extends ServerModule
     }
 
     /**
-     * Calls a WHM API 1 function. Parameters are posted, so passwords stay
-     * out of the server's access log.
+     * Calls a WHM API 1 function.
      *
      * @param  array<string, mixed>  $params
      * @return array<string, mixed> the reply's data
      */
     private function whm(Server $server, string $function, array $params = []): array
     {
-        $request = $this->http($server)->acceptJson()->asForm();
-        $request = filled($server->api_token)
-            ? $request->withHeaders(['Authorization' => "whm {$server->username}:{$server->api_token}"])
-            : $request->withBasicAuth((string) $server->username, (string) $server->password);
-
-        $response = $request->post("json-api/{$function}?api.version=1", $params);
-        $reason = $response->json('metadata.reason');
-
-        if ($response->successful() && (int) $response->json('metadata.result') === 1) {
-            return (array) $response->json('data', []);
-        }
-
-        throw is_string($reason) && $reason !== '' ? new ModuleError(self::WHM.": {$reason}") : $this->unexpected(self::WHM, $response, $function);
+        return (new WhmApi($server, $this->defaultPort($server->secure)))->call($function, $params);
     }
 }

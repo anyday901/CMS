@@ -21,7 +21,7 @@
                             <td class="px-4 py-2">{{ $modules->get($server->module)?->label() ?? $server->module }}</td>
                             <td class="px-4 py-2">
                                 <div>{{ number_format($server->account_count) }} of {{ number_format($server->max_accounts) }}</div>
-                                <div class="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-ink-100" role="img" aria-label="{{ $percent }}% full">
+                                <div class="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-ink-100" aria-hidden="true">
                                     <div class="h-full rounded-full {{ $percent >= 90 ? 'bg-orange-500' : 'bg-brand-500' }}" style="width: {{ $percent }}%"></div>
                                 </div>
                             </td>

@@ -5,7 +5,9 @@ namespace App\Provisioning\Modules;
 use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ModuleError;
+use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ServerAccount;
 
 /**
  * DirectAdmin user accounts, through its CMD_API commands on port 2222. Each
@@ -68,7 +70,7 @@ class DirectAdmin extends ServerModule
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        $package = $this->requiredSetting($service, 'package', 'user package');
+        $package = ProductSettings::of($service)->required('package', 'user package');
         $ip = $server->ip_address ?: throw new ModuleError("Set the IP address of the server {$server->name} first.");
 
         if ($this->exists($server, $service->username)) {
@@ -102,7 +104,7 @@ class DirectAdmin extends ServerModule
 
     protected function suspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         // Newer DirectAdmin reads dosuspend, older reads suspend=Suspend.
         $this->call($server, self::SELECT_USERS, ['location' => 'CMD_SELECT_USERS', 'suspend' => 'Suspend', 'dosuspend' => 'yes', 'select0' => $username]);
 
@@ -111,7 +113,7 @@ class DirectAdmin extends ServerModule
 
     protected function unsuspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $this->call($server, self::SELECT_USERS, ['location' => 'CMD_SELECT_USERS', 'suspend' => 'Unsuspend', 'dounsuspend' => 'yes', 'select0' => $username]);
 
         return ProvisioningResult::ok("Unsuspended {$username}.");
@@ -119,7 +121,7 @@ class DirectAdmin extends ServerModule
 
     protected function terminateAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
 
         if (! $this->exists($server, $username)) {
             return ProvisioningResult::ok("The user {$username} was already gone from {$server->name}.");
@@ -132,8 +134,8 @@ class DirectAdmin extends ServerModule
 
     protected function changeAccountPackage(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
-        $package = $this->requiredSetting($service, 'package', 'user package');
+        $username = ServerAccount::username($service);
+        $package = ProductSettings::of($service)->required('package', 'user package');
         $this->call($server, 'CMD_API_MODIFY_USER', ['action' => 'package', 'user' => $username, 'package' => $package]);
 
         return ProvisioningResult::ok("Moved {$username} to the package {$package}.");
@@ -141,7 +143,7 @@ class DirectAdmin extends ServerModule
 
     protected function changeAccountPassword(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $this->call($server, 'CMD_API_USER_PASSWD', ['username' => $username, 'passwd' => $service->password, 'passwd2' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username}.");
@@ -154,41 +156,13 @@ class DirectAdmin extends ServerModule
     }
 
     /**
-     * Sends a command. DirectAdmin answers form-encoded text: "error=1" with
-     * text and details on failure, otherwise the values asked for. Some
-     * commands answer success with a redirect to their "location".
+     * Sends a command to the server.
      *
      * @param  array<string, string>  $params
      * @return array<string, mixed>
      */
     private function call(Server $server, string $command, array $params = [], string $method = 'post'): array
     {
-        $request = $this->http($server)
-            ->withOptions(['allow_redirects' => false])
-            ->withBasicAuth((string) $server->username, (string) $server->password);
-        $response = $method === 'get' ? $request->get($command, $params) : $request->asForm()->post($command, $params);
-
-        if ($response->redirect()) {
-            return [];
-        }
-
-        if (! $response->successful()) {
-            throw $this->unexpected(self::DIRECTADMIN, $response, $command);
-        }
-
-        // A web page instead of an API answer is DirectAdmin's login form.
-        if (str_starts_with(ltrim($response->body()), '<')) {
-            throw new ModuleError("DirectAdmin answered {$command} with a web page instead of an API answer. Check the server's username and password.");
-        }
-
-        parse_str($response->body(), $answer);
-
-        if (($answer['error'] ?? '0') !== '0') {
-            $message = implode(': ', array_filter([trim(strip_tags((string) ($answer['text'] ?? ''))), trim(strip_tags((string) ($answer['details'] ?? '')))]));
-
-            throw new ModuleError('DirectAdmin: '.($message !== '' ? $message : "{$command} failed."));
-        }
-
-        return $answer;
+        return (new DirectAdminApi($server, self::PORT))->call($command, $params, $method);
     }
 }

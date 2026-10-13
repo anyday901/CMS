@@ -18,8 +18,8 @@ use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ModuleRegistry;
-use App\Provisioning\Modules\ServerModule;
 use App\Provisioning\Provisioner;
+use App\Provisioning\ServerAccount;
 use App\Provisioning\UsesServers;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -155,7 +155,7 @@ class ServiceController extends Controller
 
         $data = $request->validate([
             'server_id' => ['nullable', Rule::exists('servers', 'id')->where('module', $module->key())],
-            'label' => ['nullable', 'string', 'max:255', ...($module->needsDomain() ? [ServerModule::domainRule()] : [])],
+            'label' => ['nullable', 'string', 'max:255', ...($module->needsDomain() ? [ServerAccount::domainRule()] : [])],
             'username' => ['nullable', 'string', 'max:64', 'regex:/^\S+$/'],
             'password' => ['nullable', 'string', 'min:8', 'max:64'],
         ], ['username.regex' => 'The username can\'t contain spaces.']);

@@ -5,9 +5,9 @@ namespace App\Provisioning\Modules;
 use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ModuleError;
+use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
-use DOMDocument;
-use DOMNode;
+use App\Provisioning\ServerAccount;
 use SimpleXMLElement;
 
 /**
@@ -19,14 +19,11 @@ use SimpleXMLElement;
  */
 class Plesk extends ServerModule
 {
-    private const PLESK = 'Plesk';
+    private const PLAN = 'service plan';
 
     private const STATUS_ACTIVE = 0;
 
     private const STATUS_SUSPENDED = 16;
-
-    /** Plesk's error code for an object that doesn't exist. */
-    private const NOT_FOUND = '1013';
 
     private const OWNER_ID = 'owner-id';
 
@@ -37,7 +34,7 @@ class Plesk extends ServerModule
 
     public function label(): string
     {
-        return self::PLESK;
+        return 'Plesk';
     }
 
     public function configFields(): array
@@ -72,7 +69,7 @@ class Plesk extends ServerModule
 
     protected function checkConnection(Server $server): ProvisioningResult
     {
-        $result = $this->result($this->packet($server, ['server' => ['get' => ['stat' => []]]])->server->get);
+        $result = PleskApi::result($this->packet($server, ['server' => ['get' => ['stat' => []]]])->server->get);
         $version = (string) ($result->stat->version->plesk_version ?? '');
 
         return ProvisioningResult::ok('Connected to Plesk'.($version !== '' ? " {$version}" : '').'.');
@@ -80,12 +77,12 @@ class Plesk extends ServerModule
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        $plan = $this->requiredSetting($service, 'plan', 'service plan');
+        $plan = ProductSettings::of($service)->required('plan', self::PLAN);
         $ip = $server->ip_address ?: throw new ModuleError("Set the IP address of the server {$server->name} first.");
 
-        // An earlier run whose answer was lost may have made the customer or the subscription already.
-        $customerId = $this->customerId($server, $service->username) ?? $this->addCustomer($service, $server);
-        $subscription = $this->find($this->packet($server, ['webspace' => ['get' => [
+        // An earlier run whose answer was lost may have made the subscription already.
+        $customerId = $this->customerId($service, $server);
+        $subscription = PleskApi::find($this->packet($server, ['webspace' => ['get' => [
             'filter' => ['name' => $service->label],
             'dataset' => ['gen_info' => []],
         ]]])->webspace->get);
@@ -119,8 +116,8 @@ class Plesk extends ServerModule
     /** Deletes the service's customer, and with it the subscription. */
     protected function terminateAccount(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
-        $deleted = $this->find($this->packet($server, ['customer' => ['del' => ['filter' => ['login' => $username]]]])->customer->del);
+        $username = ServerAccount::username($service);
+        $deleted = PleskApi::find($this->packet($server, ['customer' => ['del' => ['filter' => ['login' => $username]]]])->customer->del);
 
         return ProvisioningResult::ok($deleted !== null
             ? "Removed the customer {$username} and their subscription from {$server->name}."
@@ -129,11 +126,11 @@ class Plesk extends ServerModule
 
     protected function changeAccountPackage(Service $service, Server $server): ProvisioningResult
     {
-        $plan = $this->requiredSetting($service, 'plan', 'service plan');
-        $found = $this->find($this->packet($server, ['service-plan' => ['get' => ['filter' => ['name' => $plan]]]])->{'service-plan'}->get)
+        $plan = ProductSettings::of($service)->required('plan', self::PLAN);
+        $found = PleskApi::find($this->packet($server, ['service-plan' => ['get' => ['filter' => ['name' => $plan]]]])->{'service-plan'}->get)
             ?? throw new ModuleError("Plesk has no service plan called {$plan}.");
 
-        $this->result($this->packet($server, ['webspace' => ['switch-subscription' => [
+        PleskApi::result($this->packet($server, ['webspace' => ['switch-subscription' => [
             'filter' => $this->subscriptionFilter($service),
             'plan-guid' => (string) $found->guid,
         ]]])->webspace->{'switch-subscription'});
@@ -144,15 +141,15 @@ class Plesk extends ServerModule
     /** Sets the password of the customer's login and of the subscription's FTP user. */
     protected function changeAccountPassword(Service $service, Server $server): ProvisioningResult
     {
-        $username = $this->username($service);
+        $username = ServerAccount::username($service);
         $packet = $this->packet($server, [
             'customer' => ['set' => ['filter' => ['login' => $username], 'values' => ['gen_info' => ['passwd' => $service->password]]]],
             'webspace' => ['set' => ['filter' => $this->subscriptionFilter($service), 'values' => ['hosting' => ['vrt_hst' => [
                 'property' => [['name' => 'ftp_password', 'value' => $service->password]],
             ]]]]],
         ]);
-        $this->result($packet->customer->set);
-        $this->result($packet->webspace->set);
+        PleskApi::result($packet->customer->set);
+        PleskApi::result($packet->webspace->set);
 
         return ProvisioningResult::ok("Changed the password of {$username}.");
     }
@@ -168,18 +165,18 @@ class Plesk extends ServerModule
         };
     }
 
-    private function customerId(Server $server, string $login): ?int
+    /** The id of the service's customer, added unless an earlier run whose answer was lost already did. */
+    private function customerId(Service $service, Server $server): int
     {
-        $customer = $this->find($this->packet($server, ['customer' => ['get' => [
-            'filter' => ['login' => $login],
+        $customer = PleskApi::find($this->packet($server, ['customer' => ['get' => [
+            'filter' => ['login' => $service->username],
             'dataset' => ['gen_info' => []],
         ]]])->customer->get);
 
-        return $customer === null ? null : (int) $customer->id;
-    }
+        if ($customer !== null) {
+            return (int) $customer->id;
+        }
 
-    private function addCustomer(Service $service, Server $server): int
-    {
         $client = $service->client;
         $info = array_filter([
             'cname' => $client->company,
@@ -189,7 +186,7 @@ class Plesk extends ServerModule
             'email' => $client->email,
         ], filled(...));
 
-        return (int) $this->result($this->packet($server, ['customer' => ['add' => ['gen_info' => $info]]])->customer->add)->id;
+        return (int) PleskApi::result($this->packet($server, ['customer' => ['add' => ['gen_info' => $info]]])->customer->add)->id;
     }
 
     private function addSubscription(Service $service, Server $server, int $customerId, string $ip, string $plan): int
@@ -204,12 +201,12 @@ class Plesk extends ServerModule
             'plan-name' => $plan,
         ]]]);
 
-        return (int) $this->result($packet->webspace->add)->id;
+        return (int) PleskApi::result($packet->webspace->add)->id;
     }
 
     private function setStatus(Service $service, Server $server, int $status): void
     {
-        $this->result($this->packet($server, ['webspace' => ['set' => [
+        PleskApi::result($this->packet($server, ['webspace' => ['set' => [
             'filter' => $this->subscriptionFilter($service),
             'values' => ['gen_setup' => ['status' => $status]],
         ]]])->webspace->set);
@@ -223,89 +220,13 @@ class Plesk extends ServerModule
         return $id !== null ? ['id' => (int) $id] : ['name' => (string) $service->label];
     }
 
-    /** The operation's result, or an error with Plesk's message. */
-    private function result(?SimpleXMLElement $operation): SimpleXMLElement
-    {
-        return $this->find($operation) ?? throw new ModuleError('Plesk: the object was not found.');
-    }
-
-    /** The operation's result, or null when Plesk has no such object. */
-    private function find(?SimpleXMLElement $operation): ?SimpleXMLElement
-    {
-        $result = $operation?->result ?? throw new ModuleError('Plesk answered without a result.');
-
-        if ((string) $result->status === 'ok') {
-            return $result;
-        }
-
-        if ((string) $result->errcode === self::NOT_FOUND) {
-            return null;
-        }
-
-        throw new ModuleError('Plesk: '.(trim((string) $result->errtext) ?: 'the request failed.'));
-    }
-
     /**
-     * Sends one XML API packet. Operations are nested arrays: a key is an
-     * element, a list repeats it, and an empty array is an empty element.
+     * Sends one XML API packet to the server.
      *
      * @param  array<string, mixed>  $operations
      */
     private function packet(Server $server, array $operations): SimpleXMLElement
     {
-        $request = $this->http($server)->withBody($this->xml($operations), 'text/xml');
-        $request = filled($server->api_token)
-            ? $request->withHeaders(['KEY' => $server->api_token])
-            : $request->withHeaders(['HTTP_AUTH_LOGIN' => (string) $server->username, 'HTTP_AUTH_PASSWD' => (string) $server->password]);
-
-        $response = $request->post('enterprise/control/agent.php');
-        $operation = (string) array_key_first($operations);
-
-        if (! $response->successful()) {
-            throw $this->unexpected(self::PLESK, $response, $operation);
-        }
-
-        $packet = self::parse($response->body()) ?? throw $this->unexpected(self::PLESK, $response, $operation);
-
-        if ((string) $packet->system->status === 'error') {
-            throw new ModuleError('Plesk: '.trim((string) $packet->system->errtext));
-        }
-
-        return $packet;
-    }
-
-    private static function parse(string $xml): ?SimpleXMLElement
-    {
-        $errors = libxml_use_internal_errors(true);
-        $packet = simplexml_load_string($xml, options: LIBXML_NONET);
-        libxml_clear_errors();
-        libxml_use_internal_errors($errors);
-
-        return $packet === false ? null : $packet;
-    }
-
-    /** @param  array<string, mixed>  $operations */
-    private function xml(array $operations): string
-    {
-        $document = new DOMDocument('1.0', 'UTF-8');
-        $this->append($document, $document->appendChild($document->createElement('packet')), $operations);
-
-        return (string) $document->saveXML();
-    }
-
-    /** @param  array<string, mixed>  $children */
-    private function append(DOMDocument $document, DOMNode $parent, array $children): void
-    {
-        foreach ($children as $name => $value) {
-            foreach (is_array($value) && $value !== [] && array_is_list($value) ? $value : [$value] as $item) {
-                $node = $parent->appendChild($document->createElement($name));
-
-                if (is_array($item)) {
-                    $this->append($document, $node, $item);
-                } else {
-                    $node->appendChild($document->createTextNode((string) $item));
-                }
-            }
-        }
+        return (new PleskApi($server, $this->defaultPort($server->secure)))->send($operations);
     }
 }

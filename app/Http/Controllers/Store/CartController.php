@@ -9,7 +9,7 @@ use App\Models\Product;
 use App\Ordering\Cart;
 use App\Ordering\Checkout;
 use App\Provisioning\ModuleRegistry;
-use App\Provisioning\Modules\ServerModule;
+use App\Provisioning\ServerAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,7 +37,7 @@ class CartController extends Controller
         $data = $request->validate([
             'billing_cycle' => ['required', Rule::enum(BillingCycle::class)],
             'options' => ['array'],
-            'label' => $needsDomain ? ['required', 'string', 'max:255', ServerModule::domainRule()] : ['nullable', 'string', 'max:255'],
+            'label' => $needsDomain ? ['required', 'string', 'max:255', ServerAccount::domainRule()] : ['nullable', 'string', 'max:255'],
             'addons' => ['array'],
             'addons.*' => ['integer'],
         ] + CustomField::rules($fields), ['label.required' => 'Enter the domain name for this service, such as example.com.'], CustomField::attributeNames($fields));
