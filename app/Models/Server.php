@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Billing\ServiceLifecycle;
+use App\Provisioning\Provisioner;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -55,6 +56,13 @@ class Server extends Model
         return $this->services()->whereIn('status', ServiceLifecycle::NOT_ENDED);
     }
 
+    /** Ended services whose last action is waiting or failed, such as a terminate, so their account may still be on the server. */
+    public function accountsToRemove(): HasMany
+    {
+        return $this->services()->whereNotIn('status', ServiceLifecycle::NOT_ENDED)
+            ->whereIn('provisioning_status', [Provisioner::PENDING, Provisioner::FAILED]);
+    }
+
     /** @param  Builder<self>  $query */
     public function scopeWithAccountCount(Builder $query): void
     {
@@ -84,10 +92,12 @@ class Server extends Model
         return $this->address($this->port ?: $defaultPort);
     }
 
-    /** "https://host:port" (http when the server isn't secure). */
+    /** "https://host:port" (http when the server isn't secure), with an IPv6 address in brackets. */
     public function address(int $port): string
     {
-        return ($this->secure ? 'https' : 'http').'://'.$this->hostname.':'.$port;
+        $host = filter_var($this->hostname, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? "[{$this->hostname}]" : $this->hostname;
+
+        return ($this->secure ? 'https' : 'http').'://'.$host.':'.$port;
     }
 
     /**

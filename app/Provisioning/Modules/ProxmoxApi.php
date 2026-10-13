@@ -112,8 +112,9 @@ final class ProxmoxApi extends ServerApi
             return $request->withHeaders(['Authorization' => "PVEAPIToken={$this->server->username}={$this->server->api_token}"]);
         }
 
+        // The ticket goes in a header rather than a cookie jar, which can't match an IPv6 host.
         $this->ticket ??= $this->logIn();
-        $request->withCookies(['PVEAuthCookie' => $this->ticket['ticket']], $this->server->hostname);
+        $request->withHeaders(['Cookie' => "PVEAuthCookie={$this->ticket['ticket']}"]);
 
         return $writes ? $request->withHeaders(['CSRFPreventionToken' => $this->ticket['CSRFPreventionToken']]) : $request;
     }

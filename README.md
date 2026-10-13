@@ -204,11 +204,11 @@ The cPanel, Plesk, DirectAdmin and Proxmox modules were built from the vendors' 
 
 #### Servers
 
-Modules that set services up on servers use the servers under **Products > Servers**. Add each one with its module, host name, port (blank for the module's usual one), login and the most accounts it should hold; the password and API token are encrypted with the app key, and **Test connection** logs in with them. Untick **Active** to stop new accounts going on a server.
+Modules that set services up on servers use the servers under **Products > Servers**. Add each one with its module, host name, port (blank for the module's usual one), login and the most accounts it should hold; the password and API token are encrypted with the app key, and **Test connection** logs in with them. Untick **Active** to stop new accounts going on a server. A server can't be deleted while services are on it, or while an ended service's terminate is still waiting or failed, since removing that account needs the server's login.
 
 Server groups say which servers a product uses and how they fill up: **least used** puts each new account on the server with the most room, **fill up** fills one server before using the next. Choose a group on the product; a product without one uses the least used active server of its module. A service is put on a server when it is created, and pending, active and suspended services count towards a server's accounts.
 
-A new service gets a username made from its domain and a random password, unless staff set them first under **Change server or login** on the service page, where staff also see and change them. Choosing another server there doesn't move the account; it's for accounts moved another way. Clients see the control panel address (or IP address), username and password on the service's portal page once it's set up. Hosting products on cPanel, Plesk and DirectAdmin ask for a domain in the store.
+A new service gets a username made from its domain and a random password, unless staff set them first under **Change server or login** on the service page, where staff also see and change them. Choosing another server there doesn't move the account; it's for accounts moved another way. A new password for an account that exists is set on the server, and the client keeps the old one until that has worked. A service can't be upgraded or downgraded to a product of another module. Clients see the control panel address (or IP address), username and password on the service's portal page once it's set up. Hosting products on cPanel, Plesk and DirectAdmin ask for a domain in the store.
 
 ### Staff emails
 

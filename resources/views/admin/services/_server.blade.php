@@ -19,6 +19,9 @@
                 @else
                     Set
                 @endcan
+            @endif
+            @if (filled($service->new_password))
+                <div class="text-ink-500">A new password is waiting to be set on the server; the client keeps this one until it is.</div>
             @endif</dd></div>
     @if ($saved->isNotEmpty())
         <div class="sm:col-span-4"><dt class="text-ink-500">Saved by the module</dt>

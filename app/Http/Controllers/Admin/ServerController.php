@@ -54,7 +54,7 @@ class ServerController extends Controller
     public function edit(Server $server): View
     {
         return view('admin.servers.form', [
-            'server' => $server->loadCount(['accounts as account_count']),
+            'server' => $server->loadCount(['accounts as account_count', 'accountsToRemove as leftover_count']),
             'modules' => $this->modules->withServers(),
         ]);
     }
@@ -67,11 +67,17 @@ class ServerController extends Controller
         return redirect()->route(self::INDEX)->with('status', 'Server updated.');
     }
 
-    /** A server with accounts on it stays; move or end its services first, or turn it off. */
+    /**
+     * A server with accounts on it stays; move or end its services first, or
+     * turn it off. So does one with an ended service whose terminate hasn't
+     * worked yet, which needs the server's login to remove the account.
+     */
     public function destroy(Server $server): RedirectResponse
     {
         $accounts = $server->accounts()->count();
         abort_if($accounts > 0, 422, "{$accounts} service(s) are still on this server. Move or end them first, or untick Active so it gets no new ones.");
+        $leftover = $server->accountsToRemove()->count();
+        abort_if($leftover > 0, 422, "{$leftover} ended service(s) still have an account on this server to remove. Run their terminate again from the service page first.");
 
         $server->delete();
         Activity::record("Deleted server {$server->name}");

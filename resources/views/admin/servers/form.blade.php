@@ -81,11 +81,13 @@
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button>
     </form>
 
-    @if ($server->exists && $server->account_count === 0)
+    @if ($server->exists && $server->account_count === 0 && $server->leftover_count === 0)
         <form method="POST" action="{{ route('admin.servers.destroy', $server) }}" class="mt-4" onsubmit="return confirm('Delete this server?')">
             @csrf @method('DELETE')
             <button class="text-sm text-red-600 hover:underline">Delete this server</button>
         </form>
+    @elseif ($server->exists && $server->account_count === 0)
+        <p class="mt-4 text-sm text-ink-500">{{ $server->leftover_count }} ended service(s) still have an account on this server to remove. Run their terminate again from the service page, then the server can be deleted.</p>
     @endif
 
     <script>

@@ -118,6 +118,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Import servers, server groups and service logins from WHMCS
 - [ ] Clients change their control panel password from the portal
 - [ ] Move an account to another server from the service page
+- [ ] Upgrades and downgrades between products of different server modules (e.g. cPanel to Plesk), as a migration of the account
 - [ ] Proxmox LXC containers, and reinstalling a VM from its template
 - [ ] Client single sign-on to the control panel from the portal
 - [ ] Usage statistics and usage-based billing (disk, bandwidth, overages)

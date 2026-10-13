@@ -107,10 +107,23 @@ class ServerAdminTest extends TestCase
 
         $this->delete(self::SERVERS."/{$server->id}")->assertStatus(422);
 
-        $service->update(['status' => ServiceStatus::Terminated]);
+        // Its terminate failed, so the account may still be there, and removing it needs the server's login.
+        $service->forceFill(['status' => ServiceStatus::Terminated, 'provisioning_status' => 'failed'])->save();
+        $this->get(self::SERVERS."/{$server->id}/edit")->assertSee('1 ended service(s) still have an account on this server to remove.')->assertDontSee('Delete this server');
+        $this->delete(self::SERVERS."/{$server->id}")->assertStatus(422);
+
+        $service->forceFill(['provisioning_status' => 'done'])->save();
         $this->delete(self::SERVERS."/{$server->id}")->assertRedirect(self::SERVERS);
         $this->assertModelMissing($server);
         $this->assertNull($service->fresh()->server_id);
+    }
+
+    public function test_an_ipv6_host_is_put_in_brackets(): void
+    {
+        $server = Server::factory()->make(['hostname' => '2001:db8::1', 'port' => null, 'secure' => true]);
+
+        $this->assertSame('https://[2001:db8::1]:8006', $server->url(8006));
+        $this->assertSame('https://cp1.example.test:2083', Server::factory()->make(['hostname' => self::HOST, 'secure' => true])->address(2083));
     }
 
     public function test_the_servers_page_shows_how_full_each_server_is(): void

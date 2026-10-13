@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Servers;
 
+use App\Billing\ServiceUpgrader;
+use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Enums\StaffRole;
 use App\Jobs\RunProvisioningAction;
@@ -13,7 +15,9 @@ use App\Models\Service;
 use App\Models\User;
 use App\Ordering\Cart;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ServiceServerTest extends TestCase
@@ -55,10 +59,47 @@ class ServiceServerTest extends TestCase
         $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $other->id, 'label' => self::NEW_DOMAIN, 'username' => 'exampl2', 'password' => self::PASSWORD])
             ->assertSessionHas('status', 'Saved. The new password is being set on the server.');
 
+        // The working password stays until the server has taken the new one.
         $service = $this->service->fresh();
-        $this->assertSame([$other->id, self::NEW_DOMAIN, 'exampl2', self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password]);
+        $this->assertSame([$other->id, self::NEW_DOMAIN, 'exampl2', self::OLD_PASSWORD, self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password, $service->new_password]);
+        $this->get("/admin/services/{$service->id}")->assertSee('A new password is waiting to be set on the server');
         Queue::assertPushed(RunProvisioningAction::class, fn (RunProvisioningAction $job) => $job->action === 'change_password');
-        $this->assertSame(['label', 'server_id', 'username', 'password'], Activity::where('description', 'like', 'Changed the server details%')->sole()->properties['changed']);
+        $this->assertSame(['label', 'server_id', 'username', 'new_password'], Activity::where('description', 'like', 'Changed the server details%')->sole()->properties['changed']);
+    }
+
+    public function test_the_new_password_replaces_the_old_one_once_the_server_takes_it(): void
+    {
+        Http::fake(['*' => Http::sequence()
+            ->push(['metadata' => ['result' => 0, 'reason' => 'The password is too weak.']])
+            ->push(['metadata' => ['result' => 1], 'data' => []])]);
+        $this->actingAs(User::factory()->create(), 'web');
+
+        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'username' => 'example', 'password' => self::PASSWORD]);
+
+        $service = $this->service->fresh();
+        $this->assertSame('WHM: The password is too weak.', $service->provisioning_error);
+        $this->assertSame([self::OLD_PASSWORD, self::PASSWORD], [$service->password, $service->new_password]);
+
+        $this->post("/admin/services/{$service->id}/provision", ['action' => 'change_password']);
+
+        $service = $service->fresh();
+        $this->assertSame('done', $service->provisioning_status);
+        $this->assertSame([self::PASSWORD, null], [$service->password, $service->new_password]);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'json-api/passwd') && $request['password'] === self::PASSWORD);
+    }
+
+    public function test_a_service_cannot_move_between_server_modules(): void
+    {
+        $plesk = Product::factory()->create(['name' => 'Plesk Web', 'module' => 'plesk', 'module_config' => ['plan' => 'Unlimited']]);
+        $plesk->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 700]);
+        $this->product->upgrades()->attach($plesk);
+
+        $this->actingAs($this->service->client, 'client');
+        $this->get("/portal/services/{$this->service->id}/upgrade")->assertOk()->assertDontSee('Plesk Web');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("This service can't be moved to Plesk Web. Order it instead, then cancel this service.");
+        app(ServiceUpgrader::class)->staffQuote($this->service, $plesk, BillingCycle::Monthly, [], false);
     }
 
     public function test_before_the_account_exists_create_uses_the_new_password(): void

@@ -6,6 +6,7 @@ use App\Billing\ServiceUpgrader;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Service;
+use App\Provisioning\ModuleRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -17,12 +18,13 @@ class UpgradeController extends Controller
 {
     public function __construct(private ServiceUpgrader $upgrader) {}
 
-    public function index(Request $request, int $service): View
+    public function index(Request $request, int $service, ModuleRegistry $modules): View
     {
         $service = $this->service($request, $service);
         $currency = $service->client->currency;
         $products = $service->product->upgrades()->where('active', true)->with('prices')->get()
-            ->filter(fn (Product $product) => $product->priceFor($service->billing_cycle, $currency) !== null);
+            ->filter(fn (Product $product) => $product->priceFor($service->billing_cycle, $currency) !== null
+                && $modules->canMove($service->product->module, $product->module));
 
         return view('portal.services.upgrade', [
             'service' => $service,

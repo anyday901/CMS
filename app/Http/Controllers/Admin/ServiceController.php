@@ -145,8 +145,9 @@ class ServiceController extends Controller
 
     /**
      * The server, domain and login of a service whose module uses servers.
-     * Choosing another server doesn't move the account. A new password is
-     * set on the server too, once the account exists.
+     * Choosing another server doesn't move the account. Once the account
+     * exists, a new password is set on the server, and waits in new_password
+     * until that works so the client keeps a password that logs in.
      */
     public function server(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
     {
@@ -161,11 +162,16 @@ class ServiceController extends Controller
         ], ['username.regex' => 'The username can\'t contain spaces.']);
 
         $newPassword = filled($data['password'] ?? null) && $data['password'] !== $service->password;
+        // Before the account exists, create uses the new password anyway.
+        $push = $newPassword && $service->provisioned_at !== null && Provisioner::supports($module, 'change_password')
+            && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
+
+        $passwordColumn = $push ? 'new_password' : 'password';
         $service->forceFill([
             'server_id' => $data['server_id'] ?? null,
             'label' => $data['label'] ?? null,
             'username' => $data['username'] ?? null,
-            'password' => $newPassword ? $data['password'] : $service->password,
+            ...($newPassword ? [$passwordColumn => $data['password']] : []),
         ]);
         $changed = array_keys($service->getDirty());
         $service->save();
@@ -173,10 +179,6 @@ class ServiceController extends Controller
         if ($changed !== []) {
             Activity::record("Changed the server details of {$service->description()}", $service, ['changed' => $changed]);
         }
-
-        // Before the account exists, create uses the new password anyway.
-        $push = $newPassword && $service->provisioned_at !== null && Provisioner::supports($module, 'change_password')
-            && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
 
         if ($push) {
             $provisioner->queue($service, 'change_password');

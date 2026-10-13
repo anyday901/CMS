@@ -96,7 +96,24 @@ class RunProvisioningAction implements ShouldQueue
     private function run(Service $service, ProvisioningModule $module, ServerPicker $servers): ProvisioningResult
     {
         $service->provisioningOperation = $this->operation;
+        $working = $service->password;
 
+        // A new password staff saved waits in new_password until the module has set it, so a failure keeps the one that works.
+        if ($this->action === 'change_password' && filled($service->new_password)) {
+            $service->password = $service->new_password;
+        }
+
+        $result = $this->call($service, $module, $servers);
+
+        if ($this->action === 'change_password') {
+            $service->forceFill($result->ok ? ['new_password' => null] : ['password' => $working]);
+        }
+
+        return $result;
+    }
+
+    private function call(Service $service, ProvisioningModule $module, ServerPicker $servers): ProvisioningResult
+    {
         try {
             if ($module instanceof UsesServers && $this->action === 'create' && ($problem = $servers->assign($service, $module)) !== null) {
                 return ProvisioningResult::failed($problem);

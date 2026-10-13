@@ -24,7 +24,7 @@ class Service extends Model
         'status' => 'pending',
     ];
 
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'new_password'];
 
     /**
      * Set while a provisioning action runs: the same number for every run of
@@ -49,6 +49,7 @@ class Service extends Model
             'terminated_at' => 'datetime',
             'custom_fields' => 'array',
             'password' => 'encrypted',
+            'new_password' => 'encrypted',
         ];
     }
 

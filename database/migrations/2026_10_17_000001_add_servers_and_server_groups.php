@@ -51,9 +51,11 @@ return new class extends Migration
 
         Schema::table('services', function (Blueprint $table) {
             $table->foreignId('server_id')->nullable()->constrained()->nullOnDelete();
-            // The account's login on the server; the password is encrypted.
+            // The account's login on the server; the passwords are encrypted.
             $table->string('username')->nullable();
             $table->text('password')->nullable();
+            // A new password staff saved, kept apart until the server has taken it.
+            $table->text('new_password')->nullable();
         });
     }
 
@@ -61,7 +63,7 @@ return new class extends Migration
     {
         Schema::table('services', function (Blueprint $table) {
             $table->dropConstrainedForeignId('server_id');
-            $table->dropColumn(['username', 'password']);
+            $table->dropColumn(['username', 'password', 'new_password']);
         });
         Schema::table('products', function (Blueprint $table) {
             $table->dropConstrainedForeignId('server_group_id');
