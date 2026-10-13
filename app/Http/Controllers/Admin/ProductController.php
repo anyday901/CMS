@@ -164,7 +164,7 @@ class ProductController extends Controller
                 match ($field['type'] ?? 'text') {
                     'textarea' => ['max:5000'],
                     'url' => ['max:1000', 'url:http,https'],
-                    'number' => ['integer', 'min:0', 'max:1000000000'],
+                    'number' => ['integer', 'between:0,1000000000'],
                     default => ['max:1000'],
                 },
             )])

@@ -75,9 +75,13 @@ class DirectAdmin extends ServerModule
             // Already made, by an earlier run whose answer was lost.
             $domain = $this->call($server, 'CMD_API_SHOW_USER_CONFIG', ['user' => $service->username], 'get')['domain'] ?? '';
 
-            return strcasecmp($domain, (string) $service->label) === 0
-                ? ProvisioningResult::ok("The user {$service->username} was already on {$server->name}.")
-                : ProvisioningResult::failed("The username {$service->username} is already used on {$server->name}".($domain !== '' ? " by {$domain}" : '').'. Enter another username on the service page, then run create again.');
+            if (strcasecmp($domain, (string) $service->label) === 0) {
+                return ProvisioningResult::ok("The user {$service->username} was already on {$server->name}.");
+            }
+
+            $owner = $domain !== '' ? " by {$domain}" : '';
+
+            return ProvisioningResult::failed("The username {$service->username} is already used on {$server->name}{$owner}. Enter another username on the service page, then run create again.");
         }
 
         $this->call($server, 'CMD_API_ACCOUNT_USER', [

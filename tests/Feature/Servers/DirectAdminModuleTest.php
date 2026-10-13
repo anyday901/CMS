@@ -23,6 +23,10 @@ class DirectAdminModuleTest extends TestCase
 
     private const SELECT_USERS = 'CMD_API_SELECT_USERS';
 
+    private const SHOW_USERS = 'CMD_API_SHOW_USERS*';
+
+    private const HAS_EXAMPLE = 'list[]=example';
+
     private Server $server;
 
     private Service $service;
@@ -39,7 +43,7 @@ class DirectAdminModuleTest extends TestCase
 
     public function test_create_adds_the_user_on_the_package_and_ip(): void
     {
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => self::NO_USERS, 'CMD_API_ACCOUNT_USER' => 'error=0&text=User created']);
+        $this->fakeApi([self::SHOW_USERS => self::NO_USERS, 'CMD_API_ACCOUNT_USER' => 'error=0&text=User created']);
 
         $result = $this->module()->create($this->service);
 
@@ -57,7 +61,7 @@ class DirectAdminModuleTest extends TestCase
     public function test_a_user_an_earlier_run_made_is_kept_unless_it_has_another_domain(): void
     {
         $this->service->forceFill(['username' => 'example', 'password' => 'Secret-pass1'])->save();
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => 'list[]=example', 'CMD_API_SHOW_USER_CONFIG*' => 'domain=example.com&package=bronze']);
+        $this->fakeApi([self::SHOW_USERS => self::HAS_EXAMPLE, 'CMD_API_SHOW_USER_CONFIG*' => 'domain=example.com&package=bronze']);
 
         $this->assertSame('The user example was already on da1.', $this->module()->create($this->service)->message);
         Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'CMD_API_ACCOUNT_USER'));
@@ -66,7 +70,7 @@ class DirectAdminModuleTest extends TestCase
     public function test_a_username_used_by_another_domain_fails_create(): void
     {
         $this->service->forceFill(['username' => 'example', 'password' => 'Secret-pass1'])->save();
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => 'list[]=example', 'CMD_API_SHOW_USER_CONFIG*' => 'domain=other.test']);
+        $this->fakeApi([self::SHOW_USERS => self::HAS_EXAMPLE, 'CMD_API_SHOW_USER_CONFIG*' => 'domain=other.test']);
 
         $this->assertSame('The username example is already used on da1 by other.test. Enter another username on the service page, then run create again.', $this->module()->create($this->service)->message);
     }
@@ -75,7 +79,7 @@ class DirectAdminModuleTest extends TestCase
     {
         $this->service->forceFill(['username' => 'example', 'password' => 'New-pass-123'])->save();
         // DirectAdmin answers some commands with a redirect when they work.
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => 'list[]=example', self::SELECT_USERS => Http::response('', 302, ['Location' => '/CMD_SELECT_USERS'])]);
+        $this->fakeApi([self::SHOW_USERS => self::HAS_EXAMPLE, self::SELECT_USERS => Http::response('', 302, ['Location' => '/CMD_SELECT_USERS'])]);
         $module = $this->module();
 
         $this->assertTrue($module->suspend($this->service)->ok);
@@ -95,14 +99,14 @@ class DirectAdminModuleTest extends TestCase
     public function test_terminating_a_user_that_is_gone_succeeds(): void
     {
         $this->service->forceFill(['username' => 'example'])->save();
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => self::NO_USERS]);
+        $this->fakeApi([self::SHOW_USERS => self::NO_USERS]);
 
         $this->assertSame('The user example was already gone from da1.', $this->module()->terminate($this->service)->message);
     }
 
     public function test_directadmin_errors_become_the_failure_message(): void
     {
-        $this->fakeApi(['CMD_API_SHOW_USERS*' => self::NO_USERS, 'CMD_API_ACCOUNT_USER' => 'error=1&text=Unable to create the user&details=That domain is already used by another user<br>']);
+        $this->fakeApi([self::SHOW_USERS => self::NO_USERS, 'CMD_API_ACCOUNT_USER' => 'error=1&text=Unable to create the user&details=That domain is already used by another user<br>']);
         $this->assertSame('DirectAdmin: Unable to create the user: That domain is already used by another user', $this->module()->create($this->service)->message);
     }
 

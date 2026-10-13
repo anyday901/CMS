@@ -208,18 +208,16 @@ class Proxmox extends ServerModule
 
         $size = $this->size($service);
         $this->api($server, 'put', "{$path}/config", $size);
+        $problem = $this->grow($service, $server, $path, $config);
+        $restart = $problem === null && $vm['status'] === self::RUNNING;
 
-        if (($problem = $this->grow($service, $server, $path, $config)) !== null) {
-            return $problem;
+        if ($restart) {
+            $this->api($server, 'post', "{$path}/status/reboot");
         }
 
-        if ($vm['status'] !== self::RUNNING) {
-            return ProvisioningResult::ok("Set VM {$vmid} to {$size['cores']} cores and {$size['memory']} MB of memory.");
-        }
-
-        $this->api($server, 'post', "{$path}/status/reboot");
-
-        return ProvisioningResult::ok("Set VM {$vmid} to {$size['cores']} cores and {$size['memory']} MB of memory, and restarted it so they apply.");
+        return $problem ?? ProvisioningResult::ok(
+            "Set VM {$vmid} to {$size['cores']} cores and {$size['memory']} MB of memory".($restart ? ', and restarted it so they apply.' : '.'),
+        );
     }
 
     /** Sets the password inside the running VM, through the QEMU guest agent. */
@@ -274,25 +272,11 @@ class Proxmox extends ServerModule
     private function setUp(Service $service, Server $server, int $vmid): ProvisioningResult
     {
         $vm = $this->vm($server, $vmid);
+        $path = $vm === null ? null : $this->path($vm['node'], $vmid);
+        $config = $path === null ? [] : $this->api($server, 'get', "{$path}/config");
 
-        if ($vm === null) {
-            $this->forgetVm($service);
-
-            return ProvisioningResult::failed("VM {$vmid} isn't on Proxmox. Run create again to clone a new one.");
-        }
-
-        $path = $this->path($vm['node'], $vmid);
-        $config = $this->api($server, 'get', "{$path}/config");
-
-        // The id was saved before cloning: make sure the VM there is this service's before touching it.
-        if (! str_contains((string) ($config['description'] ?? ''), $this->marker($service))) {
-            $this->forgetVm($service);
-
-            return ProvisioningResult::failed("VM {$vmid} on Proxmox isn't this service's VM, so it was left alone. Run create again to clone a new one.");
-        }
-
-        if (filled($config['lock'] ?? null)) {
-            return ProvisioningResult::later(self::COME_BACK_SECONDS, "VM {$vmid} is locked ({$config['lock']}) while Proxmox finishes.");
+        if (($problem = $this->cloneProblem($service, $vmid, $vm, $config)) !== null) {
+            return $problem;
         }
 
         $this->api($server, 'put', "{$path}/config", $this->size($service) + array_filter([
@@ -309,6 +293,28 @@ class Proxmox extends ServerModule
             "Created VM {$vmid} on {$vm['node']}".($ip ? " with the address {$ip}" : '').'.',
             ['vmid' => $vmid, 'node' => $vm['node']],
         );
+    }
+
+    /**
+     * Why the cloned VM can't be set up yet, or null when it can. The id was
+     * saved before cloning, so the VM there must be this service's before
+     * anything touches it.
+     *
+     * @param  array{node: string, status: string, template: bool}|null  $vm
+     * @param  array<string, mixed>  $config
+     */
+    private function cloneProblem(Service $service, int $vmid, ?array $vm, array $config): ?ProvisioningResult
+    {
+        if ($vm === null || ! str_contains((string) ($config['description'] ?? ''), $this->marker($service))) {
+            $this->forgetVm($service);
+
+            return ProvisioningResult::failed(($vm === null ? "VM {$vmid} isn't on Proxmox." : "VM {$vmid} on Proxmox isn't this service's VM, so it was left alone.")
+                .' Run create again to clone a new one.');
+        }
+
+        return filled($config['lock'] ?? null)
+            ? ProvisioningResult::later(self::COME_BACK_SECONDS, "VM {$vmid} is locked ({$config['lock']}) while Proxmox finishes.")
+            : null;
     }
 
     /** Starts a VM. Returns null once it is starting or running, or the failure. */
@@ -381,9 +387,10 @@ class Proxmox extends ServerModule
         }
 
         $v6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-        $line = ($v6 ? 'ip6=' : 'ip=').$ip.'/'.($entry['prefix'] ?? ($v6 ? 128 : 32));
+        [$address, $gateway, $prefix] = $v6 ? ['ip6=', ',gw6=', 128] : ['ip=', ',gw=', 32];
+        $line = $address.$ip.'/'.($entry['prefix'] ?? $prefix);
 
-        return $entry['gateway'] ? $line.($v6 ? ',gw6=' : ',gw=').$entry['gateway'] : $line;
+        return $entry['gateway'] ? $line.$gateway.$entry['gateway'] : $line;
     }
 
     /** @return array{cores: int, memory: int} */
@@ -550,9 +557,15 @@ class Proxmox extends ServerModule
     private function failure(Response $response, string $path): ModuleError
     {
         $errors = $response->json('errors');
-        $detail = trim((string) $response->json('message'))
-            ?: (is_array($errors) ? collect($errors)->map(fn ($message, $field) => "{$field}: ".trim((string) $message))->join('; ') : '')
-            ?: trim($response->reason());
+        $detail = trim((string) $response->json('message'));
+
+        if ($detail === '' && is_array($errors)) {
+            $detail = collect($errors)->map(fn ($message, $field) => "{$field}: ".trim((string) $message))->join('; ');
+        }
+
+        if ($detail === '') {
+            $detail = trim($response->reason());
+        }
 
         return new ModuleError("Proxmox: {$detail} (HTTP {$response->status()} on {$path}).");
     }

@@ -42,12 +42,15 @@ class CartController extends Controller
             'addons.*' => ['integer'],
         ] + CustomField::rules($fields), ['label.required' => 'Enter the domain name for this service, such as example.com.'], CustomField::attributeNames($fields));
 
+        $label = trim((string) ($data['label'] ?? ''));
+        $label = $needsDomain ? strtolower($label) : $label;
+
         $this->add([
             'product_id' => $product->id,
             'billing_cycle' => $data['billing_cycle'],
             'options' => $data['options'] ?? [],
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), null),
-            'label' => filled($data['label'] ?? null) ? trim($needsDomain ? strtolower($data['label']) : $data['label']) : null,
+            'label' => $label !== '' ? $label : null,
             'addons' => array_values(array_unique(array_map('intval', $data['addons'] ?? []))),
         ], $request, 'billing_cycle');
 

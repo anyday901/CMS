@@ -23,6 +23,8 @@ class PleskModuleTest extends TestCase
 
     private const OK = '<result><status>ok</status><id>1</id></result>';
 
+    private const WEBSPACE_GET = 'webspace/get';
+
     private Server $server;
 
     private Service $service;
@@ -63,7 +65,7 @@ class PleskModuleTest extends TestCase
         $this->replies = [
             'customer/get' => self::NOT_FOUND,
             'customer/add' => '<result><status>ok</status><id>7</id><guid>g</guid></result>',
-            'webspace/get' => self::NOT_FOUND,
+            self::WEBSPACE_GET => self::NOT_FOUND,
             'webspace/add' => '<result><status>ok</status><id>12</id><guid>g</guid></result>',
         ];
 
@@ -86,14 +88,14 @@ class PleskModuleTest extends TestCase
         $this->service->forceFill(['username' => 'example', 'password' => 'Secret-pass1'])->save();
         $this->replies = [
             'customer/get' => '<result><status>ok</status><id>7</id></result>',
-            'webspace/get' => '<result><status>ok</status><id>12</id><data><gen_info><owner-login>example</owner-login></gen_info></data></result>',
+            self::WEBSPACE_GET => '<result><status>ok</status><id>12</id><data><gen_info><owner-login>example</owner-login></gen_info></data></result>',
         ];
 
         $result = $this->module()->create($this->service);
         $this->assertSame('The subscription was already on plesk1 for the customer example.', $result->message);
         Http::assertNotSent(fn (Request $request) => str_contains($request->body(), '<add>'));
 
-        $this->replies['webspace/get'] = '<result><status>ok</status><id>12</id><data><gen_info><owner-login>someone</owner-login></gen_info></data></result>';
+        $this->replies[self::WEBSPACE_GET] = '<result><status>ok</status><id>12</id><data><gen_info><owner-login>someone</owner-login></gen_info></data></result>';
         $this->assertSame('example.com is already a subscription of another customer on plesk1.', $this->module()->create($this->service)->message);
     }
 

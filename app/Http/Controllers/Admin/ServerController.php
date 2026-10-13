@@ -21,6 +21,8 @@ class ServerController extends Controller
 
     private const INDEX = 'admin.servers.index';
 
+    private const SHORT_TEXT = 'max:255';
+
     public function __construct(private ModuleRegistry $modules) {}
 
     public function index(): View
@@ -96,12 +98,12 @@ class ServerController extends Controller
         $required = fn (string $field) => ($fields[$field]['required'] ?? false) ? 'required' : 'nullable';
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'hostname' => ['required', 'string', 'max:255', $this->hostRule()],
+            'name' => ['required', 'string', self::SHORT_TEXT],
+            'hostname' => ['required', 'string', self::SHORT_TEXT, $this->hostRule()],
             'ip_address' => [$required('ip_address'), 'ip'],
             'assigned_ips' => ['nullable', 'string', 'max:20000', $this->poolRule()],
             'port' => ['nullable', 'integer', 'min:1', 'max:65535'],
-            'username' => [$required('username'), 'string', 'max:255'],
+            'username' => [$required('username'), 'string', self::SHORT_TEXT],
             'password' => ['nullable', 'string', 'max:1000'],
             'api_token' => ['nullable', 'string', 'max:5000'],
             'max_accounts' => ['required', 'integer', 'min:1', 'max:1000000'],

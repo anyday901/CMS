@@ -29,6 +29,12 @@ class ProxmoxModuleTest extends TestCase
 
     private const NEW_ID = 105;
 
+    private const CONFIG = '/config';
+
+    private const TAKEN_IP = '203.0.113.10';
+
+    private const FREE_IP = '203.0.113.11';
+
     private Server $server;
 
     private Service $service;
@@ -61,7 +67,7 @@ class ProxmoxModuleTest extends TestCase
     public function test_create_clones_the_template_comes_back_while_it_copies_then_sets_the_vm_up(): void
     {
         // Another VM already has the first address.
-        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['vmid' => 104, 'ip' => '203.0.113.10']]);
+        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['vmid' => 104, 'ip' => self::TAKEN_IP]]);
         $this->working = true;
 
         $result = $this->module()->create($this->service);
@@ -69,7 +75,7 @@ class ProxmoxModuleTest extends TestCase
         $this->assertFalse($result->ok);
         $this->assertSame(30, $result->retryAfter);
         $this->assertSame('Cloning the template into VM 105.', $result->message);
-        $this->assertSame(['ip' => '203.0.113.11', 'vmid' => self::NEW_ID, 'node' => 'pve1'], collect($this->service->fresh()->provisioning_data)->except('clone_task')->all());
+        $this->assertSame(['ip' => self::FREE_IP, 'vmid' => self::NEW_ID, 'node' => 'pve1'], collect($this->service->fresh()->provisioning_data)->except('clone_task')->all());
         Sleep::assertSleptTimes(9);
         Http::assertSent(fn (Request $request) => $request->url() === self::API.'nodes/pve1/qemu/9000/clone'
             && $request->header('Authorization')[0] === 'PVEAPIToken=root@pam!billing=uuid-secret'
@@ -81,12 +87,12 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertTrue($result->ok, (string) $result->message);
         $this->assertSame('Created VM 105 on pve1 with the address 203.0.113.11.', $result->message);
-        $config = $this->sent('PUT', self::VM.'/config');
+        $config = $this->sent('PUT', self::VM.self::CONFIG);
         $this->assertSame(['cores' => 2, 'memory' => 2048, 'ciuser' => 'root', 'ipconfig0' => 'ip=203.0.113.11/24,gw=203.0.113.1'], collect($config)->except('cipassword')->all());
         $this->assertSame($this->service->fresh()->password, $config['cipassword']);
         $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
         $this->assertSame('running', $this->vms[self::NEW_ID]['status']);
-        $this->assertSame(['IP address' => '203.0.113.11', 'Username' => 'root'], $this->module()->loginDetails($this->service->fresh()));
+        $this->assertSame(['IP address' => self::FREE_IP, 'Username' => 'root'], $this->module()->loginDetails($this->service->fresh()));
     }
 
     public function test_the_job_waits_while_proxmox_works(): void
@@ -123,7 +129,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame("VM 105 on Proxmox isn't this service's VM, so it was left alone. Run create again to clone a new one.", $result->message);
         $this->assertNull($this->service->fresh()->provisioning_data);
-        $this->assertNull($this->sent('PUT', self::VM.'/config'));
+        $this->assertNull($this->sent('PUT', self::VM.self::CONFIG));
     }
 
     public function test_terminate_stops_and_deletes_the_vm_and_frees_its_address(): void
@@ -155,7 +161,7 @@ class ProxmoxModuleTest extends TestCase
         $this->ownVm('running');
 
         $this->assertSame('Set VM 105 to 2 cores and 2048 MB of memory, and restarted it so they apply.', $this->module()->changePackage($this->service)->message);
-        $this->assertSame(['cores' => 2, 'memory' => 2048], $this->sent('PUT', self::VM.'/config'));
+        $this->assertSame(['cores' => 2, 'memory' => 2048], $this->sent('PUT', self::VM.self::CONFIG));
         $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
         $this->assertNotNull($this->sent('POST', self::VM.'/status/reboot'));
     }
@@ -186,8 +192,8 @@ class ProxmoxModuleTest extends TestCase
 
     public function test_every_address_in_use_fails_create(): void
     {
-        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['ip' => '203.0.113.10']]);
-        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['ip' => '203.0.113.11']]);
+        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['ip' => self::TAKEN_IP]]);
+        Service::factory()->create(['server_id' => $this->server->id, 'provisioning_data' => ['ip' => self::FREE_IP]]);
 
         $this->assertSame('Every address in the IP pool of pve is in use. Add more to the server, then run create again.', $this->module()->create($this->service)->message);
         $this->assertNull($this->sent('POST', self::API.'nodes/pve1/qemu/9000/clone'));
@@ -207,7 +213,7 @@ class ProxmoxModuleTest extends TestCase
     private function ownVm(string $status): void
     {
         $this->vms[self::NEW_ID] = ['node' => 'pve1', 'status' => $status, 'template' => 0, 'config' => ['description' => "[service {$this->service->id}] Ada", 'scsi0' => 'local-lvm:vm-105-disk-0,size=10G']];
-        $this->service->forceFill(['username' => 'root', 'provisioning_data' => ['vmid' => self::NEW_ID, 'node' => 'pve1', 'ip' => '203.0.113.10']])->save();
+        $this->service->forceFill(['username' => 'root', 'provisioning_data' => ['vmid' => self::NEW_ID, 'node' => 'pve1', 'ip' => self::TAKEN_IP]])->save();
     }
 
     /** @return array<string, mixed>|null what was sent to $url, or null when nothing was */
@@ -233,17 +239,21 @@ class ProxmoxModuleTest extends TestCase
             'access/ticket' => ['ticket' => 'PVE:root@pam:TICKET', 'CSRFPreventionToken' => 'CSRF1'],
             'cluster/nextid' => (string) self::NEW_ID,
             'cluster/resources' => collect($this->vms)->map(fn (array $vm, int $vmid) => ['vmid' => $vmid, 'type' => 'qemu', ...collect($vm)->except('config')->all()])->values()->all(),
-            default => str_contains($path, '/tasks/')
-                ? ($this->working ? ['status' => 'running'] : ['status' => 'stopped', 'exitstatus' => $this->exitStatus])
-                : null,
+            default => str_contains($path, '/tasks/') ? $this->taskStatus() : null,
         };
+    }
+
+    /** @return array<string, string> */
+    private function taskStatus(): array
+    {
+        return $this->working ? ['status' => 'running'] : ['status' => 'stopped', 'exitstatus' => $this->exitStatus];
     }
 
     private function vmAnswer(int $vmid, string $action, Request $request, Closure $task): mixed
     {
         return match ($action) {
             '/clone' => $this->cloneVm($request, $task),
-            '/config' => $request->method() === 'GET' ? $this->vms[$vmid]['config'] : null,
+            self::CONFIG => $request->method() === 'GET' ? $this->vms[$vmid]['config'] : null,
             '/status/start' => tap($task('qmstart'), fn () => $this->vms[$vmid]['status'] = 'running'),
             '/status/stop' => tap($task('qmstop'), fn () => $this->vms[$vmid]['status'] = 'stopped'),
             '' => tap($task('qmdestroy'), function () use ($vmid) {

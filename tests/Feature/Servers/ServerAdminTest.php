@@ -26,6 +26,8 @@ class ServerAdminTest extends TestCase
 
     private const HOST = 'cp1.example.test';
 
+    private const NAME = 'Shared 1';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -113,11 +115,11 @@ class ServerAdminTest extends TestCase
 
     public function test_the_servers_page_shows_how_full_each_server_is(): void
     {
-        $server = Server::factory()->create(['name' => 'Shared 1', 'max_accounts' => 10]);
+        $server = Server::factory()->create(['name' => self::NAME, 'max_accounts' => 10]);
         Service::factory()->count(3)->create(['server_id' => $server->id]);
         Service::factory()->create(['server_id' => $server->id, 'status' => ServiceStatus::Cancelled]);
 
-        $this->get(self::SERVERS)->assertOk()->assertSee('Shared 1')->assertSee('3 of 10')->assertSee('cPanel / WHM');
+        $this->get(self::SERVERS)->assertOk()->assertSee(self::NAME)->assertSee('3 of 10')->assertSee('cPanel / WHM');
     }
 
     public function test_staff_group_servers_and_products_use_a_group(): void
@@ -175,7 +177,7 @@ class ServerAdminTest extends TestCase
     private function form(array $overrides = []): array
     {
         return [
-            'name' => 'Shared 1',
+            'name' => self::NAME,
             'module' => 'cpanel',
             'hostname' => self::HOST,
             'username' => 'root',
