@@ -27,6 +27,8 @@ class DirectAdminModuleTest extends TestCase
 
     private const HAS_EXAMPLE = 'list[]=example';
 
+    private const NEW_PASSWORD = 'New-pass-123';
+
     private Server $server;
 
     private Service $service;
@@ -77,7 +79,7 @@ class DirectAdminModuleTest extends TestCase
 
     public function test_actions_on_a_user_reach_directadmin(): void
     {
-        $this->service->forceFill(['username' => 'example', 'password' => 'New-pass-123'])->save();
+        $this->service->forceFill(['username' => 'example', 'password' => self::NEW_PASSWORD])->save();
         // DirectAdmin answers some commands with a redirect when they work.
         $this->fakeApi([self::SHOW_USERS => self::HAS_EXAMPLE, self::SELECT_USERS => Http::response('', 302, ['Location' => '/CMD_SELECT_USERS'])]);
         $module = $this->module();
@@ -92,7 +94,7 @@ class DirectAdminModuleTest extends TestCase
         $this->assertSame([self::SELECT_USERS, ['location' => 'CMD_SELECT_USERS', 'suspend' => 'Suspend', 'dosuspend' => 'yes', 'select0' => 'example']], $sent[0]);
         $this->assertSame([self::SELECT_USERS, ['location' => 'CMD_SELECT_USERS', 'suspend' => 'Unsuspend', 'dounsuspend' => 'yes', 'select0' => 'example']], $sent[1]);
         $this->assertSame(['CMD_API_MODIFY_USER', ['action' => 'package', 'user' => 'example', 'package' => 'bronze']], $sent[2]);
-        $this->assertSame(['CMD_API_USER_PASSWD', ['username' => 'example', 'passwd' => 'New-pass-123', 'passwd2' => 'New-pass-123']], $sent[3]);
+        $this->assertSame(['CMD_API_USER_PASSWD', ['username' => 'example', 'passwd' => self::NEW_PASSWORD, 'passwd2' => self::NEW_PASSWORD]], $sent[3]);
         $this->assertSame([self::SELECT_USERS, ['confirmed' => 'Confirm', 'delete' => 'yes', 'select0' => 'example']], $sent[5]);
     }
 

@@ -24,6 +24,10 @@ class ServiceServerTest extends TestCase
 
     private const PASSWORD = 'Another-pass1';
 
+    private const OLD_PASSWORD = 'First-pass1';
+
+    private const NEW_DOMAIN = 'example.org';
+
     private Product $product;
 
     private Server $server;
@@ -37,7 +41,7 @@ class ServiceServerTest extends TestCase
         $this->product->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 500]);
         $this->server = Server::factory()->create(['name' => 'cp1', 'hostname' => 'cp1.example.test']);
         $this->service = Service::factory()->for($this->product)->create(['label' => self::DOMAIN]);
-        $this->service->forceFill(['server_id' => $this->server->id, 'username' => 'example', 'password' => 'First-pass1', 'provisioned_at' => now()])->save();
+        $this->service->forceFill(['server_id' => $this->server->id, 'username' => 'example', 'password' => self::OLD_PASSWORD, 'provisioned_at' => now()])->save();
     }
 
     public function test_staff_change_the_login_and_a_new_password_is_set_on_the_server(): void
@@ -46,13 +50,13 @@ class ServiceServerTest extends TestCase
         $other = Server::factory()->create(['name' => 'cp2']);
         $this->actingAs(User::factory()->create(['role' => StaffRole::Billing]), 'web');
 
-        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertSee('example')->assertSee('First-pass1');
+        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertSee('example')->assertSee(self::OLD_PASSWORD);
 
-        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $other->id, 'label' => 'example.org', 'username' => 'exampl2', 'password' => self::PASSWORD])
+        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $other->id, 'label' => self::NEW_DOMAIN, 'username' => 'exampl2', 'password' => self::PASSWORD])
             ->assertSessionHas('status', 'Saved. The new password is being set on the server.');
 
         $service = $this->service->fresh();
-        $this->assertSame([$other->id, 'example.org', 'exampl2', self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password]);
+        $this->assertSame([$other->id, self::NEW_DOMAIN, 'exampl2', self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password]);
         Queue::assertPushed(RunProvisioningAction::class, fn (RunProvisioningAction $job) => $job->action === 'change_password');
         $this->assertSame(['label', 'server_id', 'username', 'password'], Activity::where('description', 'like', 'Changed the server details%')->sole()->properties['changed']);
     }
@@ -84,8 +88,8 @@ class ServiceServerTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
 
-        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertDontSee('First-pass1')->assertDontSee('Change server or login');
-        $this->put("/admin/services/{$this->service->id}/server", ['label' => 'example.org'])->assertForbidden();
+        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertDontSee(self::OLD_PASSWORD)->assertDontSee('Change server or login');
+        $this->put("/admin/services/{$this->service->id}/server", ['label' => self::NEW_DOMAIN])->assertForbidden();
     }
 
     public function test_the_store_asks_for_the_domain_of_hosting(): void
@@ -109,10 +113,10 @@ class ServiceServerTest extends TestCase
             ->assertSee('Logging in')
             ->assertSee('https://cp1.example.test:2083')
             ->assertSee('example')
-            ->assertSee('First-pass1');
+            ->assertSee(self::OLD_PASSWORD);
 
         $this->service->forceFill(['provisioned_at' => null, 'status' => ServiceStatus::Pending])->save();
-        $this->get("/portal/services/{$this->service->id}")->assertOk()->assertDontSee('Logging in')->assertDontSee('First-pass1');
+        $this->get("/portal/services/{$this->service->id}")->assertOk()->assertDontSee('Logging in')->assertDontSee(self::OLD_PASSWORD);
     }
 
     public function test_other_clients_cannot_see_the_login(): void

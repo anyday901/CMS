@@ -28,6 +28,8 @@ class Plesk extends ServerModule
     /** Plesk's error code for an object that doesn't exist. */
     private const NOT_FOUND = '1013';
 
+    private const OWNER_ID = 'owner-id';
+
     public function key(): string
     {
         return 'plesk';
@@ -161,7 +163,7 @@ class Plesk extends ServerModule
         return match (true) {
             $info === null => true,
             isset($info->{'owner-login'}) => (string) $info->{'owner-login'} === $login,
-            isset($info->{'owner-id'}) => (int) $info->{'owner-id'} === $customerId,
+            isset($info->{self::OWNER_ID}) => (int) $info->{self::OWNER_ID} === $customerId,
             default => true,
         };
     }
@@ -194,7 +196,7 @@ class Plesk extends ServerModule
     {
         // Plesk reads the nodes in this order.
         $packet = $this->packet($server, ['webspace' => ['add' => [
-            'gen_setup' => ['name' => $service->label, 'owner-id' => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
+            'gen_setup' => ['name' => $service->label, self::OWNER_ID => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
             'hosting' => ['vrt_hst' => [
                 'property' => [['name' => 'ftp_login', 'value' => $service->username], ['name' => 'ftp_password', 'value' => $service->password]],
                 'ip_address' => $ip,
