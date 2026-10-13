@@ -84,10 +84,12 @@
         @endif
     @endcan
 
-    @php $module = app(App\Provisioning\ModuleRegistry::class)->find($service->product->module); @endphp
     @if ($module)
         <div class="mb-8 rounded-lg border border-ink-200 bg-white p-4 text-sm">
             <h2 class="mb-2 font-semibold">Provisioning: {{ $module->label() }}</h2>
+            @if ($servers !== null)
+                @include('admin.services._server')
+            @endif
             @if ($service->provisioning_status)
                 <p>Last action: {{ $service->provisioning_action }}, <x-status-badge :status="$service->provisioning_status === 'done' ? 'active' : ($service->provisioning_status === 'failed' ? 'overdue' : 'pending')" /> {{ $service->provisioning_status }}@if ($service->provisioned_at), last success {{ $service->provisioned_at->format('M j, Y g:ia') }}@endif</p>
                 @if ($service->provisioning_error)<p class="mt-1 rounded-md bg-red-50 px-3 py-2 text-red-800">{{ $service->provisioning_error }}</p>@endif

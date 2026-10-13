@@ -8,6 +8,8 @@ use App\Models\CustomField;
 use App\Models\Product;
 use App\Ordering\Cart;
 use App\Ordering\Checkout;
+use App\Provisioning\ModuleRegistry;
+use App\Provisioning\ServerAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -24,24 +26,31 @@ class CartController extends Controller
         return view('store.cart', ['quote' => $this->checkout->quote($this->cart, $request->user('client'))]);
     }
 
-    /** Adds a product, as configured on its order page, with any add-ons ticked there. */
-    public function store(Request $request, Product $product): RedirectResponse
+    /**
+     * Adds a product, as configured on its order page, with any add-ons
+     * ticked there. Hosting on a server needs the domain it's set up for.
+     */
+    public function store(Request $request, Product $product, ModuleRegistry $modules): RedirectResponse
     {
         $fields = CustomField::forService($product->id)->where('admin_only', false)->get();
+        $needsDomain = $modules->needsDomain($product->module);
         $data = $request->validate([
             'billing_cycle' => ['required', Rule::enum(BillingCycle::class)],
             'options' => ['array'],
-            'label' => ['nullable', 'string', 'max:255'],
+            'label' => $needsDomain ? ['required', 'string', 'max:255', ServerAccount::domainRule()] : ['nullable', 'string', 'max:255'],
             'addons' => ['array'],
             'addons.*' => ['integer'],
-        ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+        ] + CustomField::rules($fields), ['label.required' => 'Enter the domain name for this service, such as example.com.'], CustomField::attributeNames($fields));
+
+        $label = trim((string) ($data['label'] ?? ''));
+        $label = $needsDomain ? strtolower($label) : $label;
 
         $this->add([
             'product_id' => $product->id,
             'billing_cycle' => $data['billing_cycle'],
             'options' => $data['options'] ?? [],
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), null),
-            'label' => filled($data['label'] ?? null) ? trim($data['label']) : null,
+            'label' => $label !== '' ? $label : null,
             'addons' => array_values(array_unique(array_map('intval', $data['addons'] ?? []))),
         ], $request, 'billing_cycle');
 

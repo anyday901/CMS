@@ -24,6 +24,8 @@ class Service extends Model
         'status' => 'pending',
     ];
 
+    protected $hidden = ['password', 'new_password'];
+
     /**
      * Set while a provisioning action runs: the same number for every run of
      * one action (including staff retries after a failure), different for
@@ -46,6 +48,8 @@ class Service extends Model
             'provisioning_data' => 'array',
             'terminated_at' => 'datetime',
             'custom_fields' => 'array',
+            'password' => 'encrypted',
+            'new_password' => 'encrypted',
         ];
     }
 
@@ -57,6 +61,12 @@ class Service extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /** The server the account is on, for modules that use servers. */
+    public function server(): BelongsTo
+    {
+        return $this->belongsTo(Server::class);
     }
 
     public function order(): BelongsTo

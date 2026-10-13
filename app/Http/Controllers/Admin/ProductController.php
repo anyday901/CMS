@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Product;
 use App\Models\ProductGroup;
+use App\Models\ServerGroup;
 use App\Provisioning\ModuleRegistry;
+use App\Provisioning\UsesServers;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,6 +65,7 @@ class ProductController extends Controller
 
         return [
             'modules' => $this->modules->all(),
+            'serverGroups' => ServerGroup::withCount('servers')->orderBy('name')->get(),
             'groups' => ProductGroup::ordered()->get(),
             'addonProducts' => $others->where('is_addon', true),
             'upgradeProducts' => $others->where('is_addon', false),
@@ -142,14 +145,17 @@ class ProductController extends Controller
         }
     }
 
-    /** @return array{module: ?string, module_config: ?array<string, string>} */
+    /** @return array{module: ?string, module_config: ?array<string, string>, server_group_id: ?int} */
     private function moduleSettings(Request $request): array
     {
-        $request->validate(['module' => ['nullable', Rule::in($this->modules->all()->keys()->all())]]);
+        $request->validate([
+            'module' => ['nullable', Rule::in($this->modules->all()->keys()->all())],
+            'server_group_id' => ['nullable', Rule::exists('server_groups', 'id')],
+        ]);
         $module = $this->modules->find($request->input('module') ?: null);
 
         if ($module === null) {
-            return ['module' => null, 'module_config' => null];
+            return ['module' => null, 'module_config' => null, 'server_group_id' => null];
         }
 
         $rules = collect($module->configFields())
@@ -158,12 +164,17 @@ class ProductController extends Controller
                 match ($field['type'] ?? 'text') {
                     'textarea' => ['max:5000'],
                     'url' => ['max:1000', 'url:http,https'],
+                    'number' => ['integer', 'between:0,1000000000'],
                     default => ['max:1000'],
                 },
             )])
             ->all();
         $config = $request->validate($rules)['module_config'][$module->key()] ?? [];
 
-        return ['module' => $module->key(), 'module_config' => array_filter($config, fn ($value) => $value !== null)];
+        return [
+            'module' => $module->key(),
+            'module_config' => array_filter($config, fn ($value) => $value !== null),
+            'server_group_id' => $module instanceof UsesServers && $request->filled('server_group_id') ? (int) $request->input('server_group_id') : null,
+        ];
     }
 }

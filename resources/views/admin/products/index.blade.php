@@ -4,6 +4,7 @@
         <h1 class="text-2xl font-semibold">Products</h1>
         <a href="{{ route('admin.product-groups.index') }}" class="ml-auto rounded-full px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Groups</a>
         <a href="{{ route('admin.promotions.index') }}" class="ml-2 rounded-full px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Promotions</a>
+        <a href="{{ route('admin.servers.index') }}" class="ml-2 rounded-full px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Servers</a>
         <a href="{{ route('admin.products.create') }}" class="ml-2 rounded-full bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500">Add product</a>
     </div>
     @if ($products->isEmpty())

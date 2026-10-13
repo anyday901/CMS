@@ -15,6 +15,7 @@ use App\Models\Service;
 use App\Models\ServiceUpgrade;
 use App\Models\TaxRule;
 use App\Models\User;
+use App\Provisioning\ModuleRegistry;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -43,6 +44,7 @@ class ServiceUpgrader
         private ConfigurableOptions $options,
         private CreditLedger $ledger,
         private CreditApplier $credit,
+        private ModuleRegistry $modules,
     ) {}
 
     /** Why the client can't move this service right now, or null when they can. */
@@ -334,6 +336,10 @@ class ServiceUpgrader
      */
     private function price(Service $service, Product $product, BillingCycle $cycle, array $options, bool $charge): UpgradeQuote
     {
+        if (! $this->modules->canMove($service->product->module, $product->module)) {
+            throw new InvalidArgumentException("This service can't be moved to {$product->name}. Order it instead, then cancel this service.");
+        }
+
         $currency = $service->client->currency;
         $price = $product->priceFor($cycle, $currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$currency}.");

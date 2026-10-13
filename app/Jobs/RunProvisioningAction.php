@@ -9,6 +9,8 @@ use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
 use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ServerPicker;
+use App\Provisioning\UsesServers;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -20,7 +22,9 @@ use Throwable;
  * Runs one module action. Actions for a service run one at a time and in the
  * order they were queued, so a slow create can't land after a terminate. A
  * module error is not retried: a half-finished action on another system is
- * safer for staff to look at and run again than to repeat blindly.
+ * safer for staff to look at and run again than to repeat blindly. A module
+ * waiting on the other system (ProvisioningResult::later()) is run again
+ * after the wait it asks for.
  */
 class RunProvisioningAction implements ShouldQueue
 {
@@ -40,13 +44,13 @@ class RunProvisioningAction implements ShouldQueue
         return [(new WithoutOverlapping("provisioning-{$this->service->id}"))->releaseAfter(self::WAIT_SECONDS)->expireAfter(900)];
     }
 
-    /** Keeps waiting for earlier actions for up to an hour. */
+    /** Keeps waiting for earlier actions, or for the module to finish, for up to an hour. */
     public function retryUntil(): DateTimeInterface
     {
         return now()->addHour();
     }
 
-    public function handle(ModuleRegistry $modules): void
+    public function handle(ModuleRegistry $modules, ServerPicker $servers): void
     {
         $service = $this->service->fresh('product');
         $module = $modules->find($service?->product->module);
@@ -61,16 +65,24 @@ class RunProvisioningAction implements ShouldQueue
             return;
         }
 
-        $this->finish($service, $module, $this->run($service, $module));
+        $result = $this->run($service, $module, $servers);
+
+        if ($result->retryAfter !== null) {
+            $this->release($result->retryAfter); // The other system is still working on it.
+
+            return;
+        }
+
+        $this->finish($service, $module, $result);
     }
 
-    /** Called when the job gives up waiting for an earlier action. */
+    /** Called when the job gives up after an hour of waiting. */
     public function failed(?Throwable $e): void
     {
         $service = $this->service->fresh();
 
         if ($service && $this->sequence > $service->provisioning_finished) {
-            $error = "The {$this->action} action timed out waiting for an earlier action. Run it again when the module is reachable.";
+            $error = "The {$this->action} action didn't finish within an hour, waiting for an earlier action or for the module. Run it again when the module is reachable.";
             $service->forceFill([
                 'provisioning_status' => Provisioner::FAILED,
                 'provisioning_error' => $error,
@@ -81,11 +93,32 @@ class RunProvisioningAction implements ShouldQueue
         }
     }
 
-    private function run(Service $service, ProvisioningModule $module): ProvisioningResult
+    private function run(Service $service, ProvisioningModule $module, ServerPicker $servers): ProvisioningResult
     {
         $service->provisioningOperation = $this->operation;
+        $working = $service->password;
 
+        // A new password staff saved waits in new_password until the module has set it, so a failure keeps the one that works.
+        if ($this->action === 'change_password' && filled($service->new_password)) {
+            $service->password = $service->new_password;
+        }
+
+        $result = $this->call($service, $module, $servers);
+
+        if ($this->action === 'change_password') {
+            $service->forceFill($result->ok ? ['new_password' => null] : ['password' => $working]);
+        }
+
+        return $result;
+    }
+
+    private function call(Service $service, ProvisioningModule $module, ServerPicker $servers): ProvisioningResult
+    {
         try {
+            if ($module instanceof UsesServers && $this->action === 'create' && ($problem = $servers->assign($service, $module)) !== null) {
+                return ProvisioningResult::failed($problem);
+            }
+
             return $module->{Provisioner::method($this->action)}($service);
         } catch (Throwable $e) {
             Log::error('Provisioning action failed', ['service' => $service->id, 'action' => $this->action, 'exception' => $e]);

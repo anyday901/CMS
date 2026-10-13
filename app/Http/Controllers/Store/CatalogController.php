@@ -7,6 +7,7 @@ use App\Models\CustomField;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Ordering\Checkout;
+use App\Provisioning\ModuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
@@ -36,7 +37,7 @@ class CatalogController extends Controller
         return view('store.group', compact('group', 'products', 'currency'));
     }
 
-    public function product(Request $request, Product $product): View
+    public function product(Request $request, Product $product, ModuleRegistry $modules): View
     {
         $currency = Checkout::currencyFor($request->user('client'));
         $product = $this->sellable(Product::whereKey($product->id), $currency)
@@ -50,6 +51,7 @@ class CatalogController extends Controller
             'prices' => $product->pricesIn($currency),
             'addons' => $product->addons->filter(fn (Product $addon) => $addon->pricesIn($currency)->isNotEmpty()),
             'fields' => CustomField::forService($product->id)->where('admin_only', false)->get(),
+            'needsDomain' => $modules->needsDomain($product->module),
         ]);
     }
 

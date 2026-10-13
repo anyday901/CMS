@@ -11,7 +11,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
-- Provisioning through manual fulfillment tasks or webhooks, with a module interface for control panels later
+- Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time
 - Support tickets with email piping
 - An importer for existing WHMCS installs
 
@@ -185,14 +185,30 @@ Admins change late fees, tax-inclusive pricing, whether invoice emails attach th
 
 ### Provisioning modules
 
-A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. A module that also implements `App\Provisioning\ChangesPackage` gets `changePackage` when a service is upgraded or downgraded. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
+A provisioning module sets up and manages services somewhere else, such as a control panel, a VPS host or your own API. Write a class that implements `App\Provisioning\ProvisioningModule`, add it to `config/provisioning.php`, then choose it on a product and fill in its settings there. The module's `create` runs when a service becomes active (its first invoice is paid, or staff add it without an invoice), and `suspend`, `unsuspend` and `terminate` follow the service's status. A module that also implements `App\Provisioning\ChangesPackage` gets `changePackage` when a service is upgraded or downgraded, and one that implements `App\Provisioning\ChangesPassword` gets `changePassword` when staff give a running service a new password. Each action runs on the queue, so run a queue worker in production (`php artisan queue:work`, kept running by systemd or Supervisor).
+
+A module still waiting on the other system, such as a VM whose disk is being copied, returns `ProvisioningResult::later($seconds)` and is run again after that wait, for up to an hour; it should save what it started (with the service's `provisioning_data`) so the next run picks up where it left off.
 
 Actions for one service run one at a time, in the order they happened. A service's page shows the last action and any error. Failed actions are not retried on their own, because repeating a half-finished action on another system can do more harm than good; fix the cause and use **Run again**. Products without a module keep working as before.
 
-Two modules come with the app:
+These modules come with the app:
 
 - **Manual fulfillment** opens a task under **Tasks** for each action, with a checklist you write per product (one step per line, for set-up, suspend, unsuspend, terminate and upgrade or downgrade). Staff tick the steps, add notes and mark the task done. Open tasks are listed on the dashboard and counted in the menu.
 - **Webhook** sends each action as a JSON POST to a URL you set on the product. The body has the action, the service (including anything saved from earlier replies) and the client. With a signing secret, the `X-Webhook-Signature` header is `sha256=` plus the hex HMAC-SHA256 of the raw body. `X-Webhook-Delivery` stays the same when staff run a failed action again, so the receiver can ignore work it already did when only its reply was lost. Any 2xx reply counts as done; a JSON reply can include `message`, shown to staff, and `data`, an object saved on the service and sent with later actions.
+- **cPanel / WHM** creates a cPanel account on the product's **WHM package** through WHM API 1, and suspends, unsuspends, removes, re-packages and changes the password of it. Log in as root or a reseller, preferably with an API token from **WHM > Development > Manage API Tokens**.
+- **Plesk** makes a Plesk customer for each service (its login is the service's username and password) and a subscription for the service's domain on the product's **Service plan**, through the XML API. Log in as admin or a reseller with the password or a secret key (`plesk bin secret_key -c`), and set the IP address subscriptions are hosted on.
+- **DirectAdmin** creates a DirectAdmin user on the product's **User package** and the server's shared IP address, as admin or a reseller with the password or a login key.
+- **Proxmox VE** clones the product's cloud-init template (**Template VM ID**) into a new VM with the product's CPU cores, memory and disk size, sets its login user and password through cloud-init, and starts it. Give the server an API token (`user@realm!tokenid` as the username, the secret as the API token) with rights to clone, configure and power VMs, or a user and password. With **Assigned IP addresses** on the server (one per line, like `203.0.113.10/24 203.0.113.1`), each VM gets the first free one; without, VMs keep the template's network settings. Changing the password needs the QEMU guest agent running in the VM.
+
+The cPanel, Plesk, DirectAdmin and Proxmox modules were built from the vendors' API documentation and tested against mocked replies, not yet against live servers. Try them on a test server before selling with them.
+
+#### Servers
+
+Modules that set services up on servers use the servers under **Products > Servers**. Add each one with its module, host name, port (blank for the module's usual one), login and the most accounts it should hold; the password and API token are encrypted with the app key, and **Test connection** logs in with them. Untick **Active** to stop new accounts going on a server. A server can't be deleted while services are on it, or while an ended service's terminate is still waiting or failed, since removing that account needs the server's login.
+
+Server groups say which servers a product uses and how they fill up: **least used** puts each new account on the server with the most room, **fill up** fills one server before using the next. Choose a group on the product; a product without one uses the least used active server of its module. A service is put on a server when it is created, and pending, active and suspended services count towards a server's accounts.
+
+A new service gets a username made from its domain and a random password, unless staff set them first under **Change server or login** on the service page, where staff also see and change them. Choosing another server there doesn't move the account; it's for accounts moved another way. A new password for an account that exists is set on the server, and the client keeps the old one until that has worked. A service can't be upgraded or downgraded to a product of another module. Clients see the control panel address (or IP address), username and password on the service's portal page once it's set up. Hosting products on cPanel, Plesk and DirectAdmin ask for a domain in the store.
 
 ### Staff emails
 

@@ -109,11 +109,17 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Domain renewal reminders and auto-renew
 
 ## Milestone 8: Provisioning modules
-- [ ] Servers and server groups, with fill-up and least-used assignment
-- [ ] cPanel / WHM module
-- [ ] Plesk module
-- [ ] DirectAdmin module
-- [ ] Proxmox module
+- [x] Servers and server groups, with fill-up and least-used assignment
+- [x] cPanel / WHM module
+- [x] Plesk module
+- [x] DirectAdmin module
+- [x] Proxmox module
+- [ ] Try the cPanel, Plesk, DirectAdmin and Proxmox modules against live servers (built from the vendors' API docs and tested with mocked replies)
+- [ ] Import servers, server groups and service logins from WHMCS
+- [ ] Clients change their control panel password from the portal
+- [ ] Move an account to another server from the service page
+- [ ] Upgrades and downgrades between products of different server modules (e.g. cPanel to Plesk), as a migration of the account
+- [ ] Proxmox LXC containers, and reinstalling a VM from its template
 - [ ] Client single sign-on to the control panel from the portal
 - [ ] Usage statistics and usage-based billing (disk, bandwidth, overages)
 - [ ] Software licensing module
