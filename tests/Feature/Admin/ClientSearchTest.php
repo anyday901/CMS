@@ -90,9 +90,10 @@ class ClientSearchTest extends TestCase
 
     public function test_invalid_values_are_ignored(): void
     {
-        $this->get(route(self::INDEX, ['status' => 'bogus', 'signup_from' => 'yesterday', 'credit_balance' => 'maybe']))
+        $this->get(route(self::INDEX, ['status' => 'bogus', 'signup_from' => 'yesterday', 'signup_to' => '2026-02-31', 'credit_balance' => 'maybe']))
             ->assertOk()
-            ->assertSee(self::OPEN)->assertSee(self::INACTIVE)->assertDontSee(self::CLOSED);
+            ->assertSee(self::OPEN)->assertSee(self::INACTIVE)->assertDontSee(self::CLOSED)
+            ->assertDontSee('value="2026-02-31"', false);
     }
 
     public function test_filters_carry_into_pagination_links(): void

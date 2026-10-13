@@ -70,9 +70,16 @@ class ClientSearch
         return match ($kind) {
             self::STATUS => ClientStatus::tryFrom($value) !== null,
             self::YES_NO => in_array($value, ['yes', 'no'], true),
-            self::FROM, self::TO => (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && strtotime($value) !== false,
+            self::FROM, self::TO => self::validDate($value),
             default => true,
         };
+    }
+
+    /** A real calendar date written as YYYY-MM-DD, so "2026-02-31" is ignored. */
+    private static function validDate(string $value): bool
+    {
+        return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) === 1
+            && checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]);
     }
 
     public function get(string $key): string
@@ -139,9 +146,11 @@ class ClientSearch
     /** Has a credit balance, or is tax exempt. */
     private function matchYesNo(Builder $query, string $column, bool $yes): void
     {
-        $column === 'credit_balance'
-            ? $query->where($column, $yes ? '>' : '<=', 0)
-            : $query->where($column, $yes);
+        if ($column === 'credit_balance') {
+            $query->where($column, $yes ? '>' : '<=', 0);
+        } else {
+            $query->where($column, $yes);
+        }
     }
 
     /** Every word must appear in the first name, last name or company, so "jane doe" finds Jane Doe. */
