@@ -18,6 +18,7 @@ use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\AccountMover;
+use App\Provisioning\ControlPanelLogin;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
@@ -203,7 +204,7 @@ class ServiceController extends Controller
         abort_unless($module instanceof SingleSignOn && $service->provisioned_at !== null, 422, 'This service\'s module can\'t log in to its control panel.');
 
         try {
-            $url = $module->loginUrl($service, (string) $request->ip());
+            $url = app(ControlPanelLogin::class)->url($service, $module, $request->ip());
         } catch (ModuleError $e) {
             return back()->withErrors(['account' => $e->getMessage()]);
         }

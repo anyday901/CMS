@@ -6,6 +6,7 @@ use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Service;
+use App\Provisioning\ControlPanelLogin;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
@@ -43,7 +44,7 @@ class ServiceAccountController extends Controller
         abort_unless(self::abilities($service, $this->modules)['canLogIn'], 403);
 
         try {
-            $url = $this->modules->find($service->product->module)->loginUrl($service, (string) $request->ip());
+            $url = app(ControlPanelLogin::class)->url($service, $this->modules->find($service->product->module), $request->ip());
         } catch (ModuleError $e) {
             report($e);
 

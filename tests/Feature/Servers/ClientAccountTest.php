@@ -61,6 +61,15 @@ class ClientAccountTest extends TestCase
             ->assertSessionHasErrors(['account' => 'The control panel couldn\'t log you in just now. Use the address and password below, or try again in a few minutes.']);
     }
 
+    public function test_a_login_address_on_another_host_is_not_followed(): void
+    {
+        Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 1], 'data' => ['url' => 'https://evil.example.test/login']])]);
+        $this->actingAs($this->service->client, 'client');
+
+        $this->from($this->page())->post($this->page().'/control-panel')->assertRedirect($this->page())->assertSessionHasErrors('account');
+        $this->assertSame(0, Activity::where('description', 'like', 'Logged in to the control panel%')->count());
+    }
+
     public function test_staff_can_open_the_panel_as_the_client(): void
     {
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 1], 'data' => ['url' => self::SESSION_URL]])]);
