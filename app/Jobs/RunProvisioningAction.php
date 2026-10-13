@@ -129,11 +129,9 @@ class RunProvisioningAction implements ShouldQueue
                 return ProvisioningResult::failed($problem);
             }
 
-            if ($this->action === Provisioner::COPY) {
-                return $this->copy($service, $module);
-            }
-
-            return $module->{Provisioner::method($this->action)}($service);
+            return $this->action === Provisioner::COPY
+                ? $this->copy($service, $module)
+                : $module->{Provisioner::method($this->action)}($service);
         } catch (Throwable $e) {
             Log::error('Provisioning action failed', ['service' => $service->id, 'action' => $this->action, 'exception' => $e]);
 

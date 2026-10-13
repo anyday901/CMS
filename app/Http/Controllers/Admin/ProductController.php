@@ -77,6 +77,7 @@ class ProductController extends Controller
     private function save(Request $request, Product $product): void
     {
         $money = ['nullable', Money::rule()];
+        $megabytes = ['nullable', 'integer', 'between:0,1000000000'];
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -96,8 +97,8 @@ class ProductController extends Controller
             'stock_control' => ['boolean'],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'overage_billing' => ['boolean'],
-            'overage_disk_mb' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
-            'overage_bandwidth_mb' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'overage_disk_mb' => $megabytes,
+            'overage_bandwidth_mb' => $megabytes,
             'overage_disk_price' => $money,
             'overage_bandwidth_price' => $money,
         ];

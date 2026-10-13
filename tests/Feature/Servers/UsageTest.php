@@ -24,6 +24,10 @@ class UsageTest extends TestCase
 
     private const GB = 1024 * 1024 * 1024;
 
+    private const SEPTEMBER = '2026-09-01';
+
+    private const OCTOBER = '2026-10-01';
+
     /** @var array<int, int> each Proxmox VM's traffic counter in bytes */
     private array $traffic = [105 => 0];
 
@@ -98,8 +102,8 @@ class UsageTest extends TestCase
         // A new month starts from the last counter of the one before.
         $this->traffic[105] = self::GB;
         $collector->collect(CarbonImmutable::parse('2026-10-01 00:50'));
-        $this->assertSame(512, $service->usages()->whereDate('period', '2026-10-01')->sole()->bandwidth_mb);
-        $this->assertSame(1536, $service->usages()->whereDate('period', '2026-09-01')->sole()->bandwidth_mb);
+        $this->assertSame(512, $service->usages()->whereDate('period', self::OCTOBER)->sole()->bandwidth_mb);
+        $this->assertSame(1536, $service->usages()->whereDate('period', self::SEPTEMBER)->sole()->bandwidth_mb);
     }
 
     public function test_directadmin_and_plesk_usage_are_read(): void
@@ -121,15 +125,15 @@ class UsageTest extends TestCase
     {
         $product = Product::factory()->create(['name' => 'Starter', 'module' => 'cpanel', 'overage_billing' => true, 'overage_disk_mb' => 1024, 'overage_disk_price' => 100, 'overage_bandwidth_mb' => 10240, 'overage_bandwidth_price' => 50]);
         $service = Service::factory()->for($product)->create(['label' => 'example.com']);
-        $september = $service->usages()->create(['period' => '2026-09-01', 'disk_mb' => 3072, 'bandwidth_mb' => 15360]);
-        $october = $service->usages()->create(['period' => '2026-10-01', 'disk_mb' => 9000, 'bandwidth_mb' => 99999]);
+        $september = $service->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 3072, 'bandwidth_mb' => 15360]);
+        $october = $service->usages()->create(['period' => self::OCTOBER, 'disk_mb' => 9000, 'bandwidth_mb' => 99999]);
         // Within its allowance, and an ended service: nothing to bill.
         $small = Service::factory()->for($product)->for($service->client)->create();
-        $small->usages()->create(['period' => '2026-09-01', 'disk_mb' => 100, 'bandwidth_mb' => 100]);
+        $small->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 100, 'bandwidth_mb' => 100]);
         $ended = Service::factory()->for($product)->create(['status' => ServiceStatus::Terminated]);
-        $ended->usages()->create(['period' => '2026-09-01', 'disk_mb' => 5000]);
+        $ended->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 5000]);
 
-        $invoices = app(OverageBiller::class)->run(CarbonImmutable::parse('2026-10-01'));
+        $invoices = app(OverageBiller::class)->run(CarbonImmutable::parse(self::OCTOBER));
 
         $this->assertCount(1, $invoices);
         $invoice = $invoices->first();
@@ -151,7 +155,7 @@ class UsageTest extends TestCase
     {
         $this->travelTo(CarbonImmutable::parse('2026-10-01 00:05'));
         $product = Product::factory()->create(['module' => 'cpanel', 'overage_billing' => true, 'overage_disk_mb' => 1024, 'overage_disk_price' => 100]);
-        Service::factory()->for($product)->create(['next_due_date' => '2026-12-01'])->usages()->create(['period' => '2026-09-01', 'disk_mb' => 2048]);
+        Service::factory()->for($product)->create(['next_due_date' => '2026-12-01'])->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 2048]);
 
         $this->artisan('billing:run')->expectsOutput('Generated 1 overage invoice(s).');
 

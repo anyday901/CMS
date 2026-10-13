@@ -26,13 +26,15 @@ class LicensingTest extends TestCase
 
     private const DIRECTORY = '/home/shop/public_html';
 
+    private const PRODUCT = 'Shop Pro';
+
     private Service $service;
 
     protected function setUp(): void
     {
         parent::setUp();
         Notification::fake();
-        $product = Product::factory()->create(['name' => 'Shop Pro', 'module' => 'licensing', 'module_config' => ['secret' => self::SECRET, 'prefix' => 'SHOP-', 'lock' => 'all', 'reissue' => 'client']]);
+        $product = Product::factory()->create(['name' => self::PRODUCT, 'module' => 'licensing', 'module_config' => ['secret' => self::SECRET, 'prefix' => 'SHOP-', 'lock' => 'all', 'reissue' => 'client']]);
         $this->service = Service::factory()->for($product)->create();
         app(Provisioner::class)->queue($this->service, 'create');
     }
@@ -46,7 +48,7 @@ class LicensingTest extends TestCase
         $answer = $this->check(['domain' => 'https://www.Shop.example.com/cart', 'directory' => self::DIRECTORY.'/', 'check_token' => 'nonce-1']);
 
         $answer->assertOk()->assertJson([
-            'status' => 'Active', 'message' => null, 'key' => $license->key, 'product' => 'Shop Pro',
+            'status' => 'Active', 'message' => null, 'key' => $license->key, 'product' => self::PRODUCT,
             'registered_name' => $this->service->client->fullName(), 'service_status' => 'active', 'next_due_date' => '2026-11-01',
             'domains' => [self::DOMAIN], 'ips' => ['127.0.0.1'], 'directories' => [self::DIRECTORY], 'check_token' => 'nonce-1',
         ]);
@@ -126,7 +128,7 @@ class LicensingTest extends TestCase
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put("/admin/products/{$this->service->product_id}", ['name' => 'Shop Pro', 'module' => 'licensing', 'module_config' => ['licensing' => ['secret' => 'short']]])
+        $this->put("/admin/products/{$this->service->product_id}", ['name' => self::PRODUCT, 'module' => 'licensing', 'module_config' => ['licensing' => ['secret' => 'short']]])
             ->assertSessionHasErrors('module_config.licensing.secret');
     }
 

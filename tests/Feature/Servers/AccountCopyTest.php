@@ -34,6 +34,12 @@ class AccountCopyTest extends TestCase
 
     private const SESSION = 'cp1example20261013';
 
+    private const DOMAIN = 'example.com';
+
+    private const PVE_API = 'https://'.self::PVE_A.':8006/api2/json/nodes/pve1/qemu/105';
+
+    private const VM_IP = '203.0.113.10';
+
     private User $staff;
 
     /** @var array<string, array<string, string>> cPanel accounts on each server: host => [username => domain] */
@@ -54,7 +60,7 @@ class AccountCopyTest extends TestCase
         Notification::fake();
         Sleep::fake();
         $this->staff = User::factory()->create();
-        $this->accounts = [self::CP1 => ['example' => 'example.com'], self::CP2 => []];
+        $this->accounts = [self::CP1 => ['example' => self::DOMAIN], self::CP2 => []];
 
         Http::fake(fn (Request $request) => str_contains($request->url(), ':8006/') ? $this->proxmox($request) : $this->whm($request));
     }
@@ -82,7 +88,7 @@ class AccountCopyTest extends TestCase
 
         // A later run finds the transfer done.
         $this->transferState = 'COMPLETED';
-        $this->accounts[self::CP2]['example'] = 'example.com';
+        $this->accounts[self::CP2]['example'] = self::DOMAIN;
         $this->runAgain($service, Provisioner::COPY);
 
         $service = $service->fresh();
@@ -93,7 +99,7 @@ class AccountCopyTest extends TestCase
 
         $this->post("/admin/account-moves/{$move->id}/finish");
 
-        $this->assertSame([[], ['example' => 'example.com']], [$this->accounts[self::CP1], $this->accounts[self::CP2]]);
+        $this->assertSame([[], ['example' => self::DOMAIN]], [$this->accounts[self::CP1], $this->accounts[self::CP2]]);
         $this->assertSame(AccountMove::DONE, $move->fresh()->status);
     }
 
@@ -146,12 +152,12 @@ class AccountCopyTest extends TestCase
 
         app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
 
-        Http::assertSent(fn (Request $request) => $request->url() === 'https://'.self::PVE_A.':8006/api2/json/nodes/pve1/qemu/105/migrate'
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/migrate'
             && $request['target'] === 'pve2' && $request['online'] === 1 && $request['with-local-disks'] === 1);
         $move = AccountMove::sole();
         $this->assertSame([AccountMove::DONE, false], [$move->status, $move->remove_old]);
         $service = $service->fresh();
-        $this->assertSame(['vmid' => 105, 'node' => 'pve2', 'ip' => '203.0.113.10'], $service->provisioning_data);
+        $this->assertSame(['vmid' => 105, 'node' => 'pve2', 'ip' => self::VM_IP], $service->provisioning_data);
         $this->assertSame([$to->id, 'done'], [$service->server_id, $service->provisioning_status]);
         $this->assertSame('Moved VPS - vps1.example.com; the account itself was moved, so there was no old one to remove.', Activity::latest('id')->value('description'));
         // The VM itself moved, so nothing was deleted.
@@ -164,19 +170,19 @@ class AccountCopyTest extends TestCase
 
         app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
 
-        Http::assertSent(fn (Request $request) => $request->url() === 'https://'.self::PVE_A.':8006/api2/json/nodes/pve1/qemu/105/remote_migrate'
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/remote_migrate'
             && $request['target-endpoint'] === 'host='.self::PVE_B.',apitoken=PVEAPIToken=root@pam!billing=token-b,fingerprint=AA:BB:CC,port=8006'
             && $request['target-vmid'] === 200 && $request['target-storage'] === 'local-lvm' && $request['target-bridge'] === 'vmbr0'
             && $request['online'] === 1 && $request['delete'] === 0);
         $move = AccountMove::sole();
         $this->assertSame([AccountMove::COPYING, true], [$move->status, $move->remove_old]);
-        $this->assertSame(['vmid' => 200, 'node' => 'pve9', 'ip' => '203.0.113.10'], $service->fresh()->provisioning_data);
+        $this->assertSame(['vmid' => 200, 'node' => 'pve9', 'ip' => self::VM_IP], $service->fresh()->provisioning_data);
 
         // Finishing removes the old, stopped VM from the old cluster.
         $this->vms[self::PVE_A][105]['status'] = 'stopped';
         app(AccountMover::class)->finish($move);
 
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && str_starts_with($request->url(), 'https://'.self::PVE_A.':8006/api2/json/nodes/pve1/qemu/105'));
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && str_starts_with($request->url(), self::PVE_API));
         $this->assertSame(AccountMove::DONE, $move->fresh()->status);
     }
 
@@ -197,7 +203,7 @@ class AccountCopyTest extends TestCase
         $product = Product::factory()->create(['name' => 'Starter', 'module' => 'cpanel', 'module_config' => ['package' => 'basic']]);
         $cp1 = Server::factory()->create(['name' => 'cp1', 'hostname' => self::CP1, 'ip_address' => '198.51.100.1', 'username' => 'root', 'password' => 'root-pass']);
         $cp2 = Server::factory()->create(['name' => 'cp2', 'hostname' => self::CP2]);
-        $service = Service::factory()->for($product)->create(['label' => 'example.com']);
+        $service = Service::factory()->for($product)->create(['label' => self::DOMAIN]);
         $service->forceFill(['server_id' => $cp1->id, 'username' => 'example', 'password' => 'Pass-word1', 'provisioned_at' => now(), 'provisioning_status' => 'done'])->save();
 
         return [$service, $cp1, $cp2];
@@ -210,7 +216,7 @@ class AccountCopyTest extends TestCase
         $from = Server::factory()->create(['name' => 'pve-a', 'module' => 'proxmox', 'hostname' => self::PVE_A, 'username' => 'root@pam!billing', 'api_token' => 'token-a']);
         $to = Server::factory()->create(['name' => 'pve-b', 'module' => 'proxmox', 'hostname' => self::PVE_B, 'username' => 'root@pam!billing', 'api_token' => 'token-b']);
         $service = Service::factory()->for($product)->create(['label' => 'vps1.example.com']);
-        $service->forceFill(['server_id' => $from->id, 'username' => 'root', 'password' => 'Pass-word1', 'provisioned_at' => now(), 'provisioning_status' => 'done', 'provisioning_data' => ['vmid' => 105, 'node' => 'pve1', 'ip' => '203.0.113.10']])->save();
+        $service->forceFill(['server_id' => $from->id, 'username' => 'root', 'password' => 'Pass-word1', 'provisioned_at' => now(), 'provisioning_status' => 'done', 'provisioning_data' => ['vmid' => 105, 'node' => 'pve1', 'ip' => self::VM_IP]])->save();
 
         $this->clusters = $sameCluster
             ? [self::PVE_A => ['cluster' => 'prod', 'node' => 'pve1'], self::PVE_B => ['cluster' => 'prod', 'node' => 'pve2']]

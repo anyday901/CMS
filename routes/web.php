@@ -67,7 +67,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('services/{service}/control-panel', [Portal\ServiceAccountController::class, 'controlPanel'])->middleware('throttle:10,1')->name('services.control-panel');
         Route::put('services/{service}/password', [Portal\ServiceAccountController::class, 'password'])->middleware('throttle:5,1')->name('services.password');
         Route::post('services/{service}/reinstall', [Portal\ServiceAccountController::class, 'reinstall'])->middleware('throttle:3,1')->name('services.reinstall');
-        Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:5,1')->name('services.license.reissue');
+        Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:10,1')->name('services.license.reissue');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
         Route::middleware('throttle:20,1')->group(function () {
