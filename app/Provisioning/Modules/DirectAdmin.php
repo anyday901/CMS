@@ -7,15 +7,18 @@ use App\Models\Service;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
 use App\Provisioning\SingleSignOn;
+use App\Provisioning\Usage;
+use Illuminate\Support\Collection;
 
 /**
  * DirectAdmin user accounts, through its CMD_API commands on port 2222. Each
  * service is one DirectAdmin user on the product's user package. Logs in as
  * admin or a reseller, with the password or a login key.
  */
-class DirectAdmin extends ServerModule implements SingleSignOn
+class DirectAdmin extends ServerModule implements ReportsUsage, SingleSignOn
 {
     private const DIRECTADMIN = 'DirectAdmin';
 
@@ -167,6 +170,30 @@ class DirectAdmin extends ServerModule implements SingleSignOn
         $this->call($server, 'CMD_API_USER_PASSWD', ['username' => $username, 'passwd' => $service->password, 'passwd2' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username}.");
+    }
+
+    /** Each user's disk and bandwidth (in MB) from CMD_API_SHOW_USER_USAGE, and their limits from CMD_API_SHOW_USER_CONFIG. */
+    public function usage(Server $server, Collection $services): array
+    {
+        $usage = [];
+
+        foreach ($services->filter(fn (Service $service) => filled($service->username)) as $service) {
+            try {
+                $used = $this->call($server, 'CMD_API_SHOW_USER_USAGE', ['user' => $service->username], 'get');
+                $limits = $this->call($server, 'CMD_API_SHOW_USER_CONFIG', ['user' => $service->username], 'get');
+            } catch (ModuleError) {
+                continue; // Not a user here (any more).
+            }
+
+            $usage[$service->id] = new Usage(
+                diskMb: Usage::parse($used['quota'] ?? null) ?? 0,
+                diskLimitMb: Usage::parse($limits['quota'] ?? null),
+                bandwidthMb: Usage::parse($used['bandwidth'] ?? null) ?? 0,
+                bandwidthLimitMb: Usage::parse($limits['bandwidth'] ?? null),
+            );
+        }
+
+        return $usage;
     }
 
     /** Whether the login's list of users has $username. */

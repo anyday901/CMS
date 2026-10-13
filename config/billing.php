@@ -23,6 +23,10 @@ return [
     // Set to null to turn off automatic termination.
     'terminate_after_days' => env('BILLING_TERMINATE_AFTER_DAYS', 30),
 
+    // Days clients have to pay an overage invoice, which billing:run creates
+    // after each month for products with usage billing on.
+    'overage_due_days' => (int) env('BILLING_OVERAGE_DUE_DAYS', 7),
+
     // Pay new invoices from the client's credit balance when they are created.
     'apply_credit_automatically' => (bool) env('BILLING_APPLY_CREDIT', true),
 

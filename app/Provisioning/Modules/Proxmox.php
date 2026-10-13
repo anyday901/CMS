@@ -2,14 +2,22 @@
 
 namespace App\Provisioning\Modules;
 
+use App\Models\AccountMove;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Provisioning\CopiesAccounts;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\Reinstalls;
+use App\Provisioning\ReportsServerHealth;
+use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\ServerHealth;
 use App\Provisioning\SplitsAccountKinds;
+use App\Provisioning\Usage;
+use Carbon\CarbonInterval;
+use Illuminate\Support\Collection;
 
 /**
  * Proxmox VE virtual machines and containers, through its API on port 8006.
@@ -18,10 +26,11 @@ use App\Provisioning\SplitsAccountKinds;
  * by cloud-init, or an LXC container made from an OS template (see
  * ProxmoxContainer) with the password for root. Both get the product's CPU
  * cores, memory and disk size, and an address from the server's IP pool
- * when it has one. Either can be reinstalled from its template. Logs in with
- * an API token, or a user and password.
+ * when it has one. Either can be reinstalled from its template, and moved to
+ * another server by migrating it (see ProxmoxMigration). Logs in with an API
+ * token, or a user and password.
  */
-class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
+class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, ReportsServerHealth, ReportsUsage, SplitsAccountKinds
 {
     private const PORT = 8006;
 
@@ -80,6 +89,57 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         ]);
     }
 
+    /**
+     * Each VM's or container's disk and traffic from the cluster's resource
+     * list, in one call. Proxmox counts traffic (in and out) since the VM
+     * started, so that is reported as a counter. VMs only report disk use
+     * through a guest agent; without one their disk size is all there is.
+     */
+    public function usage(Server $server, Collection $services): array
+    {
+        $vms = collect($this->api($server)->call('get', 'cluster/resources', ['type' => 'vm']))->keyBy(fn (array $vm) => (int) ($vm['vmid'] ?? 0));
+        $usage = [];
+
+        foreach ($services as $service) {
+            $vm = $vms->get((int) ($service->provisioning_data['vmid'] ?? 0));
+
+            if ($vm !== null) {
+                $usage[$service->id] = new Usage(
+                    diskMb: Usage::fromBytes($vm['disk'] ?? null),
+                    diskLimitMb: Usage::fromBytes($vm['maxdisk'] ?? null),
+                    trafficCounter: (int) ($vm['netin'] ?? 0) + (int) ($vm['netout'] ?? 0),
+                );
+            }
+        }
+
+        return $usage;
+    }
+
+    /** Each node's CPU and memory use and uptime; a node that isn't online is a problem. */
+    public function health(Server $server): ServerHealth
+    {
+        $facts = [];
+        $problems = [];
+
+        foreach (collect($this->api($server)->call('get', 'cluster/resources', ['type' => 'node']))->sortBy('node') as $node) {
+            $name = (string) ($node['node'] ?? '?');
+
+            if (($node['status'] ?? 'online') !== 'online') {
+                $problems[] = "Node {$name} is ".($node['status'] ?? 'offline').'.';
+                $facts[$name] = (string) ($node['status'] ?? 'offline');
+
+                continue;
+            }
+
+            $memory = ($node['maxmem'] ?? 0) > 0 ? (int) round(100 * ($node['mem'] ?? 0) / $node['maxmem']) : null;
+            $facts[$name] = 'CPU '.(int) round(100 * (float) ($node['cpu'] ?? 0)).'%'
+                .($memory !== null ? ", memory {$memory}%" : '')
+                .(isset($node['uptime']) ? ', up '.CarbonInterval::seconds((int) $node['uptime'])->cascade()->forHumans(['parts' => 2, 'short' => true]) : '');
+        }
+
+        return new ServerHealth($facts, $problems);
+    }
+
     protected function checkConnection(Server $server): ProvisioningResult
     {
         $version = $this->api($server)->call('get', 'version')['version'] ?? null;
@@ -109,6 +169,22 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
             $api = $this->api($server);
 
             return (new ProxmoxReinstall($api, $service))->run(ProxmoxBuild::for($api, $service, $server));
+        });
+    }
+
+    /** Whether the servers are one cluster is only known by asking them, so a migration is always offered. */
+    public function copyProblem(Server $from, Server $to): ?string
+    {
+        return null;
+    }
+
+    /** Migrates the VM or container to the new server: inside its cluster, or to another cluster by remote migration. */
+    public function copyAccount(Service $service, AccountMove $move): ProvisioningResult
+    {
+        return $this->onServer($service, function (Server $server) use ($service, $move) {
+            $from = $move->fromServer ?? throw new ModuleError('The old account has no server to copy from.');
+
+            return (new ProxmoxMigration($this->api($from), $this->api($server), $service, $move))->run();
         });
     }
 

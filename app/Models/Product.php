@@ -18,9 +18,11 @@ class Product extends Model
     protected $fillable = [
         'product_group_id', 'name', 'description', 'welcome_email', 'active', 'taxable', 'is_addon', 'sort_order',
         'module', 'module_config', 'server_group_id', 'prorata_day', 'prorata_extend_day', 'trial_days', 'stock_control', 'stock_quantity',
+        'overage_billing', 'overage_disk_mb', 'overage_bandwidth_mb', 'overage_disk_price', 'overage_bandwidth_price',
     ];
 
-    protected $attributes = ['active' => true, 'taxable' => true, 'is_addon' => false, 'sort_order' => 0, 'stock_control' => false, 'stock_quantity' => 0];
+    protected $attributes = ['active' => true, 'taxable' => true, 'is_addon' => false, 'sort_order' => 0, 'stock_control' => false, 'stock_quantity' => 0,
+        'overage_billing' => false, 'overage_disk_price' => 0, 'overage_bandwidth_price' => 0];
 
     protected function casts(): array
     {
@@ -35,6 +37,12 @@ class Product extends Model
             'trial_days' => 'integer',
             'stock_control' => 'boolean',
             'stock_quantity' => 'integer',
+            'overage_billing' => 'boolean',
+            'overage_disk_mb' => 'integer',
+            'overage_bandwidth_mb' => 'integer',
+            // Cents per GB over what is included.
+            'overage_disk_price' => 'integer',
+            'overage_bandwidth_price' => 'integer',
         ];
     }
 

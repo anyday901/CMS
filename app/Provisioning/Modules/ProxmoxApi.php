@@ -77,6 +77,32 @@ final class ProxmoxApi extends ServerApi
         ];
     }
 
+    /**
+     * The cluster's name (null for a node on its own) and the node the API
+     * answers on.
+     *
+     * @return array{name: ?string, node: string}
+     */
+    public function cluster(): array
+    {
+        $status = collect($this->call('get', 'cluster/status'));
+        $node = $status->first(fn (array $entry) => ($entry['type'] ?? null) === 'node' && ! empty($entry['local']));
+
+        return [
+            'name' => $status->firstWhere('type', 'cluster')['name'] ?? null,
+            'node' => isset($node['name']) ? (string) $node['name'] : $this->onlineNode(),
+        ];
+    }
+
+    /** The SHA-256 fingerprint of the node's web certificate, which another cluster checks when it connects. */
+    public function fingerprint(string $node): ?string
+    {
+        $certificates = collect($this->call('get', "nodes/{$node}/certificates/info"));
+        $certificate = $certificates->firstWhere('filename', 'pveproxy-ssl.pem') ?? $certificates->firstWhere('filename', 'pve-ssl.pem');
+
+        return isset($certificate['fingerprint']) ? (string) $certificate['fingerprint'] : null;
+    }
+
     /** The first node of the cluster that is online. */
     public function onlineNode(): string
     {

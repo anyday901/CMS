@@ -7,8 +7,11 @@ use App\Models\Service;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
 use App\Provisioning\SingleSignOn;
+use App\Provisioning\Usage;
+use Illuminate\Support\Collection;
 use SimpleXMLElement;
 
 /**
@@ -18,7 +21,7 @@ use SimpleXMLElement;
  * the product's service plan. Logs in as admin or a reseller, with the
  * password or a secret key.
  */
-class Plesk extends ServerModule implements SingleSignOn
+class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
 {
     private const PLAN = 'service plan';
 
@@ -86,6 +89,48 @@ class Plesk extends ServerModule implements SingleSignOn
                 ? $server->url($this->defaultPort($server->secure)).'/enterprise/rsession_init.php?'.http_build_query(['PLESKSESSID' => $id])
                 : throw new ModuleError('Plesk didn\'t return a session.');
         });
+    }
+
+    /**
+     * Each subscription's disk use (gen_info real_size), traffic this month
+     * (stat) and its disk_space and max_traffic limits, in one packet for
+     * the whole server.
+     */
+    public function usage(Server $server, Collection $services): array
+    {
+        $byDomain = $services->filter(fn (Service $service) => filled($service->label))->keyBy(fn (Service $service) => strtolower($service->label));
+
+        if ($byDomain->isEmpty()) {
+            return [];
+        }
+
+        $packet = $this->packet($server, ['webspace' => ['get' => [
+            'filter' => ['name' => $byDomain->keys()->all()],
+            'dataset' => ['gen_info' => [], 'stat' => [], 'limits' => []],
+        ]]]);
+        $usage = [];
+
+        foreach ($packet->webspace->get->result ?? [] as $result) {
+            $service = $byDomain->get(strtolower((string) $result->data->gen_info->name));
+
+            if ((string) $result->status !== 'ok' || $service === null) {
+                continue;
+            }
+
+            $limits = [];
+            foreach ($result->data->limits->limit ?? [] as $limit) {
+                $limits[(string) $limit->name] = (string) $limit->value;
+            }
+
+            $usage[$service->id] = new Usage(
+                diskMb: Usage::fromBytes((string) $result->data->gen_info->real_size) ?? 0,
+                diskLimitMb: Usage::fromBytes($limits['disk_space'] ?? null),
+                bandwidthMb: Usage::fromBytes((string) $result->data->stat->traffic) ?? 0,
+                bandwidthLimitMb: Usage::fromBytes($limits['max_traffic'] ?? null),
+            );
+        }
+
+        return $usage;
     }
 
     protected function checkConnection(Server $server): ProvisioningResult

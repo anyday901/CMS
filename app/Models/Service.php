@@ -107,6 +107,24 @@ class Service extends Model
         return $this->hasOne(AccountMove::class)->ofMany(['id' => 'max'], fn ($query) => $query->whereIn('status', AccountMove::OPEN));
     }
 
+    /** Disk and bandwidth use by month, for modules whose servers report it. */
+    public function usages(): HasMany
+    {
+        return $this->hasMany(ServiceUsage::class);
+    }
+
+    /** The latest month's use. */
+    public function currentUsage(): HasOne
+    {
+        return $this->hasOne(ServiceUsage::class)->latestOfMany('period');
+    }
+
+    /** The software license the licensing module issued for the service. */
+    public function license(): HasOne
+    {
+        return $this->hasOne(License::class);
+    }
+
     public function cancellationRequests(): HasMany
     {
         return $this->hasMany(CancellationRequest::class);

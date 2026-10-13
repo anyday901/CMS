@@ -11,7 +11,7 @@
     @else
         <div class="mb-10 overflow-x-auto rounded-lg border border-ink-200 bg-white">
             <table class="min-w-full text-sm">
-                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Module</th><th class="px-4 py-2">Accounts</th><th class="px-4 py-2">Groups</th><th class="px-4 py-2">Status</th></tr></thead>
+                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Module</th><th class="px-4 py-2">Accounts</th><th class="px-4 py-2">Groups</th><th class="px-4 py-2">Monitoring</th><th class="px-4 py-2">Status</th></tr></thead>
                 <tbody class="divide-y divide-ink-100">
                     @foreach ($servers as $server)
                         @php $percent = min(100, (int) round($server->usage() * 100)); @endphp
@@ -26,6 +26,20 @@
                                 </div>
                             </td>
                             <td class="px-4 py-2">{{ $server->groups->pluck('name')->join(', ') ?: '—' }}</td>
+                            <td class="px-4 py-2">
+                                @if (! $server->monitor)
+                                    <span class="text-ink-500">Off</span>
+                                @elseif ($server->status === null)
+                                    <span class="text-ink-500">Not checked yet</span>
+                                @else
+                                    <x-status-badge :status="$server->status" />
+                                    <span class="text-ink-500">since {{ $server->status_since?->diffForHumans(short: true) }}</span>
+                                    @if ($server->status_detail)<div class="max-w-xs text-orange-800">{{ $server->status_detail }}</div>@endif
+                                    @foreach ($server->status_load ?? [] as $name => $value)<div class="text-ink-500">{{ $name }}: {{ $value }}</div>@endforeach
+                                    @php $uptime = $server->uptime(); @endphp
+                                    @if ($uptime !== null)<div class="text-ink-500">{{ rtrim(rtrim(number_format($uptime, 2), '0'), '.') }}% up in 30 days</div>@endif
+                                @endif
+                            </td>
                             <td class="px-4 py-2"><x-status-badge :status="$server->active ? 'active' : 'inactive'" /></td>
                         </tr>
                     @endforeach

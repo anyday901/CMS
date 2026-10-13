@@ -19,7 +19,9 @@ use InvalidArgumentException;
  * upgrade or downgrade to a product of another module, to a server of that
  * one. The new account is made first, with the same domain and password;
  * the old one stays until staff have copied the data and finish the move,
- * which removes it. With nothing to copy, the old one can go at once.
+ * which removes it. With nothing to copy, the old one can go at once. A
+ * module that copies accounts itself (CopiesAccounts) can make the new
+ * account as a copy of the old one instead, on a move to another server.
  */
 class AccountMover
 {
@@ -39,21 +41,38 @@ class AccountMover
     }
 
     /**
+     * Why the service's module can't copy its account to $server itself, or
+     * null when it can. Staff then copy the data by hand.
+     */
+    public function copyProblem(Service $service, Server $server): ?string
+    {
+        $module = $this->modules->find($service->product->module);
+
+        return match (true) {
+            ! $module instanceof CopiesAccounts => "{$module?->label()} accounts are copied by hand.",
+            $service->server === null => 'The service has no server to copy from.',
+            default => $module->copyProblem($service->server, $server),
+        };
+    }
+
+    /**
      * Starts moving the account to $server, another active server of its
-     * module: queues create there, keeping the old account until the move
-     * is finished (or as soon as the new one is ready, with $removeAtOnce).
+     * module: queues create there (or, with $copy, a copy of the account by
+     * the module), keeping the old account until the move is finished, or
+     * as soon as the new one is ready, with $removeAtOnce.
      *
      * @throws InvalidArgumentException when the move isn't allowed
      */
-    public function toServer(Service $service, Server $server, bool $removeAtOnce, ?User $staff): AccountMove
+    public function toServer(Service $service, Server $server, bool $removeAtOnce, ?User $staff, bool $copy = false): AccountMove
     {
-        $move = DB::transaction(function () use ($service, $server, $removeAtOnce, $staff) {
+        $move = DB::transaction(function () use ($service, $server, $removeAtOnce, $staff, $copy) {
             $locked = Service::lockForUpdate()->with('product')->findOrFail($service->id);
             $problem = $this->problem($locked) ?? match (true) {
                 $server->module !== $locked->product->module => "{$server->name} isn't a server of this service's module.",
                 $server->id === $locked->server_id => 'The service is already on that server.',
                 ! $server->active => "{$server->name} is inactive.",
                 ! Server::whereKey($server->id)->withAccountCount()->first()->hasRoom() => "{$server->name} has no room for another account.",
+                $copy => $this->copyProblem($locked, $server),
                 default => null,
             };
 
@@ -62,15 +81,15 @@ class AccountMover
             }
 
             $move = $this->begin($locked, $locked->product, $removeAtOnce, $staff);
-            $move->update(['to_server_id' => $server->id]);
+            $move->update(['to_server_id' => $server->id, 'copy_data' => $copy]);
             // The login stays the same, so the client keeps their username and password.
             $locked->forceFill(['server_id' => $server->id, 'provisioning_data' => null, 'provisioned_at' => null])->save();
-            Activity::record("Started moving {$locked->description()} from {$move->fromServer?->name} to {$server->name}", $locked);
+            Activity::record("Started moving {$locked->description()} from {$move->fromServer?->name} to {$server->name}".($copy ? ', copying its data' : ''), $locked);
 
             return $move;
         });
 
-        $this->provisioner->queue($service->refresh(), 'create');
+        $this->provisioner->queue($service->refresh(), $copy ? Provisioner::COPY : 'create');
 
         return $move;
     }
@@ -152,12 +171,30 @@ class AccountMover
         }
 
         $move->update(['status' => AccountMove::COPYING]);
+        $on = $service->server ? " on {$service->server->name}" : '';
+
+        if ($move->copy_data) {
+            Activity::record("Copied {$service->description()} to its new server; check it, then finish the move", $service);
+            StaffAlert::send(
+                'manage-clients',
+                "Copied: {$service->description()}",
+                [
+                    "The account of {$service->description()} ({$service->client->fullName()}) has been copied{$on}.",
+                    'Check the new account works, then finish the move on the service page to remove the old one.',
+                ],
+                'Open the service',
+                route('admin.services.show', $service),
+            );
+
+            return;
+        }
+
         Activity::record("The new account of {$service->description()} is ready; copy the data, then finish the move", $service);
         StaffAlert::send(
             'manage-clients',
             "Ready to copy: {$service->description()}",
             [
-                "The new account of {$service->description()} ({$service->client->fullName()}) is ready".($service->server ? " on {$service->server->name}" : '').'.',
+                "The new account of {$service->description()} ({$service->client->fullName()}) is ready{$on}.",
                 'Copy the data over from the old account, then finish the move on the service page to remove the old one.',
             ],
             'Open the service',
@@ -169,7 +206,7 @@ class AccountMover
     public function finish(AccountMove $move): void
     {
         if (! $move->remove_old) {
-            $this->done($move, 'Moved '.$move->service->description().'; there was no old account to remove.');
+            $this->done($move, 'Moved '.$move->service->description().($move->copy_data ? '; the account itself was moved, so there was no old one to remove.' : '; there was no old account to remove.'));
 
             return;
         }

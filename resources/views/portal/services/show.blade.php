@@ -30,6 +30,14 @@
         @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'sm:col-span-3'])
         @if ($service->product->description)<div class="sm:col-span-3"><div class="text-ink-500">About</div>{!! nl2br(e($service->product->description)) !!}</div>@endif
     </div>
+    @if ($service->license)
+        <h2 class="mt-8 mb-3 text-lg font-semibold">License</h2>
+        <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">@include('services._license', ['license' => $service->license, 'reissue' => $canReissue ? route('portal.services.license.reissue', $service) : null])</div>
+    @endif
+    @if ($service->currentUsage)
+        <h2 class="mt-8 mb-3 text-lg font-semibold">Usage</h2>
+        <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">@include('services._usage', ['usage' => $service->currentUsage])</div>
+    @endif
     @if ($service->openMove)
         <p class="mt-4 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">We're moving this service to a new server. Your current account keeps working until the move is finished, and we'll let you know if you need to do anything.</p>
     @endif

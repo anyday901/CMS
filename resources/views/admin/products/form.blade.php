@@ -154,6 +154,29 @@
                         </label>
                     @endforeach
                 @endforeach
+                @php $usageModules = $modules->filter(fn ($module) => $module instanceof App\Provisioning\ReportsUsage); @endphp
+                @if ($usageModules->isNotEmpty())
+                    <div class="space-y-3 rounded-md bg-ink-50 p-3" data-module="{{ $usageModules->keys()->join(' ') }}">
+                        <input type="hidden" name="overage_billing" value="0">
+                        <label class="flex items-start gap-2"><input type="checkbox" name="overage_billing" value="1" class="mt-0.5" @checked(old('overage_billing', $product->overage_billing))>
+                            <span><strong>Usage billing:</strong> after each month, invoice the disk and bandwidth a service used over what is included here. Use is read from the server every hour.</span></label>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="block">Disk included (MB)
+                                <input type="number" name="overage_disk_mb" min="0" value="{{ old('overage_disk_mb', $product->overage_disk_mb) }}" placeholder="Not billed" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            </label>
+                            <label class="block">Price per GB of disk over
+                                <input name="overage_disk_price" value="{{ old('overage_disk_price', $product->overage_disk_price ? Money::toInput($product->overage_disk_price) : '') }}" placeholder="0.00" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            </label>
+                            <label class="block">Bandwidth included each month (MB)
+                                <input type="number" name="overage_bandwidth_mb" min="0" value="{{ old('overage_bandwidth_mb', $product->overage_bandwidth_mb) }}" placeholder="Not billed" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            </label>
+                            <label class="block">Price per GB of bandwidth over
+                                <input name="overage_bandwidth_price" value="{{ old('overage_bandwidth_price', $product->overage_bandwidth_price ? Money::toInput($product->overage_bandwidth_price) : '') }}" placeholder="0.00" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            </label>
+                        </div>
+                        <p class="text-ink-500">Disk is billed on the month's last reading. Leave an allowance blank to not bill it. 1 GB is 1,024 MB.</p>
+                    </div>
+                @endif
             </fieldset>
             <script>
                 // Show only the settings of the chosen module. data-module can list several.

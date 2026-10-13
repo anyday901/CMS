@@ -101,6 +101,18 @@
                 @include('admin.services._server')
             @endif
             @include('admin.services._move')
+            @if ($service->license)
+                <div class="mb-4 rounded-md border border-ink-100 p-3">
+                    <h3 class="mb-2 font-medium">License</h3>
+                    @include('services._license', ['license' => $service->license, 'staff' => true, 'reissue' => auth()->user()->can('manage-clients') ? route('admin.services.license.reissue', $service) : null])
+                </div>
+            @endif
+            @if ($service->currentUsage)
+                <div class="mb-4 rounded-md border border-ink-100 p-3">
+                    <h3 class="mb-2 font-medium">Usage</h3>
+                    @include('services._usage', ['usage' => $service->currentUsage])
+                </div>
+            @endif
             @if ($service->provisioning_status)
                 <p>Last action: {{ $service->provisioning_action }}, <x-status-badge :status="$service->provisioning_status === 'done' ? 'active' : ($service->provisioning_status === 'failed' ? 'overdue' : 'pending')" /> {{ $service->provisioning_status }}@if ($service->provisioned_at), last success {{ $service->provisioned_at->format('M j, Y g:ia') }}@endif</p>
                 @if ($service->provisioning_error)<p class="mt-1 rounded-md bg-red-50 px-3 py-2 text-red-800">{{ $service->provisioning_error }}</p>@endif
@@ -112,7 +124,7 @@
                     @csrf
                     <label class="block">Run
                         <select name="action" class="mt-1 block rounded-md px-2 py-1 ring-1 ring-ink-300">
-                            @foreach (array_filter(App\Provisioning\Provisioner::ACTIONS, fn ($action) => App\Provisioning\Provisioner::supports($module, $action)) as $action)
+                            @foreach (App\Provisioning\Provisioner::staffActions($module, $service) as $action)
                                 <option value="{{ $action }}" @selected($service->provisioning_action === $action)>{{ App\Provisioning\Provisioner::label($action) }}</option>
                             @endforeach
                         </select>
