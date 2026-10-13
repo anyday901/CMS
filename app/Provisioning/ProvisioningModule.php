@@ -26,7 +26,7 @@ interface ProvisioningModule
     /**
      * Settings shown on the product form and saved in the product's
      * module_config, keyed by field name. "type" is text (the default),
-     * textarea or url.
+     * textarea, url or number (a whole number).
      *
      * @return array<string, array{label: string, required?: bool, help?: string, type?: string}>
      */

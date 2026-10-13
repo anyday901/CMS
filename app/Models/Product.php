@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $fillable = [
         'product_group_id', 'name', 'description', 'welcome_email', 'active', 'taxable', 'is_addon', 'sort_order',
-        'module', 'module_config', 'prorata_day', 'prorata_extend_day', 'trial_days', 'stock_control', 'stock_quantity',
+        'module', 'module_config', 'server_group_id', 'prorata_day', 'prorata_extend_day', 'trial_days', 'stock_control', 'stock_quantity',
     ];
 
     protected $attributes = ['active' => true, 'taxable' => true, 'is_addon' => false, 'sort_order' => 0, 'stock_control' => false, 'stock_quantity' => 0];
@@ -41,6 +41,12 @@ class Product extends Model
     public function group(): BelongsTo
     {
         return $this->belongsTo(ProductGroup::class, 'product_group_id');
+    }
+
+    /** The servers new services of this product go on, for modules that use servers. */
+    public function serverGroup(): BelongsTo
+    {
+        return $this->belongsTo(ServerGroup::class);
     }
 
     /** Add-on products that can be ordered with this one. */

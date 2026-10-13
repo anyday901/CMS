@@ -15,9 +15,12 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\CustomField;
 use App\Models\Product;
+use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ModuleRegistry;
+use App\Provisioning\Modules\ServerModule;
 use App\Provisioning\Provisioner;
+use App\Provisioning\UsesServers;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,12 +71,16 @@ class ServiceController extends Controller
             : redirect()->route('admin.services.show', $result['service'])->with('status', 'Service created.');
     }
 
-    public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller): View
+    public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules): View
     {
-        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester']);
+        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server']);
+        $module = $modules->find($service->product->module);
 
         return view('admin.services.show', [
             'service' => $service,
+            'module' => $module,
+            // Servers the service can be put on, for modules that use them.
+            'servers' => $module instanceof UsesServers ? Server::where('module', $module->key())->orderBy('name')->get() : null,
             'fields' => CustomField::forService($service->product_id)->get(),
             'canMove' => $upgrader->staffProblem($service, false) === null,
             'canCancel' => $canceller->problem($service) === null,
@@ -136,6 +143,48 @@ class ServiceController extends Controller
         return back()->with('status', 'Service '.$service->status->value.'.');
     }
 
+    /**
+     * The server, domain and login of a service whose module uses servers.
+     * Choosing another server doesn't move the account. A new password is
+     * set on the server too, once the account exists.
+     */
+    public function server(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
+    {
+        $module = $modules->find($service->product->module);
+        abort_unless($module instanceof UsesServers, 422, 'This service\'s product doesn\'t use servers.');
+
+        $data = $request->validate([
+            'server_id' => ['nullable', Rule::exists('servers', 'id')->where('module', $module->key())],
+            'label' => ['nullable', 'string', 'max:255', ...($module->needsDomain() ? [ServerModule::domainRule()] : [])],
+            'username' => ['nullable', 'string', 'max:64', 'regex:/^\S+$/'],
+            'password' => ['nullable', 'string', 'min:8', 'max:64'],
+        ], ['username.regex' => 'The username can\'t contain spaces.']);
+
+        $newPassword = filled($data['password'] ?? null) && $data['password'] !== $service->password;
+        $service->forceFill([
+            'server_id' => $data['server_id'] ?? null,
+            'label' => $data['label'] ?? null,
+            'username' => $data['username'] ?? null,
+            'password' => $newPassword ? $data['password'] : $service->password,
+        ]);
+        $changed = array_keys($service->getDirty());
+        $service->save();
+
+        if ($changed !== []) {
+            Activity::record("Changed the server details of {$service->description()}", $service, ['changed' => $changed]);
+        }
+
+        // Before the account exists, create uses the new password anyway.
+        $push = $newPassword && $service->provisioned_at !== null && Provisioner::supports($module, 'change_password')
+            && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
+
+        if ($push) {
+            $provisioner->queue($service, 'change_password');
+        }
+
+        return back()->with('status', $push ? 'Saved. The new password is being set on the server.' : 'Saved.');
+    }
+
     /** Runs a module action again, usually after fixing what made it fail. */
     public function provision(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
     {
@@ -143,7 +192,7 @@ class ServiceController extends Controller
 
         $module = $modules->find($service->product->module);
         abort_if($module === null, 422, 'This service\'s product has no provisioning module.');
-        abort_unless(Provisioner::supports($module, $data['action']), 422, 'This module can\'t change packages.');
+        abort_unless(Provisioner::supports($module, $data['action']), 422, 'This module can\'t run that action.');
 
         $provisioner->queue($service, $data['action'], retry: true);
         Activity::record("Queued {$data['action']} on the provisioning module for {$service->description()}", $service);

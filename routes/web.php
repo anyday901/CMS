@@ -113,6 +113,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post("{$service}/cancellations", [Admin\CancellationController::class, 'store'])->name('cancellations.store');
             Route::delete('cancellations/{cancellation}', [Admin\CancellationController::class, 'destroy'])->name('cancellations.destroy');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
+            Route::put("{$service}/server", [Admin\ServiceController::class, 'server'])->name('services.server');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
                 ->name('services.action');
@@ -166,6 +167,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('products/{product}/options', [Admin\ProductOptionController::class, 'index'])->name('product-options.index');
             Route::post('products/{product}/options', [Admin\ProductOptionController::class, 'store'])->name('product-options.store');
             Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);
+            Route::resource('servers', Admin\ServerController::class)->except('show');
+            Route::post('servers/{server}/test', [Admin\ServerController::class, 'test'])->name('servers.test');
+            Route::resource('server-groups', Admin\ServerGroupController::class)->only(['store', 'edit', 'update', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');

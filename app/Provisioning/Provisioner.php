@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 /** Queues module actions for services whose product uses a provisioning module. */
 class Provisioner
 {
-    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate', 'change_package'];
+    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate', 'change_package', 'change_password'];
 
     public const PENDING = 'pending';
 
@@ -20,10 +20,14 @@ class Provisioner
 
     public function __construct(private ModuleRegistry $modules) {}
 
-    /** Changing package is optional for modules; the other actions aren't. */
+    /** Changing package or password is optional for modules; the other actions aren't. */
     public static function supports(ProvisioningModule $module, string $action): bool
     {
-        return $action !== 'change_package' || $module instanceof ChangesPackage;
+        return match ($action) {
+            'change_package' => $module instanceof ChangesPackage,
+            'change_password' => $module instanceof ChangesPassword,
+            default => true,
+        };
     }
 
     /** The module method for an action, e.g. changePackage. */

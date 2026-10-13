@@ -8,7 +8,10 @@ use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\CustomField;
 use App\Models\Product;
+use App\Models\Service;
 use App\Models\ServiceUpgrade;
+use App\Provisioning\ModuleRegistry;
+use App\Provisioning\UsesServers;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,10 +24,10 @@ class ServiceController extends Controller
         return view('portal.services.index', compact('services'));
     }
 
-    public function show(Request $request, int $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller): View
+    public function show(Request $request, int $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules): View
     {
         $service = $request->user('client')->services()
-            ->with(['product.upgrades', 'pendingCancellation', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
+            ->with(['product.upgrades', 'server', 'pendingCancellation', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
             ->findOrFail($service);
         $currency = $request->user('client')->currency;
         $owned = $service->addons->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->pluck('product_id');
@@ -39,6 +42,23 @@ class ServiceController extends Controller
                 : collect(),
             'canUpgrade' => $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
             'canCancel' => $canceller->problem($service) === null,
+            'login' => $this->login($service, $modules),
         ]);
+    }
+
+    /**
+     * Where and how the client logs in to a service on a server, once the
+     * module has set it up and while it's running.
+     *
+     * @return array<string, string>
+     */
+    private function login(Service $service, ModuleRegistry $modules): array
+    {
+        $module = $modules->find($service->product->module);
+        $running = in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
+
+        return $module instanceof UsesServers && $running && $service->provisioned_at !== null
+            ? $module->loginDetails($service)
+            : [];
     }
 }

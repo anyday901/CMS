@@ -123,6 +123,18 @@
                         @endforeach
                     </select>
                 </label>
+                @php $serverModules = $modules->filter(fn ($module) => $module instanceof App\Provisioning\UsesServers); @endphp
+                @if ($serverModules->isNotEmpty())
+                    <label class="block" data-module="{{ $serverModules->keys()->join(' ') }}">Server group
+                        <select name="server_group_id" class="mt-1 block rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            <option value="">None: the least used server of the module</option>
+                            @foreach ($serverGroups as $serverGroup)
+                                <option value="{{ $serverGroup->id }}" @selected((string) old('server_group_id', $product->server_group_id) === (string) $serverGroup->id)>{{ $serverGroup->name }} ({{ strtolower($serverGroup->fillLabel()) }}, {{ $serverGroup->servers_count }} {{ Str::plural('server', $serverGroup->servers_count) }})</option>
+                            @endforeach
+                        </select>
+                        <span class="text-ink-500">Which servers new services go on. Set up servers and groups under <a href="{{ route('admin.servers.index') }}" class="text-brand-600">Servers</a>.</span>
+                    </label>
+                @endif
                 @foreach ($modules as $key => $module)
                     @foreach ($module->configFields() as $name => $field)
                         <label class="block" data-module="{{ $key }}">{{ $module->label() }}: {{ $field['label'] }}@if ($field['required'] ?? false) <span class="text-ink-500">(required)</span>@endif
@@ -130,7 +142,7 @@
                             @if (($field['type'] ?? 'text') === 'textarea')
                                 <textarea name="module_config[{{ $key }}][{{ $name }}]" rows="4" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $value }}</textarea>
                             @else
-                                <input name="module_config[{{ $key }}][{{ $name }}]" type="{{ ($field['type'] ?? 'text') === 'url' ? 'url' : 'text' }}" value="{{ $value }}" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                                <input name="module_config[{{ $key }}][{{ $name }}]" type="{{ in_array($field['type'] ?? 'text', ['url', 'number'], true) ? $field['type'] : 'text' }}" @if (($field['type'] ?? 'text') === 'number') min="0" @endif value="{{ $value }}" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
                             @endif
                             @if ($field['help'] ?? null)<span class="text-ink-500">{{ $field['help'] }}</span>@endif
                         </label>
@@ -138,10 +150,10 @@
                 @endforeach
             </fieldset>
             <script>
-                // Show only the settings of the chosen module.
+                // Show only the settings of the chosen module. data-module can list several.
                 (() => {
                     const select = document.getElementById('product-module');
-                    const sync = () => document.querySelectorAll('[data-module]').forEach(el => { el.hidden = el.dataset.module !== select.value; });
+                    const sync = () => document.querySelectorAll('[data-module]').forEach(el => { el.hidden = !el.dataset.module.split(' ').includes(select.value); });
                     select.addEventListener('change', sync);
                     sync();
                 })();

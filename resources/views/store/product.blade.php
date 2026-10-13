@@ -56,9 +56,16 @@
             </fieldset>
         @endif
 
-        <label class="block">Domain or hostname (optional)
-            <input name="label" value="{{ old('label') }}" maxlength="255" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-        </label>
+        @if ($needsDomain)
+            <label class="block">Domain
+                <input name="label" value="{{ old('label') }}" maxlength="255" required placeholder="example.com" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">The domain this service is set up for. You can point it here once the service is ready.</span>
+            </label>
+        @else
+            <label class="block">Domain or hostname (optional)
+                <input name="label" value="{{ old('label') }}" maxlength="255" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+            </label>
+        @endif
         @include('custom-fields._inputs', ['fields' => $fields, 'values' => []])
 
         <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">Add to cart</button>

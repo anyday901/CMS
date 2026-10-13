@@ -1,0 +1,124 @@
+<?php
+
+namespace Tests\Feature\Servers;
+
+use App\Enums\ServiceStatus;
+use App\Enums\StaffRole;
+use App\Jobs\RunProvisioningAction;
+use App\Models\Activity;
+use App\Models\Client;
+use App\Models\Product;
+use App\Models\Server;
+use App\Models\Service;
+use App\Models\User;
+use App\Ordering\Cart;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+use Tests\TestCase;
+
+class ServiceServerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const DOMAIN = 'example.com';
+
+    private const PASSWORD = 'Another-pass1';
+
+    private Product $product;
+
+    private Server $server;
+
+    private Service $service;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->product = Product::factory()->create(['name' => 'Starter', 'module' => 'cpanel', 'module_config' => ['package' => 'basic']]);
+        $this->product->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 500]);
+        $this->server = Server::factory()->create(['name' => 'cp1', 'hostname' => 'cp1.example.test']);
+        $this->service = Service::factory()->for($this->product)->create(['label' => self::DOMAIN]);
+        $this->service->forceFill(['server_id' => $this->server->id, 'username' => 'example', 'password' => 'First-pass1', 'provisioned_at' => now()])->save();
+    }
+
+    public function test_staff_change_the_login_and_a_new_password_is_set_on_the_server(): void
+    {
+        Queue::fake();
+        $other = Server::factory()->create(['name' => 'cp2']);
+        $this->actingAs(User::factory()->create(['role' => StaffRole::Billing]), 'web');
+
+        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertSee('example')->assertSee('First-pass1');
+
+        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $other->id, 'label' => 'example.org', 'username' => 'exampl2', 'password' => self::PASSWORD])
+            ->assertSessionHas('status', 'Saved. The new password is being set on the server.');
+
+        $service = $this->service->fresh();
+        $this->assertSame([$other->id, 'example.org', 'exampl2', self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password]);
+        Queue::assertPushed(RunProvisioningAction::class, fn (RunProvisioningAction $job) => $job->action === 'change_password');
+        $this->assertSame(['label', 'server_id', 'username', 'password'], Activity::where('description', 'like', 'Changed the server details%')->sole()->properties['changed']);
+    }
+
+    public function test_before_the_account_exists_create_uses_the_new_password(): void
+    {
+        Queue::fake();
+        $this->service->forceFill(['provisioned_at' => null, 'status' => ServiceStatus::Pending])->save();
+        $this->actingAs(User::factory()->create(), 'web');
+
+        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'password' => self::PASSWORD])
+            ->assertSessionHas('status', 'Saved.');
+
+        Queue::assertNothingPushed();
+        $this->assertSame(self::PASSWORD, $this->service->fresh()->password);
+    }
+
+    public function test_server_details_are_checked(): void
+    {
+        $proxmox = Server::factory()->create(['module' => 'proxmox']);
+        $this->actingAs(User::factory()->create(), 'web');
+
+        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $proxmox->id, 'label' => 'not a domain', 'username' => 'two words', 'password' => 'short'])
+            ->assertSessionHasErrors(['server_id', 'label', 'username', 'password']);
+        $this->assertSame($this->server->id, $this->service->fresh()->server_id);
+    }
+
+    public function test_staff_who_cannot_manage_clients_only_see_the_login(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
+
+        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertDontSee('First-pass1')->assertDontSee('Change server or login');
+        $this->put("/admin/services/{$this->service->id}/server", ['label' => 'example.org'])->assertForbidden();
+    }
+
+    public function test_the_store_asks_for_the_domain_of_hosting(): void
+    {
+        $this->get("/store/order/{$this->product->id}")->assertOk()->assertSee('The domain this service is set up for.');
+
+        $this->post("/store/order/{$this->product->id}", ['billing_cycle' => 'monthly'])
+            ->assertSessionHasErrors(['label' => 'Enter the domain name for this service, such as example.com.']);
+        $this->post("/store/order/{$this->product->id}", ['billing_cycle' => 'monthly', 'label' => 'my site'])
+            ->assertSessionHasErrors(['label' => 'Enter the domain name, such as example.com.']);
+        $this->post("/store/order/{$this->product->id}", ['billing_cycle' => 'monthly', 'label' => 'Shop.Example.COM'])->assertRedirect('/cart');
+
+        $this->assertSame('shop.example.com', array_values(app(Cart::class)->lines())[0]['label']);
+    }
+
+    public function test_clients_see_how_to_log_in_once_the_account_is_made(): void
+    {
+        $this->actingAs($this->service->client, 'client');
+
+        $this->get("/portal/services/{$this->service->id}")->assertOk()
+            ->assertSee('Logging in')
+            ->assertSee('https://cp1.example.test:2083')
+            ->assertSee('example')
+            ->assertSee('First-pass1');
+
+        $this->service->forceFill(['provisioned_at' => null, 'status' => ServiceStatus::Pending])->save();
+        $this->get("/portal/services/{$this->service->id}")->assertOk()->assertDontSee('Logging in')->assertDontSee('First-pass1');
+    }
+
+    public function test_other_clients_cannot_see_the_login(): void
+    {
+        $this->actingAs(Client::factory()->create(), 'client');
+
+        $this->get("/portal/services/{$this->service->id}")->assertNotFound();
+    }
+}

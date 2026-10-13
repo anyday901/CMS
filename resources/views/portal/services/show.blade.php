@@ -30,6 +30,17 @@
         @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'sm:col-span-3'])
         @if ($service->product->description)<div class="sm:col-span-3"><div class="text-ink-500">About</div>{!! nl2br(e($service->product->description)) !!}</div>@endif
     </div>
+    @if ($login !== [])
+        <h2 class="mt-8 mb-3 text-lg font-semibold">Logging in</h2>
+        <dl class="grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm sm:grid-cols-3">
+            @foreach ($login as $name => $value)
+                <div><dt class="text-ink-500">{{ $name }}</dt><dd>@if (str_starts_with($value, 'https://') || str_starts_with($value, 'http://'))<a href="{{ $value }}" class="text-brand-600" target="_blank" rel="noopener">{{ $value }}</a>@else<code class="break-all">{{ $value }}</code>@endif</dd></div>
+            @endforeach
+            @if (filled($service->password))
+                <div><dt class="text-ink-500">Password</dt><dd><details><summary class="cursor-pointer text-brand-600">Show</summary><code class="break-all">{{ $service->password }}</code></details></dd></div>
+            @endif
+        </dl>
+    @endif
     @if ($service->addons->isNotEmpty() || $addons->isNotEmpty())
         <h2 class="mt-8 mb-3 text-lg font-semibold">Add-ons</h2>
         @if ($service->addons->isNotEmpty())
