@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Activity;
 use App\Models\Service;
 use App\Notifications\StaffAlert;
+use App\Provisioning\AccountMover;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
 use App\Provisioning\ProvisioningModule;
@@ -152,6 +153,8 @@ class RunProvisioningAction implements ShouldQueue
 
         if (! $result->ok) {
             $this->alert($service, $result->message);
+        } elseif ($this->action === 'create') {
+            app(AccountMover::class)->created($service);
         }
     }
 

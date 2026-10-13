@@ -66,5 +66,10 @@
         <span class="text-ink-500">Leave blank to skip ticket attachments. The report lists the files it skipped.</span>
     </label>
 
+    <label class="block">WHMCS encryption hash <span class="text-ink-500">(optional)</span>
+        <input type="password" name="encryption_hash" autocomplete="off" placeholder="{{ ($connected['has_hash'] ?? false) ? 'Given; enter it again to change it' : '' }}" class="{{ $field }}">
+        <span class="text-ink-500">The <code>$cc_encryption_hash</code> line in WHMCS's configuration.php. With it, server passwords and your clients' control panel passwords come over; without it, you enter them here later. Kept, encrypted, in your login session only.</span>
+    </label>
+
     <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Test the connection</button>
 </form>

@@ -6,7 +6,7 @@ use App\Billing\ServiceUpgrader;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Service;
-use App\Provisioning\ModuleRegistry;
+use App\Provisioning\AccountMover;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,13 +18,12 @@ class UpgradeController extends Controller
 {
     public function __construct(private ServiceUpgrader $upgrader) {}
 
-    public function index(Request $request, int $service, ModuleRegistry $modules): View
+    public function index(Request $request, int $service): View
     {
         $service = $this->service($request, $service);
         $currency = $service->client->currency;
         $products = $service->product->upgrades()->where('active', true)->with('prices')->get()
-            ->filter(fn (Product $product) => $product->priceFor($service->billing_cycle, $currency) !== null
-                && $modules->canMove($service->product->module, $product->module));
+            ->filter(fn (Product $product) => $product->priceFor($service->billing_cycle, $currency) !== null);
 
         return view('portal.services.upgrade', [
             'service' => $service,
@@ -34,7 +33,7 @@ class UpgradeController extends Controller
     }
 
     /** The new product's options, and with them chosen (or none to choose), the prorated price. */
-    public function show(Request $request, int $service, Product $product): View|RedirectResponse
+    public function show(Request $request, int $service, Product $product, AccountMover $mover): View|RedirectResponse
     {
         $service = $this->service($request, $service);
         $product->load('options.choices');
@@ -54,6 +53,7 @@ class UpgradeController extends Controller
             'product' => $product,
             'quote' => $quote,
             'values' => (array) $request->input('options', []),
+            'migrates' => $mover->migrates($service->product->module, $product->module),
         ]);
     }
 

@@ -16,9 +16,10 @@ class WhmcsImport extends Command
         {--dry-run : Show what would be imported, then undo it all}
         {--connection=whmcs : Database connection for the WHMCS database (see WHMCS_DB_* in .env)}
         {--attachments= : Path to the WHMCS attachments folder, to bring ticket attachments over}
+        {--hash= : The cc_encryption_hash from WHMCS\'s configuration.php, to bring server and service passwords over}
         {--report= : Where to write the full report (default: storage/app/whmcs/)}';
 
-    protected $description = 'Import clients, products, services, invoices, payments and tickets from a WHMCS database';
+    protected $description = 'Import servers, clients, products, services, invoices, payments and tickets from a WHMCS database';
 
     public function handle(): int
     {
@@ -33,7 +34,7 @@ class WhmcsImport extends Command
             }
 
             $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
-            $report = (new WhmcsImporter($attachments))->run($source, $dryRun);
+            $report = (new WhmcsImporter($attachments, $this->option('hash')))->run($source, $dryRun);
         } catch (ImportException $e) {
             $this->error($e->getMessage());
 

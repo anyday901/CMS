@@ -16,6 +16,7 @@ use App\Events\ServiceUnsuspended;
 use App\Mail\ClientMailer;
 use App\Models\ServiceUpgrade;
 use App\Models\User;
+use App\Provisioning\AccountMover;
 use App\Provisioning\Provisioner;
 use App\Support\Money;
 use App\Support\Settings;
@@ -54,6 +55,9 @@ class AppServiceProvider extends ServiceProvider
         ] as $event => $action) {
             Event::listen($event, fn ($e) => app(Provisioner::class)->queue($e->service, $action));
         }
+
+        // A service that ends mid-move loses its old account too.
+        Event::listen(ServiceTerminated::class, fn (ServiceTerminated $e) => app(AccountMover::class)->serviceEnded($e->service));
 
         // An upgrade waits for its invoice; paying it moves the service.
         Event::listen(InvoicePaid::class, function (InvoicePaid $e) {

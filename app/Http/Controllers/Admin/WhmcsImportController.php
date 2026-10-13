@@ -50,6 +50,7 @@ class WhmcsImportController extends Controller
             'username' => self::DETAIL,
             'password' => array_slice(self::DETAIL, 1),
             'attachments' => ['nullable', 'string', 'max:1000'],
+            'encryption_hash' => ['nullable', 'string', 'max:255'],
         ]);
 
         return $this->attempt(fn () => $wizard->connect($details), ImportWizard::DRY_RUN, 'Connected to WHMCS.');
@@ -91,7 +92,7 @@ class WhmcsImportController extends Controller
         try {
             $action();
         } catch (ImportException|QueryException $e) {
-            return back()->withInput(request()->except('password'))->withErrors(['whmcs' => $e->getMessage()]);
+            return back()->withInput(request()->except(['password', 'encryption_hash']))->withErrors(['whmcs' => $e->getMessage()]);
         }
 
         return redirect()->route(self::SHOW, [self::STEP => $next])->with('status', $status);

@@ -7,6 +7,18 @@ use App\Provisioning\ModuleError;
 /** DirectAdmin's CMD_API commands, logged in with the password or a login key. */
 final class DirectAdminApi extends ServerApi
 {
+    /** The user to act as, logged in as the server's admin or reseller ("admin|user"). */
+    private ?string $user = null;
+
+    /** The same login, acting as one of its users. */
+    public function as(string $user): self
+    {
+        $api = clone $this;
+        $api->user = $user;
+
+        return $api;
+    }
+
     /**
      * Sends a command. DirectAdmin answers form-encoded text: "error=1" with
      * text and details on failure, otherwise the values asked for. Some
@@ -19,7 +31,7 @@ final class DirectAdminApi extends ServerApi
     {
         $request = $this->http()
             ->withOptions(['allow_redirects' => false])
-            ->withBasicAuth((string) $this->server->username, (string) $this->server->password);
+            ->withBasicAuth($this->server->username.($this->user !== null ? "|{$this->user}" : ''), (string) $this->server->password);
         $response = $method === 'get' ? $request->get($command, $params) : $request->asForm()->post($command, $params);
 
         if ($response->redirect()) {

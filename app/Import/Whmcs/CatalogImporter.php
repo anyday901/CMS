@@ -21,7 +21,7 @@ class CatalogImporter
 
     private const FIELDS = 'Custom fields';
 
-    /** @var array<int, array{id: int, onetime: bool}> WHMCS product id => local product */
+    /** @var array<int, array{id: int, onetime: bool, module: ?string}> WHMCS product id => local product */
     public array $products = [];
 
     /** @var array<string, array{id: int, type: string, choices: array<int, array{id: int, prices: array<string, int>}>}> "product:option" => local option */
@@ -36,7 +36,7 @@ class CatalogImporter
     /** @var array<int, array{id: int, type: string, entity: string}> WHMCS field id => local field */
     private array $fields = [];
 
-    public function __construct(private ImportRun $run) {}
+    public function __construct(private ImportRun $run, private ServerImporter $servers) {}
 
     public function import(): void
     {
@@ -53,20 +53,22 @@ class CatalogImporter
         foreach ($this->run->table('tblproducts')->orderBy('id')->cursor() as $row) {
             $this->run->report->found(self::PRODUCTS);
             $onetime = strtolower((string) $row->paytype) === 'onetime';
+            $module = $this->servers->product($row);
 
             $id = DB::table('products')->insertGetId([
                 'name' => Whmcs::text($row->name),
                 'description' => Whmcs::plain($row->description ?? '') ?: null,
                 'active' => ! Whmcs::on($row->hidden ?? '') && ! Whmcs::on($row->retired ?? ''),
                 'taxable' => Whmcs::on($row->tax ?? ''),
+                ...($module ?? []),
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]);
 
-            $this->products[(int) $row->id] = ['id' => $id, 'onetime' => $onetime];
+            $this->products[(int) $row->id] = ['id' => $id, 'onetime' => $onetime, 'module' => $module['module'] ?? null];
             $this->run->report->imported(self::PRODUCTS);
 
-            if (filled($row->servertype ?? null)) {
+            if ($module === null && filled($row->servertype ?? null)) {
                 $this->run->report->note(self::PRODUCTS, "\"{$row->name}\" used the WHMCS {$row->servertype} module. Pick a provisioning module for it on its product page.");
             }
 

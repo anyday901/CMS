@@ -17,9 +17,12 @@ use App\Models\CustomField;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Provisioning\AccountMover;
+use App\Provisioning\ModuleError;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\SingleSignOn;
 use App\Provisioning\UsesServers;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -71,16 +74,22 @@ class ServiceController extends Controller
             : redirect()->route('admin.services.show', $result['service'])->with('status', 'Service created.');
     }
 
-    public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules): View
+    public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules, AccountMover $mover): View
     {
-        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server']);
+        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server', 'openMove.fromServer', 'openMove.fromProduct']);
         $module = $modules->find($service->product->module);
+        $servers = $module instanceof UsesServers ? Server::where('module', $module->key())->withAccountCount()->orderBy('name')->get() : null;
 
         return view('admin.services.show', [
             'service' => $service,
             'module' => $module,
             // Servers the service can be put on, for modules that use them.
-            'servers' => $module instanceof UsesServers ? Server::where('module', $module->key())->orderBy('name')->get() : null,
+            'servers' => $servers,
+            // Servers the account can move to, when it can move.
+            'moveTo' => $servers !== null && $mover->problem($service) === null
+                ? $servers->filter(fn (Server $server) => $server->active && $server->id !== $service->server_id && $server->hasRoom())
+                : collect(),
+            'canLogIn' => $module instanceof SingleSignOn && $service->status === ServiceStatus::Active && $service->provisioned_at !== null,
             'fields' => CustomField::forService($service->product_id)->get(),
             'canMove' => $upgrader->staffProblem($service, false) === null,
             'canCancel' => $canceller->problem($service) === null,
@@ -163,7 +172,7 @@ class ServiceController extends Controller
 
         $newPassword = filled($data['password'] ?? null) && $data['password'] !== $service->password;
         // Before the account exists, create uses the new password anyway.
-        $push = $newPassword && $service->provisioned_at !== null && Provisioner::supports($module, 'change_password')
+        $push = $newPassword && $service->provisioned_at !== null && Provisioner::canChangePassword($module, $service)
             && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
 
         $passwordColumn = $push ? 'new_password' : 'password';
@@ -185,6 +194,23 @@ class ServiceController extends Controller
         }
 
         return back()->with('status', $push ? 'Saved. The new password is being set on the server.' : 'Saved.');
+    }
+
+    /** Opens the service's control panel, logged in as its account, for staff helping the client. */
+    public function controlPanel(Request $request, Service $service, ModuleRegistry $modules): RedirectResponse
+    {
+        $module = $modules->find($service->product->module);
+        abort_unless($module instanceof SingleSignOn && $service->provisioned_at !== null, 422, 'This service\'s module can\'t log in to its control panel.');
+
+        try {
+            $url = $module->loginUrl($service, (string) $request->ip());
+        } catch (ModuleError $e) {
+            return back()->withErrors(['account' => $e->getMessage()]);
+        }
+
+        Activity::record("Logged in to the control panel of {$service->description()}", $service);
+
+        return redirect()->away($url);
     }
 
     /** Runs a module action again, usually after fixing what made it fail. */

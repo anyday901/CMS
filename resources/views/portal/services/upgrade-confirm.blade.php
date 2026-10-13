@@ -31,6 +31,9 @@
                 @endforeach
                 <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">{{ $quote->net() > 0 ? 'Continue to payment' : 'Move now' }}</button>
                 <p class="mt-2 text-ink-500">{{ $quote->net() > 0 ? 'The move happens once the invoice is paid.' : 'The move happens straight away.' }}</p>
+                @if ($migrates)
+                    <p class="mt-2 text-ink-500">{{ $product->name }} runs on a different kind of server, so you get a new account there. Your current account keeps working until we've copied your data over.</p>
+                @endif
             </form>
         </div>
     @endif

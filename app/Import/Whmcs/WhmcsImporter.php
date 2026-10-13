@@ -17,8 +17,9 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Copies a WHMCS database into this app: clients and their contacts, products
- * with prices and configurable options, custom fields, services, invoices,
+ * Copies a WHMCS database into this app: servers and server groups, clients
+ * and their contacts, products with prices, configurable options and module
+ * settings, custom fields, services with their logins, invoices,
  * transactions, ticket departments, tickets and replies.
  *
  * Clients, services, invoices and tickets keep their WHMCS ids, so invoice and
@@ -71,7 +72,10 @@ class WhmcsImporter
     /** @var array<string, int> "gateway|reference" => times seen */
     private array $references = [];
 
-    public function __construct(private ?string $attachmentsPath = null) {}
+    private ServerImporter $servers;
+
+    /** @param  string|null  $encryptionHash  WHMCS's cc_encryption_hash, to bring stored passwords over */
+    public function __construct(private ?string $attachmentsPath = null, private ?string $encryptionHash = null) {}
 
     /** @throws ImportException when this install already has data */
     public function run(ConnectionInterface $source, bool $dryRun): ImportReport
@@ -113,7 +117,9 @@ class WhmcsImporter
 
     private function import(): void
     {
-        $this->catalog = new CatalogImporter($this->run);
+        $this->servers = new ServerImporter($this->run, filled($this->encryptionHash) ? new WhmcsCrypt($this->encryptionHash) : null);
+        $this->servers->import();
+        $this->catalog = new CatalogImporter($this->run, $this->servers);
         $this->catalog->import();
         $this->importClients();
         $this->importContacts();
@@ -322,7 +328,7 @@ class WhmcsImporter
                 continue;
             }
 
-            DB::table('services')->insert($this->serviceRow($row, $product['id'], $cycle));
+            DB::table('services')->insert($this->serviceRow($row, $product['id'], $cycle) + $this->servers->login($row, $product['module']));
             $this->services[(int) $row->id] = ['cycle' => $cycle, 'currency' => $this->clients[(int) $row->userid], 'product' => (int) $row->packageid];
             $this->run->report->imported(self::SERVICES);
         }

@@ -4,9 +4,11 @@ namespace App\Provisioning\Modules;
 
 use App\Models\Server;
 use App\Models\Service;
+use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\SingleSignOn;
 
 /**
  * cPanel hosting accounts, through WHM API 1 (/json-api on port 2087). Each
@@ -14,7 +16,7 @@ use App\Provisioning\ServerAccount;
  * WHM package. Logs in with a WHM API token, or the password when there is
  * no token, as root or a reseller.
  */
-class Cpanel extends ServerModule
+class Cpanel extends ServerModule implements SingleSignOn
 {
     private const PACKAGE = 'WHM package';
 
@@ -55,6 +57,16 @@ class Cpanel extends ServerModule
             'Control panel' => $service->server?->address($service->server->secure ? 2083 : 2082),
             'Username' => $service->username,
         ]);
+    }
+
+    /** A one-time cPanel login from WHM's create_user_session. */
+    public function loginUrl(Service $service, string $ip): string
+    {
+        return $this->reach($service, function (Server $server) use ($service) {
+            $url = $this->whm($server, 'create_user_session', ['user' => ServerAccount::username($service), 'service' => 'cpaneld'])['url'] ?? null;
+
+            return is_string($url) && str_starts_with($url, 'http') ? $url : throw new ModuleError('WHM didn\'t return a login address.');
+        });
     }
 
     protected function checkConnection(Server $server): ProvisioningResult

@@ -86,10 +86,21 @@
 
     @if ($module)
         <div class="mb-8 rounded-lg border border-ink-200 bg-white p-4 text-sm">
-            <h2 class="mb-2 font-semibold">Provisioning: {{ $module->label() }}</h2>
+            <div class="mb-2 flex flex-wrap items-center gap-3">
+                <h2 class="font-semibold">Provisioning: {{ $module->label() }}</h2>
+                @if ($canLogIn)
+                    @can('manage-clients')
+                        <form method="POST" action="{{ route('admin.services.control-panel', $service) }}" target="_blank" class="ml-auto">@csrf
+                            <button class="rounded-md px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Log in to the control panel</button>
+                        </form>
+                    @endcan
+                @endif
+            </div>
+            @error('account')<p class="mb-3 rounded-md bg-red-50 px-3 py-2 text-red-800">{{ $message }}</p>@enderror
             @if ($servers !== null)
                 @include('admin.services._server')
             @endif
+            @include('admin.services._move')
             @if ($service->provisioning_status)
                 <p>Last action: {{ $service->provisioning_action }}, <x-status-badge :status="$service->provisioning_status === 'done' ? 'active' : ($service->provisioning_status === 'failed' ? 'overdue' : 'pending')" /> {{ $service->provisioning_status }}@if ($service->provisioned_at), last success {{ $service->provisioned_at->format('M j, Y g:ia') }}@endif</p>
                 @if ($service->provisioning_error)<p class="mt-1 rounded-md bg-red-50 px-3 py-2 text-red-800">{{ $service->provisioning_error }}</p>@endif

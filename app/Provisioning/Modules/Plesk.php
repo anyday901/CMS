@@ -8,6 +8,7 @@ use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\SingleSignOn;
 use SimpleXMLElement;
 
 /**
@@ -17,7 +18,7 @@ use SimpleXMLElement;
  * the product's service plan. Logs in as admin or a reseller, with the
  * password or a secret key.
  */
-class Plesk extends ServerModule
+class Plesk extends ServerModule implements SingleSignOn
 {
     private const PLAN = 'service plan';
 
@@ -65,6 +66,26 @@ class Plesk extends ServerModule
             'Control panel' => $service->server?->address($service->server->secure ? 8443 : 8880),
             'Username' => $service->username,
         ]);
+    }
+
+    /**
+     * A Plesk session for the service's customer, from the XML API's
+     * create_session, opened through rsession_init.php. Plesk ties the
+     * session to the client's IP address.
+     */
+    public function loginUrl(Service $service, string $ip): string
+    {
+        return $this->reach($service, function (Server $server) use ($service, $ip) {
+            $session = PleskApi::result($this->packet($server, ['server' => ['create_session' => [
+                'login' => ServerAccount::username($service),
+                'data' => ['user_ip' => base64_encode($ip), 'source_server' => ''],
+            ]]])->server->create_session);
+            $id = trim((string) $session->id);
+
+            return $id !== ''
+                ? $server->url($this->defaultPort($server->secure)).'/enterprise/rsession_init.php?'.http_build_query(['PLESKSESSID' => $id])
+                : throw new ModuleError('Plesk didn\'t return a session.');
+        });
     }
 
     protected function checkConnection(Server $server): ProvisioningResult

@@ -8,6 +8,7 @@ use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Service;
+use App\Provisioning\AccountMover;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,7 +23,7 @@ class ServiceMoveController extends Controller
 
     private const PRODUCT_ID = 'product_id';
 
-    public function __construct(private ServiceUpgrader $upgrader) {}
+    public function __construct(private ServiceUpgrader $upgrader, private AccountMover $mover) {}
 
     /** The move form, and with a product and cycle chosen, what the move costs. */
     public function show(Request $request, Service $service): View
@@ -41,6 +42,7 @@ class ServiceMoveController extends Controller
             self::CHARGE => $request->boolean(self::CHARGE, true),
             'problem' => $this->upgrader->staffProblem($service, $request->boolean(self::CHARGE, true)),
             'canMoveFree' => $this->upgrader->staffProblem($service, false) === null,
+            'migrates' => $quote !== null && $this->mover->migrates($service->product->module, $quote->product->module),
         ]);
     }
 

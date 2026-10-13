@@ -18,6 +18,12 @@ final class ProxmoxApi extends ServerApi
 
     public const RUNNING = 'running';
 
+    /** A virtual machine. */
+    public const QEMU = 'qemu';
+
+    /** A container. */
+    public const LXC = 'lxc';
+
     /** Seconds before a later run checks a task that is still going. */
     public const COME_BACK_SECONDS = 30;
 
@@ -53,13 +59,32 @@ final class ProxmoxApi extends ServerApi
         return $response->json('data');
     }
 
-    /** @return array{node: string, status: string, template: bool}|null the VM as the cluster lists it, wherever it was moved */
+    /**
+     * A VM or container as the cluster lists it, wherever it was moved.
+     *
+     * @return array{node: string, status: string, template: bool, type: string}|null
+     */
     public function vm(int $vmid): ?array
     {
         $vm = collect($this->call('get', 'cluster/resources', ['type' => 'vm']))
-            ->first(fn (array $resource) => (int) ($resource['vmid'] ?? 0) === $vmid && ($resource['type'] ?? 'qemu') === 'qemu');
+            ->first(fn (array $resource) => (int) ($resource['vmid'] ?? 0) === $vmid && in_array($resource['type'] ?? self::QEMU, [self::QEMU, self::LXC], true));
 
-        return $vm === null ? null : ['node' => (string) $vm['node'], 'status' => (string) ($vm['status'] ?? ''), 'template' => (bool) ($vm['template'] ?? false)];
+        return $vm === null ? null : [
+            'node' => (string) $vm['node'],
+            'status' => (string) ($vm['status'] ?? ''),
+            'template' => (bool) ($vm['template'] ?? false),
+            'type' => (string) ($vm['type'] ?? self::QEMU),
+        ];
+    }
+
+    /** The first node of the cluster that is online. */
+    public function onlineNode(): string
+    {
+        $node = collect($this->call('get', 'nodes'))
+            ->sortBy('node')
+            ->first(fn (array $node) => ($node['status'] ?? 'online') === 'online');
+
+        return isset($node['node']) ? (string) $node['node'] : throw new ModuleError('Proxmox has no node online.');
     }
 
     /**
@@ -89,19 +114,20 @@ final class ProxmoxApi extends ServerApi
         return null;
     }
 
-    /** Starts a VM. Fails unless it is starting or running. */
-    public function start(string $node, int $vmid): void
+    /** Starts a VM or container. Fails unless it is starting or running. */
+    public function start(string $node, int $vmid, string $type = self::QEMU): void
     {
-        $status = $this->await($this->call('post', self::path($node, $vmid).'/status/start'));
+        $status = $this->await($this->call('post', self::path($node, $vmid, $type).'/status/start'));
 
         if ($status !== null && $status !== self::TASK_OK) {
             throw new ModuleError("Proxmox couldn't start VM {$vmid}: {$status}");
         }
     }
 
-    public static function path(string $node, int $vmid): string
+    /** The API path of a VM ("qemu") or container ("lxc"). */
+    public static function path(string $node, int $vmid, string $type = self::QEMU): string
     {
-        return "nodes/{$node}/qemu/{$vmid}";
+        return "nodes/{$node}/{$type}/{$vmid}";
     }
 
     private function authenticated(bool $writes): PendingRequest
