@@ -62,4 +62,14 @@ class ServiceUpgrade extends Model
     {
         return $this->belongsTo(Product::class, 'to_product_id');
     }
+
+    /** What the upgrade changed, for the activity log. */
+    public function changes(): array
+    {
+        return array_filter([
+            'recurring_amount' => ['from' => $this->from_amount, 'to' => $this->to_amount],
+            'billing_cycle' => $this->to_cycle ? ['from' => $this->from_cycle, 'to' => $this->to_cycle] : null,
+            'prorated' => $this->prorated_amount,
+        ], fn ($value) => $value !== null);
+    }
 }

@@ -87,6 +87,18 @@ class AccountMover
         return $this->modules->find($from->module) instanceof UsesServers || $this->modules->find($to->module) instanceof UsesServers;
     }
 
+    /** Starts moving the account when $product needs a new one, and returns whether it does. */
+    public function beginIfNeeded(Service $service, Product $product, ?User $staff): bool
+    {
+        if (! $this->migrates($service->product, $product)) {
+            return false;
+        }
+
+        $this->beginMigration($service, $product, $staff);
+
+        return true;
+    }
+
     /**
      * Records the old account of a service moving to $product of another
      * module, with the service locked and still describing the old account,
