@@ -108,7 +108,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
             ServerAccount::fillLogin($service, fn () => $this->newUsername($service, $server));
             $api = $this->api($server);
 
-            return (new ProxmoxReinstall($api, $service, $server))->run($this->build($api, $service, $server));
+            return (new ProxmoxReinstall($api, $service))->run(ProxmoxBuild::for($api, $service, $server));
         });
     }
 
@@ -120,7 +120,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        return $this->build($this->api($server), $service, $server)->run();
+        return ProxmoxBuild::for($this->api($server), $service, $server)->run();
     }
 
     protected function suspendAccount(Service $service, Server $server): ProvisioningResult
@@ -128,7 +128,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         $api = $this->api($server);
         [$vmid, $vm] = $this->existingVm($api, $service);
 
-        $name = self::name($vmid, $vm);
+        $name = ProxmoxApi::name($vmid, $vm);
 
         if ($vm['status'] !== ProxmoxApi::RUNNING) {
             return ProvisioningResult::ok("{$name} was already stopped.");
@@ -144,7 +144,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         $api = $this->api($server);
         [$vmid, $vm] = $this->existingVm($api, $service);
 
-        $name = self::name($vmid, $vm);
+        $name = ProxmoxApi::name($vmid, $vm);
 
         if ($vm['status'] === ProxmoxApi::RUNNING) {
             return ProvisioningResult::ok("{$name} was already running.");
@@ -166,7 +166,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
             return ProvisioningResult::ok($vmid === null ? 'The service had nothing on Proxmox to remove.' : "{$vmid} was already gone from Proxmox.", ['ip' => null]);
         }
 
-        $name = self::name((int) $vmid, $vm);
+        $name = ProxmoxApi::name((int) $vmid, $vm);
         $path = ProxmoxApi::path($vm['node'], (int) $vmid, $vm['type']);
 
         if ($vm['status'] === ProxmoxApi::RUNNING) {
@@ -196,7 +196,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
     {
         $api = $this->api($server);
         [$vmid, $vm] = $this->existingVm($api, $service);
-        $name = self::name($vmid, $vm);
+        $name = ProxmoxApi::name($vmid, $vm);
         $path = ProxmoxApi::path($vm['node'], $vmid, $vm['type']);
         $config = $api->call('get', "{$path}/config");
 
@@ -244,14 +244,6 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         return new ProxmoxApi($server, self::PORT);
     }
 
-    /** What makes the service's VM or container, by the product's type. */
-    private function build(ProxmoxApi $api, Service $service, Server $server): ProxmoxBuild
-    {
-        return (new ProxmoxPlan($service))->container()
-            ? new ProxmoxContainer($api, $service, $server)
-            : new ProxmoxClone($api, $service, $server);
-    }
-
     /**
      * @return array{int, array{node: string, status: string, template: bool, type: string}} the service's VM id and the VM or container
      */
@@ -260,15 +252,5 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         $vmid = $service->provisioning_data['vmid'] ?? throw new ModuleError('The service has nothing on Proxmox yet. Run create first.');
 
         return [(int) $vmid, $api->vm((int) $vmid) ?? throw new ModuleError("{$vmid} isn't on Proxmox.")];
-    }
-
-    /**
-     * "VM 105" or "Container 105".
-     *
-     * @param  array{type: string}  $vm
-     */
-    private static function name(int $vmid, array $vm): string
-    {
-        return ($vm['type'] === ProxmoxApi::LXC ? 'Container' : 'VM')." {$vmid}";
     }
 }

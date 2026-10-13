@@ -2,7 +2,6 @@
 
 namespace App\Provisioning\Modules;
 
-use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ProvisioningResult;
 
@@ -18,7 +17,7 @@ final class ProxmoxReinstall
 
     private const BUILDING = 'building';
 
-    public function __construct(private readonly ProxmoxApi $api, private readonly Service $service, private readonly Server $server) {}
+    public function __construct(private readonly ProxmoxApi $api, private readonly Service $service) {}
 
     public function run(ProxmoxBuild $build): ProvisioningResult
     {

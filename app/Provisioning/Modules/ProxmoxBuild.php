@@ -29,6 +29,14 @@ abstract class ProxmoxBuild
         $this->plan = new ProxmoxPlan($service);
     }
 
+    /** What makes the service's VM or container, by the product's type. */
+    public static function for(ProxmoxApi $api, Service $service, Server $server): self
+    {
+        return (new ProxmoxPlan($service))->container()
+            ? new ProxmoxContainer($api, $service, $server)
+            : new ProxmoxClone($api, $service, $server);
+    }
+
     /** Picks up the build where an earlier run left it. */
     abstract public function run(): ProvisioningResult;
 
@@ -42,26 +50,27 @@ abstract class ProxmoxBuild
     protected function awaitTask(int $vmid): ?ProvisioningResult
     {
         $task = $this->service->provisioning_data[self::TASK] ?? null;
+        $status = $task === null ? ProxmoxApi::TASK_OK : $this->api->await($task);
 
-        if ($task === null) {
+        if ($status === ProxmoxApi::TASK_OK) {
+            if ($task !== null) {
+                $this->remember([self::TASK => null]);
+            }
+
             return null;
         }
 
-        $status = $this->api->await($task);
+        return $status === null
+            ? ProvisioningResult::later(ProxmoxApi::COME_BACK_SECONDS, $this->waiting($vmid))
+            : $this->taskGaveUp($status);
+    }
 
-        if ($status === null) {
-            return ProvisioningResult::later(ProxmoxApi::COME_BACK_SECONDS, $this->waiting($vmid));
-        }
+    /** Forgets the build whose task failed, so the next run starts over. */
+    private function taskGaveUp(string $status): ProvisioningResult
+    {
+        $this->forget();
 
-        if ($status !== ProxmoxApi::TASK_OK) {
-            $this->forget();
-
-            return ProvisioningResult::failed($this->taskFailed($status));
-        }
-
-        $this->remember([self::TASK => null]);
-
-        return null;
+        return ProvisioningResult::failed($this->taskFailed($status));
     }
 
     /** Shown while the build task runs. */

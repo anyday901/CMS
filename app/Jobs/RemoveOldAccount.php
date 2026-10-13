@@ -7,6 +7,7 @@ use App\Models\Activity;
 use App\Notifications\StaffAlert;
 use App\Provisioning\AccountMover;
 use App\Provisioning\ModuleRegistry;
+use App\Provisioning\ProvisioningModule;
 use App\Provisioning\ProvisioningResult;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -41,11 +42,13 @@ class RemoveOldAccount implements ShouldQueue
     {
         $move = $this->move->fresh(['service.client', 'fromServer', 'fromProduct']);
 
-        if ($move === null || $move->status !== AccountMove::REMOVING) {
-            return;
+        if ($move?->status === AccountMove::REMOVING) {
+            $this->remove($move, $modules->find($move->from_module), $mover);
         }
+    }
 
-        $module = $modules->find($move->from_module);
+    private function remove(AccountMove $move, ?ProvisioningModule $module, AccountMover $mover): void
+    {
         $where = $move->fromServer ? " from {$move->fromServer->name}" : '';
 
         if ($module === null) {
@@ -54,26 +57,24 @@ class RemoveOldAccount implements ShouldQueue
             return;
         }
 
+        $result = $this->terminate($module, $move);
+
+        match (true) {
+            $result->retryAfter !== null => $this->release($result->retryAfter),
+            $result->ok => $mover->done($move, "Finished moving {$move->service->description()}: removed the old account{$where}".($result->message ? ". {$result->message}" : '.')),
+            default => $this->markFailed($move, (string) $result->message),
+        };
+    }
+
+    private function terminate(ProvisioningModule $module, AccountMove $move): ProvisioningResult
+    {
         try {
-            $result = $module->terminate($move->oldAccount());
+            return $module->terminate($move->oldAccount());
         } catch (Throwable $e) {
             Log::error('Removing a moved account failed', ['move' => $move->id, 'exception' => $e]);
-            $result = ProvisioningResult::failed($e->getMessage() ?: $e::class);
+
+            return ProvisioningResult::failed($e->getMessage() ?: $e::class);
         }
-
-        if ($result->retryAfter !== null) {
-            $this->release($result->retryAfter);
-
-            return;
-        }
-
-        if ($result->ok) {
-            $mover->done($move, "Finished moving {$move->service->description()}: removed the old account{$where}".($result->message ? ". {$result->message}" : '.'));
-
-            return;
-        }
-
-        $this->markFailed($move, (string) $result->message);
     }
 
     /** Called when the job gives up after an hour of waiting. */

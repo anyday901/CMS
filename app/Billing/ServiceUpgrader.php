@@ -193,12 +193,7 @@ class ServiceUpgrader
             $service = Service::lockForUpdate()->with(['client', 'promotion', 'product'])->findOrFail($upgrade->service_id);
             $from = $service->description();
             $product = Product::findOrFail($upgrade->to_product_id);
-            $migrating = $this->mover->migrates($service->product, $product);
-
-            if ($migrating) {
-                $this->mover->beginMigration($service, $product, $upgrade->moved_by ? User::find($upgrade->moved_by) : null);
-            }
-
+            $migrating = $this->beginMigration($service, $upgrade, $product);
             $packageChanged = $this->move($service, $upgrade, $product);
 
             if ($upgrade->prorated_amount < 0) {
@@ -206,11 +201,7 @@ class ServiceUpgrader
             }
 
             $upgrade->update(['status' => ServiceUpgrade::APPLIED, 'applied_at' => now()]);
-            Activity::record("Moved {$from} to {$product->name}".($upgrade->to_cycle ? ', '.strtolower($service->billing_cycle->label()) : ''), $service, array_filter([
-                'recurring_amount' => ['from' => $upgrade->from_amount, 'to' => $upgrade->to_amount],
-                'billing_cycle' => $upgrade->to_cycle ? ['from' => $upgrade->from_cycle, 'to' => $upgrade->to_cycle] : null,
-                'prorated' => $upgrade->prorated_amount,
-            ], fn ($value) => $value !== null));
+            $this->recordApplied($service, $upgrade, $from, $product);
 
             return [$packageChanged ? $service : null, $migrating];
         });
@@ -221,6 +212,27 @@ class ServiceUpgrader
         } elseif ($changed !== null) {
             ServiceChanged::dispatch($changed->refresh());
         }
+    }
+
+    /** Starts moving the account when the new product needs a new one; returns whether it does. */
+    private function beginMigration(Service $service, ServiceUpgrade $upgrade, Product $product): bool
+    {
+        if (! $this->mover->migrates($service->product, $product)) {
+            return false;
+        }
+
+        $this->mover->beginMigration($service, $product, $upgrade->moved_by ? User::find($upgrade->moved_by) : null);
+
+        return true;
+    }
+
+    private function recordApplied(Service $service, ServiceUpgrade $upgrade, string $from, Product $product): void
+    {
+        Activity::record("Moved {$from} to {$product->name}".($upgrade->to_cycle ? ', '.strtolower($service->billing_cycle->label()) : ''), $service, array_filter([
+            'recurring_amount' => ['from' => $upgrade->from_amount, 'to' => $upgrade->to_amount],
+            'billing_cycle' => $upgrade->to_cycle ? ['from' => $upgrade->from_cycle, 'to' => $upgrade->to_cycle] : null,
+            'prorated' => $upgrade->prorated_amount,
+        ], fn ($value) => $value !== null));
     }
 
     /** @return bool Whether the product or its options changed. */

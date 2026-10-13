@@ -173,4 +173,14 @@ final class ProxmoxApi extends ServerApi
 
         return new ModuleError("Proxmox: {$detail} (HTTP {$response->status()} on {$path}).");
     }
+
+    /**
+     * "VM 105" or "Container 105".
+     *
+     * @param  array{type: string}  $vm
+     */
+    public static function name(int $vmid, array $vm): string
+    {
+        return ($vm['type'] === self::LXC ? 'Container' : 'VM')." {$vmid}";
+    }
 }

@@ -22,6 +22,10 @@ class AccountMoveTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ACCOUNT_MOVES = '/account-moves';
+
+    private const MOVE = '/move';
+
     private const DOMAIN = 'example.com';
 
     private const PASSWORD = 'First-pass1';
@@ -67,7 +71,7 @@ class AccountMoveTest extends TestCase
         $this->actingAs($this->staff, 'web');
         $this->get($this->page())->assertOk()->assertSee('Move to another server')->assertSee('cp2 ('.self::CP2.', 0 of 200 accounts)', false);
 
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id])
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id])
             ->assertSessionHas('status', 'Creating the account on cp2. The old one stays until you finish the move.');
 
         // The new account has the same login; the old one is still there.
@@ -97,7 +101,7 @@ class AccountMoveTest extends TestCase
     {
         $this->actingAs($this->staff, 'web');
 
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id, 'remove_at_once' => '1']);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id, 'remove_at_once' => '1']);
 
         $this->assertSame(AccountMove::DONE, AccountMove::sole()->status);
         $this->assertSame([], $this->accounts[self::CP1]);
@@ -109,7 +113,7 @@ class AccountMoveTest extends TestCase
         $this->failures[self::CP2.' createacct'] = 'The package basic does not exist.';
         $this->actingAs($this->staff, 'web');
 
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id]);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id]);
 
         $move = AccountMove::sole();
         $this->assertSame(AccountMove::CREATING, $move->status);
@@ -128,7 +132,7 @@ class AccountMoveTest extends TestCase
     {
         $this->failures[self::CP1.' removeacct'] = 'Account is locked.';
         $this->actingAs($this->staff, 'web');
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id]);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id]);
         $move = AccountMove::sole();
 
         $this->post("/admin/account-moves/{$move->id}/finish");
@@ -149,12 +153,12 @@ class AccountMoveTest extends TestCase
         $this->cp2->update(['active' => false]);
         $plesk = Server::factory()->create(['module' => 'plesk']);
 
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id])->assertSessionHasErrors(['move_server' => 'cp2 is inactive.']);
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp1->id])->assertSessionHasErrors(['move_server' => 'The service is already on that server.']);
-        $this->post($this->page().'/account-moves', ['to_server_id' => $plesk->id])->assertSessionHasErrors(['move_server' => "{$plesk->name} isn't a server of this service's module."]);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id])->assertSessionHasErrors(['move_server' => 'cp2 is inactive.']);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp1->id])->assertSessionHasErrors(['move_server' => 'The service is already on that server.']);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $plesk->id])->assertSessionHasErrors(['move_server' => "{$plesk->name} isn't a server of this service's module."]);
 
         $this->cp2->update(['active' => true, 'max_accounts' => 0]);
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id])->assertSessionHasErrors(['move_server' => 'cp2 has no room for another account.']);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id])->assertSessionHasErrors(['move_server' => 'cp2 has no room for another account.']);
         $this->assertSame(0, AccountMove::count());
     }
 
@@ -163,7 +167,7 @@ class AccountMoveTest extends TestCase
         app(ServiceLifecycle::class)->suspend($this->service, 'overdue');
         $this->actingAs($this->staff, 'web');
 
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id]);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id]);
 
         // Queued behind create; on a real queue it runs once create lets go of the service.
         $service = $this->service->fresh();
@@ -177,7 +181,7 @@ class AccountMoveTest extends TestCase
     public function test_ending_the_service_mid_move_removes_the_old_account_too(): void
     {
         $this->actingAs($this->staff, 'web');
-        $this->post($this->page().'/account-moves', ['to_server_id' => $this->cp2->id]);
+        $this->post($this->page().self::ACCOUNT_MOVES, ['to_server_id' => $this->cp2->id]);
 
         app(ServiceLifecycle::class)->terminate($this->service->fresh());
 
@@ -194,7 +198,7 @@ class AccountMoveTest extends TestCase
 
         $this->get($this->page()."/move?product_id={$product->id}&billing_cycle=monthly&charge=0")->assertOk()
             ->assertSee('DirectAdmin Pro uses another module, so this moves the account');
-        $this->post($this->page().'/move', ['product_id' => $product->id, 'billing_cycle' => 'monthly', 'charge' => '0']);
+        $this->post($this->page().self::MOVE, ['product_id' => $product->id, 'billing_cycle' => 'monthly', 'charge' => '0']);
 
         $service = $this->service->fresh();
         $this->assertSame([$product->id, $da->id, 'example', self::PASSWORD, 'done'], [$service->product_id, $service->server_id, $service->username, $service->password, $service->provisioning_status]);
@@ -216,12 +220,12 @@ class AccountMoveTest extends TestCase
         $plain->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 900]);
         $this->actingAs($this->staff, 'web');
 
-        $this->post($this->page().'/move', ['product_id' => $plain->id, 'billing_cycle' => 'monthly', 'charge' => '0']);
+        $this->post($this->page().self::MOVE, ['product_id' => $plain->id, 'billing_cycle' => 'monthly', 'charge' => '0']);
 
         $move = AccountMove::sole();
         $this->assertSame(AccountMove::COPYING, $move->status);
         $this->get($this->page())->assertSee('Finish the move: remove the old account');
-        $this->get($this->page().'/move')->assertSee('This service&#039;s account is still moving. Finish or cancel that move first.', false);
+        $this->get($this->page().self::MOVE)->assertSee('This service&#039;s account is still moving. Finish or cancel that move first.', false);
 
         $this->post("/admin/account-moves/{$move->id}/finish");
         $this->assertSame([[], AccountMove::DONE], [$this->accounts[self::CP1], $move->fresh()->status]);

@@ -20,6 +20,12 @@ class ClientAccountTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const LOG_IN = 'Log in to the control panel';
+
+    private const CONTROL_PANEL = '/control-panel';
+
+    private const PASSWORD_PATH = '/password';
+
     private const WHM = 'https://cp1.example.test:2087/json-api/';
 
     private const PASSWORD = 'First-pass1';
@@ -45,8 +51,8 @@ class ClientAccountTest extends TestCase
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 1], 'data' => ['url' => self::SESSION_URL]])]);
         $this->actingAs($this->service->client, 'client');
 
-        $this->get($this->page())->assertOk()->assertSee('Log in to the control panel');
-        $this->post($this->page().'/control-panel')->assertRedirect(self::SESSION_URL);
+        $this->get($this->page())->assertOk()->assertSee(self::LOG_IN);
+        $this->post($this->page().self::CONTROL_PANEL)->assertRedirect(self::SESSION_URL);
 
         Http::assertSent(fn (Request $request) => $request->url() === self::WHM.'create_user_session?api.version=1' && $request['user'] === 'example' && $request['service'] === 'cpaneld');
         $this->assertSame(1, Activity::where('description', 'like', 'Logged in to the control panel%')->count());
@@ -57,7 +63,7 @@ class ClientAccountTest extends TestCase
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 0, 'reason' => 'User does not exist.']])]);
         $this->actingAs($this->service->client, 'client');
 
-        $this->from($this->page())->post($this->page().'/control-panel')->assertRedirect($this->page())
+        $this->from($this->page())->post($this->page().self::CONTROL_PANEL)->assertRedirect($this->page())
             ->assertSessionHasErrors(['account' => 'The control panel couldn\'t log you in just now. Use the address and password below, or try again in a few minutes.']);
     }
 
@@ -66,7 +72,7 @@ class ClientAccountTest extends TestCase
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 1], 'data' => ['url' => 'https://evil.example.test/login']])]);
         $this->actingAs($this->service->client, 'client');
 
-        $this->from($this->page())->post($this->page().'/control-panel')->assertRedirect($this->page())->assertSessionHasErrors('account');
+        $this->from($this->page())->post($this->page().self::CONTROL_PANEL)->assertRedirect($this->page())->assertSessionHasErrors('account');
         $this->assertSame(0, Activity::where('description', 'like', 'Logged in to the control panel%')->count());
     }
 
@@ -75,7 +81,7 @@ class ClientAccountTest extends TestCase
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 1], 'data' => ['url' => self::SESSION_URL]])]);
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->get("/admin/services/{$this->service->id}")->assertSee('Log in to the control panel');
+        $this->get("/admin/services/{$this->service->id}")->assertSee(self::LOG_IN);
         $this->post("/admin/services/{$this->service->id}/control-panel")->assertRedirect(self::SESSION_URL);
     }
 
@@ -116,7 +122,7 @@ class ClientAccountTest extends TestCase
         $this->actingAs($this->service->client, 'client');
         $this->get($this->page())->assertSee('Change the password');
 
-        $this->put($this->page().'/password', ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD])
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD])
             ->assertSessionHas('status', 'Your new password is being set. Your old one keeps working until it is.');
 
         Http::assertSent(fn (Request $request) => $request->url() === self::WHM.'passwd?api.version=1' && $request['user'] === 'example' && $request['password'] === self::NEW_PASSWORD);
@@ -129,7 +135,7 @@ class ClientAccountTest extends TestCase
         Http::fake([self::WHM.'*' => Http::response(['metadata' => ['result' => 0, 'reason' => 'The password is too weak.']])]);
         $this->actingAs($this->service->client, 'client');
 
-        $this->put($this->page().'/password', ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD]);
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD]);
 
         $this->assertSame(self::PASSWORD, $this->service->fresh()->password);
         $this->get($this->page())->assertSee('Your last password change didn', false)->assertSee(self::PASSWORD);
@@ -140,9 +146,9 @@ class ClientAccountTest extends TestCase
         Http::fake();
         $this->actingAs($this->service->client, 'client');
 
-        $this->put($this->page().'/password', ['password' => 'short', 'password_confirmation' => 'short'])->assertSessionHasErrors('password');
-        $this->put($this->page().'/password', ['password' => self::NEW_PASSWORD, 'password_confirmation' => 'Different-pass9'])->assertSessionHasErrors('password');
-        $this->put($this->page().'/password', ['password' => 'alllowercase123', 'password_confirmation' => 'alllowercase123'])->assertSessionHasErrors('password');
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => 'short', 'password_confirmation' => 'short'])->assertSessionHasErrors('password');
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => self::NEW_PASSWORD, 'password_confirmation' => 'Different-pass9'])->assertSessionHasErrors('password');
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => 'alllowercase123', 'password_confirmation' => 'alllowercase123'])->assertSessionHasErrors('password');
 
         Http::assertNothingSent();
     }
@@ -157,9 +163,9 @@ class ClientAccountTest extends TestCase
         $this->put("/portal/services/{$other->id}/password", ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD])->assertNotFound();
 
         $this->service->forceFill(['status' => ServiceStatus::Suspended])->save();
-        $this->get($this->page())->assertDontSee('Log in to the control panel')->assertDontSee('Change the password');
-        $this->post($this->page().'/control-panel')->assertForbidden();
-        $this->put($this->page().'/password', ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD])->assertForbidden();
+        $this->get($this->page())->assertDontSee(self::LOG_IN)->assertDontSee('Change the password');
+        $this->post($this->page().self::CONTROL_PANEL)->assertForbidden();
+        $this->put($this->page().self::PASSWORD_PATH, ['password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD])->assertForbidden();
         Http::assertNothingSent();
     }
 

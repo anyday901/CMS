@@ -26,6 +26,14 @@ class ProxmoxModuleTest extends TestCase
 
     private const VM = self::API.'nodes/pve1/qemu/105';
 
+    private const RESIZE = '/resize';
+
+    private const PURGE = '?purge=1&destroy-unreferenced-disks=1';
+
+    private const SHUTDOWN = '/status/shutdown';
+
+    private const LXC = 'nodes/pve1/lxc';
+
     private const TEMPLATE = 9000;
 
     private const NEW_ID = 105;
@@ -93,7 +101,7 @@ class ProxmoxModuleTest extends TestCase
         $config = $this->sent('PUT', self::VM.self::CONFIG);
         $this->assertSame(['cores' => 2, 'memory' => 2048, 'ciuser' => 'root', 'ipconfig0' => 'ip=203.0.113.11/24,gw=203.0.113.1'], collect($config)->except('cipassword')->all());
         $this->assertSame($this->service->fresh()->password, $config['cipassword']);
-        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
+        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.self::RESIZE));
         $this->assertSame('running', $this->vms[self::NEW_ID]['status']);
         $this->assertSame(['IP address' => self::FREE_IP, 'Username' => 'root'], $this->module()->loginDetails($this->service->fresh()));
     }
@@ -144,7 +152,7 @@ class ProxmoxModuleTest extends TestCase
         $this->assertSame('Removed VM 105 from pve1.', $result->message);
         $this->assertSame(['ip' => null], $result->data);
         $this->assertArrayNotHasKey(self::NEW_ID, $this->vms);
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.'?purge=1&destroy-unreferenced-disks=1');
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.self::PURGE);
         $this->assertSame('105 was already gone from Proxmox.', $this->module()->terminate($this->service)->message);
     }
 
@@ -153,7 +161,7 @@ class ProxmoxModuleTest extends TestCase
         $this->ownVm('running');
 
         $this->assertSame('Shutting down VM 105. Proxmox turns it off after a minute if it hasn\'t shut down.', $this->module()->suspend($this->service)->message);
-        $this->assertSame(['forceStop' => 1, 'timeout' => 60], $this->sent('POST', self::VM.'/status/shutdown'));
+        $this->assertSame(['forceStop' => 1, 'timeout' => 60], $this->sent('POST', self::VM.self::SHUTDOWN));
 
         $this->vms[self::NEW_ID]['status'] = 'stopped';
         $this->assertSame('Started VM 105.', $this->module()->unsuspend($this->service)->message);
@@ -165,7 +173,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame('Set VM 105 to 2 cores and 2048 MB of memory, and restarted it so they apply.', $this->module()->changePackage($this->service)->message);
         $this->assertSame(['cores' => 2, 'memory' => 2048], $this->sent('PUT', self::VM.self::CONFIG));
-        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
+        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.self::RESIZE));
         $this->assertNotNull($this->sent('POST', self::VM.'/status/reboot'));
     }
 
@@ -190,7 +198,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame(['username' => 'root@pam', 'password' => 'rootpass'], $this->sent('POST', self::API.'access/ticket'));
         Http::assertSent(fn (Request $request) => str_contains($request->url(), 'cluster/resources') && str_contains($request->header('Cookie')[0] ?? '', 'PVEAuthCookie=PVE:root@pam:TICKET'));
-        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/status/shutdown') && $request->hasHeader('CSRFPreventionToken', 'CSRF1'));
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), self::SHUTDOWN) && $request->hasHeader('CSRFPreventionToken', 'CSRF1'));
     }
 
     public function test_every_address_in_use_fails_create(): void
@@ -211,7 +219,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame('Creating container 105.', $result->message);
         $this->assertSame(30, $result->retryAfter);
-        $sent = $this->sent('POST', self::API.'nodes/pve1/lxc');
+        $sent = $this->sent('POST', self::API.self::LXC);
         $this->assertSame([
             'vmid' => self::NEW_ID, 'ostemplate' => self::OS_TEMPLATE, 'hostname' => 'web1.example.com', 'description' => "[service {$this->service->id}] Ada Lovelace",
             'cores' => 1, 'memory' => 512, 'rootfs' => 'local-lvm:16', 'net0' => 'name=eth0,bridge=vmbr1,ip=203.0.113.10/24,gw=203.0.113.1', 'unprivileged' => 1, 'start' => 1,
@@ -234,18 +242,18 @@ class ProxmoxModuleTest extends TestCase
         $container = self::API.'nodes/pve1/lxc/105';
 
         $this->assertSame('Shutting down Container 105. Proxmox turns it off after a minute if it hasn\'t shut down.', $this->module()->suspend($this->service)->message);
-        $this->assertNotNull($this->sent('POST', $container.'/status/shutdown'));
+        $this->assertNotNull($this->sent('POST', $container.self::SHUTDOWN));
 
         $this->vms[self::NEW_ID]['status'] = 'running';
         $this->assertSame('Set Container 105 to 1 cores and 512 MB of memory.', $this->module()->changePackage($this->service)->message);
-        $this->assertSame(['disk' => 'rootfs', 'size' => '16G'], $this->sent('PUT', $container.'/resize'));
+        $this->assertSame(['disk' => 'rootfs', 'size' => '16G'], $this->sent('PUT', $container.self::RESIZE));
         $this->assertNull($this->sent('POST', $container.'/status/reboot'));
 
         $this->assertFalse($this->module()->canChangePassword($this->service));
         $this->assertSame('Proxmox can\'t set a password inside container 105. Reinstall it, or change the password inside the container.', $this->module()->changePassword($this->service)->message);
 
         $this->assertSame('Removed Container 105 from pve1.', $this->module()->terminate($this->service)->message);
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === $container.'?purge=1&destroy-unreferenced-disks=1');
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === $container.self::PURGE);
     }
 
     public function test_reinstall_rebuilds_the_vm_with_the_same_id_address_and_password(): void
@@ -257,7 +265,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertTrue($result->ok, (string) $result->message);
         $this->assertSame('Reinstalled VM 105 on pve1 with the address 203.0.113.10.', $result->message);
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.'?purge=1&destroy-unreferenced-disks=1');
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.self::PURGE);
         Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/clone') && $request['newid'] === self::NEW_ID);
         Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'cluster/nextid'));
         $this->assertSame('Kept-pass-123', $this->sent('PUT', self::VM.self::CONFIG)['cipassword']);
@@ -292,7 +300,7 @@ class ProxmoxModuleTest extends TestCase
         $result = $this->module()->reinstall($this->service);
 
         $this->assertSame('Reinstalled container 105 on pve1 with the address 203.0.113.10.', $result->message);
-        $this->assertSame(self::NEW_ID, $this->sent('POST', self::API.'nodes/pve1/lxc')['vmid']);
+        $this->assertSame(self::NEW_ID, $this->sent('POST', self::API.self::LXC)['vmid']);
     }
 
     public function test_clients_reinstall_from_the_portal_after_confirming(): void
@@ -377,7 +385,7 @@ class ProxmoxModuleTest extends TestCase
         }
 
         return match ($path) {
-            'nodes/pve1/lxc' => $this->createContainer($request, $task),
+            self::LXC => $this->createContainer($request, $task),
             'nodes' => [['node' => 'pve2', 'status' => 'offline'], ['node' => 'pve1', 'status' => 'online']],
             'version' => ['version' => '8.2.4'],
             'access/ticket' => ['ticket' => 'PVE:root@pam:TICKET', 'CSRFPreventionToken' => 'CSRF1'],
