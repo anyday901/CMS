@@ -46,22 +46,14 @@
         @if ($addonProducts->isNotEmpty())
             <fieldset data-not-addon>
                 <legend class="mb-1 font-semibold">Add-ons offered with this product</legend>
-                <div class="grid gap-1 sm:grid-cols-2">
-                    @foreach ($addonProducts as $addon)
-                        <label class="flex items-center gap-2"><input type="checkbox" name="addons[]" value="{{ $addon->id }}" @checked(in_array($addon->id, array_map('intval', (array) old('addons', $chosenAddons))))> {{ $addon->name }}</label>
-                    @endforeach
-                </div>
+                <x-product-picker name="addons" :products="$addonProducts" :chosen="$chosenAddons" />
             </fieldset>
         @endif
         @if ($upgradeProducts->isNotEmpty())
             <fieldset data-not-addon>
                 <legend class="mb-1 font-semibold">Clients can upgrade or downgrade to</legend>
                 <p class="mb-2 text-ink-500">From the service page in the portal, on the same billing cycle. The rest of the period is prorated: a dearer product is invoiced, a cheaper one is added to the client's credit.</p>
-                <div class="grid gap-1 sm:grid-cols-2">
-                    @foreach ($upgradeProducts as $other)
-                        <label class="flex items-center gap-2"><input type="checkbox" name="upgrades[]" value="{{ $other->id }}" @checked(in_array($other->id, array_map('intval', (array) old('upgrades', $chosenUpgrades))))> {{ $other->name }}</label>
-                    @endforeach
-                </div>
+                <x-product-picker name="upgrades" :products="$upgradeProducts" :chosen="$chosenUpgrades" />
             </fieldset>
         @endif
         <script>

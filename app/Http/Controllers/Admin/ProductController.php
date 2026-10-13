@@ -59,7 +59,7 @@ class ProductController extends Controller
     /** @return array<string, mixed> */
     private function formData(Product $product): array
     {
-        $others = Product::whereKeyNot($product->id ?? 0)->orderBy('name')->get();
+        $others = Product::with('group')->whereKeyNot($product->id ?? 0)->orderBy('name')->get();
 
         return [
             'modules' => $this->modules->all(),
