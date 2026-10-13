@@ -144,6 +144,10 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
+### Searching clients
+
+**Clients** searches by client or company name, email, phone and status; **Advanced** adds address, city, state, postcode, country, currency, credit balance, tax exempt and signup date. Closed clients are hidden from the list until you switch off **Hide closed clients** or pick **Closed** as the status. The search is kept in the web address, so a filtered list can be bookmarked or shared with other staff.
+
 ### Contacts
 
 A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client. Contacts can't sign in to the portal.

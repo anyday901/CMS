@@ -140,6 +140,8 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] CAPTCHA on public forms
 - [ ] GDPR tools: export a client's data, anonymise a closed account
 - [ ] Client notes and admin to-do list
+- [x] Advanced search on the admin clients list, hiding closed clients by default
+- [ ] Client groups (and a client group filter on the clients search)
 - [ ] Global search across clients, services, invoices, domains and tickets
 - [ ] Merge two client accounts
 - [ ] Marketing email opt-in and opt-out

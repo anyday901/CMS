@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\CustomField;
+use App\Support\ClientSearch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -17,20 +18,29 @@ class ClientController extends Controller
 {
     public function index(Request $request): View
     {
-        $search = trim((string) $request->query('q'));
+        $search = ClientSearch::fromRequest($request);
 
-        $clients = Client::query()
-            ->when($search !== '', fn ($query) => $query->where(fn ($q) => $q
-                ->where('first_name', 'like', "%{$search}%")
-                ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhere('company', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")))
+        $clients = $search->apply(Client::query())
             ->withCount('services')
             ->orderBy('last_name')
+            ->orderBy('first_name')
             ->paginate(25)
             ->withQueryString();
 
-        return view('admin.clients.index', compact('clients', 'search'));
+        return view('admin.clients.index', [
+            'clients' => $clients,
+            'search' => $search,
+            'closedCount' => $search->hidesClosed() ? $search->closedCount(Client::query()) : 0,
+            'countries' => $this->distinct('country'),
+            'currencies' => $this->distinct('currency'),
+        ]);
+    }
+
+    /** The values clients have for a column, for the search's dropdowns. */
+    private function distinct(string $column): array
+    {
+        return Client::query()->whereNotNull($column)->where($column, '!=', '')
+            ->distinct()->orderBy($column)->pluck($column)->all();
     }
 
     public function create(): View
