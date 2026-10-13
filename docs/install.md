@@ -276,7 +276,7 @@ Steps 2 to 4 can also be done in the admin area under **Settings > Import from W
 4. **Import for real.** To bring ticket attachments over, pass the WHMCS attachments folder:
 
    ```sh
-   sudo -u www-data php artisan whmcs:import --attachments=/path/to/whmcs/attachments
+   sudo -u www-data php artisan whmcs:import --attachments=/path/to/whmcs/attachments --hash='the cc_encryption_hash from WHMCS configuration.php'
    ```
 
    Everything is imported in one database transaction, so a failure part way leaves nothing behind.
@@ -297,7 +297,7 @@ What changes for clients:
 - Replies to old WHMCS ticket emails (with `[Ticket ID: 123456]` in the subject) still go to the right ticket.
 - Contacts with their own WHMCS logins become contacts without a login, since contacts can't log in here yet.
 - Custom WHMCS invoice numbers (from sequential paid invoice numbering) are kept in the invoice notes; the invoice number here is the WHMCS invoice id.
-- Products that used a WHMCS server module (such as cPanel) need a provisioning module chosen on their product page.
+- Products on the WHMCS cPanel, Plesk and DirectAdmin modules keep their module, package or service plan and server group, and services keep their server and login, so clients see how to log in and can use **Log in to the control panel**. Pass `--hash=` (or fill in **WHMCS encryption hash** in the walkthrough) with the `$cc_encryption_hash` from WHMCS's `configuration.php` to bring the passwords too. Proxmox products need their template, cores and memory set, and other WHMCS server modules need a provisioning module chosen on the product page.
 - Product add-ons and domains aren't supported yet, so they aren't imported. The report lists every active one, so you can fold an add-on into its service's price or bill it by hand.
 - Tax rules aren't imported. Add yours under **Tax** before the first billing run; the report reminds you when WHMCS charged tax.
 - Configurable options have one setup fee here. Where WHMCS had a different setup fee per billing cycle, the monthly one is kept and the report says so.

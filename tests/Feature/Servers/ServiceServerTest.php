@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Servers;
 
-use App\Billing\ServiceUpgrader;
-use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Enums\StaffRole;
 use App\Jobs\RunProvisioningAction;
@@ -17,7 +15,6 @@ use App\Ordering\Cart;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class ServiceServerTest extends TestCase
@@ -86,20 +83,6 @@ class ServiceServerTest extends TestCase
         $this->assertSame('done', $service->provisioning_status);
         $this->assertSame([self::PASSWORD, null], [$service->password, $service->new_password]);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'json-api/passwd') && $request['password'] === self::PASSWORD);
-    }
-
-    public function test_a_service_cannot_move_between_server_modules(): void
-    {
-        $plesk = Product::factory()->create(['name' => 'Plesk Web', 'module' => 'plesk', 'module_config' => ['plan' => 'Unlimited']]);
-        $plesk->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 700]);
-        $this->product->upgrades()->attach($plesk);
-
-        $this->actingAs($this->service->client, 'client');
-        $this->get("/portal/services/{$this->service->id}/upgrade")->assertOk()->assertDontSee('Plesk Web');
-
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("This service can't be moved to Plesk Web. Order it instead, then cancel this service.");
-        app(ServiceUpgrader::class)->staffQuote($this->service, $plesk, BillingCycle::Monthly, [], false);
     }
 
     public function test_before_the_account_exists_create_uses_the_new_password(): void

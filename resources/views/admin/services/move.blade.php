@@ -69,6 +69,9 @@
                 @endforeach
                 <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">{{ $charge && $quote->net() > 0 ? 'Invoice the move' : 'Move now' }}</button>
                 <p class="mt-2 text-ink-500">{{ $charge && $quote->net() > 0 ? 'The move happens once the invoice is paid.' : 'The move happens straight away.' }}</p>
+                @if ($migrates)
+                    <p class="mt-2 rounded-md bg-sun-300/40 px-3 py-2 text-amber-900">{{ $quote->product->name }} uses another module, so this moves the account: a new one is created on a server of that module, and the old one stays until you have copied the data and finish the move on the service page.</p>
+                @endif
             </form>
         </div>
     @endif

@@ -165,6 +165,7 @@ class ProductController extends Controller
                     'textarea' => ['max:5000'],
                     'url' => ['max:1000', 'url:http,https'],
                     'number' => ['integer', 'between:0,1000000000'],
+                    'select' => [Rule::in(array_keys($field['options'] ?? []))],
                     default => ['max:1000'],
                 },
             )])

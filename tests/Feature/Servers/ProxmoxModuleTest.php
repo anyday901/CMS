@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Models\User;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Modules\Proxmox;
 use App\Provisioning\ServerPicker;
@@ -25,6 +26,14 @@ class ProxmoxModuleTest extends TestCase
 
     private const VM = self::API.'nodes/pve1/qemu/105';
 
+    private const RESIZE = '/resize';
+
+    private const PURGE = '?purge=1&destroy-unreferenced-disks=1';
+
+    private const SHUTDOWN = '/status/shutdown';
+
+    private const LXC = 'nodes/pve1/lxc';
+
     private const TEMPLATE = 9000;
 
     private const NEW_ID = 105;
@@ -34,6 +43,8 @@ class ProxmoxModuleTest extends TestCase
     private const TAKEN_IP = '203.0.113.10';
 
     private const FREE_IP = '203.0.113.11';
+
+    private const OS_TEMPLATE = 'local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst';
 
     private Server $server;
 
@@ -75,7 +86,7 @@ class ProxmoxModuleTest extends TestCase
         $this->assertFalse($result->ok);
         $this->assertSame(30, $result->retryAfter);
         $this->assertSame('Cloning the template into VM 105.', $result->message);
-        $this->assertSame(['ip' => self::FREE_IP, 'vmid' => self::NEW_ID, 'node' => 'pve1'], collect($this->service->fresh()->provisioning_data)->except('clone_task')->all());
+        $this->assertSame(['ip' => self::FREE_IP, 'vmid' => self::NEW_ID, 'node' => 'pve1'], collect($this->service->fresh()->provisioning_data)->except('build_task')->all());
         Sleep::assertSleptTimes(9);
         Http::assertSent(fn (Request $request) => $request->url() === self::API.'nodes/pve1/qemu/9000/clone'
             && $request->header('Authorization')[0] === 'PVEAPIToken=root@pam!billing=uuid-secret'
@@ -90,7 +101,7 @@ class ProxmoxModuleTest extends TestCase
         $config = $this->sent('PUT', self::VM.self::CONFIG);
         $this->assertSame(['cores' => 2, 'memory' => 2048, 'ciuser' => 'root', 'ipconfig0' => 'ip=203.0.113.11/24,gw=203.0.113.1'], collect($config)->except('cipassword')->all());
         $this->assertSame($this->service->fresh()->password, $config['cipassword']);
-        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
+        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.self::RESIZE));
         $this->assertSame('running', $this->vms[self::NEW_ID]['status']);
         $this->assertSame(['IP address' => self::FREE_IP, 'Username' => 'root'], $this->module()->loginDetails($this->service->fresh()));
     }
@@ -127,7 +138,7 @@ class ProxmoxModuleTest extends TestCase
 
         $result = $this->module()->create($this->service);
 
-        $this->assertSame("VM 105 on Proxmox isn't this service's VM, so it was left alone. Run create again to clone a new one.", $result->message);
+        $this->assertSame("VM 105 on Proxmox isn't this service's, so it was left alone. Run create again to make a new one.", $result->message);
         $this->assertNull($this->service->fresh()->provisioning_data);
         $this->assertNull($this->sent('PUT', self::VM.self::CONFIG));
     }
@@ -141,8 +152,8 @@ class ProxmoxModuleTest extends TestCase
         $this->assertSame('Removed VM 105 from pve1.', $result->message);
         $this->assertSame(['ip' => null], $result->data);
         $this->assertArrayNotHasKey(self::NEW_ID, $this->vms);
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.'?purge=1&destroy-unreferenced-disks=1');
-        $this->assertSame('VM 105 was already gone.', $this->module()->terminate($this->service)->message);
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.self::PURGE);
+        $this->assertSame('105 was already gone from Proxmox.', $this->module()->terminate($this->service)->message);
     }
 
     public function test_suspend_shuts_the_vm_down_and_unsuspend_starts_it(): void
@@ -150,7 +161,7 @@ class ProxmoxModuleTest extends TestCase
         $this->ownVm('running');
 
         $this->assertSame('Shutting down VM 105. Proxmox turns it off after a minute if it hasn\'t shut down.', $this->module()->suspend($this->service)->message);
-        $this->assertSame(['forceStop' => 1, 'timeout' => 60], $this->sent('POST', self::VM.'/status/shutdown'));
+        $this->assertSame(['forceStop' => 1, 'timeout' => 60], $this->sent('POST', self::VM.self::SHUTDOWN));
 
         $this->vms[self::NEW_ID]['status'] = 'stopped';
         $this->assertSame('Started VM 105.', $this->module()->unsuspend($this->service)->message);
@@ -162,7 +173,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame('Set VM 105 to 2 cores and 2048 MB of memory, and restarted it so they apply.', $this->module()->changePackage($this->service)->message);
         $this->assertSame(['cores' => 2, 'memory' => 2048], $this->sent('PUT', self::VM.self::CONFIG));
-        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.'/resize'));
+        $this->assertSame(['disk' => 'scsi0', 'size' => '20G'], $this->sent('PUT', self::VM.self::RESIZE));
         $this->assertNotNull($this->sent('POST', self::VM.'/status/reboot'));
     }
 
@@ -187,7 +198,7 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame(['username' => 'root@pam', 'password' => 'rootpass'], $this->sent('POST', self::API.'access/ticket'));
         Http::assertSent(fn (Request $request) => str_contains($request->url(), 'cluster/resources') && str_contains($request->header('Cookie')[0] ?? '', 'PVEAuthCookie=PVE:root@pam:TICKET'));
-        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/status/shutdown') && $request->hasHeader('CSRFPreventionToken', 'CSRF1'));
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), self::SHUTDOWN) && $request->hasHeader('CSRFPreventionToken', 'CSRF1'));
     }
 
     public function test_every_address_in_use_fails_create(): void
@@ -197,6 +208,138 @@ class ProxmoxModuleTest extends TestCase
 
         $this->assertSame('Every address in the IP pool of pve is in use. Add more to the server, then run create again.', $this->module()->create($this->service)->message);
         $this->assertNull($this->sent('POST', self::API.'nodes/pve1/qemu/9000/clone'));
+    }
+
+    public function test_containers_are_made_from_the_os_template_with_an_address(): void
+    {
+        $this->useContainers();
+        $this->working = true;
+
+        $result = $this->module()->create($this->service);
+
+        $this->assertSame('Creating container 105.', $result->message);
+        $this->assertSame(30, $result->retryAfter);
+        $sent = $this->sent('POST', self::API.self::LXC);
+        $this->assertSame([
+            'vmid' => self::NEW_ID, 'ostemplate' => self::OS_TEMPLATE, 'hostname' => 'web1.example.com', 'description' => "[service {$this->service->id}] Ada Lovelace",
+            'cores' => 1, 'memory' => 512, 'rootfs' => 'local-lvm:16', 'net0' => 'name=eth0,bridge=vmbr1,ip=203.0.113.10/24,gw=203.0.113.1', 'unprivileged' => 1, 'start' => 1,
+        ], collect($sent)->except('password')->all());
+        $this->assertSame($this->service->fresh()->password, $sent['password']);
+
+        $this->working = false;
+        $result = $this->module()->create($this->service->fresh());
+
+        $this->assertTrue($result->ok, (string) $result->message);
+        $this->assertSame('Created container 105 on pve1 with the address 203.0.113.10.', $result->message);
+        $this->assertSame(['IP address' => self::TAKEN_IP, 'Username' => 'root'], $this->module()->loginDetails($this->service->fresh()));
+    }
+
+    public function test_containers_suspend_resize_and_terminate_through_the_lxc_api(): void
+    {
+        $this->useContainers();
+        $this->ownVm('running', 'lxc');
+        $this->service->forceFill(['password' => 'Some-pass-123'])->save();
+        $container = self::API.'nodes/pve1/lxc/105';
+
+        $this->assertSame('Shutting down Container 105. Proxmox turns it off after a minute if it hasn\'t shut down.', $this->module()->suspend($this->service)->message);
+        $this->assertNotNull($this->sent('POST', $container.self::SHUTDOWN));
+
+        $this->vms[self::NEW_ID]['status'] = 'running';
+        $this->assertSame('Set Container 105 to 1 cores and 512 MB of memory.', $this->module()->changePackage($this->service)->message);
+        $this->assertSame(['disk' => 'rootfs', 'size' => '16G'], $this->sent('PUT', $container.self::RESIZE));
+        $this->assertNull($this->sent('POST', $container.'/status/reboot'));
+
+        $this->assertFalse($this->module()->canChangePassword($this->service));
+        $this->assertSame('Proxmox can\'t set a password inside container 105. Reinstall it, or change the password inside the container.', $this->module()->changePassword($this->service)->message);
+
+        $this->assertSame('Removed Container 105 from pve1.', $this->module()->terminate($this->service)->message);
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === $container.self::PURGE);
+    }
+
+    public function test_reinstall_rebuilds_the_vm_with_the_same_id_address_and_password(): void
+    {
+        $this->ownVm('running');
+        $this->service->forceFill(['password' => 'Kept-pass-123', 'status' => 'active'])->save();
+
+        $result = $this->module()->reinstall($this->service);
+
+        $this->assertTrue($result->ok, (string) $result->message);
+        $this->assertSame('Reinstalled VM 105 on pve1 with the address 203.0.113.10.', $result->message);
+        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::VM.self::PURGE);
+        Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/clone') && $request['newid'] === self::NEW_ID);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'cluster/nextid'));
+        $this->assertSame('Kept-pass-123', $this->sent('PUT', self::VM.self::CONFIG)['cipassword']);
+        $this->assertSame(['ip' => self::TAKEN_IP, 'vmid' => self::NEW_ID, 'node' => 'pve1'], $this->service->fresh()->provisioning_data);
+    }
+
+    public function test_reinstall_comes_back_while_the_old_vm_is_removed(): void
+    {
+        $this->ownVm('running');
+        $this->working = true;
+
+        $result = $this->module()->reinstall($this->service);
+
+        $this->assertSame('Removing VM 105 to reinstall it.', $result->message);
+        $this->assertSame('removing', $this->service->fresh()->provisioning_data['reinstall']);
+    }
+
+    public function test_reinstall_leaves_a_vm_that_is_not_the_services_alone(): void
+    {
+        $this->ownVm('running');
+        $this->vms[self::NEW_ID]['config']['description'] = '[service 999] Someone else';
+
+        $this->assertSame("VM 105 on Proxmox isn't this service's, so it was left alone.", $this->module()->reinstall($this->service)->message);
+        $this->assertArrayHasKey(self::NEW_ID, $this->vms);
+    }
+
+    public function test_reinstall_of_a_container_makes_it_again(): void
+    {
+        $this->useContainers();
+        $this->ownVm('running', 'lxc');
+
+        $result = $this->module()->reinstall($this->service);
+
+        $this->assertSame('Reinstalled container 105 on pve1 with the address 203.0.113.10.', $result->message);
+        $this->assertSame(self::NEW_ID, $this->sent('POST', self::API.self::LXC)['vmid']);
+    }
+
+    public function test_clients_reinstall_from_the_portal_after_confirming(): void
+    {
+        $this->ownVm('running');
+        $this->service->forceFill(['status' => 'active', 'provisioned_at' => now(), 'password' => 'Kept-pass-123'])->save();
+        $this->actingAs($this->service->client, 'client');
+        $page = "/portal/services/{$this->service->id}";
+
+        $this->get($page)->assertSee('Everything on it is erased.');
+        $this->post("{$page}/reinstall")->assertSessionHasErrors('confirm');
+        $this->post("{$page}/reinstall", ['confirm' => '1'])->assertSessionHas('status');
+
+        $service = $this->service->fresh();
+        $this->assertSame(['reinstall', 'done'], [$service->provisioning_action, $service->provisioning_status], (string) $service->provisioning_error);
+        $this->assertSame('running', $this->vms[self::NEW_ID]['status']);
+    }
+
+    public function test_an_address_held_by_an_account_still_moving_away_is_not_handed_out(): void
+    {
+        $other = Service::factory()->create();
+        $other->accountMoves()->create(['status' => 'copying', 'from_server_id' => $this->server->id, 'from_module' => 'proxmox', 'from_data' => ['vmid' => 104, 'ip' => self::TAKEN_IP]]);
+
+        $this->module()->create($this->service);
+
+        $this->assertSame(self::FREE_IP, $this->service->fresh()->provisioning_data['ip']);
+    }
+
+    public function test_products_choose_between_vms_and_containers(): void
+    {
+        $this->actingAs(User::factory()->create(), 'web');
+        $this->get('/admin/products/create')->assertSee('Container (LXC)');
+        $fields = ['name' => 'CT', 'active' => '1', 'module' => 'proxmox', 'prices' => ['monthly' => ['price' => '5']]];
+        $settings = ['cores' => '1', 'memory' => '512', 'ostemplate' => self::OS_TEMPLATE];
+
+        $this->post('/admin/products', $fields + ['module_config' => ['proxmox' => $settings + ['type' => 'docker']]])->assertSessionHasErrors('module_config.proxmox.type');
+        $this->post('/admin/products', $fields + ['module_config' => ['proxmox' => $settings + ['type' => 'container']]])->assertRedirect();
+
+        $this->assertSame('container', Product::where('name', 'CT')->sole()->module_config['type']);
     }
 
     public function test_test_connection_reports_the_version(): void
@@ -209,10 +352,17 @@ class ProxmoxModuleTest extends TestCase
         return app(ModuleRegistry::class)->find('proxmox');
     }
 
-    /** Gives the service a VM made by an earlier create. */
-    private function ownVm(string $status): void
+    /** Makes the product's services containers. */
+    private function useContainers(): void
     {
-        $this->vms[self::NEW_ID] = ['node' => 'pve1', 'status' => $status, 'template' => 0, 'config' => ['description' => "[service {$this->service->id}] Ada", 'scsi0' => 'local-lvm:vm-105-disk-0,size=10G']];
+        $this->service->product->update(['module_config' => ['type' => 'container', 'ostemplate' => self::OS_TEMPLATE, 'cores' => '1', 'memory' => '512', 'disk_size' => '16', 'bridge' => 'vmbr1']]);
+        $this->service->load('product');
+    }
+
+    /** Gives the service a VM (or container) made by an earlier create. */
+    private function ownVm(string $status, string $type = 'qemu'): void
+    {
+        $this->vms[self::NEW_ID] = ['node' => 'pve1', 'status' => $status, 'template' => 0, 'type' => $type, 'config' => ['description' => "[service {$this->service->id}] Ada", 'scsi0' => 'local-lvm:vm-105-disk-0,size=10G', 'rootfs' => 'local-lvm:vm-105-disk-0,size=8G']];
         $this->service->forceFill(['username' => 'root', 'provisioning_data' => ['vmid' => self::NEW_ID, 'node' => 'pve1', 'ip' => self::TAKEN_IP]])->save();
     }
 
@@ -230,11 +380,13 @@ class ProxmoxModuleTest extends TestCase
         $path = str($request->url())->after('api2/json/')->before('?')->value();
         $task = fn (string $type) => "UPID:pve1:0001:0002:6700:{$type}:105:root@pam:";
 
-        if (preg_match('#^nodes/pve1/qemu/(\d+)(/.*)?$#', $path, $match)) {
+        if (preg_match('#^nodes/pve1/(?:qemu|lxc)/(\d+)(/.*)?$#', $path, $match)) {
             return $this->vmAnswer((int) $match[1], $match[2] ?? '', $request, $task);
         }
 
         return match ($path) {
+            self::LXC => $this->createContainer($request, $task),
+            'nodes' => [['node' => 'pve2', 'status' => 'offline'], ['node' => 'pve1', 'status' => 'online']],
             'version' => ['version' => '8.2.4'],
             'access/ticket' => ['ticket' => 'PVE:root@pam:TICKET', 'CSRFPreventionToken' => 'CSRF1'],
             'cluster/nextid' => (string) self::NEW_ID,
@@ -261,6 +413,16 @@ class ProxmoxModuleTest extends TestCase
             }),
             default => $task('qmtask'),
         };
+    }
+
+    private function createContainer(Request $request, Closure $task): string
+    {
+        $this->vms[(int) $request['vmid']] = ['node' => 'pve1', 'status' => 'running', 'template' => 0, 'type' => 'lxc', 'config' => [
+            'description' => $request['description'],
+            'rootfs' => "local-lvm:vm-{$request['vmid']}-disk-0,size=8G",
+        ]];
+
+        return $task('vzcreate');
     }
 
     private function cloneVm(Request $request, Closure $task): string

@@ -8,13 +8,14 @@ use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\SingleSignOn;
 
 /**
  * DirectAdmin user accounts, through its CMD_API commands on port 2222. Each
  * service is one DirectAdmin user on the product's user package. Logs in as
  * admin or a reseller, with the password or a login key.
  */
-class DirectAdmin extends ServerModule
+class DirectAdmin extends ServerModule implements SingleSignOn
 {
     private const DIRECTADMIN = 'DirectAdmin';
 
@@ -59,6 +60,25 @@ class DirectAdmin extends ServerModule
             'Control panel' => $service->server?->url(self::PORT),
             'Username' => $service->username,
         ]);
+    }
+
+    /**
+     * A one-time login URL from DirectAdmin's login keys, made while logged
+     * in as the user ("admin|user"), so it opens their panel.
+     */
+    public function loginUrl(Service $service, string $ip): string
+    {
+        return $this->reach($service, function (Server $server) use ($service) {
+            $answer = (new DirectAdminApi($server, self::PORT))->as(ServerAccount::username($service))->call('CMD_API_LOGIN_KEYS', [
+                'action' => 'create',
+                'type' => 'one_time_url',
+                'expiry' => '5m',
+                'login_keys_notify_on_creation' => '0',
+            ]);
+            $url = $answer['details'] ?? $answer['url'] ?? null;
+
+            return is_string($url) && str_starts_with($url, 'http') ? $url : throw new ModuleError('DirectAdmin didn\'t return a login address.');
+        });
     }
 
     protected function checkConnection(Server $server): ProvisioningResult

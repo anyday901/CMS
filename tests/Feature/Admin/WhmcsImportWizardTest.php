@@ -7,6 +7,8 @@ use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Server;
+use App\Models\Service;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,6 +57,18 @@ class WhmcsImportWizardTest extends TestCase
         }
 
         parent::tearDown();
+    }
+
+    public function test_the_encryption_hash_brings_passwords_over_and_stays_out_of_the_page(): void
+    {
+        $this->post(self::CONNECT, self::FROM_ENV + ['encryption_hash' => WhmcsDatabase::HASH])->assertRedirect(self::STEP_3);
+        $this->get(self::STEP_2)->assertOk()->assertSee('Given; enter it again to change it')->assertDontSee(WhmcsDatabase::HASH);
+
+        $this->post(self::URL.'/dry-run');
+        $this->post(self::IMPORT, self::CONFIRMED);
+
+        $this->assertSame(WhmcsDatabase::SERVICE_PASSWORD, Service::findOrFail(40)->password);
+        $this->assertSame(WhmcsDatabase::SERVER_PASSWORD, Server::sole()->password);
     }
 
     public function test_settings_links_to_the_walkthrough(): void

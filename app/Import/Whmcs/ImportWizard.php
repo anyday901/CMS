@@ -46,6 +46,9 @@ class ImportWizard
 
     private const PASSWORD = 'password';
 
+    /** WHMCS's cc_encryption_hash, kept encrypted like the password. */
+    private const HASH = 'encryption_hash';
+
     /** Session key of the dry run summary, also the run name in report links. */
     public const DRY_RUN_SUMMARY = 'dry_run';
 
@@ -82,7 +85,7 @@ class ImportWizard
     {
         $connection = $this->session->get(self::CONNECTION_KEY);
 
-        return $connection === null ? null : array_diff_key($connection, [self::PASSWORD => true]);
+        return $connection === null ? null : array_diff_key($connection, [self::PASSWORD => true, self::HASH => true]) + ['has_hash' => filled($connection[self::HASH] ?? null)];
     }
 
     /** @return array<string, mixed> the .env connection, for showing which database it points at */
@@ -107,6 +110,7 @@ class ImportWizard
         }
 
         $details[self::PASSWORD] = Crypt::encryptString((string) ($details[self::PASSWORD] ?? ''));
+        $details[self::HASH] = filled($details[self::HASH] ?? null) ? Crypt::encryptString(trim((string) $details[self::HASH])) : null;
         $source = $this->open($details);
 
         if (! $source->getSchemaBuilder()->hasTable('tblclients')) {
@@ -135,7 +139,8 @@ class ImportWizard
         set_time_limit(0);
         ignore_user_abort(true);
 
-        $report = (new WhmcsImporter(self::attachments($details)))
+        $hash = filled($details[self::HASH] ?? null) ? Crypt::decryptString($details[self::HASH]) : null;
+        $report = (new WhmcsImporter(self::attachments($details), $hash))
             ->run($this->open($details), $dryRun);
         $this->session->put(self::SESSION.'.'.($dryRun ? self::DRY_RUN_SUMMARY : 'import'), $this->summarize($report));
 

@@ -30,8 +30,29 @@
         @include('custom-fields._values', ['fields' => $fields, 'values' => $service->custom_fields ?? [], 'wide' => 'sm:col-span-3'])
         @if ($service->product->description)<div class="sm:col-span-3"><div class="text-ink-500">About</div>{!! nl2br(e($service->product->description)) !!}</div>@endif
     </div>
+    @if ($service->openMove)
+        <p class="mt-4 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">We're moving this service to a new server. Your current account keeps working until the move is finished, and we'll let you know if you need to do anything.</p>
+    @endif
+    @error('account')<p class="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{{ $message }}</p>@enderror
     @if ($login !== [])
-        <h2 class="mt-8 mb-3 text-lg font-semibold">Logging in</h2>
+        <div class="mt-8 mb-3 flex flex-wrap items-center gap-3">
+            <h2 class="text-lg font-semibold">Logging in</h2>
+            @if ($canLogIn)
+                <form method="POST" action="{{ route('portal.services.control-panel', $service) }}" target="_blank" class="ml-auto">@csrf
+                    <button class="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">Log in to the control panel</button>
+                </form>
+            @endif
+        </div>
+        @if ($service->provisioning_action === 'change_password' && $service->provisioning_status === 'failed')
+            <p class="mb-3 rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">Your last password change didn't go through, so the password below still works. Try again, or contact support if it keeps happening.</p>
+        @elseif (filled($service->new_password))
+            <p class="mb-3 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-800">Your new password is being set. Keep using the one below until it is.</p>
+        @endif
+        @if ($service->provisioning_action === 'reinstall' && $service->provisioning_status === 'pending')
+            <p class="mb-3 rounded-md bg-brand-50 px-4 py-3 text-sm text-brand-800">Reinstalling. It can take a few minutes.</p>
+        @elseif ($service->provisioning_action === 'reinstall' && $service->provisioning_status === 'failed')
+            <p class="mb-3 rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">The reinstall didn't finish. Our team has been told and will look into it.</p>
+        @endif
         <dl class="grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm sm:grid-cols-3">
             @foreach ($login as $name => $value)
                 <div><dt class="text-ink-500">{{ $name }}</dt><dd>@if (str_starts_with($value, 'https://') || str_starts_with($value, 'http://'))<a href="{{ $value }}" class="text-brand-600" target="_blank" rel="noopener">{{ $value }}</a>@else<code class="break-all">{{ $value }}</code>@endif</dd></div>
@@ -40,6 +61,35 @@
                 <div><dt class="text-ink-500">Password</dt><dd><details><summary class="cursor-pointer text-brand-600">Show</summary><code class="break-all">{{ $service->password }}</code></details></dd></div>
             @endif
         </dl>
+        @if ($canChangePassword)
+            <details class="mt-4 text-sm" @if ($errors->has('password')) open @endif>
+                <summary class="cursor-pointer text-brand-600">Change the password</summary>
+                <form method="POST" action="{{ route('portal.services.password', $service) }}" class="mt-3 grid max-w-xl gap-3 rounded-lg border border-ink-200 bg-white p-4 sm:grid-cols-2">
+                    @csrf @method('PUT')
+                    <label class="block">New password
+                        <input type="password" name="password" autocomplete="new-password" required class="mt-1 block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    </label>
+                    <label class="block">Type it again
+                        <input type="password" name="password_confirmation" autocomplete="new-password" required class="mt-1 block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    </label>
+                    @error('password')<p class="text-red-700 sm:col-span-2">{{ $message }}</p>@enderror
+                    <p class="text-ink-500 sm:col-span-2">At least 10 characters, with upper and lower case letters and a number. It replaces the control panel password{{ $service->username ? ' of '.$service->username : '' }}.</p>
+                    <div class="sm:col-span-2"><button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Change password</button></div>
+                </form>
+            </details>
+        @endif
+        @if ($canReinstall)
+            <details class="mt-4 text-sm" @if ($errors->has('confirm')) open @endif>
+                <summary class="cursor-pointer text-ink-600">Reinstall</summary>
+                <form method="POST" action="{{ route('portal.services.reinstall', $service) }}" class="mt-3 max-w-xl space-y-3 rounded-lg border border-red-200 bg-white p-4">
+                    @csrf
+                    <p>Reinstalling sets the server up again from scratch, with the same address and password. <strong>Everything on it is erased.</strong></p>
+                    <label class="flex items-start gap-2"><input type="checkbox" name="confirm" value="1" class="mt-1"> <span>I understand everything on this server will be erased.</span></label>
+                    @error('confirm')<p class="text-red-700">{{ $message }}</p>@enderror
+                    <button class="rounded-full px-4 py-2 font-medium text-red-700 ring-1 ring-red-300 hover:bg-red-50">Reinstall</button>
+                </form>
+            </details>
+        @endif
     @endif
     @if ($service->addons->isNotEmpty() || $addons->isNotEmpty())
         <h2 class="mt-8 mb-3 text-lg font-semibold">Add-ons</h2>

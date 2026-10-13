@@ -64,6 +64,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'store'])->middleware('throttle:10,1')->name('services.upgrade.store');
         Route::post('services/{service}/cancel', [Portal\CancellationController::class, 'store'])->middleware('throttle:10,1')->name('services.cancel');
         Route::delete('services/{service}/cancel', [Portal\CancellationController::class, 'destroy'])->name('services.cancel.destroy');
+        Route::post('services/{service}/control-panel', [Portal\ServiceAccountController::class, 'controlPanel'])->middleware('throttle:10,1')->name('services.control-panel');
+        Route::put('services/{service}/password', [Portal\ServiceAccountController::class, 'password'])->middleware('throttle:5,1')->name('services.password');
+        Route::post('services/{service}/reinstall', [Portal\ServiceAccountController::class, 'reinstall'])->middleware('throttle:3,1')->name('services.reinstall');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
         Route::middleware('throttle:20,1')->group(function () {
@@ -114,6 +117,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('cancellations/{cancellation}', [Admin\CancellationController::class, 'destroy'])->name('cancellations.destroy');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::put("{$service}/server", [Admin\ServiceController::class, 'server'])->name('services.server');
+            Route::post("{$service}/control-panel", [Admin\ServiceController::class, 'controlPanel'])->name('services.control-panel');
+            Route::post("{$service}/account-moves", [Admin\AccountMoveController::class, 'store'])->name('account-moves.store');
+            Route::post('account-moves/{move}/finish', [Admin\AccountMoveController::class, 'finish'])->name('account-moves.finish');
+            Route::delete('account-moves/{move}', [Admin\AccountMoveController::class, 'destroy'])->name('account-moves.destroy');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
                 ->name('services.action');

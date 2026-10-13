@@ -27,7 +27,7 @@ class ServiceController extends Controller
     public function show(Request $request, int $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules): View
     {
         $service = $request->user('client')->services()
-            ->with(['product.upgrades', 'server', 'pendingCancellation', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
+            ->with(['product.upgrades', 'server', 'pendingCancellation', 'openMove', 'parent.product', 'addons.product', 'upgrades' => fn ($query) => $query->where('status', ServiceUpgrade::PENDING)->with(['toProduct', 'invoice'])])
             ->findOrFail($service);
         $currency = $request->user('client')->currency;
         $owned = $service->addons->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->pluck('product_id');
@@ -43,6 +43,7 @@ class ServiceController extends Controller
             'canUpgrade' => $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
             'canCancel' => $canceller->problem($service) === null,
             'login' => $this->login($service, $modules),
+            ...ServiceAccountController::abilities($service, $modules),
         ]);
     }
 

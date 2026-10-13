@@ -15,7 +15,7 @@ use App\Models\Service;
 use App\Models\ServiceUpgrade;
 use App\Models\TaxRule;
 use App\Models\User;
-use App\Provisioning\ModuleRegistry;
+use App\Provisioning\AccountMover;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -44,7 +44,7 @@ class ServiceUpgrader
         private ConfigurableOptions $options,
         private CreditLedger $ledger,
         private CreditApplier $credit,
-        private ModuleRegistry $modules,
+        private AccountMover $mover,
     ) {}
 
     /** Why the client can't move this service right now, or null when they can. */
@@ -178,20 +178,22 @@ class ServiceUpgrader
     /**
      * Moves the service to its new product (and cycle). Called at once for a
      * move that costs nothing, or when the move's invoice is paid. Safe to
-     * call twice.
+     * call twice. A new product of another module that uses servers moves
+     * the account itself, to a server of that module (see AccountMover).
      */
     public function apply(ServiceUpgrade $upgrade): void
     {
-        $changed = DB::transaction(function () use ($upgrade) {
+        [$changed, $migrating] = DB::transaction(function () use ($upgrade) {
             $upgrade = ServiceUpgrade::lockForUpdate()->findOrFail($upgrade->id);
 
             if ($upgrade->status !== ServiceUpgrade::PENDING) {
-                return null;
+                return [null, false];
             }
 
             $service = Service::lockForUpdate()->with(['client', 'promotion', 'product'])->findOrFail($upgrade->service_id);
             $from = $service->description();
             $product = Product::findOrFail($upgrade->to_product_id);
+            $migrating = $this->mover->beginIfNeeded($service, $product, $upgrade->mover);
             $packageChanged = $this->move($service, $upgrade, $product);
 
             if ($upgrade->prorated_amount < 0) {
@@ -199,17 +201,15 @@ class ServiceUpgrader
             }
 
             $upgrade->update(['status' => ServiceUpgrade::APPLIED, 'applied_at' => now()]);
-            Activity::record("Moved {$from} to {$product->name}".($upgrade->to_cycle ? ', '.strtolower($service->billing_cycle->label()) : ''), $service, array_filter([
-                'recurring_amount' => ['from' => $upgrade->from_amount, 'to' => $upgrade->to_amount],
-                'billing_cycle' => $upgrade->to_cycle ? ['from' => $upgrade->from_cycle, 'to' => $upgrade->to_cycle] : null,
-                'prorated' => $upgrade->prorated_amount,
-            ], fn ($value) => $value !== null));
+            Activity::record("Moved {$from} to {$product->name}".($upgrade->to_cycle ? ', '.strtolower($service->billing_cycle->label()) : ''), $service, $upgrade->changes());
 
-            return $packageChanged ? $service : null;
+            return [$packageChanged ? $service : null, $migrating];
         });
 
         // Only a new product or options needs the module; a new cycle is billing alone.
-        if ($changed) {
+        if ($changed !== null && $migrating) {
+            $this->mover->queue($changed);
+        } elseif ($changed !== null) {
             ServiceChanged::dispatch($changed->refresh());
         }
     }
@@ -336,10 +336,6 @@ class ServiceUpgrader
      */
     private function price(Service $service, Product $product, BillingCycle $cycle, array $options, bool $charge): UpgradeQuote
     {
-        if (! $this->modules->canMove($service->product->module, $product->module)) {
-            throw new InvalidArgumentException("This service can't be moved to {$product->name}. Order it instead, then cancel this service.");
-        }
-
         $currency = $service->client->currency;
         $price = $product->priceFor($cycle, $currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$currency}.");
@@ -378,6 +374,7 @@ class ServiceUpgrader
         return match (true) {
             ! $service->billing_cycle->isRecurring() || $service->next_due_date === null => 'One-time services can\'t be upgraded or downgraded.',
             $service->pendingCancellation()->exists() => 'This service is set to be cancelled.',
+            $service->accountMoves()->open()->exists() => 'This service\'s account is still moving. Finish or cancel that move first.',
             default => null,
         };
     }

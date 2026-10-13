@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Import\Whmcs\WhmcsCrypt;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
@@ -10,12 +11,20 @@ use Illuminate\Support\Facades\DB;
 /**
  * A small WHMCS database in memory, with the tables and columns the importer
  * reads, and a little sample data: one USD client with a contact, a monthly
- * product with an option and a custom field, a service, an unpaid renewal
- * invoice, a paid invoice with its payment, and a ticket with a staff reply.
+ * cPanel product with an option and a custom field in a server group, a
+ * service with its login on a cPanel server, an unpaid renewal invoice, a
+ * paid invoice with its payment, and a ticket with a staff reply.
  */
 class WhmcsDatabase
 {
     public const CONNECTION = 'whmcs';
+
+    /** WHMCS's cc_encryption_hash, which stored passwords are encrypted with. */
+    public const HASH = 'Kx92lsQp0dLw7a1VbN3eRtYu';
+
+    public const SERVER_PASSWORD = 'Whm-root-pass1';
+
+    public const SERVICE_PASSWORD = 'Ada-cpanel-pass1';
 
     /** The VPS's monthly price. */
     private const PRICE = '13.00';
@@ -87,9 +96,10 @@ class WhmcsDatabase
     {
         $schema->create('tblproducts', function (Blueprint $t) {
             $t->id();
-            foreach (['name', 'description', 'hidden', 'retired', 'tax', 'paytype', 'servertype'] as $column) {
+            foreach (['name', 'description', 'hidden', 'retired', 'tax', 'paytype', 'servertype', 'configoption1'] as $column) {
                 $t->text($column)->nullable();
             }
+            $t->integer('servergroup')->default(0);
         });
         $schema->create('tblpricing', function (Blueprint $t) {
             $t->id();
@@ -161,6 +171,28 @@ class WhmcsDatabase
             $t->date('termination_date')->nullable();
             $t->string('domainstatus');
             $t->string('suspendreason')->nullable();
+            $t->integer('server')->default(0);
+            $t->string('username')->nullable();
+            $t->text('password')->nullable();
+            $t->string('dedicatedip')->nullable();
+        });
+        $schema->create('tblservers', function (Blueprint $t) {
+            $t->id();
+            foreach (['name', 'ipaddress', 'assignedips', 'hostname', 'type', 'username', 'password', 'accesshash', 'secure'] as $column) {
+                $t->text($column)->nullable();
+            }
+            $t->integer('port')->nullable();
+            $t->integer('maxaccounts')->default(0);
+            $t->integer('disabled')->default(0);
+        });
+        $schema->create('tblservergroups', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->integer('filltype')->default(1);
+        });
+        $schema->create('tblservergroupsrel', function (Blueprint $t) {
+            $t->integer('groupid');
+            $t->integer('serverid');
         });
         $schema->create('tblinvoices', function (Blueprint $t) {
             $t->id();
@@ -268,7 +300,15 @@ class WhmcsDatabase
         $db->table('tblusers_clients')->insert(['auth_user_id' => 1, 'client_id' => 7, 'owner' => 1]);
         $db->table('tblcontacts')->insert(['userid' => 7, 'firstname' => 'Bob', 'lastname' => 'Books', 'email' => 'bob@example.com', 'invoiceemails' => '1', 'supportemails' => '0']);
 
-        $db->table('tblproducts')->insert(['id' => 3, 'name' => 'VPS Small', 'description' => 'Fast<br>Cheap', 'tax' => '1', 'paytype' => 'recurring', 'servertype' => 'cpanel']);
+        $crypt = new WhmcsCrypt(self::HASH);
+        $db->table('tblservers')->insert([
+            ['id' => 1, 'name' => 'cp1', 'ipaddress' => '203.0.113.5', 'hostname' => 'cp1.example.test', 'type' => 'cpanel', 'username' => 'root', 'password' => $crypt->encrypt(self::SERVER_PASSWORD), 'accesshash' => "ABC\nDEF", 'secure' => 'on', 'port' => null, 'maxaccounts' => 300, 'disabled' => 0],
+            ['id' => 2, 'name' => 'Old box', 'ipaddress' => '', 'hostname' => 'old.example.test', 'type' => 'interworx', 'username' => '', 'password' => '', 'accesshash' => '', 'secure' => '', 'port' => null, 'maxaccounts' => 0, 'disabled' => 1],
+        ]);
+        $db->table('tblservergroups')->insert(['id' => 4, 'name' => 'Shared hosting', 'filltype' => 2]);
+        $db->table('tblservergroupsrel')->insert([['groupid' => 4, 'serverid' => 1], ['groupid' => 4, 'serverid' => 2]]);
+
+        $db->table('tblproducts')->insert(['id' => 3, 'name' => 'VPS Small', 'description' => 'Fast<br>Cheap', 'tax' => '1', 'paytype' => 'recurring', 'servertype' => 'cpanel', 'configoption1' => 'gold', 'servergroup' => 4]);
         $db->table('tblpricing')->insert(['type' => 'product', 'currency' => 1, 'relid' => 3, 'monthly' => '10.00', 'msetupfee' => '5.00', 'annually' => '100.00']);
 
         $db->table('tblproductconfiglinks')->insert(['gid' => 1, 'pid' => 3]);
@@ -285,6 +325,7 @@ class WhmcsDatabase
         $db->table('tblhosting')->insert([
             'id' => 40, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-01-15', 'domain' => 'vps1.example.com', 'amount' => self::PRICE,
             'billingcycle' => 'Monthly', 'nextduedate' => self::NOVEMBER, 'domainstatus' => 'Active',
+            'server' => 1, 'username' => 'ada', 'password' => $crypt->encrypt(self::SERVICE_PASSWORD), 'dedicatedip' => '',
         ]);
         $db->table('tblhostingconfigoptions')->insert(['relid' => 40, 'configid' => 11, 'optionid' => 22, 'qty' => 0]);
 

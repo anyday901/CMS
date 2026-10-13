@@ -80,6 +80,11 @@ abstract class ServerModule implements ChangesPackage, ChangesPassword, Provisio
         });
     }
 
+    public function canChangePassword(Service $service): bool
+    {
+        return true;
+    }
+
     public function testConnection(Server $server): ProvisioningResult
     {
         return $this->attempt($server, fn () => $this->checkConnection($server));
@@ -103,19 +108,38 @@ abstract class ServerModule implements ChangesPackage, ChangesPassword, Provisio
      *
      * @param  Closure(Server): ProvisioningResult  $action
      */
-    private function onServer(Service $service, Closure $action): ProvisioningResult
+    protected function onServer(Service $service, Closure $action): ProvisioningResult
     {
-        $server = $service->server;
-
-        if ($server === null) {
-            return ProvisioningResult::failed('The service has no server. Choose one on the service page, then run the action again.');
+        try {
+            return $this->reach($service, $action);
+        } catch (ModuleError $e) {
+            return ProvisioningResult::failed($e->getMessage());
         }
+    }
+
+    /**
+     * Runs $action on the service's server and returns what it returns. A
+     * missing or wrong server, or a failed connection, is a ModuleError.
+     *
+     * @template T
+     *
+     * @param  Closure(Server): T  $action
+     * @return T
+     */
+    protected function reach(Service $service, Closure $action): mixed
+    {
+        $server = $service->server
+            ?? throw new ModuleError('The service has no server. Choose one on the service page, then run the action again.');
 
         if ($server->module !== $this->key()) {
-            return ProvisioningResult::failed("The service's server {$server->name} isn't a {$this->label()} server. Choose another on the service page.");
+            throw new ModuleError("The service's server {$server->name} isn't a {$this->label()} server. Choose another on the service page.");
         }
 
-        return $this->attempt($server, fn () => $action($server));
+        try {
+            return $action($server);
+        } catch (ConnectionException $e) {
+            throw new ModuleError("Couldn't reach {$server->hostname}: {$e->getMessage()}", previous: $e);
+        }
     }
 
     /** @param  Closure(): ProvisioningResult  $action */

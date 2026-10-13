@@ -25,16 +25,6 @@ class ModuleRegistry
         return $this->all()->filter(fn (ProvisioningModule $module) => $module instanceof UsesServers);
     }
 
-    /**
-     * Whether a service can move between products of these modules. A module
-     * that uses servers can't hand its account to another module, or take
-     * one over from it.
-     */
-    public function canMove(?string $from, ?string $to): bool
-    {
-        return $from === $to || (! $this->find($from) instanceof UsesServers && ! $this->find($to) instanceof UsesServers);
-    }
-
     /** Whether services of the module are set up for a domain name, which the order then asks for. */
     public function needsDomain(?string $key): bool
     {

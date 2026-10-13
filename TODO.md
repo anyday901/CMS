@@ -115,12 +115,14 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] DirectAdmin module
 - [x] Proxmox module
 - [ ] Try the cPanel, Plesk, DirectAdmin and Proxmox modules against live servers (built from the vendors' API docs and tested with mocked replies)
-- [ ] Import servers, server groups and service logins from WHMCS
-- [ ] Clients change their control panel password from the portal
-- [ ] Move an account to another server from the service page
-- [ ] Upgrades and downgrades between products of different server modules (e.g. cPanel to Plesk), as a migration of the account
-- [ ] Proxmox LXC containers, and reinstalling a VM from its template
-- [ ] Client single sign-on to the control panel from the portal
+- [x] Import servers, server groups and service logins from WHMCS
+- [x] Clients change their control panel password from the portal
+- [x] Move an account to another server from the service page
+- [x] Upgrades and downgrades between products of different server modules (e.g. cPanel to Plesk), as a migration of the account
+- [x] Proxmox LXC containers, and reinstalling a VM from its template
+- [x] Client single sign-on to the control panel from the portal
+- [ ] Copy account data between servers automatically when moving (cPanel transfers, Proxmox migration), instead of by hand
+- [ ] Try WHMCS password decryption, single sign-on and Proxmox containers against a real WHMCS database and live servers
 - [ ] Usage statistics and usage-based billing (disk, bandwidth, overages)
 - [ ] Software licensing module
 - [ ] Server status monitoring

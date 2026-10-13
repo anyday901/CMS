@@ -96,6 +96,17 @@ class Service extends Model
         return $this->hasMany(ServiceUpgrade::class);
     }
 
+    public function accountMoves(): HasMany
+    {
+        return $this->hasMany(AccountMove::class);
+    }
+
+    /** The move to another server or module still under way, if there is one. */
+    public function openMove(): HasOne
+    {
+        return $this->hasOne(AccountMove::class)->ofMany(['id' => 'max'], fn ($query) => $query->whereIn('status', AccountMove::OPEN));
+    }
+
     public function cancellationRequests(): HasMany
     {
         return $this->hasMany(CancellationRequest::class);
