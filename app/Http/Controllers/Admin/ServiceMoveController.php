@@ -42,7 +42,7 @@ class ServiceMoveController extends Controller
             self::CHARGE => $request->boolean(self::CHARGE, true),
             'problem' => $this->upgrader->staffProblem($service, $request->boolean(self::CHARGE, true)),
             'canMoveFree' => $this->upgrader->staffProblem($service, false) === null,
-            'migrates' => $quote !== null && $this->mover->migrates($service->product->module, $quote->product->module),
+            'migrates' => $quote !== null && $this->mover->migrates($service->product, $quote->product),
         ]);
     }
 

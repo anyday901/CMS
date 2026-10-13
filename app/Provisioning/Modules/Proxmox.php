@@ -2,12 +2,14 @@
 
 namespace App\Provisioning\Modules;
 
+use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\Reinstalls;
 use App\Provisioning\ServerAccount;
+use App\Provisioning\SplitsAccountKinds;
 
 /**
  * Proxmox VE virtual machines and containers, through its API on port 8006.
@@ -19,7 +21,7 @@ use App\Provisioning\ServerAccount;
  * when it has one. Either can be reinstalled from its template. Logs in with
  * an API token, or a user and password.
  */
-class Proxmox extends ServerModule implements Reinstalls
+class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
 {
     private const PORT = 8006;
 
@@ -83,6 +85,14 @@ class Proxmox extends ServerModule implements Reinstalls
         $version = $this->api($server)->call('get', 'version')['version'] ?? null;
 
         return ProvisioningResult::ok('Connected to Proxmox VE'.($version ? " {$version}" : '').'.');
+    }
+
+    /** A VM can't become a container or the other way round, so that change builds a new one. */
+    public function needsNewAccount(Product $from, Product $to): bool
+    {
+        $container = fn (Product $product) => ($product->module_config['type'] ?? null) === ProxmoxPlan::CONTAINER;
+
+        return $container($from) !== $container($to);
     }
 
     /** Containers have no guest agent to set a password through. */

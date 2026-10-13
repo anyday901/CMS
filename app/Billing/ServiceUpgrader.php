@@ -193,7 +193,7 @@ class ServiceUpgrader
             $service = Service::lockForUpdate()->with(['client', 'promotion', 'product'])->findOrFail($upgrade->service_id);
             $from = $service->description();
             $product = Product::findOrFail($upgrade->to_product_id);
-            $migrating = $this->mover->migrates($service->product->module, $product->module);
+            $migrating = $this->mover->migrates($service->product, $product);
 
             if ($migrating) {
                 $this->mover->beginMigration($service, $product, $upgrade->moved_by ? User::find($upgrade->moved_by) : null);
@@ -383,6 +383,7 @@ class ServiceUpgrader
         return match (true) {
             ! $service->billing_cycle->isRecurring() || $service->next_due_date === null => 'One-time services can\'t be upgraded or downgraded.',
             $service->pendingCancellation()->exists() => 'This service is set to be cancelled.',
+            $service->accountMoves()->open()->exists() => 'This service\'s account is still moving. Finish or cancel that move first.',
             default => null,
         };
     }

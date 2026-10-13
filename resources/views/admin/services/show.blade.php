@@ -121,6 +121,11 @@
                 </form>
             @endcan
         </div>
+    @elseif ($service->openMove)
+        {{-- Moved to a product without a module: the old account still needs finishing. --}}
+        <div class="mb-8 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+            @include('admin.services._move_status')
+        </div>
     @endif
 
     @php $tasks = App\Models\FulfillmentTask::where('service_id', $service->id)->with(['service.client', 'service.product', 'completedBy'])->latest('id')->get(); @endphp

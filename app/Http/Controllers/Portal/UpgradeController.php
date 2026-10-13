@@ -53,7 +53,7 @@ class UpgradeController extends Controller
             'product' => $product,
             'quote' => $quote,
             'values' => (array) $request->input('options', []),
-            'migrates' => $mover->migrates($service->product->module, $product->module),
+            'migrates' => $mover->migrates($service->product, $product),
         ]);
     }
 

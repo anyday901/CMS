@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\User;
+use App\Provisioning\AccountMover;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\ServerPicker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -207,6 +208,36 @@ class AccountMoveTest extends TestCase
 
         $this->assertSame([], $this->accounts[self::CP1]);
         $this->assertSame(AccountMove::DONE, $move->fresh()->status);
+    }
+
+    public function test_a_move_to_a_product_without_a_module_can_still_be_finished_and_blocks_other_moves(): void
+    {
+        $plain = Product::factory()->create(['name' => 'Managed by hand', 'module' => null]);
+        $plain->prices()->create(['billing_cycle' => 'monthly', 'currency' => 'USD', 'price' => 900]);
+        $this->actingAs($this->staff, 'web');
+
+        $this->post($this->page().'/move', ['product_id' => $plain->id, 'billing_cycle' => 'monthly', 'charge' => '0']);
+
+        $move = AccountMove::sole();
+        $this->assertSame(AccountMove::COPYING, $move->status);
+        $this->get($this->page())->assertSee('Finish the move: remove the old account');
+        $this->get($this->page().'/move')->assertSee('This service&#039;s account is still moving. Finish or cancel that move first.', false);
+
+        $this->post("/admin/account-moves/{$move->id}/finish");
+        $this->assertSame([[], AccountMove::DONE], [$this->accounts[self::CP1], $move->fresh()->status]);
+    }
+
+    public function test_a_proxmox_vm_becoming_a_container_is_a_new_account(): void
+    {
+        $vm = Product::factory()->create(['module' => 'proxmox', 'module_config' => ['template' => 9000]]);
+        $container = Product::factory()->create(['module' => 'proxmox', 'module_config' => ['type' => 'container']]);
+        $biggerVm = Product::factory()->create(['module' => 'proxmox', 'module_config' => ['template' => 9000, 'cores' => 4]]);
+        $mover = app(AccountMover::class);
+
+        $this->assertTrue($mover->migrates($vm, $container));
+        $this->assertTrue($mover->migrates($container, $vm));
+        $this->assertFalse($mover->migrates($vm, $biggerVm));
+        $this->assertFalse($mover->migrates($this->service->product, $this->service->product));
     }
 
     public function test_clients_see_upgrades_to_other_modules_and_what_they_mean(): void

@@ -75,10 +75,16 @@ class AccountMover
         return $move;
     }
 
-    /** Whether moving between products of these modules means moving the account, rather than changing its package. */
-    public function migrates(?string $from, ?string $to): bool
+    /** Whether moving between these products means moving the account, rather than changing its package. */
+    public function migrates(Product $from, Product $to): bool
     {
-        return $from !== $to && ($this->modules->find($from) instanceof UsesServers || $this->modules->find($to) instanceof UsesServers);
+        if ($from->module === $to->module) {
+            $module = $this->modules->find($from->module);
+
+            return $module instanceof SplitsAccountKinds && $module->needsNewAccount($from, $to);
+        }
+
+        return $this->modules->find($from->module) instanceof UsesServers || $this->modules->find($to->module) instanceof UsesServers;
     }
 
     /**
