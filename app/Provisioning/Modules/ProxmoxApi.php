@@ -2,6 +2,8 @@
 
 namespace App\Provisioning\Modules;
 
+use App\Models\Server;
+use App\Models\Service;
 use App\Provisioning\ModuleError;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -26,6 +28,9 @@ final class ProxmoxApi extends ServerApi
 
     /** Seconds before a later run checks a task that is still going. */
     public const COME_BACK_SECONDS = 30;
+
+    /** The port Proxmox's API answers on. */
+    public const PORT = 8006;
 
     /** Checks of a running task in one run, POLL_SECONDS apart, before coming back later. */
     private const POLLS = 10;
@@ -75,6 +80,22 @@ final class ProxmoxApi extends ServerApi
             'template' => (bool) ($vm['template'] ?? false),
             'type' => (string) ($vm['type'] ?? self::QEMU),
         ];
+    }
+
+    /** The API of a Proxmox server. */
+    public static function for(Server $server): self
+    {
+        return new self($server, self::PORT);
+    }
+
+    /**
+     * @return array{int, array{node: string, status: string, template: bool, type: string}} the service's VM id and the VM or container
+     */
+    public function serviceVm(Service $service): array
+    {
+        $vmid = $service->provisioning_data['vmid'] ?? throw new ModuleError('The service has nothing on Proxmox yet. Run create first.');
+
+        return [(int) $vmid, $this->vm((int) $vmid) ?? throw new ModuleError("{$vmid} isn't on Proxmox.")];
     }
 
     /**

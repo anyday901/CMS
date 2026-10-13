@@ -36,7 +36,8 @@ class ServerMonitor
     public function check(Server $server): Server
     {
         $module = $this->modules->find($server->module);
-        $mainPort = $server->port ?: ($module instanceof UsesServers ? $module->defaultPort($server->secure) : null);
+        $modulePort = $module instanceof UsesServers ? $module->defaultPort($server->secure) : null;
+        $mainPort = $server->port ?: $modulePort;
         $ports = [];
 
         foreach (array_unique(array_filter([$mainPort, ...$server->monitoredPorts()])) as $port) {
@@ -45,7 +46,11 @@ class ServerMonitor
 
         $closed = array_keys(array_filter($ports, fn (?int $ms) => $ms === null));
         $facts = [];
-        $problems = $closed === [] ? [] : ['Port'.(count($closed) > 1 ? 's ' : ' ').implode(', ', $closed).(count($closed) > 1 ? " don't" : " doesn't").' answer.'];
+        $problems = [];
+
+        if ($closed !== []) {
+            $problems[] = (count($closed) > 1 ? 'Ports ' : 'Port ').implode(', ', $closed).(count($closed) > 1 ? " don't" : " doesn't").' answer.';
+        }
 
         if ($mainPort !== null && $ports[(string) $mainPort] === null) {
             $status = Server::DOWN;

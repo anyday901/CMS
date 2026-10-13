@@ -15,6 +15,9 @@ final class PleskApi extends ServerApi
 {
     private const PLESK = 'Plesk';
 
+    /** The subscription field naming its customer by id. */
+    public const OWNER_ID = 'owner-id';
+
     /** Plesk's error code for an object that doesn't exist. */
     private const NOT_FOUND = '1013';
 
@@ -67,6 +70,17 @@ final class PleskApi extends ServerApi
         }
 
         throw new ModuleError('Plesk: '.(trim((string) $result->errtext) ?: 'the request failed.'));
+    }
+
+    /** Whether a subscription's details name the customer as its owner (Plesk may leave the owner out). */
+    public static function ownedBy(?SimpleXMLElement $info, int $customerId, string $login): bool
+    {
+        return match (true) {
+            $info === null => true,
+            isset($info->{'owner-login'}) => (string) $info->{'owner-login'} === $login,
+            isset($info->{self::OWNER_ID}) => (int) $info->{self::OWNER_ID} === $customerId,
+            default => true,
+        };
     }
 
     private static function parse(string $xml): ?SimpleXMLElement

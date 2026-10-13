@@ -29,8 +29,6 @@ class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
 
     private const STATUS_SUSPENDED = 16;
 
-    private const OWNER_ID = 'owner-id';
-
     public function key(): string
     {
         return 'plesk';
@@ -153,7 +151,7 @@ class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
             'dataset' => ['gen_info' => []],
         ]]])->webspace->get);
 
-        if ($subscription !== null && ! $this->ownedBy($subscription->data->gen_info, $customerId, $service->username)) {
+        if ($subscription !== null && ! PleskApi::ownedBy($subscription->data->gen_info, $customerId, $service->username)) {
             return ProvisioningResult::failed("{$service->label} is already a subscription of another customer on {$server->name}.");
         }
 
@@ -220,17 +218,6 @@ class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
         return ProvisioningResult::ok("Changed the password of {$username}.");
     }
 
-    /** Whether a subscription's details name the customer as its owner (Plesk may leave the owner out). */
-    private function ownedBy(?SimpleXMLElement $info, int $customerId, string $login): bool
-    {
-        return match (true) {
-            $info === null => true,
-            isset($info->{'owner-login'}) => (string) $info->{'owner-login'} === $login,
-            isset($info->{self::OWNER_ID}) => (int) $info->{self::OWNER_ID} === $customerId,
-            default => true,
-        };
-    }
-
     /** The id of the service's customer, added unless an earlier run whose answer was lost already did. */
     private function customerId(Service $service, Server $server): int
     {
@@ -259,7 +246,7 @@ class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
     {
         // Plesk reads the nodes in this order.
         $packet = $this->packet($server, ['webspace' => ['add' => [
-            'gen_setup' => ['name' => $service->label, self::OWNER_ID => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
+            'gen_setup' => ['name' => $service->label, PleskApi::OWNER_ID => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
             'hosting' => ['vrt_hst' => [
                 'property' => [['name' => 'ftp_login', 'value' => $service->username], ['name' => 'ftp_password', 'value' => $service->password]],
                 'ip_address' => $ip,

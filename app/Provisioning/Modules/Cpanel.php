@@ -132,7 +132,7 @@ class Cpanel extends ServerModule implements CopiesAccounts, ReportsServerHealth
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
         $package = ProductSettings::of($service)->required('package', self::PACKAGE);
-        $existing = $this->account($server, $service->username);
+        $existing = $this->api($server)->account($service->username);
 
         if ($existing !== null) {
             // Already made, by an earlier run whose answer was lost.
@@ -175,7 +175,7 @@ class Cpanel extends ServerModule implements CopiesAccounts, ReportsServerHealth
     {
         $username = ServerAccount::username($service);
 
-        if ($this->account($server, $username) === null) {
+        if ($this->api($server)->account($username) === null) {
             return ProvisioningResult::ok("The account {$username} was already gone from {$server->name}.");
         }
 
@@ -199,12 +199,6 @@ class Cpanel extends ServerModule implements CopiesAccounts, ReportsServerHealth
         $this->whm($server, 'passwd', ['user' => $username, 'password' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username}.");
-    }
-
-    /** @return array<string, mixed>|null the account as WHM lists it, or null when the server has none by that name */
-    private function account(Server $server, string $username): ?array
-    {
-        return $this->api($server)->account($username);
     }
 
     /**

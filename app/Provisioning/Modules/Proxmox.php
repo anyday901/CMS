@@ -13,11 +13,7 @@ use App\Provisioning\Reinstalls;
 use App\Provisioning\ReportsServerHealth;
 use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
-use App\Provisioning\ServerHealth;
 use App\Provisioning\SplitsAccountKinds;
-use App\Provisioning\Usage;
-use Carbon\CarbonInterval;
-use Illuminate\Support\Collection;
 
 /**
  * Proxmox VE virtual machines and containers, through its API on port 8006.
@@ -32,7 +28,9 @@ use Illuminate\Support\Collection;
  */
 class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, ReportsServerHealth, ReportsUsage, SplitsAccountKinds
 {
-    private const PORT = 8006;
+    use ProxmoxReports;
+
+    private const PORT = ProxmoxApi::PORT;
 
     public function key(): string
     {
@@ -89,60 +87,9 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
         ]);
     }
 
-    /**
-     * Each VM's or container's disk and traffic from the cluster's resource
-     * list, in one call. Proxmox counts traffic (in and out) since the VM
-     * started, so that is reported as a counter. VMs only report disk use
-     * through a guest agent; without one their disk size is all there is.
-     */
-    public function usage(Server $server, Collection $services): array
-    {
-        $vms = collect($this->api($server)->call('get', 'cluster/resources', ['type' => 'vm']))->keyBy(fn (array $vm) => (int) ($vm['vmid'] ?? 0));
-        $usage = [];
-
-        foreach ($services as $service) {
-            $vm = $vms->get((int) ($service->provisioning_data['vmid'] ?? 0));
-
-            if ($vm !== null) {
-                $usage[$service->id] = new Usage(
-                    diskMb: Usage::fromBytes($vm['disk'] ?? null),
-                    diskLimitMb: Usage::fromBytes($vm['maxdisk'] ?? null),
-                    trafficCounter: (int) ($vm['netin'] ?? 0) + (int) ($vm['netout'] ?? 0),
-                );
-            }
-        }
-
-        return $usage;
-    }
-
-    /** Each node's CPU and memory use and uptime; a node that isn't online is a problem. */
-    public function health(Server $server): ServerHealth
-    {
-        $facts = [];
-        $problems = [];
-
-        foreach (collect($this->api($server)->call('get', 'cluster/resources', ['type' => 'node']))->sortBy('node') as $node) {
-            $name = (string) ($node['node'] ?? '?');
-
-            if (($node['status'] ?? 'online') !== 'online') {
-                $problems[] = "Node {$name} is ".($node['status'] ?? 'offline').'.';
-                $facts[$name] = (string) ($node['status'] ?? 'offline');
-
-                continue;
-            }
-
-            $memory = ($node['maxmem'] ?? 0) > 0 ? (int) round(100 * ($node['mem'] ?? 0) / $node['maxmem']) : null;
-            $facts[$name] = 'CPU '.(int) round(100 * (float) ($node['cpu'] ?? 0)).'%'
-                .($memory !== null ? ", memory {$memory}%" : '')
-                .(isset($node['uptime']) ? ', up '.CarbonInterval::seconds((int) $node['uptime'])->cascade()->forHumans(['parts' => 2, 'short' => true]) : '');
-        }
-
-        return new ServerHealth($facts, $problems);
-    }
-
     protected function checkConnection(Server $server): ProvisioningResult
     {
-        $version = $this->api($server)->call('get', 'version')['version'] ?? null;
+        $version = ProxmoxApi::for($server)->call('get', 'version')['version'] ?? null;
 
         return ProvisioningResult::ok('Connected to Proxmox VE'.($version ? " {$version}" : '').'.');
     }
@@ -166,7 +113,7 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
     {
         return $this->onServer($service, function (Server $server) use ($service) {
             ServerAccount::fillLogin($service, fn () => $this->newUsername($service, $server));
-            $api = $this->api($server);
+            $api = ProxmoxApi::for($server);
 
             return (new ProxmoxReinstall($api, $service))->run(ProxmoxBuild::for($api, $service, $server));
         });
@@ -184,7 +131,7 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
         return $this->onServer($service, function (Server $server) use ($service, $move) {
             $from = $move->fromServer ?? throw new ModuleError('The old account has no server to copy from.');
 
-            return (new ProxmoxMigration($this->api($from), $this->api($server), $service, $move))->run();
+            return (new ProxmoxMigration(ProxmoxApi::for($from), ProxmoxApi::for($server), $service, $move))->run();
         });
     }
 
@@ -196,13 +143,13 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        return ProxmoxBuild::for($this->api($server), $service, $server)->run();
+        return ProxmoxBuild::for(ProxmoxApi::for($server), $service, $server)->run();
     }
 
     protected function suspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
 
         $name = ProxmoxApi::name($vmid, $vm);
 
@@ -217,8 +164,8 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
 
     protected function unsuspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
 
         $name = ProxmoxApi::name($vmid, $vm);
 
@@ -234,7 +181,7 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
     /** Stops and deletes the VM or container with its disks, and frees its address. */
     protected function terminateAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
+        $api = ProxmoxApi::for($server);
         $vmid = $service->provisioning_data['vmid'] ?? null;
         $vm = $vmid === null ? null : $api->vm((int) $vmid);
 
@@ -270,8 +217,8 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
      */
     protected function changeAccountPackage(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
         $name = ProxmoxApi::name($vmid, $vm);
         $path = ProxmoxApi::path($vm['node'], $vmid, $vm['type']);
         $config = $api->call('get', "{$path}/config");
@@ -298,8 +245,8 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
     /** Sets the password inside the running VM, through the QEMU guest agent. */
     protected function changeAccountPassword(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
         $username = ServerAccount::username($service);
 
         if ($vm['type'] !== ProxmoxApi::QEMU) {
@@ -313,20 +260,5 @@ class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, Report
         $api->call('post', ProxmoxApi::path($vm['node'], $vmid).'/agent/set-user-password', ['username' => $username, 'password' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username} on VM {$vmid}.");
-    }
-
-    private function api(Server $server): ProxmoxApi
-    {
-        return new ProxmoxApi($server, self::PORT);
-    }
-
-    /**
-     * @return array{int, array{node: string, status: string, template: bool, type: string}} the service's VM id and the VM or container
-     */
-    private function existingVm(ProxmoxApi $api, Service $service): array
-    {
-        $vmid = $service->provisioning_data['vmid'] ?? throw new ModuleError('The service has nothing on Proxmox yet. Run create first.');
-
-        return [(int) $vmid, $api->vm((int) $vmid) ?? throw new ModuleError("{$vmid} isn't on Proxmox.")];
     }
 }

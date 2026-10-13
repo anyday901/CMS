@@ -40,6 +40,10 @@ class AccountCopyTest extends TestCase
 
     private const VM_IP = '203.0.113.10';
 
+    private const MIGRATE = '/migrate';
+
+    private const REMOTE_MIGRATE = '/remote_migrate';
+
     private User $staff;
 
     /** @var array<string, array<string, string>> cPanel accounts on each server: host => [username => domain] */
@@ -152,7 +156,7 @@ class AccountCopyTest extends TestCase
 
         app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
 
-        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/migrate'
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.self::MIGRATE
             && $request['target'] === 'pve2' && $request['online'] === 1 && $request['with-local-disks'] === 1);
         $move = AccountMove::sole();
         $this->assertSame([AccountMove::DONE, false], [$move->status, $move->remove_old]);
@@ -170,7 +174,7 @@ class AccountCopyTest extends TestCase
 
         app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
 
-        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/remote_migrate'
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.self::REMOTE_MIGRATE
             && $request['target-endpoint'] === 'host='.self::PVE_B.',apitoken=PVEAPIToken=root@pam!billing=token-b,fingerprint=AA:BB:CC,port=8006'
             && $request['target-vmid'] === 200 && $request['target-storage'] === 'local-lvm' && $request['target-bridge'] === 'vmbr0'
             && $request['online'] === 1 && $request['delete'] === 0);
@@ -193,8 +197,8 @@ class AccountCopyTest extends TestCase
 
         app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
 
-        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/remote_migrate');
-        Http::assertNotSent(fn (Request $request) => $request->url() === self::PVE_API.'/migrate');
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.self::REMOTE_MIGRATE);
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::PVE_API.self::MIGRATE);
         $this->assertTrue(AccountMove::sole()->remove_old);
     }
 
@@ -279,7 +283,7 @@ class AccountCopyTest extends TestCase
             $path === 'access/ticket' => ['ticket' => 'PVE:root@pam:TICKET', 'CSRFPreventionToken' => 'CSRF1'],
             str_ends_with($path, '/certificates/info') => [['filename' => 'pve-ssl.pem', 'fingerprint' => 'XX'], ['filename' => 'pveproxy-ssl.pem', 'fingerprint' => 'AA:BB:CC']],
             str_contains($path, '/tasks/') => ['status' => 'stopped', 'exitstatus' => 'OK'],
-            str_ends_with($path, '/migrate'), str_ends_with($path, '/remote_migrate'), str_ends_with($path, '/status/stop') => $task,
+            str_ends_with($path, self::MIGRATE), str_ends_with($path, self::REMOTE_MIGRATE), str_ends_with($path, '/status/stop') => $task,
             $request->method() === 'DELETE' => tap($task, function () use ($host) {
                 unset($this->vms[$host][105]);
             }),

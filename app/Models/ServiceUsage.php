@@ -63,6 +63,10 @@ class ServiceUsage extends Model
     /** "1.5 GB" or "300 MB". */
     public static function size(?int $mb): string
     {
-        return $mb === null ? '—' : ($mb >= 1024 ? rtrim(rtrim(number_format($mb / 1024, 1), '0'), '.').' GB' : number_format($mb).' MB');
+        return match (true) {
+            $mb === null => '—',
+            $mb >= 1024 => rtrim(rtrim(number_format($mb / 1024, 1), '0'), '.').' GB',
+            default => number_format($mb).' MB',
+        };
     }
 }

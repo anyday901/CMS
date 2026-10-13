@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use App\Models\Concerns\HasUsageAndLicense;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Service extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUsageAndLicense;
 
     protected $fillable = [
         'client_id', 'product_id', 'order_id', 'parent_service_id', 'label', 'billing_cycle', 'recurring_amount',
@@ -105,24 +106,6 @@ class Service extends Model
     public function openMove(): HasOne
     {
         return $this->hasOne(AccountMove::class)->ofMany(['id' => 'max'], fn ($query) => $query->whereIn('status', AccountMove::OPEN));
-    }
-
-    /** Disk and bandwidth use by month, for modules whose servers report it. */
-    public function usages(): HasMany
-    {
-        return $this->hasMany(ServiceUsage::class);
-    }
-
-    /** The latest month's use. */
-    public function currentUsage(): HasOne
-    {
-        return $this->hasOne(ServiceUsage::class)->latestOfMany('period');
-    }
-
-    /** The software license the licensing module issued for the service. */
-    public function license(): HasOne
-    {
-        return $this->hasOne(License::class);
     }
 
     public function cancellationRequests(): HasMany

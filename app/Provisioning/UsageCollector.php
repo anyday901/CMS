@@ -65,7 +65,11 @@ class UsageCollector
         if ($usage->trafficCounter !== null) {
             // The month's traffic is what the counter grew by between readings; a smaller reading means it started again.
             $previous = $row->counter_bytes ?? $service->usages()->whereDate('period', '<', $period)->orderByDesc('period')->value('counter_bytes');
-            $grown = $previous === null ? 0 : ($usage->trafficCounter >= $previous ? $usage->trafficCounter - $previous : $usage->trafficCounter);
+            $grown = match (true) {
+                $previous === null => 0,
+                $usage->trafficCounter >= $previous => $usage->trafficCounter - $previous,
+                default => $usage->trafficCounter,
+            };
             $row->counted_bytes = (int) $row->counted_bytes + $grown;
             $row->counter_bytes = $usage->trafficCounter;
             $bandwidth = intdiv($row->counted_bytes, self::BYTES_PER_MB);
