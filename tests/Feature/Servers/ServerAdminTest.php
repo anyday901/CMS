@@ -140,10 +140,13 @@ class ServerAdminTest extends TestCase
         $one = Server::factory()->create();
         $two = Server::factory()->create();
 
+        $this->get(self::SERVERS)->assertSee(self::GROUPS.'/create');
+        $this->get(self::GROUPS.'/create')->assertOk()->assertSee('Add server group')->assertSee($one->name);
         $this->post(self::GROUPS, ['name' => 'EU shared', 'fill_type' => ServerGroup::FILL, 'servers' => [$one->id, $two->id]])->assertRedirect(self::SERVERS);
         $group = ServerGroup::sole();
         $this->assertSame([$one->id, $two->id], $group->servers->pluck('id')->sort()->values()->all());
 
+        $this->get(self::GROUPS."/{$group->id}/edit")->assertOk()->assertSee('Edit EU shared');
         $this->put(self::GROUPS."/{$group->id}", ['name' => 'EU shared', 'fill_type' => ServerGroup::LEAST_USED, 'servers' => [$two->id]]);
         $group->refresh();
         $this->assertSame(ServerGroup::LEAST_USED, $group->fill_type);

@@ -169,7 +169,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);
             Route::resource('servers', Admin\ServerController::class)->except('show');
             Route::post('servers/{server}/test', [Admin\ServerController::class, 'test'])->name('servers.test');
-            Route::resource('server-groups', Admin\ServerGroupController::class)->only(['store', 'edit', 'update', 'destroy']);
+            Route::resource('server-groups', Admin\ServerGroupController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');

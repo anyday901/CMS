@@ -16,6 +16,11 @@ class ServerGroupController extends Controller
 {
     private const INDEX = 'admin.servers.index';
 
+    public function create(): View
+    {
+        return $this->form(new ServerGroup);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $group = new ServerGroup;
@@ -27,10 +32,7 @@ class ServerGroupController extends Controller
 
     public function edit(ServerGroup $serverGroup): View
     {
-        return view('admin.server-groups.edit', [
-            'group' => $serverGroup->load('servers'),
-            'servers' => Server::orderBy('name')->get(),
-        ]);
+        return $this->form($serverGroup->load('servers'));
     }
 
     public function update(Request $request, ServerGroup $serverGroup): RedirectResponse
@@ -48,6 +50,11 @@ class ServerGroupController extends Controller
         Activity::record("Deleted server group {$serverGroup->name}");
 
         return redirect()->route(self::INDEX)->with('status', 'Server group deleted.');
+    }
+
+    private function form(ServerGroup $group): View
+    {
+        return view('admin.server-groups.form', ['group' => $group, 'servers' => Server::orderBy('name')->get()]);
     }
 
     private function save(Request $request, ServerGroup $group): void

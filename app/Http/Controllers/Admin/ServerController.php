@@ -31,7 +31,6 @@ class ServerController extends Controller
             'servers' => Server::withAccountCount()->with('groups')->orderBy('name')->get(),
             'groups' => ServerGroup::with('servers')->withCount('products')->orderBy('name')->get(),
             'modules' => $this->modules->withServers(),
-            'group' => new ServerGroup,
         ]);
     }
 
