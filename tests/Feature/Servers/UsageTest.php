@@ -4,6 +4,7 @@ namespace Tests\Feature\Servers;
 
 use App\Billing\OverageBiller;
 use App\Enums\ServiceStatus;
+use App\Models\Client;
 use App\Models\InvoiceItem;
 use App\Models\Product;
 use App\Models\Server;
@@ -132,6 +133,9 @@ class UsageTest extends TestCase
         $small->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 100, 'bandwidth_mb' => 100]);
         $ended = Service::factory()->for($product)->create(['status' => ServiceStatus::Terminated]);
         $ended->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 5000]);
+        // Overage prices are in the billing currency only.
+        $euros = Service::factory()->for($product)->for(Client::factory()->create(['currency' => 'EUR']))->create();
+        $euros->usages()->create(['period' => self::SEPTEMBER, 'disk_mb' => 5000]);
 
         $invoices = app(OverageBiller::class)->run(CarbonImmutable::parse(self::OCTOBER));
 
@@ -146,6 +150,8 @@ class UsageTest extends TestCase
         $this->assertSame($invoice->id, $september->fresh()->invoice_id);
         $this->assertNotNull($ended->usages()->first()->billed_at);
         $this->assertNull($ended->usages()->first()->invoice_id);
+        $this->assertNotNull($euros->usages()->first()->billed_at);
+        $this->assertNull($euros->usages()->first()->invoice_id);
         $this->assertNull($october->fresh()->billed_at);
 
         $this->assertCount(0, app(OverageBiller::class)->run(CarbonImmutable::parse('2026-10-02')));

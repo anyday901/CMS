@@ -78,13 +78,16 @@ class ServerMonitor
         $server->forceFill(['status_ports' => $ports, 'status_load' => $facts ?: null, 'status_checked_at' => now()]);
 
         if ($status === $current) {
-            $server->forceFill(['status' => $status, 'status_detail' => $detail, 'status_misses' => 0, 'status_since' => $server->status_since ?? now()])->save();
+            $server->forceFill(['status' => $status, 'status_detail' => $detail, 'status_pending' => null, 'status_misses' => 0, 'status_since' => $server->status_since ?? now()])->save();
 
             return;
         }
 
-        if ($server->status_misses + 1 < self::CONFIRM) {
-            $server->forceFill(['status_misses' => $server->status_misses + 1])->save();
+        // Only checks in a row that found the same new status count towards it.
+        $misses = $server->status_pending === $status ? $server->status_misses + 1 : 1;
+
+        if ($misses < self::CONFIRM) {
+            $server->forceFill(['status_pending' => $status, 'status_misses' => $misses])->save();
 
             return;
         }
@@ -96,7 +99,7 @@ class ServerMonitor
             $server->outages()->create(['status' => $status, 'detail' => $detail, 'started_at' => now()]);
         }
 
-        $server->forceFill(['status' => $status, 'status_detail' => $detail, 'status_misses' => 0, 'status_since' => now()])->save();
+        $server->forceFill(['status' => $status, 'status_detail' => $detail, 'status_pending' => null, 'status_misses' => 0, 'status_since' => now()])->save();
         Activity::record("Server {$server->name} is ".strtolower($server->statusLabel()).($detail ? ": {$detail}" : ''), $server);
         $this->alert($server, $was, $detail);
     }

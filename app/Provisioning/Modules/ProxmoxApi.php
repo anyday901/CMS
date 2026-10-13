@@ -78,20 +78,34 @@ final class ProxmoxApi extends ServerApi
     }
 
     /**
-     * The cluster's name (null for a node on its own) and the node the API
-     * answers on.
+     * The cluster's name (null for a node on its own), the node the API
+     * answers on, and each member node's address, sorted by name.
      *
-     * @return array{name: ?string, node: string}
+     * @return array{name: ?string, node: string, members: array<string, string>}
      */
     public function cluster(): array
     {
         $status = collect($this->call('get', 'cluster/status'));
-        $node = $status->first(fn (array $entry) => ($entry['type'] ?? null) === 'node' && ! empty($entry['local']));
+        $nodes = $status->filter(fn (array $entry) => ($entry['type'] ?? null) === 'node' && isset($entry['name']));
+        $node = $nodes->first(fn (array $entry) => ! empty($entry['local']));
 
         return [
             'name' => $status->firstWhere('type', 'cluster')['name'] ?? null,
             'node' => isset($node['name']) ? (string) $node['name'] : $this->onlineNode(),
+            'members' => $nodes->mapWithKeys(fn (array $entry) => [(string) $entry['name'] => (string) ($entry['ip'] ?? '')])->sortKeys()->all(),
         ];
+    }
+
+    /**
+     * Whether two cluster() answers are the same cluster. Names aren't
+     * unique, so the member nodes and their addresses must match too.
+     *
+     * @param  array{name: ?string, members: array<string, string>}  $one
+     * @param  array{name: ?string, members: array<string, string>}  $other
+     */
+    public static function sameCluster(array $one, array $other): bool
+    {
+        return $one['name'] !== null && $one['name'] === $other['name'] && $one['members'] !== [] && $one['members'] === $other['members'];
     }
 
     /** The SHA-256 fingerprint of the node's web certificate, which another cluster checks when it connects. */

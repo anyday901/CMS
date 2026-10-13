@@ -54,7 +54,7 @@ final class ProxmoxMigration
         $running = $vm['status'] === ProxmoxApi::RUNNING;
         $live = $vm['type'] === ProxmoxApi::QEMU ? ['online' => (int) $running] : ['restart' => (int) $running];
 
-        if ($source['name'] !== null && $source['name'] === $target['name']) {
+        if (ProxmoxApi::sameCluster($source, $target)) {
             // The VM itself moves, so finishing the move must never remove it.
             $this->move->update(['remove_old' => false]);
 

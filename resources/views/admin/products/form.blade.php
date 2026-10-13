@@ -174,7 +174,7 @@
                                 <input name="overage_bandwidth_price" value="{{ old('overage_bandwidth_price', $product->overage_bandwidth_price ? Money::toInput($product->overage_bandwidth_price) : '') }}" placeholder="0.00" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                             </label>
                         </div>
-                        <p class="text-ink-500">Disk is billed on the month's last reading. Leave an allowance blank to not bill it. 1 GB is 1,024 MB.</p>
+                        <p class="text-ink-500">Disk is billed on the month's last reading. Leave an allowance blank to not bill it. 1 GB is 1,024 MB. Prices are in {{ config('billing.currency') }}; clients paying in another currency aren't charged overages.</p>
                     </div>
                 @endif
             </fieldset>

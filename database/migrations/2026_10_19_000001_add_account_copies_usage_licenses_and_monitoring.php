@@ -79,7 +79,9 @@ return new class extends Migration
             $table->text('status_detail')->nullable();
             $table->json('status_ports')->nullable();
             $table->json('status_load')->nullable();
-            // Checks in a row that disagreed with the status; it changes on the second.
+            // The status the latest checks found instead, and how many in a
+            // row found it; the status changes on the second.
+            $table->string('status_pending', 20)->nullable();
             $table->unsignedSmallInteger('status_misses')->default(0);
             $table->timestamp('status_checked_at')->nullable();
             $table->timestamp('status_since')->nullable();
@@ -101,7 +103,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('server_outages');
         Schema::table('servers', function (Blueprint $table) {
-            $table->dropColumn(['monitor', 'monitor_ports', 'status', 'status_detail', 'status_ports', 'status_load', 'status_misses', 'status_checked_at', 'status_since']);
+            $table->dropColumn(['monitor', 'monitor_ports', 'status', 'status_detail', 'status_ports', 'status_load', 'status_pending', 'status_misses', 'status_checked_at', 'status_since']);
         });
         Schema::dropIfExists('licenses');
         Schema::table('products', function (Blueprint $table) {

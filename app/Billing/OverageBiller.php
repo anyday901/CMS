@@ -86,8 +86,11 @@ class OverageBiller
                 ->with(['service.product', 'service.client'])
                 ->orderBy('period')->orderBy('id')
                 ->get();
-            // Overages are charged for services still running; ended ones just aren't billed.
-            $charged = $usages->filter(fn (ServiceUsage $usage) => in_array($usage->service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true))
+            // Overages are charged for services still running; ended ones just
+            // aren't billed. Overage prices are in the billing currency, so
+            // clients paying in another aren't charged them.
+            $charged = $usages->filter(fn (ServiceUsage $usage) => $client->currency === config('billing.currency')
+                && in_array($usage->service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true))
                 ->map(fn (ServiceUsage $usage) => [$usage, self::lines($usage, $usage->service->product)])
                 ->filter(fn (array $entry) => $entry[1] !== []);
             $invoice = null;

@@ -85,6 +85,24 @@ class ServerMonitorTest extends TestCase
         $this->get('/admin')->assertDontSee('cp1 is down');
     }
 
+    public function test_the_status_changes_only_when_two_checks_in_a_row_agree(): void
+    {
+        $server = Server::factory()->create(['name' => 'cp1', 'monitor_ports' => '80']);
+        $monitor = app(ServerMonitor::class);
+        $monitor->check($server);
+
+        // Down, then a warning: two different answers, so it stays up.
+        $this->open[2087] = false;
+        $monitor->check($server->refresh());
+        $this->open = [...$this->open, 2087 => true, 80 => false];
+        $monitor->check($server->refresh());
+        $this->assertSame([Server::UP, Server::WARNING, 1], [$server->refresh()->status, $server->status_pending, $server->status_misses]);
+        Notification::assertNothingSent();
+
+        $monitor->check($server);
+        $this->assertSame([Server::WARNING, null, 0], [$server->refresh()->status, $server->status_pending, $server->status_misses]);
+    }
+
     public function test_a_closed_extra_port_or_an_offline_node_is_a_warning(): void
     {
         $cpanel = Server::factory()->create(['name' => 'cp1', 'monitor_ports' => '80 21']);

@@ -48,7 +48,7 @@ class AccountCopyTest extends TestCase
     /** What WHM says of the transfer session. */
     private string $transferState = 'RUNNING';
 
-    /** @var array<string, array{cluster: ?string, node: string}> each Proxmox host's cluster and node */
+    /** @var array<string, array{cluster: ?string, node: string, members: array<string, string>}> each Proxmox host's cluster, node and member nodes */
     private array $clusters = [];
 
     /** @var array<string, array<int, array{node: string, status: string}>> VMs each Proxmox host's cluster lists */
@@ -186,6 +186,18 @@ class AccountCopyTest extends TestCase
         $this->assertSame(AccountMove::DONE, $move->fresh()->status);
     }
 
+    public function test_separate_clusters_with_the_same_name_use_remote_migration(): void
+    {
+        [$service, $to] = $this->proxmoxService(sameCluster: false);
+        $this->clusters[self::PVE_B] = ['cluster' => 'old', 'node' => 'pve1', 'members' => ['pve1' => '10.9.0.1']];
+
+        app(AccountMover::class)->toServer($service, $to, false, $this->staff, copy: true);
+
+        Http::assertSent(fn (Request $request) => $request->url() === self::PVE_API.'/remote_migrate');
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::PVE_API.'/migrate');
+        $this->assertTrue(AccountMove::sole()->remove_old);
+    }
+
     public function test_remote_migration_needs_an_api_token_on_the_new_server(): void
     {
         [$service, $to] = $this->proxmoxService(sameCluster: false);
@@ -218,9 +230,10 @@ class AccountCopyTest extends TestCase
         $service = Service::factory()->for($product)->create(['label' => 'vps1.example.com']);
         $service->forceFill(['server_id' => $from->id, 'username' => 'root', 'password' => 'Pass-word1', 'provisioned_at' => now(), 'provisioning_status' => 'done', 'provisioning_data' => ['vmid' => 105, 'node' => 'pve1', 'ip' => self::VM_IP]])->save();
 
+        $prod = ['pve1' => '10.0.0.1', 'pve2' => '10.0.0.2'];
         $this->clusters = $sameCluster
-            ? [self::PVE_A => ['cluster' => 'prod', 'node' => 'pve1'], self::PVE_B => ['cluster' => 'prod', 'node' => 'pve2']]
-            : [self::PVE_A => ['cluster' => 'old', 'node' => 'pve1'], self::PVE_B => ['cluster' => null, 'node' => 'pve9']];
+            ? [self::PVE_A => ['cluster' => 'prod', 'node' => 'pve1', 'members' => $prod], self::PVE_B => ['cluster' => 'prod', 'node' => 'pve2', 'members' => $prod]]
+            : [self::PVE_A => ['cluster' => 'old', 'node' => 'pve1', 'members' => $prod], self::PVE_B => ['cluster' => null, 'node' => 'pve9', 'members' => ['pve9' => '10.1.0.9']]];
         $this->vms = [self::PVE_A => [105 => ['node' => 'pve1', 'status' => 'running']], self::PVE_B => $sameCluster ? [105 => ['node' => 'pve1', 'status' => 'running']] : []];
 
         return [$service, $to];
@@ -259,7 +272,7 @@ class AccountCopyTest extends TestCase
         $data = match (true) {
             $path === 'cluster/status' => array_values(array_filter([
                 $this->clusters[$host]['cluster'] ? ['type' => 'cluster', 'name' => $this->clusters[$host]['cluster']] : null,
-                ['type' => 'node', 'name' => $this->clusters[$host]['node'], 'local' => 1],
+                ...collect($this->clusters[$host]['members'])->map(fn (string $ip, string $node) => ['type' => 'node', 'name' => $node, 'ip' => $ip, 'local' => (int) ($node === $this->clusters[$host]['node'])])->values()->all(),
             ])),
             $path === 'cluster/resources' => collect($this->vms[$host])->map(fn (array $vm, int $vmid) => ['vmid' => $vmid, 'type' => 'qemu', 'template' => 0, ...$vm])->values()->all(),
             $path === 'cluster/nextid' => '200',
