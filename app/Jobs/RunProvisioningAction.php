@@ -2,10 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Models\AccountMove;
 use App\Models\Activity;
 use App\Models\Service;
 use App\Notifications\StaffAlert;
 use App\Provisioning\AccountMover;
+use App\Provisioning\CopiesAccounts;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
 use App\Provisioning\ProvisioningModule;
@@ -45,10 +47,16 @@ class RunProvisioningAction implements ShouldQueue
         return [(new WithoutOverlapping("provisioning-{$this->service->id}"))->releaseAfter(self::WAIT_SECONDS)->expireAfter(900)];
     }
 
-    /** Keeps waiting for earlier actions, or for the module to finish, for up to an hour. */
+    /** Hours to keep waiting for earlier actions or the module: a day for copying an account, which can be big. */
+    private function hours(): int
+    {
+        return $this->action === Provisioner::COPY ? 24 : 1;
+    }
+
+    /** Keeps waiting for earlier actions, or for the module to finish, for up to an hour (a day for a copy). */
     public function retryUntil(): DateTimeInterface
     {
-        return now()->addHour();
+        return now()->addHours($this->hours());
     }
 
     public function handle(ModuleRegistry $modules, ServerPicker $servers): void
@@ -83,7 +91,8 @@ class RunProvisioningAction implements ShouldQueue
         $service = $this->service->fresh();
 
         if ($service && $this->sequence > $service->provisioning_finished) {
-            $error = "The {$this->action} action didn't finish within an hour, waiting for an earlier action or for the module. Run it again when the module is reachable.";
+            $within = $this->hours() === 1 ? 'an hour' : "{$this->hours()} hours";
+            $error = "The {$this->action} action didn't finish within {$within}, waiting for an earlier action or for the module. Run it again when the module is reachable.";
             $service->forceFill([
                 'provisioning_status' => Provisioner::FAILED,
                 'provisioning_error' => $error,
@@ -120,12 +129,24 @@ class RunProvisioningAction implements ShouldQueue
                 return ProvisioningResult::failed($problem);
             }
 
-            return $module->{Provisioner::method($this->action)}($service);
+            return $this->action === Provisioner::COPY
+                ? $this->copy($service, $module)
+                : $module->{Provisioner::method($this->action)}($service);
         } catch (Throwable $e) {
             Log::error('Provisioning action failed', ['service' => $service->id, 'action' => $this->action, 'exception' => $e]);
 
             return ProvisioningResult::failed($e->getMessage() ?: $e::class);
         }
+    }
+
+    /** Copies the account of the service's open move to its new server. */
+    private function copy(Service $service, ProvisioningModule $module): ProvisioningResult
+    {
+        $move = $service->openMove()->first();
+
+        return $move?->copy_data && $move->status === AccountMove::CREATING && $module instanceof CopiesAccounts
+            ? $module->copyAccount($service, $move)
+            : ProvisioningResult::failed('The service has no move waiting for its account to be copied.');
     }
 
     private function finish(Service $service, ProvisioningModule $module, ProvisioningResult $result): void
@@ -153,7 +174,7 @@ class RunProvisioningAction implements ShouldQueue
 
         if (! $result->ok) {
             $this->alert($service, $result->message);
-        } elseif ($this->action === 'create') {
+        } elseif (in_array($this->action, ['create', Provisioner::COPY], true)) {
             app(AccountMover::class)->created($service);
         }
     }

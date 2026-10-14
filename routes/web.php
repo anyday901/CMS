@@ -67,6 +67,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('services/{service}/control-panel', [Portal\ServiceAccountController::class, 'controlPanel'])->middleware('throttle:10,1')->name('services.control-panel');
         Route::put('services/{service}/password', [Portal\ServiceAccountController::class, 'password'])->middleware('throttle:5,1')->name('services.password');
         Route::post('services/{service}/reinstall', [Portal\ServiceAccountController::class, 'reinstall'])->middleware('throttle:3,1')->name('services.reinstall');
+        Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:10,1')->name('services.license.reissue');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
         Route::middleware('throttle:20,1')->group(function () {
@@ -121,6 +122,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post("{$service}/account-moves", [Admin\AccountMoveController::class, 'store'])->name('account-moves.store');
             Route::post('account-moves/{move}/finish', [Admin\AccountMoveController::class, 'finish'])->name('account-moves.finish');
             Route::delete('account-moves/{move}', [Admin\AccountMoveController::class, 'destroy'])->name('account-moves.destroy');
+            Route::post("{$service}/license/reissue", [Admin\ServiceController::class, 'reissueLicense'])->name('services.license.reissue');
             Route::post('services/{service}/{action}', [Admin\ServiceController::class, 'action'])
                 ->whereIn('action', ['suspend', 'unsuspend', 'terminate'])
                 ->name('services.action');
@@ -176,6 +178,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('product-options', Admin\ProductOptionController::class)->only(['edit', 'update', 'destroy']);
             Route::resource('servers', Admin\ServerController::class)->except('show');
             Route::post('servers/{server}/test', [Admin\ServerController::class, 'test'])->name('servers.test');
+            Route::post('servers/{server}/check', [Admin\ServerController::class, 'check'])->name('servers.check');
             Route::resource('server-groups', Admin\ServerGroupController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');

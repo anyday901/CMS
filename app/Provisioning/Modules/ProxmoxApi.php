@@ -2,6 +2,8 @@
 
 namespace App\Provisioning\Modules;
 
+use App\Models\Server;
+use App\Models\Service;
 use App\Provisioning\ModuleError;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -26,6 +28,9 @@ final class ProxmoxApi extends ServerApi
 
     /** Seconds before a later run checks a task that is still going. */
     public const COME_BACK_SECONDS = 30;
+
+    /** The port Proxmox's API answers on. */
+    public const PORT = 8006;
 
     /** Checks of a running task in one run, POLL_SECONDS apart, before coming back later. */
     private const POLLS = 10;
@@ -75,6 +80,62 @@ final class ProxmoxApi extends ServerApi
             'template' => (bool) ($vm['template'] ?? false),
             'type' => (string) ($vm['type'] ?? self::QEMU),
         ];
+    }
+
+    /** The API of a Proxmox server. */
+    public static function for(Server $server): self
+    {
+        return new self($server, self::PORT);
+    }
+
+    /**
+     * @return array{int, array{node: string, status: string, template: bool, type: string}} the service's VM id and the VM or container
+     */
+    public function serviceVm(Service $service): array
+    {
+        $vmid = $service->provisioning_data['vmid'] ?? throw new ModuleError('The service has nothing on Proxmox yet. Run create first.');
+
+        return [(int) $vmid, $this->vm((int) $vmid) ?? throw new ModuleError("{$vmid} isn't on Proxmox.")];
+    }
+
+    /**
+     * The cluster's name (null for a node on its own), the node the API
+     * answers on, and each member node's address, sorted by name.
+     *
+     * @return array{name: ?string, node: string, members: array<string, string>}
+     */
+    public function cluster(): array
+    {
+        $status = collect($this->call('get', 'cluster/status'));
+        $nodes = $status->filter(fn (array $entry) => ($entry['type'] ?? null) === 'node' && isset($entry['name']));
+        $node = $nodes->first(fn (array $entry) => ! empty($entry['local']));
+
+        return [
+            'name' => $status->firstWhere('type', 'cluster')['name'] ?? null,
+            'node' => isset($node['name']) ? (string) $node['name'] : $this->onlineNode(),
+            'members' => $nodes->mapWithKeys(fn (array $entry) => [(string) $entry['name'] => (string) ($entry['ip'] ?? '')])->sortKeys()->all(),
+        ];
+    }
+
+    /**
+     * Whether two cluster() answers are the same cluster. Names aren't
+     * unique, so the member nodes and their addresses must match too.
+     *
+     * @param  array{name: ?string, members: array<string, string>}  $one
+     * @param  array{name: ?string, members: array<string, string>}  $other
+     */
+    public static function sameCluster(array $one, array $other): bool
+    {
+        return $one['name'] !== null && $one['name'] === $other['name'] && $one['members'] !== [] && $one['members'] === $other['members'];
+    }
+
+    /** The SHA-256 fingerprint of the node's web certificate, which another cluster checks when it connects. */
+    public function fingerprint(string $node): ?string
+    {
+        $certificates = collect($this->call('get', "nodes/{$node}/certificates/info"));
+        $certificate = $certificates->firstWhere('filename', 'pveproxy-ssl.pem') ?? $certificates->firstWhere('filename', 'pve-ssl.pem');
+
+        return isset($certificate['fingerprint']) ? (string) $certificate['fingerprint'] : null;
     }
 
     /** The first node of the cluster that is online. */

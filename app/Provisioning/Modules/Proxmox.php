@@ -2,12 +2,16 @@
 
 namespace App\Provisioning\Modules;
 
+use App\Models\AccountMove;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\Service;
+use App\Provisioning\CopiesAccounts;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProvisioningResult;
 use App\Provisioning\Reinstalls;
+use App\Provisioning\ReportsServerHealth;
+use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
 use App\Provisioning\SplitsAccountKinds;
 
@@ -18,12 +22,15 @@ use App\Provisioning\SplitsAccountKinds;
  * by cloud-init, or an LXC container made from an OS template (see
  * ProxmoxContainer) with the password for root. Both get the product's CPU
  * cores, memory and disk size, and an address from the server's IP pool
- * when it has one. Either can be reinstalled from its template. Logs in with
- * an API token, or a user and password.
+ * when it has one. Either can be reinstalled from its template, and moved to
+ * another server by migrating it (see ProxmoxMigration). Logs in with an API
+ * token, or a user and password.
  */
-class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
+class Proxmox extends ServerModule implements CopiesAccounts, Reinstalls, ReportsServerHealth, ReportsUsage, SplitsAccountKinds
 {
-    private const PORT = 8006;
+    use ProxmoxReports;
+
+    private const PORT = ProxmoxApi::PORT;
 
     public function key(): string
     {
@@ -82,7 +89,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
 
     protected function checkConnection(Server $server): ProvisioningResult
     {
-        $version = $this->api($server)->call('get', 'version')['version'] ?? null;
+        $version = ProxmoxApi::for($server)->call('get', 'version')['version'] ?? null;
 
         return ProvisioningResult::ok('Connected to Proxmox VE'.($version ? " {$version}" : '').'.');
     }
@@ -106,9 +113,25 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
     {
         return $this->onServer($service, function (Server $server) use ($service) {
             ServerAccount::fillLogin($service, fn () => $this->newUsername($service, $server));
-            $api = $this->api($server);
+            $api = ProxmoxApi::for($server);
 
             return (new ProxmoxReinstall($api, $service))->run(ProxmoxBuild::for($api, $service, $server));
+        });
+    }
+
+    /** Whether the servers are one cluster is only known by asking them, so a migration is always offered. */
+    public function copyProblem(Server $from, Server $to): ?string
+    {
+        return null;
+    }
+
+    /** Migrates the VM or container to the new server: inside its cluster, or to another cluster by remote migration. */
+    public function copyAccount(Service $service, AccountMove $move): ProvisioningResult
+    {
+        return $this->onServer($service, function (Server $server) use ($service, $move) {
+            $from = $move->fromServer ?? throw new ModuleError('The old account has no server to copy from.');
+
+            return (new ProxmoxMigration(ProxmoxApi::for($from), ProxmoxApi::for($server), $service, $move))->run();
         });
     }
 
@@ -120,13 +143,13 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
 
     protected function createAccount(Service $service, Server $server): ProvisioningResult
     {
-        return ProxmoxBuild::for($this->api($server), $service, $server)->run();
+        return ProxmoxBuild::for(ProxmoxApi::for($server), $service, $server)->run();
     }
 
     protected function suspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
 
         $name = ProxmoxApi::name($vmid, $vm);
 
@@ -141,8 +164,8 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
 
     protected function unsuspendAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
 
         $name = ProxmoxApi::name($vmid, $vm);
 
@@ -158,7 +181,7 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
     /** Stops and deletes the VM or container with its disks, and frees its address. */
     protected function terminateAccount(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
+        $api = ProxmoxApi::for($server);
         $vmid = $service->provisioning_data['vmid'] ?? null;
         $vm = $vmid === null ? null : $api->vm((int) $vmid);
 
@@ -194,8 +217,8 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
      */
     protected function changeAccountPackage(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
         $name = ProxmoxApi::name($vmid, $vm);
         $path = ProxmoxApi::path($vm['node'], $vmid, $vm['type']);
         $config = $api->call('get', "{$path}/config");
@@ -222,8 +245,8 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
     /** Sets the password inside the running VM, through the QEMU guest agent. */
     protected function changeAccountPassword(Service $service, Server $server): ProvisioningResult
     {
-        $api = $this->api($server);
-        [$vmid, $vm] = $this->existingVm($api, $service);
+        $api = ProxmoxApi::for($server);
+        [$vmid, $vm] = $api->serviceVm($service);
         $username = ServerAccount::username($service);
 
         if ($vm['type'] !== ProxmoxApi::QEMU) {
@@ -237,20 +260,5 @@ class Proxmox extends ServerModule implements Reinstalls, SplitsAccountKinds
         $api->call('post', ProxmoxApi::path($vm['node'], $vmid).'/agent/set-user-password', ['username' => $username, 'password' => $service->password]);
 
         return ProvisioningResult::ok("Changed the password of {$username} on VM {$vmid}.");
-    }
-
-    private function api(Server $server): ProxmoxApi
-    {
-        return new ProxmoxApi($server, self::PORT);
-    }
-
-    /**
-     * @return array{int, array{node: string, status: string, template: bool, type: string}} the service's VM id and the VM or container
-     */
-    private function existingVm(ProxmoxApi $api, Service $service): array
-    {
-        $vmid = $service->provisioning_data['vmid'] ?? throw new ModuleError('The service has nothing on Proxmox yet. Run create first.');
-
-        return [(int) $vmid, $api->vm((int) $vmid) ?? throw new ModuleError("{$vmid} isn't on Proxmox.")];
     }
 }

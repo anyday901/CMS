@@ -7,8 +7,11 @@ use App\Models\Service;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ProductSettings;
 use App\Provisioning\ProvisioningResult;
+use App\Provisioning\ReportsUsage;
 use App\Provisioning\ServerAccount;
 use App\Provisioning\SingleSignOn;
+use App\Provisioning\Usage;
+use Illuminate\Support\Collection;
 use SimpleXMLElement;
 
 /**
@@ -18,15 +21,13 @@ use SimpleXMLElement;
  * the product's service plan. Logs in as admin or a reseller, with the
  * password or a secret key.
  */
-class Plesk extends ServerModule implements SingleSignOn
+class Plesk extends ServerModule implements ReportsUsage, SingleSignOn
 {
     private const PLAN = 'service plan';
 
     private const STATUS_ACTIVE = 0;
 
     private const STATUS_SUSPENDED = 16;
-
-    private const OWNER_ID = 'owner-id';
 
     public function key(): string
     {
@@ -88,6 +89,48 @@ class Plesk extends ServerModule implements SingleSignOn
         });
     }
 
+    /**
+     * Each subscription's disk use (gen_info real_size), traffic this month
+     * (stat) and its disk_space and max_traffic limits, in one packet for
+     * the whole server.
+     */
+    public function usage(Server $server, Collection $services): array
+    {
+        $byDomain = $services->filter(fn (Service $service) => filled($service->label))->keyBy(fn (Service $service) => strtolower($service->label));
+
+        if ($byDomain->isEmpty()) {
+            return [];
+        }
+
+        $packet = $this->packet($server, ['webspace' => ['get' => [
+            'filter' => ['name' => $byDomain->keys()->all()],
+            'dataset' => ['gen_info' => [], 'stat' => [], 'limits' => []],
+        ]]]);
+        $usage = [];
+
+        foreach ($packet->webspace->get->result ?? [] as $result) {
+            $service = $byDomain->get(strtolower((string) $result->data->gen_info->name));
+
+            if ((string) $result->status !== 'ok' || $service === null) {
+                continue;
+            }
+
+            $limits = [];
+            foreach ($result->data->limits->limit ?? [] as $limit) {
+                $limits[(string) $limit->name] = (string) $limit->value;
+            }
+
+            $usage[$service->id] = new Usage(
+                diskMb: Usage::fromBytes((string) $result->data->gen_info->real_size) ?? 0,
+                diskLimitMb: Usage::fromBytes($limits['disk_space'] ?? null),
+                bandwidthMb: Usage::fromBytes((string) $result->data->stat->traffic) ?? 0,
+                bandwidthLimitMb: Usage::fromBytes($limits['max_traffic'] ?? null),
+            );
+        }
+
+        return $usage;
+    }
+
     protected function checkConnection(Server $server): ProvisioningResult
     {
         $result = PleskApi::result($this->packet($server, ['server' => ['get' => ['stat' => []]]])->server->get);
@@ -108,7 +151,7 @@ class Plesk extends ServerModule implements SingleSignOn
             'dataset' => ['gen_info' => []],
         ]]])->webspace->get);
 
-        if ($subscription !== null && ! $this->ownedBy($subscription->data->gen_info, $customerId, $service->username)) {
+        if ($subscription !== null && ! PleskApi::ownedBy($subscription->data->gen_info, $customerId, $service->username)) {
             return ProvisioningResult::failed("{$service->label} is already a subscription of another customer on {$server->name}.");
         }
 
@@ -175,17 +218,6 @@ class Plesk extends ServerModule implements SingleSignOn
         return ProvisioningResult::ok("Changed the password of {$username}.");
     }
 
-    /** Whether a subscription's details name the customer as its owner (Plesk may leave the owner out). */
-    private function ownedBy(?SimpleXMLElement $info, int $customerId, string $login): bool
-    {
-        return match (true) {
-            $info === null => true,
-            isset($info->{'owner-login'}) => (string) $info->{'owner-login'} === $login,
-            isset($info->{self::OWNER_ID}) => (int) $info->{self::OWNER_ID} === $customerId,
-            default => true,
-        };
-    }
-
     /** The id of the service's customer, added unless an earlier run whose answer was lost already did. */
     private function customerId(Service $service, Server $server): int
     {
@@ -214,7 +246,7 @@ class Plesk extends ServerModule implements SingleSignOn
     {
         // Plesk reads the nodes in this order.
         $packet = $this->packet($server, ['webspace' => ['add' => [
-            'gen_setup' => ['name' => $service->label, self::OWNER_ID => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
+            'gen_setup' => ['name' => $service->label, PleskApi::OWNER_ID => $customerId, 'htype' => 'vrt_hst', 'ip_address' => $ip, 'status' => self::STATUS_ACTIVE],
             'hosting' => ['vrt_hst' => [
                 'property' => [['name' => 'ftp_login', 'value' => $service->username], ['name' => 'ftp_password', 'value' => $service->password]],
                 'ip_address' => $ip,

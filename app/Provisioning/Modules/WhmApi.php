@@ -35,4 +35,12 @@ final class WhmApi extends ServerApi
 
         throw is_string($reason) && $reason !== '' ? new ModuleError(self::WHM.": {$reason}") : $this->unexpected(self::WHM, $response, $function);
     }
+
+    /** @return array<string, mixed>|null the account as WHM lists it, or null when the server has none by that name */
+    public function account(string $username, string $want = 'user,domain,suspended,plan'): ?array
+    {
+        $accounts = $this->call('listaccts', ['search' => $username, 'searchtype' => 'user', 'searchmethod' => 'exact', 'want' => $want]);
+
+        return collect($accounts['acct'] ?? [])->first(fn (array $account) => ($account['user'] ?? null) === $username);
+    }
 }

@@ -16,6 +16,16 @@
         @endforeach
     </div>
 
+    @if ($serverProblems->isNotEmpty())
+        <div class="mt-6 space-y-2">
+            @foreach ($serverProblems as $server)
+                <a href="{{ route('admin.servers.index') }}" class="block rounded-md px-4 py-3 text-sm {{ $server->status === App\Models\Server::DOWN ? 'bg-red-50 text-red-800' : 'bg-orange-50 text-orange-800' }}">
+                    <strong>{{ $server->name }} is {{ strtolower($server->statusLabel()) }}</strong> since {{ $server->status_since?->format('M j, g:ia') }}.@if ($server->status_detail) {{ $server->status_detail }}@endif
+                </a>
+            @endforeach
+        </div>
+    @endif
+
     @if ($pendingOrders->isNotEmpty())
         <h2 class="mb-3 mt-10 text-lg font-semibold">Pending orders</h2>
         @include('admin.orders._table', ['orders' => $pendingOrders])

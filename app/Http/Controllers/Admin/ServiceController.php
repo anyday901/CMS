@@ -19,6 +19,7 @@ use App\Models\Server;
 use App\Models\Service;
 use App\Provisioning\AccountMover;
 use App\Provisioning\ControlPanelLogin;
+use App\Provisioning\CopiesAccounts;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
@@ -80,6 +81,9 @@ class ServiceController extends Controller
         $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server', 'openMove.fromServer', 'openMove.fromProduct']);
         $module = $modules->find($service->product->module);
         $servers = $module instanceof UsesServers ? Server::where('module', $module->key())->withAccountCount()->orderBy('name')->get() : null;
+        $moveTo = $servers !== null && $mover->problem($service) === null
+            ? $servers->filter(fn (Server $server) => $server->active && $server->id !== $service->server_id && $server->hasRoom())
+            : collect();
 
         return view('admin.services.show', [
             'service' => $service,
@@ -87,9 +91,9 @@ class ServiceController extends Controller
             // Servers the service can be put on, for modules that use them.
             'servers' => $servers,
             // Servers the account can move to, when it can move.
-            'moveTo' => $servers !== null && $mover->problem($service) === null
-                ? $servers->filter(fn (Server $server) => $server->active && $server->id !== $service->server_id && $server->hasRoom())
-                : collect(),
+            'moveTo' => $moveTo,
+            // Why the module can't copy the account to each of those itself, by server id; null when it copies by hand only.
+            'copyProblems' => $module instanceof CopiesAccounts ? $moveTo->mapWithKeys(fn (Server $server) => [$server->id => $mover->copyProblem($service, $server)]) : null,
             'canLogIn' => $module instanceof SingleSignOn && $service->status === ServiceStatus::Active && $service->provisioned_at !== null,
             'fields' => CustomField::forService($service->product_id)->get(),
             'canMove' => $upgrader->staffProblem($service, false) === null,
@@ -214,6 +218,16 @@ class ServiceController extends Controller
         return redirect()->away($url);
     }
 
+    /** Frees the service's software license from where it was installed. */
+    public function reissueLicense(Service $service): RedirectResponse
+    {
+        abort_if($service->license === null, 404);
+        $service->license->reissue();
+        Activity::record("Reissued the license of {$service->description()}", $service);
+
+        return back()->with('status', 'License reissued. It locks to the next place it is installed.');
+    }
+
     /** Runs a module action again, usually after fixing what made it fail. */
     public function provision(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
     {
@@ -221,7 +235,7 @@ class ServiceController extends Controller
 
         $module = $modules->find($service->product->module);
         abort_if($module === null, 422, 'This service\'s product has no provisioning module.');
-        abort_unless(Provisioner::supports($module, $data['action']), 422, 'This module can\'t run that action.');
+        abort_unless(in_array($data['action'], Provisioner::staffActions($module, $service), true), 422, 'This module can\'t run that action now.');
 
         $provisioner->queue($service, $data['action'], retry: true);
         Activity::record("Queued {$data['action']} on the provisioning module for {$service->description()}", $service);

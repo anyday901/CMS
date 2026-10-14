@@ -27,9 +27,9 @@ interface ProvisioningModule
      * Settings shown on the product form and saved in the product's
      * module_config, keyed by field name. "type" is text (the default),
      * textarea, url, number (a whole number) or select, which offers
-     * "options" (value => label).
+     * "options" (value => label). "min" is the shortest a text may be.
      *
-     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>}>
+     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>, min?: int}>
      */
     public function configFields(): array;
 

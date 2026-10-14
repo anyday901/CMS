@@ -20,12 +20,21 @@ class Server extends Model
 
     protected $fillable = [
         'name', 'module', 'hostname', 'ip_address', 'assigned_ips', 'port', 'secure', 'verify_tls',
-        'username', 'password', 'api_token', 'max_accounts', 'active',
+        'username', 'password', 'api_token', 'max_accounts', 'active', 'monitor', 'monitor_ports',
     ];
 
     protected $hidden = ['password', 'api_token'];
 
-    protected $attributes = ['secure' => true, 'verify_tls' => true, 'max_accounts' => 200, 'active' => true];
+    protected $attributes = ['secure' => true, 'verify_tls' => true, 'max_accounts' => 200, 'active' => true, 'monitor' => true];
+
+    /** Monitoring: everything answers. */
+    public const UP = 'up';
+
+    /** Monitoring: the module's port answers, but another port or a node doesn't. */
+    public const WARNING = 'warning';
+
+    /** Monitoring: the module's port doesn't answer. */
+    public const DOWN = 'down';
 
     protected function casts(): array
     {
@@ -37,7 +46,52 @@ class Server extends Model
             'api_token' => 'encrypted',
             'max_accounts' => 'integer',
             'active' => 'boolean',
+            'monitor' => 'boolean',
+            'status_ports' => 'array',
+            'status_load' => 'array',
+            'status_misses' => 'integer',
+            'status_checked_at' => 'datetime',
+            'status_since' => 'datetime',
         ];
+    }
+
+    public function outages(): HasMany
+    {
+        return $this->hasMany(ServerOutage::class);
+    }
+
+    /** The extra ports to check from monitor_ports, e.g. "80, 443, 21". */
+    public function monitoredPorts(): array
+    {
+        $ports = array_map('intval', preg_split('/[\s,]+/', (string) $this->monitor_ports, -1, PREG_SPLIT_NO_EMPTY));
+
+        return array_values(array_unique(array_filter($ports, fn (int $port) => $port >= 1 && $port <= 65535)));
+    }
+
+    /** "Up", "Warning", "Down" or "Not checked yet". */
+    public function statusLabel(): string
+    {
+        return $this->status ? ucfirst($this->status) : 'Not checked yet';
+    }
+
+    /**
+     * The share of the last $days days (or since the server was added) it
+     * wasn't down, from 0 to 100; null before its first check.
+     */
+    public function uptime(int $days = 30): ?float
+    {
+        if ($this->status_checked_at === null) {
+            return null;
+        }
+
+        $since = now()->subDays($days)->max($this->created_at ?? now()->subDays($days));
+        $window = max(1, now()->diffInSeconds($since, true));
+        $down = $this->outages()->where('status', self::DOWN)
+            ->where(fn ($outages) => $outages->whereNull('ended_at')->orWhere('ended_at', '>', $since))
+            ->get()
+            ->sum(fn (ServerOutage $outage) => ($outage->ended_at ?? now())->diffInSeconds($outage->started_at->max($since), true));
+
+        return round(100 * max(0, 1 - $down / $window), 2);
     }
 
     public function groups(): BelongsToMany

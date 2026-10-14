@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Portal;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Models\License;
 use App\Models\Service;
 use App\Provisioning\ControlPanelLogin;
 use App\Provisioning\ModuleError;
 use App\Provisioning\ModuleRegistry;
+use App\Provisioning\Modules\Licensing;
 use App\Provisioning\Provisioner;
 use App\Provisioning\SingleSignOn;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +19,8 @@ use Illuminate\Validation\Rules\Password;
 
 /**
  * What clients do to the account behind a service from the portal: log in
- * to its control panel, change its password, and reinstall it.
+ * to its control panel, change its password, reinstall it, and reissue its
+ * software license.
  */
 class ServiceAccountController extends Controller
 {
@@ -34,6 +37,7 @@ class ServiceAccountController extends Controller
             'canLogIn' => $ready && $module instanceof SingleSignOn,
             'canChangePassword' => $ready && Provisioner::canChangePassword($module, $service),
             'canReinstall' => $ready && $idle && $module !== null && Provisioner::supports($module, 'reinstall'),
+            'canReissue' => $module instanceof Licensing && $service->license?->status === License::ACTIVE && Licensing::clientsReissue($service),
         ];
     }
 
@@ -87,6 +91,18 @@ class ServiceAccountController extends Controller
         $provisioner->queue($service, 'reinstall');
 
         return back()->with('status', 'Reinstalling. It can take a few minutes; this page shows when it\'s done.');
+    }
+
+    /** Frees the license from where it was installed, so it can be installed somewhere else. */
+    public function reissue(Request $request, int $service): RedirectResponse
+    {
+        $service = $this->service($request, $service);
+        abort_unless(self::abilities($service, $this->modules)['canReissue'], 403);
+
+        $service->license->reissue();
+        Activity::record("Reissued the license of {$service->description()}", $service);
+
+        return back()->with('status', 'License reissued. It locks to the next place it is installed.');
     }
 
     private function service(Request $request, int $id): Service

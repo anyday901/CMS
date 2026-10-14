@@ -9,7 +9,10 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $server->exists ? 'Edit '.$server->name : 'Add server' }}</h1>
         @if ($server->exists)
-            <form method="POST" action="{{ route('admin.servers.test', $server) }}" class="ml-auto">@csrf
+            <form method="POST" action="{{ route('admin.servers.check', $server) }}" class="ml-auto">@csrf
+                <button class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Check status</button>
+            </form>
+            <form method="POST" action="{{ route('admin.servers.test', $server) }}">@csrf
                 <button class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Test connection</button>
             </form>
         @endif
@@ -77,6 +80,18 @@
         </div>
         <input type="hidden" name="active" value="0">
         <label class="flex items-center gap-2"><input type="checkbox" name="active" value="1" @checked(old('active', $server->active))> Active: new accounts can go on this server</label>
+
+        <fieldset class="space-y-3 border-t border-ink-100 pt-4">
+            <legend class="font-semibold">Status monitoring</legend>
+            <input type="hidden" name="monitor" value="0">
+            <label class="flex items-start gap-2"><input type="checkbox" name="monitor" value="1" class="mt-0.5" @checked(old('monitor', $server->monitor))>
+                <span>Check every five minutes that the server answers on its module's port, and email admins when it goes down or comes back.</span></label>
+            <label class="block">Also check these ports
+                <input name="monitor_ports" value="{{ old('monitor_ports', $server->monitor_ports) }}" placeholder="80, 443, 21, 25" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">Such as the web server (80, 443), FTP (21) and mail (25, 993). One that doesn't answer puts the server in warning.</span>
+            </label>
+            @error('monitor_ports')<p class="text-red-700">{{ $message }}</p>@enderror
+        </fieldset>
 
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button>
     </form>

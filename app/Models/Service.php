@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
+use App\Models\Concerns\HasUsageAndLicense;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Service extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUsageAndLicense;
 
     protected $fillable = [
         'client_id', 'product_id', 'order_id', 'parent_service_id', 'label', 'billing_cycle', 'recurring_amount',

@@ -25,12 +25,14 @@ class AccountMoveController extends Controller
         $data = $request->validate(['to_server_id' => ['required', Rule::exists('servers', 'id')]]);
 
         try {
-            $move = $this->mover->toServer($service, Server::findOrFail($data['to_server_id']), $request->boolean('remove_at_once'), $request->user());
+            $move = $this->mover->toServer($service, Server::findOrFail($data['to_server_id']), $request->boolean('remove_at_once'), $request->user(), $request->boolean('copy_data'));
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages([self::MOVE => $e->getMessage()]);
         }
 
-        return back()->with('status', "Creating the account on {$move->toServer->name}. The old one stays until you finish the move.");
+        return back()->with('status', $move->copy_data
+            ? "Copying the account to {$move->toServer->name}. The old one stays until you finish the move."
+            : "Creating the account on {$move->toServer->name}. The old one stays until you finish the move.");
     }
 
     /** Removes the old account, once the data has been copied. */

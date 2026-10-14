@@ -2,8 +2,12 @@
 @if ($move = $service->openMove)
     <div class="mb-3 rounded-md bg-sun-300/40 px-3 py-2 text-amber-900">
         <div class="font-medium">Moving{{ $move->fromServer ? " from {$move->fromServer->name}" : '' }}{{ $service->server ? " to {$service->server->name}" : '' }}{{ $move->changesProduct() && $move->fromProduct ? " (was {$move->fromProduct->name})" : '' }}: {{ strtolower($move->statusLabel()) }}</div>
-        @if ($move->status === App\Models\AccountMove::CREATING)
+        @if ($move->status === App\Models\AccountMove::CREATING && $move->copy_data)
+            <p>The module is copying the account and its data to the new server. It can take a while for a big account.</p>
+        @elseif ($move->status === App\Models\AccountMove::CREATING)
             <p>The new account is being created. The client keeps using the old one{{ $move->from_username ? " ({$move->from_username})" : '' }} until the move is finished.</p>
+        @elseif ($move->status === App\Models\AccountMove::COPYING && $move->copy_data)
+            <p>The account has been copied. Check the new one works, then finish the move to remove the old account{{ $move->from_username ? " ({$move->from_username})" : '' }}.</p>
         @elseif ($move->status === App\Models\AccountMove::COPYING)
             <p>The new account is ready. Copy the client's data over from the old account{{ $move->from_username ? " ({$move->from_username})" : '' }}, then finish the move to remove the old one.</p>
         @elseif ($move->status === App\Models\AccountMove::REMOVING)

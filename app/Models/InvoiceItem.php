@@ -26,6 +26,9 @@ class InvoiceItem extends Model
     /** The prorated charge for moving a service to a dearer product. */
     public const TYPE_UPGRADE = 'upgrade';
 
+    /** Disk or bandwidth used over what the product includes, billed after the month. */
+    public const TYPE_OVERAGE = 'overage';
+
     protected $fillable = [
         'invoice_id', 'service_id', 'type', 'description', 'amount', 'taxable',
         'period_start', 'period_end',

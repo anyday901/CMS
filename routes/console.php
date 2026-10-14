@@ -3,21 +3,27 @@
 use App\Billing\InvoiceGenerator;
 use App\Billing\InvoiceReminders;
 use App\Billing\LateFeeProcessor;
+use App\Billing\OverageBiller;
 use App\Billing\OverdueProcessor;
 use App\Billing\RefundReconciler;
 use App\Billing\ServiceCanceller;
 use App\Models\Activity;
 use App\Models\Department;
+use App\Monitoring\ServerMonitor;
+use App\Provisioning\UsageCollector;
 use App\Tickets\InboundMail;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
+Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, OverageBiller $overages, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
     $cancelled = $cancellations->run(today());
     $this->info("Cancelled {$cancelled} service(s) at the end of their billing period.");
 
     $invoices = $generator->generate(today());
     $this->info("Generated {$invoices->count()} invoice(s).");
+
+    $overageInvoices = $overages->run(today());
+    $this->info("Generated {$overageInvoices->count()} overage invoice(s).");
 
     $charged = $lateFees->run(today());
     $this->info("Added late fees to {$charged} invoice(s).");
@@ -30,7 +36,7 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
 
     $settled = $refunds->run();
     $this->info("Pending refunds: {$settled['completed']} completed, {$settled['failed']} failed.");
-})->purpose('Carry out cancellation requests, generate renewal invoices, add late fees, send overdue reminders, process overdue services and check pending refunds');
+})->purpose('Carry out cancellation requests, generate renewal and overage invoices, add late fees, send overdue reminders, process overdue services and check pending refunds');
 
 Artisan::command('activity:prune', function () {
     $days = config('activity.retention_days');
@@ -62,5 +68,22 @@ Artisan::command('tickets:pipe {file? : Read the email from this file instead of
     return 0;
 })->purpose('Read an email on standard input and add it to a ticket or open a new one');
 
+Artisan::command('usage:collect', function (UsageCollector $collector) {
+    $result = $collector->collect(now());
+    $this->info("Read the disk and bandwidth use of {$result['services']} service(s).");
+
+    foreach ($result['errors'] as $error) {
+        $this->warn("Couldn't read usage from {$error}");
+    }
+})->purpose('Read disk and bandwidth use from the servers whose modules report it');
+
+Artisan::command('servers:check', function (ServerMonitor $monitor) {
+    foreach ($monitor->checkAll() as $server) {
+        $this->line("{$server->name}: {$server->statusLabel()}".($server->status_detail ? " ({$server->status_detail})" : ''));
+    }
+})->purpose('Check that each monitored server and its ports answer, and email staff when one goes down or comes back');
+
 Schedule::command('billing:run')->dailyAt('00:05')->withoutOverlapping();
+Schedule::command('usage:collect')->hourlyAt(50)->withoutOverlapping();
+Schedule::command('servers:check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('activity:prune')->dailyAt('03:15');

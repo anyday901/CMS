@@ -17,7 +17,7 @@ class AccountMove extends Model
     /** The new account is being created. */
     public const CREATING = 'creating';
 
-    /** The new account is ready; staff copy the data, then finish the move. */
+    /** The new account is ready; staff copy the data (or check the module's copy), then finish the move. */
     public const COPYING = 'copying';
 
     /** The old account is being removed. */
@@ -42,7 +42,7 @@ class AccountMove extends Model
 
     protected $fillable = [
         'service_id', 'status', 'from_product_id', 'to_product_id', 'from_server_id', 'to_server_id', 'from_module',
-        'from_label', 'from_username', 'from_password', 'from_data', 'remove_old', 'remove_at_once', 'error', 'requested_by', 'finished_at',
+        'from_label', 'from_username', 'from_password', 'from_data', 'remove_old', 'remove_at_once', 'copy_data', 'error', 'requested_by', 'finished_at',
     ];
 
     protected $hidden = ['from_password'];
@@ -54,6 +54,7 @@ class AccountMove extends Model
             'from_data' => 'array',
             'remove_old' => 'boolean',
             'remove_at_once' => 'boolean',
+            'copy_data' => 'boolean',
             'finished_at' => 'datetime',
         ];
     }
@@ -103,8 +104,8 @@ class AccountMove extends Model
     public function statusLabel(): string
     {
         return match ($this->status) {
-            self::CREATING => 'Creating the new account',
-            self::COPYING => 'Waiting for the data to be copied',
+            self::CREATING => $this->copy_data ? 'Copying the account to the new server' : 'Creating the new account',
+            self::COPYING => $this->copy_data ? 'Copied, waiting for staff to check it and finish' : 'Waiting for the data to be copied',
             self::REMOVING => 'Removing the old account',
             self::DONE => 'Finished',
             self::FAILED => 'Removing the old account failed',

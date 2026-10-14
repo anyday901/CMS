@@ -10,7 +10,10 @@ use Illuminate\Support\Str;
 /** Queues module actions for services whose product uses a provisioning module. */
 class Provisioner
 {
-    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate', 'change_package', 'change_password', 'reinstall'];
+    public const ACTIONS = ['create', 'suspend', 'unsuspend', 'terminate', 'change_package', 'change_password', 'reinstall', 'copy_account'];
+
+    /** Makes the new account of a move as a copy of the old one, in place of create (see CopiesAccounts). */
+    public const COPY = 'copy_account';
 
     public const PENDING = 'pending';
 
@@ -20,15 +23,23 @@ class Provisioner
 
     public function __construct(private ModuleRegistry $modules) {}
 
-    /** Changing package or password and reinstalling are optional for modules; the other actions aren't. */
+    /** Changing package or password, reinstalling and copying are optional for modules; the other actions aren't. */
     public static function supports(ProvisioningModule $module, string $action): bool
     {
         return match ($action) {
             'change_package' => $module instanceof ChangesPackage,
             'change_password' => $module instanceof ChangesPassword,
             'reinstall' => $module instanceof Reinstalls,
+            self::COPY => $module instanceof CopiesAccounts,
             default => true,
         };
+    }
+
+    /** The actions staff can run on the service from its page: copying only while a move copies its account. */
+    public static function staffActions(ProvisioningModule $module, Service $service): array
+    {
+        return array_values(array_filter(self::ACTIONS, fn (string $action) => self::supports($module, $action)
+            && ($action !== self::COPY || $service->openMove?->copy_data)));
     }
 
     /** Whether the module can set a new password on this service's account. */

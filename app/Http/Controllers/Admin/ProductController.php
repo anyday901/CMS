@@ -77,6 +77,7 @@ class ProductController extends Controller
     private function save(Request $request, Product $product): void
     {
         $money = ['nullable', Money::rule()];
+        $megabytes = ['nullable', 'integer', 'between:0,1000000000'];
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -95,6 +96,11 @@ class ProductController extends Controller
             'trial_days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'stock_control' => ['boolean'],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'overage_billing' => ['boolean'],
+            'overage_disk_mb' => $megabytes,
+            'overage_bandwidth_mb' => $megabytes,
+            'overage_disk_price' => $money,
+            'overage_bandwidth_price' => $money,
         ];
         foreach (BillingCycle::cases() as $cycle) {
             $rules["prices.{$cycle->value}.price"] = $money;
@@ -117,6 +123,11 @@ class ProductController extends Controller
             'trial_days' => $data['trial_days'] ?? null,
             'stock_control' => $request->boolean('stock_control'),
             'stock_quantity' => (int) ($data['stock_quantity'] ?? 0),
+            'overage_billing' => $request->boolean('overage_billing'),
+            'overage_disk_mb' => $data['overage_disk_mb'] ?? null,
+            'overage_bandwidth_mb' => $data['overage_bandwidth_mb'] ?? null,
+            'overage_disk_price' => Money::parse(trim((string) ($data['overage_disk_price'] ?? '')) ?: '0'),
+            'overage_bandwidth_price' => Money::parse(trim((string) ($data['overage_bandwidth_price'] ?? '')) ?: '0'),
             ...$this->moduleSettings($request),
         ])->save();
 
@@ -168,6 +179,7 @@ class ProductController extends Controller
                     'select' => [Rule::in(array_keys($field['options'] ?? []))],
                     default => ['max:1000'],
                 },
+                isset($field['min']) ? ["min:{$field['min']}"] : [],
             )])
             ->all();
         $config = $request->validate($rules)['module_config'][$module->key()] ?? [];

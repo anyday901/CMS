@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Server;
 use App\Models\ServerGroup;
+use App\Monitoring\ServerMonitor;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\UsesServers;
 use Closure;
@@ -95,6 +96,15 @@ class ServerController extends Controller
         return back()->with($result->ok ? 'status' : 'connection_error', $result->message ?? ($result->ok ? 'Connected.' : 'The connection failed.'));
     }
 
+    /** Runs the status check now instead of waiting for the next scheduled one. */
+    public function check(Server $server, ServerMonitor $monitor): RedirectResponse
+    {
+        $server = $monitor->check($server)->refresh();
+        $pending = $server->status_misses > 0 ? ' The change counts once the next check agrees.' : '';
+
+        return back()->with('status', "{$server->name}: ".strtolower($server->statusLabel()).($server->status_detail ? ". {$server->status_detail}" : '.').$pending);
+    }
+
     /** @return array<string, mixed> */
     private function validated(Request $request, Server $server): array
     {
@@ -112,7 +122,8 @@ class ServerController extends Controller
             'password' => ['nullable', 'string', 'max:1000'],
             'api_token' => ['nullable', 'string', 'max:5000'],
             'max_accounts' => ['required', 'integer', 'min:1', 'max:1000000'],
-        ]);
+            'monitor_ports' => ['nullable', 'string', 'max:255', 'regex:/^\s*\d{1,5}(\s*[,\s]\s*\d{1,5})*\s*$/'],
+        ], ['monitor_ports.regex' => 'List the ports as numbers separated by commas, such as 80, 443, 21.']);
 
         foreach (self::SECRETS as $secret) {
             if ($request->boolean("clear_{$secret}")) {
@@ -133,6 +144,7 @@ class ServerController extends Controller
             'secure' => $request->boolean('secure'),
             'verify_tls' => $request->boolean('verify_tls'),
             'active' => $request->boolean('active'),
+            'monitor' => $request->boolean('monitor'),
         ];
     }
 

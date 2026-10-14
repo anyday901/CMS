@@ -14,6 +14,7 @@ use App\Models\Client;
 use App\Models\FulfillmentTask;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Models\Transaction;
@@ -37,6 +38,9 @@ class DashboardController extends Controller
             'openTasks' => FulfillmentTask::open()->with(['service.client', 'service.product'])->oldest()->limit(10)->get(),
             'waitingTickets' => request()->user()->can('manage-tickets')
                 ? Ticket::awaitingStaff()->with(['client', 'department', 'assignee'])->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at')->limit(10)->get()
+                : collect(),
+            'serverProblems' => request()->user()->can('manage-settings')
+                ? Server::where('monitor', true)->whereIn('status', [Server::DOWN, Server::WARNING])->orderBy('name')->get()
                 : collect(),
             'unpaidCount' => (clone $unpaid)->count(),
             'unpaidTotal' => (int) (clone $unpaid)->sum('total'),

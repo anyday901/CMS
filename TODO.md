@@ -121,11 +121,15 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Upgrades and downgrades between products of different server modules (e.g. cPanel to Plesk), as a migration of the account
 - [x] Proxmox LXC containers, and reinstalling a VM from its template
 - [x] Client single sign-on to the control panel from the portal
-- [ ] Copy account data between servers automatically when moving (cPanel transfers, Proxmox migration), instead of by hand
+- [x] Copy account data between servers automatically when moving (cPanel transfers, Proxmox migration), instead of by hand
 - [ ] Try WHMCS password decryption, single sign-on and Proxmox containers against a real WHMCS database and live servers
-- [ ] Usage statistics and usage-based billing (disk, bandwidth, overages)
-- [ ] Software licensing module
-- [ ] Server status monitoring
+- [x] Usage statistics and usage-based billing (disk, bandwidth, overages)
+- [x] Software licensing module
+- [x] Server status monitoring
+- [ ] Try the cPanel transfer, Proxmox migration (in a cluster and remote), usage readings and server load against live servers (built from the API docs and tested with mocked replies)
+- [ ] Automatic copies for Plesk (Plesk Migrator) and DirectAdmin moves, and for moves between modules
+- [ ] Import WHMCS licensing add-on licenses
+- [ ] Client-facing server status page (with Network status in milestone 9)
 
 ## Milestone 9: Support parity
 - [ ] Knowledge base with categories and search
