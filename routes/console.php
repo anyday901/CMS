@@ -11,6 +11,7 @@ use App\Models\Activity;
 use App\Models\Department;
 use App\Monitoring\ServerMonitor;
 use App\Provisioning\UsageCollector;
+use App\Tickets\InactiveTicketCloser;
 use App\Tickets\InboundMail;
 use App\Tickets\TicketEscalator;
 use Illuminate\Support\Facades\Artisan;
@@ -74,6 +75,17 @@ Artisan::command('tickets:escalate', function (TicketEscalator $escalator) {
     $this->info("Applied escalation rules {$applied} time(s).");
 })->purpose('Apply the ticket escalation rules to the open tickets that match them');
 
+Artisan::command('tickets:close-inactive', function (InactiveTicketCloser $closer) {
+    if ((int) config('tickets.close_inactive_hours') <= 0) {
+        $this->info('Closing inactive tickets is off; set the hours under Settings.');
+
+        return;
+    }
+
+    $closed = $closer->run(now());
+    $this->info("Closed {$closed} inactive ticket(s).");
+})->purpose('Close answered tickets the client has not replied to within the hours set under Settings');
+
 Artisan::command('usage:collect', function (UsageCollector $collector) {
     $result = $collector->collect(now());
     $this->info("Read the disk and bandwidth use of {$result['services']} service(s).");
@@ -92,5 +104,6 @@ Artisan::command('servers:check', function (ServerMonitor $monitor) {
 Schedule::command('billing:run')->dailyAt('00:05')->withoutOverlapping();
 Schedule::command('usage:collect')->hourlyAt(50)->withoutOverlapping();
 Schedule::command('tickets:escalate')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('tickets:close-inactive')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('servers:check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('activity:prune')->dailyAt('03:15');

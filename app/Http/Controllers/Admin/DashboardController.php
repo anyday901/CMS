@@ -37,7 +37,7 @@ class DashboardController extends Controller
             'cancellations' => CancellationRequest::pending()->with(['service.client', 'service.product'])->orderBy('cancel_on')->limit(10)->get(),
             'openTasks' => FulfillmentTask::open()->with(['service.client', 'service.product'])->oldest()->limit(10)->get(),
             'waitingTickets' => request()->user()->can('manage-tickets')
-                ? Ticket::awaitingStaff()->with(['client', 'department', 'assignee'])->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at')->limit(10)->get()
+                ? Ticket::awaitingStaff()->with(['client', 'department', 'assignee', 'tags'])->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at')->limit(10)->get()
                 : collect(),
             'serverProblems' => request()->user()->can('manage-settings')
                 ? Server::where('monitor', true)->whereIn('status', [Server::DOWN, Server::WARNING])->orderBy('name')->get()

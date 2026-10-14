@@ -13,7 +13,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
-- Support tickets with email piping, custom fields per department, response time targets (SLAs) and escalation rules
+- Support tickets with email piping, custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
 - A knowledge base with search, announcements, a network status page and a downloads area
 - An importer for existing WHMCS installs
 
@@ -62,13 +62,14 @@ Run the tests with `php artisan test`.
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies servers and server groups, clients and contacts, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, ticket departments, tickets and replies (and, with `--attachments`, ticket attachments) from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
+`php artisan whmcs:import` copies servers and server groups, clients and contacts, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, ticket departments, custom fields, tags, tickets and replies (and, with `--attachments`, ticket attachments), the knowledge base, announcements, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
 
 Or use the walkthrough in the admin area under **Settings > Import from WHMCS**: it checks the install is empty, connects to WHMCS (from `.env` or details you type in), runs the dry run and shows its report, then imports and lists the next steps. It runs the same importer; on very large installs the command line is more reliable than a browser request.
 
 - `--dry-run` imports everything, compares totals with WHMCS (recurring revenue, balance due, payments and credit, per currency) and then undoes it, saving a report of every skipped record to `storage/app/whmcs/`.
 - Clients log in with their WHMCS password. It is checked once against the old WHMCS hash and then stored again with this app's own hashing.
-- Replies to old WHMCS ticket emails, with `[Ticket ID: 123456]` in the subject, still reach the right ticket.
+- Replies to old WHMCS ticket emails, with `[Ticket ID: 123456]` in the subject, still reach the right ticket, including tickets that were merged in WHMCS.
+- Escalation rules come over turned off, so you can check them first, with the WHMCS admin they assigned or emailed matched to a staff account here by email. Knowledge base articles that were for logged-in clients only come over unpublished, since articles here are public. Translations aren't imported.
 - `php artisan whmcs:compare --simulate` checks that this app would bill the same renewals as WHMCS for a period after the import, without saving anything, so both can run side by side for a cycle before you switch.
 
 The full steps, and what changes for clients, are in [docs/install.md](docs/install.md#moving-from-whmcs).
@@ -240,13 +241,17 @@ Staff are emailed when something needs a person: a provisioning action fails or 
 
 Add at least one department under **Settings > Departments** (for example Sales and Technical) so clients can open tickets. Give a department an email address to make it the reply-to on ticket emails and to accept tickets by email.
 
-Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department and assignee. A client reply reopens a closed ticket. Save answers you give often under **Tickets > Canned replies**; on a ticket, pick one from **Canned reply** to add it to your reply, with placeholders like `{client_first_name}`, `{ticket_id}` and `{staff_name}` filled in. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
+Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department, assignee and tags; **Tickets** can be filtered by tag. A client reply reopens a closed ticket. While a client types a new ticket, knowledge base articles that might answer it are suggested under the subject.
+
+Staff can merge other tickets of the same client into the one they're on (their messages move over, they close, and their old numbers, portal links and email replies lead to the merged ticket), or tick messages and split them into a new ticket. Set **Close answered tickets after this many hours without a reply** under **Settings** to close tickets clients stop answering; `php artisan tickets:close-inactive` runs every 15 minutes and emails the client, who can reply to reopen. Save answers you give often under **Tickets > Canned replies**; on a ticket, pick one from **Canned reply** to add it to your reply, with placeholders like `{client_first_name}`, `{ticket_id}` and `{staff_name}` filled in. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
 
 ### Ticket custom fields, SLAs and escalation rules
 
 Under **Settings > Custom fields**, choose **Tickets** to add a field clients fill in when they open a ticket, for every department or one department (for example a domain name for Technical, or a budget for Sales). Clients pick the department first, then see its fields. Staff see and change every field on the ticket, including staff-only ones, and can leave a required field empty (such as on a ticket opened by email).
 
-Each department can have **response time targets (SLA)**: the hours staff have to answer a ticket waiting on them, by priority. A ticket's response is due that long after the client's last message; a staff reply clears it and the next client reply starts it again. **Tickets** shows when each ticket is due, with an **Overdue** filter, and a ticket's page shows when it was first answered. Targets are in calendar hours, not business hours.
+Each department can have **response time targets (SLA)**: the hours staff have to answer a ticket waiting on them, by priority. A ticket's response is due that long after the client's last message; a staff reply clears it and the next client reply starts it again. **Tickets** shows when each ticket is due, with an **Overdue** filter, and a ticket's page shows when it was first answered. Targets count every hour, unless the department is set to **Count business hours only**: then only the opening hours under **Settings > Business hours** count (hours for each weekday, closed dates such as public holidays, and a timezone).
+
+A department can also **ask clients to rate the support** when a ticket is closed. When staff close a ticket, or it closes for inactivity, the client is emailed a link to rate it from 1 to 5 stars with a comment; a client who closes their own ticket sees the form there. **Tickets > Feedback** shows the average rating, how ratings spread, an average for each staff member who replied, and every rating with its comment.
 
 **Tickets > Escalation rules** change open tickets automatically. A rule matches tickets by department, status and priority, and by how long since the last reply or whether the response is overdue; it can move them to another department, change their status or priority, assign them, email the assignee or chosen staff, and post a reply to the client in your business's name. `php artisan tickets:escalate` runs the rules every five minutes from the scheduler. A rule changes a ticket once, and again only after someone replies.
 
@@ -337,8 +342,10 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
+| `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |
+| `TICKETS_TIMEZONE` | `UTC` | Timezone of the business hours that SLA targets can count in |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review and activity log settings can also be changed on the admin **Settings** page.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket and business hours settings can also be changed on the admin **Settings** page.
 
 ## License
 

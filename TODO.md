@@ -138,14 +138,16 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Downloads area, optionally limited to clients with a product
 - [x] Custom ticket fields per department
 - [x] Ticket escalation rules and SLAs
-- [ ] Import WHMCS knowledge base articles, announcements, network issues, downloads, ticket custom fields and escalation rules
-- [ ] Business hours for SLAs (targets are in calendar hours for now)
-- [ ] Suggest knowledge base articles as a client types a new ticket
-- [ ] Auto-close inactive answered tickets
-- [ ] Merge and split tickets, and ticket tags
-- [ ] Ticket feedback ratings
+- [x] Import WHMCS knowledge base articles, announcements, network issues, downloads, ticket custom fields and escalation rules
+- [x] Business hours for SLAs
+- [x] Suggest knowledge base articles as a client types a new ticket
+- [x] Auto-close inactive answered tickets
+- [x] Merge and split tickets, and ticket tags
+- [x] Ticket feedback ratings
 - [ ] Tickets from non-clients (guest tickets by email or form)
 - [ ] Spam filtering for inbound ticket email
+- [ ] Import WHMCS ticket feedback ratings and staff (admins), so imported escalation rules can be matched to everyone
+- [ ] Translations of knowledge base articles and announcements (the WHMCS import brings the main language only)
 
 ## Milestone 10: Clients, security and staff
 - [ ] Two-factor authentication (TOTP) for clients and staff

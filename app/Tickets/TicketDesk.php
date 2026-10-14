@@ -80,10 +80,16 @@ class TicketDesk
             return $ticket;
         });
 
-        $this->mailer->send($client, 'ticket_opened', ticket: $ticket);
+        $this->sendOpened($ticket);
         $this->alertStaff($ticket, "New ticket #{$ticket->id}: {$ticket->subject}", "{$client->fullName()} opened a ticket in {$department->name} ({$priority->label()} priority).");
 
         return $ticket;
+    }
+
+    /** Emails the client the new ticket's number, so their replies thread onto it. */
+    public function sendOpened(Ticket $ticket): void
+    {
+        $this->mailer->send($ticket->client, 'ticket_opened', ticket: $ticket);
     }
 
     /**
@@ -151,6 +157,37 @@ class TicketDesk
         $this->mailer->send($ticket->client, 'ticket_reply', ['staff_name' => $name, 'reply' => $message->body], ticket: $ticket);
 
         return $message;
+    }
+
+    /**
+     * Closes a ticket. Staff closing it, or closing it for inactivity, asks
+     * the client for feedback when the department wants it; a client
+     * closing their own ticket sees the feedback form in the portal instead.
+     */
+    public function close(Ticket $ticket, ?User $by = null, bool $inactive = false): void
+    {
+        if ($ticket->status === TicketStatus::Closed) {
+            return;
+        }
+
+        $ticket->update(['status' => TicketStatus::Closed, 'escalations' => null]);
+        Activity::record(($inactive ? 'Closed inactive' : 'Closed')." ticket #{$ticket->id}", $ticket, $inactive ? ['hours' => (int) config('tickets.close_inactive_hours')] : []);
+
+        if ($inactive) {
+            $this->mailer->send($ticket->client, 'ticket_auto_closed', ['inactive_hours' => (int) config('tickets.close_inactive_hours')], ticket: $ticket);
+        }
+
+        if ($by !== null || $inactive) {
+            $this->requestFeedback($ticket);
+        }
+    }
+
+    /** Emails the client a link to rate the support, when the department asks for it and they haven't yet. */
+    public function requestFeedback(Ticket $ticket): void
+    {
+        if ($ticket->refresh()->wantsFeedback()) {
+            $this->mailer->send($ticket->client, 'ticket_feedback', ['feedback_url' => route('portal.tickets.show', $ticket).'#feedback'], ticket: $ticket);
+        }
     }
 
     /** @param  list<array{name: string, mime: ?string, contents: string}>  $files */

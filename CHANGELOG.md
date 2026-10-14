@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- The WHMCS import brings over the knowledge base (categories, articles converted from HTML to Markdown, tags, views and helpful votes), announcements, network issues, downloads with their files (from WHMCS's downloads folder, a new optional field in the walkthrough and `--downloads=` on `php artisan whmcs:import`) and their products, ticket custom fields with their values, ticket tags, and escalation rules. Translations are left out. Escalation rules come over turned off, with staff matched by email, and knowledge base articles that were for logged-in clients only come over unpublished, so both can be checked first. Tickets merged in WHMCS come over pointing at the ticket they were merged into instead of being skipped.
+- Business hours for response time targets: opening hours for each day of the week, closed dates such as public holidays, and a timezone under **Settings > Business hours**. A department set to **Count business hours only** measures its targets in those hours, so a ticket that comes in at night is due once you open. Changing the hours updates waiting tickets.
+- As a client types a new ticket's subject and message in the portal, knowledge base articles that might answer it are suggested, to open in a new tab.
+- Inactive answered tickets close on their own after the hours set under **Settings** (off by default, or `TICKETS_CLOSE_INACTIVE_HOURS`). `php artisan tickets:close-inactive` runs every 15 minutes from the scheduler and emails the client with the new **Ticket closed for inactivity** template; a reply opens the ticket again.
+- Merge and split tickets. On a ticket, staff tick other tickets of the same client to merge into it: their messages move over, they close, and their numbers (links, the portal and email replies) lead to the merged ticket. Staff can also tick messages and split them into a new ticket for the same client, with its own subject, department and priority, optionally emailing the client the new number.
+- Ticket tags: staff tag tickets on the ticket page, see tags in ticket lists and filter **Tickets** by tag. Tags no ticket uses any more are removed.
+- Ticket feedback: a department can ask clients to rate the support from 1 to 5 stars, with a comment, when a ticket is closed. Staff closing a ticket, or it closing for inactivity, emails the new **Ticket feedback request**; clients rate on the ticket's portal page. Ratings show on the ticket and under **Tickets > Feedback**, with the average, how the ratings spread, and an average for each staff member who replied.
 - Knowledge base at `/knowledgebase`: staff write Markdown articles under **Support > Knowledge base**, in categories one level deep, with tags, an order, and a published switch; categories can be hidden. Anyone can browse categories, search titles, text and tags, and read articles, which count their views, ask "Was this article helpful?" and list others in the same category. The portal's new ticket page points clients to it.
 - Announcements at `/announcements`, with an RSS feed at `/announcements/rss`. Staff write them under **Support > Announcements** in Markdown with a date, so one can be written ahead, and a published switch. The latest three show on the portal home page.
 - Network status page at `/network-status` with current issues, planned maintenance and issues resolved in the last 30 days. Staff add issues under **Support > Network status**, each affecting a server or something described in words, with a status (reported, investigating, in progress, outage, scheduled, resolved), priority, start and end, and resolve them in one click. Clients with an active service on an affected server see a notice on their portal home page. Servers with the new **Show on the network status page** setting are listed there with their monitoring status and 30-day uptime, without their host name or address.
@@ -83,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module settings can set a shortest length for text (`'min'`).
 
 ### Changed
+- A ticket's messages are listed in the order they were written, which after a merge isn't always the order they were saved.
 - The store asks for the domain of products on the cPanel, Plesk and DirectAdmin modules and checks it is a domain name; other products keep the optional domain or hostname box.
 - A provisioning action that waited an hour now says it was waiting for an earlier action or for the module.
 - Module settings can be numbers (`'type' => 'number'`), checked as whole numbers.
@@ -147,6 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/` redirects to the client portal; staff use `/admin`. The default Laravel welcome page is removed.
 
 ### Fixed
+- Article and announcement previews show characters such as `>` and `&` as typed, rather than as `&gt;` and `&amp;`.
 - Admin client search box and product price fields now have labels, so screen readers announce them.
 
 ## [0.0.1] - 2026-10-09

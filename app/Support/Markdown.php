@@ -15,6 +15,8 @@ class Markdown
     /** Plain text for a preview, such as an announcement on a list. */
     public static function excerpt(?string $markdown, int $length = 220): string
     {
-        return Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags(self::html($markdown)))), $length);
+        $text = html_entity_decode(strip_tags(self::html($markdown)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return Str::limit(trim(preg_replace('/\s+/', ' ', $text)), $length);
     }
 }

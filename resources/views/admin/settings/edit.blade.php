@@ -60,6 +60,44 @@
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Support</legend>
             <p class="text-ink-600">Add and edit ticket departments, their email addresses and response time targets (SLAs) under <a href="{{ route('admin.departments.index') }}" class="text-brand-600">Departments</a>, and move, reassign or flag tickets automatically with <a href="{{ route('admin.escalation-rules.index') }}" class="text-brand-600">Escalation rules</a>.</p>
+            <label class="block">Close answered tickets after this many hours without a reply
+                <input type="number" name="close_inactive_hours" min="1" max="8760" value="{{ old('close_inactive_hours', $closeInactiveHours) }}" placeholder="Off" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">The client is emailed that the ticket was closed and can reply to open it again. Leave blank to keep answered tickets open.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="business-hours" class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Business hours</legend>
+            <p class="text-ink-600">Departments set to count business hours only measure their response time targets in these hours. Other departments count every hour.</p>
+            <table class="text-sm">
+                <thead class="text-left text-ink-500"><tr><th class="pr-4 font-normal">Day</th><th class="pr-4 font-normal">Opens</th><th class="font-normal">Closes</th></tr></thead>
+                <tbody>
+                    @foreach (App\Tickets\BusinessHours::DAYS as $day => $name)
+                        @php $hours = $businessHours->week[$day] ?? null; @endphp
+                        <tr>
+                            <td class="py-1 pr-4">
+                                <input type="hidden" name="hours[{{ $day }}][open]" value="0">
+                                <label class="flex items-center gap-2"><input type="checkbox" name="hours[{{ $day }}][open]" value="1" @checked(old("hours.{$day}.open", $hours !== null))> {{ $name }}</label>
+                            </td>
+                            <td class="py-1 pr-4"><input type="time" name="hours[{{ $day }}][from]" value="{{ old("hours.{$day}.from", $hours[0] ?? '09:00') }}" aria-label="{{ $name }} opens" class="rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
+                            <td class="py-1"><input type="time" name="hours[{{ $day }}][to]" value="{{ old("hours.{$day}.to", $hours[1] ?? '17:00') }}" aria-label="{{ $name }} closes" class="rounded-md px-2 py-1 ring-1 ring-ink-300">
+                                @error("hours.{$day}.to")<div class="text-red-700">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            <label class="block">Closed on these dates
+                <textarea name="holidays" rows="3" placeholder="2026-12-25" class="mt-1 block w-full max-w-xs rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">{{ old('holidays', implode("\n", $businessHours->holidays)) }}</textarea>
+                <span class="text-ink-500">One date per line, as YYYY-MM-DD, such as public holidays.</span>
+            </label>
+            <label class="block">Timezone
+                <select name="timezone" class="mt-1 block rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    @foreach ($timezones as $zone)
+                        <option value="{{ $zone }}" @selected(old('timezone', $businessHours->timezone) === $zone)>{{ $zone }}</option>
+                    @endforeach
+                </select>
+            </label>
         </fieldset>
 
         <fieldset class="space-y-2">

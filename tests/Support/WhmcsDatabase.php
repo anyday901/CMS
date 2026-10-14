@@ -48,6 +48,7 @@ class WhmcsDatabase
         self::productTables($schema);
         self::serviceTables($schema);
         self::ticketTables($schema);
+        self::supportTables($schema);
 
         return $db;
     }
@@ -284,6 +285,164 @@ class WhmcsDatabase
             $t->string('admin')->nullable();
             $t->string('attachment')->nullable();
         });
+    }
+
+    private static function supportTables(Builder $schema): void
+    {
+        $schema->create('tbltickettags', function (Blueprint $t) {
+            $t->id();
+            $t->integer('ticketid');
+            $t->string('tag');
+        });
+        $schema->create('tblknowledgebasecats', function (Blueprint $t) {
+            $t->id();
+            $t->integer('parentid')->default(0);
+            $t->string('name');
+            $t->text('description')->nullable();
+            $t->string('hidden')->nullable();
+            $t->integer('catid')->default(0);
+            $t->string('language')->nullable();
+        });
+        $schema->create('tblknowledgebase', function (Blueprint $t) {
+            $t->id();
+            $t->string('title');
+            $t->text('article');
+            $t->integer('views')->default(0);
+            $t->integer('votes')->default(0);
+            $t->integer('useful')->default(0);
+            $t->string('private')->nullable();
+            $t->integer('order')->default(0);
+            $t->integer('parentid')->default(0);
+            $t->string('language')->nullable();
+        });
+        $schema->create('tblknowledgebaselinks', function (Blueprint $t) {
+            $t->id();
+            $t->integer('categoryid');
+            $t->integer('articleid');
+        });
+        $schema->create('tblknowledgebasetags', function (Blueprint $t) {
+            $t->id();
+            $t->integer('articleid');
+            $t->string('tag');
+        });
+        $schema->create('tblannouncements', function (Blueprint $t) {
+            $t->id();
+            $t->dateTime('date')->nullable();
+            $t->string('title');
+            $t->text('announcement');
+            $t->string('published')->nullable();
+            $t->integer('parentid')->default(0);
+            $t->string('language')->nullable();
+        });
+        $schema->create('tblnetworkissues', function (Blueprint $t) {
+            $t->id();
+            $t->string('title');
+            $t->text('description');
+            $t->string('type')->nullable();
+            $t->string('affecting')->nullable();
+            $t->integer('server')->default(0);
+            $t->string('priority')->nullable();
+            $t->dateTime('startdate')->nullable();
+            $t->dateTime('enddate')->nullable();
+            $t->string('status')->nullable();
+            $t->dateTime('lastupdate')->nullable();
+        });
+        $schema->create('tbldownloadcats', function (Blueprint $t) {
+            $t->id();
+            $t->integer('parentid')->default(0);
+            $t->string('name');
+            $t->text('description')->nullable();
+            $t->string('hidden')->nullable();
+        });
+        $schema->create('tbldownloads', function (Blueprint $t) {
+            $t->id();
+            $t->integer('category');
+            $t->string('type')->nullable();
+            $t->string('title');
+            $t->text('description')->nullable();
+            $t->integer('downloads')->default(0);
+            $t->string('location');
+            $t->string('clientsonly')->nullable();
+            $t->string('hidden')->nullable();
+            $t->string('productdownload')->nullable();
+        });
+        $schema->create('tblproduct_downloads', function (Blueprint $t) {
+            $t->id();
+            $t->integer('product_id');
+            $t->integer('download_id');
+        });
+        $schema->create('tbladmins', function (Blueprint $t) {
+            $t->id();
+            $t->string('email');
+        });
+        $schema->create('tblticketescalations', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            foreach (['departments', 'statuses', 'priorities', 'notify', 'addreply'] as $column) {
+                $t->text($column)->nullable();
+            }
+            $t->integer('timeelapsed')->default(0);
+            $t->integer('newdepartment')->default(0);
+            $t->string('newpriority')->nullable();
+            $t->string('newstatus')->nullable();
+            $t->integer('flagto')->default(0);
+        });
+    }
+
+    /**
+     * Support content on top of seed(): a knowledge base with a nested
+     * category, a translation and a private article; announcements; network
+     * issues; downloads; a ticket custom field and tags; a second ticket
+     * merged into the first; and an escalation rule.
+     */
+    public static function seedSupport(ConnectionInterface $db): void
+    {
+        $db->table('tblcustomfields')->insert(['id' => 33, 'type' => 'support', 'relid' => 2, 'fieldname' => 'domain|Domain', 'fieldtype' => 'text', 'fieldoptions' => '', 'required' => 'on', 'adminonly' => '']);
+        $db->table('tblcustomfieldsvalues')->insert(['fieldid' => 33, 'relid' => 60, 'value' => 'vps1.example.com']);
+        $db->table('tbltickettags')->insert([['ticketid' => 60, 'tag' => 'Outage'], ['ticketid' => 60, 'tag' => 'vps']]);
+        $db->table('tbltickets')->insert([
+            'id' => 61, 'tid' => '771122', 'did' => 2, 'userid' => 7, 'date' => '2026-10-01 10:30:00', 'title' => 'Still down?',
+            'message' => '', 'status' => 'Closed', 'urgency' => 'High', 'admin' => '', 'lastreply' => '2026-10-01 10:30:00', 'merged_ticket_id' => 60,
+        ]);
+
+        $db->table('tblknowledgebasecats')->insert([
+            ['id' => 1, 'parentid' => 0, 'name' => 'Getting started', 'description' => 'First steps', 'hidden' => '', 'catid' => 0, 'language' => ''],
+            ['id' => 2, 'parentid' => 1, 'name' => 'Email', 'description' => '', 'hidden' => '', 'catid' => 0, 'language' => ''],
+            ['id' => 3, 'parentid' => 2, 'name' => 'Webmail', 'description' => '', 'hidden' => '', 'catid' => 0, 'language' => ''],
+            ['id' => 4, 'parentid' => 0, 'name' => 'Erste Schritte', 'description' => '', 'hidden' => '', 'catid' => 1, 'language' => 'german'],
+        ]);
+        $db->table('tblknowledgebase')->insert([
+            ['id' => 1, 'title' => 'Reset your cPanel password', 'article' => '<p>Open <strong>cPanel</strong>.</p><ul><li>Click Password</li></ul>', 'views' => 40, 'votes' => 5, 'useful' => 4, 'private' => '', 'order' => 1, 'parentid' => 0, 'language' => ''],
+            ['id' => 2, 'title' => 'cPanel Passwort', 'article' => '<p>Auf Deutsch</p>', 'views' => 0, 'votes' => 0, 'useful' => 0, 'private' => '', 'order' => 0, 'parentid' => 1, 'language' => 'german'],
+            ['id' => 3, 'title' => 'Webmail settings', 'article' => '<p>IMAP</p>', 'views' => 3, 'votes' => 0, 'useful' => 0, 'private' => 'on', 'order' => 0, 'parentid' => 0, 'language' => ''],
+        ]);
+        $db->table('tblknowledgebaselinks')->insert([['categoryid' => 1, 'articleid' => 1], ['categoryid' => 4, 'articleid' => 2], ['categoryid' => 3, 'articleid' => 3]]);
+        $db->table('tblknowledgebasetags')->insert([['articleid' => 1, 'tag' => 'password'], ['articleid' => 1, 'tag' => 'cpanel']]);
+
+        $db->table('tblannouncements')->insert([
+            ['id' => 1, 'date' => '2026-09-01 12:00:00', 'title' => 'New data centre', 'announcement' => '<p>We moved to <a href="https://example.com/dc">a new data centre</a>.</p>', 'published' => 'on', 'parentid' => 0, 'language' => ''],
+            ['id' => 2, 'date' => '2026-09-01 12:00:00', 'title' => 'Neues Rechenzentrum', 'announcement' => '<p>...</p>', 'published' => 'on', 'parentid' => 1, 'language' => 'german'],
+            ['id' => 3, 'date' => '2026-09-05 12:00:00', 'title' => 'Draft news', 'announcement' => '<p>Soon</p>', 'published' => '', 'parentid' => 0, 'language' => ''],
+        ]);
+
+        $db->table('tblnetworkissues')->insert([
+            ['title' => 'cp1 reboot', 'description' => 'Kernel update', 'type' => 'Server', 'affecting' => '', 'server' => 1, 'priority' => 'High', 'startdate' => '2026-10-20 02:00:00', 'enddate' => null, 'status' => 'Scheduled', 'lastupdate' => '2026-10-10 09:00:00'],
+            ['title' => 'Email delays', 'description' => 'Queue backed up', 'type' => 'System', 'affecting' => 'Email', 'server' => 0, 'priority' => 'Critical', 'startdate' => '2026-09-10 08:00:00', 'enddate' => null, 'status' => 'Resolved', 'lastupdate' => '2026-09-10 10:00:00'],
+        ]);
+
+        $db->table('tbldownloadcats')->insert([['id' => 1, 'parentid' => 0, 'name' => 'Software', 'description' => 'Tools', 'hidden' => ''], ['id' => 2, 'parentid' => 0, 'name' => 'Old', 'description' => '', 'hidden' => 'on']]);
+        $db->table('tbldownloads')->insert([
+            ['id' => 1, 'category' => 1, 'type' => 'zip', 'title' => 'Backup tool', 'description' => 'Backs up', 'downloads' => 12, 'location' => 'backup-tool.zip', 'clientsonly' => 'on', 'hidden' => '', 'productdownload' => 'on'],
+            ['id' => 2, 'category' => 1, 'type' => 'link', 'title' => 'Docs site', 'description' => '', 'downloads' => 0, 'location' => 'https://docs.example.com', 'clientsonly' => '', 'hidden' => '', 'productdownload' => ''],
+            ['id' => 3, 'category' => 2, 'type' => 'zip', 'title' => 'Ancient', 'description' => '', 'downloads' => 0, 'location' => 'ancient.zip', 'clientsonly' => '', 'hidden' => '', 'productdownload' => ''],
+        ]);
+        $db->table('tblproduct_downloads')->insert(['product_id' => 3, 'download_id' => 1]);
+
+        $db->table('tbladmins')->insert([['id' => 1, 'email' => 'jane@example.com'], ['id' => 2, 'email' => 'gone@example.com']]);
+        $db->table('tblticketescalations')->insert([
+            'name' => 'Urgent waiting', 'departments' => '2', 'statuses' => 'Open,Customer-Reply,In Progress', 'priorities' => 'High', 'timeelapsed' => 60,
+            'newdepartment' => 2, 'newpriority' => 'Urgent', 'newstatus' => '', 'flagto' => 1, 'notify' => '2,assigned', 'addreply' => 'We are on it.',
+        ]);
     }
 
     /** The sample data described above. */

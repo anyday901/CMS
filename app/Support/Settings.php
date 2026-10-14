@@ -26,10 +26,17 @@ class Settings
         'billing.attach_invoice_pdf',
         'billing.hold_new_orders',
         'activity.retention_days',
+        'tickets.close_inactive_hours',
+        'tickets.business_hours',
+        'tickets.holidays',
+        'tickets.timezone',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
     private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders'];
+
+    /** Saved as JSON, read back as arrays. */
+    private const ARRAYS = ['tickets.business_hours', 'tickets.holidays'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void
@@ -42,16 +49,24 @@ class Settings
         }
 
         foreach (array_intersect_key($saved, array_flip(self::KEYS)) as $key => $value) {
-            config([$key => in_array($key, self::BOOLEANS, true) ? (bool) $value : $value]);
+            config([$key => match (true) {
+                in_array($key, self::BOOLEANS, true) => (bool) $value,
+                in_array($key, self::ARRAYS, true) => (array) json_decode((string) $value, true),
+                default => $value,
+            }]);
         }
     }
 
-    /** @param  array<string, string|int|bool|null>  $values */
+    /** @param  array<string, string|int|bool|array<mixed>|null>  $values */
     public static function save(array $values): void
     {
         DB::transaction(function () use ($values) {
             foreach (array_intersect_key($values, array_flip(self::KEYS)) as $key => $value) {
-                Setting::updateOrCreate(['key' => $key], ['value' => is_bool($value) ? (int) $value : $value]);
+                Setting::updateOrCreate(['key' => $key], ['value' => match (true) {
+                    is_bool($value) => (int) $value,
+                    is_array($value) => json_encode($value),
+                    default => $value,
+                }]);
                 config([$key => $value]);
             }
         });

@@ -245,7 +245,7 @@ Keep `.env` somewhere safe too: without `APP_KEY` you can't read encrypted data 
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies clients and their contacts, products with prices and configurable options, custom fields, services, invoices, payments and refunds, credit balances, ticket departments, tickets and replies from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers don't change. Staff accounts are not copied: create them with `php artisan admin:create`.
+`php artisan whmcs:import` copies clients and their contacts, products with prices and configurable options, custom fields, services, invoices, payments and refunds, credit balances, ticket departments, custom fields, tags, tickets and replies, the knowledge base, announcements, network issues, downloads and escalation rules from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers don't change. Staff accounts are not copied: create them with `php artisan admin:create`.
 
 Steps 2 to 4 can also be done in the admin area under **Settings > Import from WHMCS**, a walkthrough that connects to the WHMCS database (from `.env` or details you type in), runs the dry run, shows the report and then imports. The command line is more reliable for very large installs, since a browser request can time out behind a proxy.
 
@@ -273,11 +273,13 @@ Steps 2 to 4 can also be done in the admin area under **Settings > Import from W
 
    It imports everything, prints how many records it found, imported and skipped, compares totals (recurring revenue, balance due, payments, credit) between WHMCS and the import, then undoes it all. The full report, listing every skipped record and why, is saved in `storage/app/whmcs/`. Fix what you can in WHMCS (duplicate client emails, services on deleted products) and run it again until you're happy.
 
-4. **Import for real.** To bring ticket attachments over, pass the WHMCS attachments folder:
+4. **Import for real.** To bring ticket attachments and the files on your Downloads page over, pass the WHMCS attachments and downloads folders:
 
    ```sh
-   sudo -u www-data php artisan whmcs:import --attachments=/path/to/whmcs/attachments --hash='the cc_encryption_hash from WHMCS configuration.php'
+   sudo -u www-data php artisan whmcs:import --attachments=/path/to/whmcs/attachments --downloads=/path/to/whmcs/downloads --hash='the cc_encryption_hash from WHMCS configuration.php'
    ```
+
+   Escalation rules come over turned off: check each one under **Tickets > Escalation rules** before turning it on.
 
    Everything is imported in one database transaction, so a failure part way leaves nothing behind.
 

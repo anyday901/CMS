@@ -20,7 +20,9 @@ use Throwable;
  * Copies a WHMCS database into this app: servers and server groups, clients
  * and their contacts, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
- * transactions, ticket departments, tickets and replies.
+ * transactions, ticket departments, custom fields, tags, tickets and
+ * replies, and the knowledge base, announcements, network issues, downloads
+ * and escalation rules.
  *
  * Clients, services, invoices and tickets keep their WHMCS ids, so invoice and
  * ticket numbers stay the same. That is why the import needs an empty install.
@@ -57,6 +59,8 @@ class WhmcsImporter
 
     private ?TicketImporter $tickets = null;
 
+    private ?SupportImporter $support = null;
+
     /** @var array<int, string> client id => currency code */
     private array $clients = [];
 
@@ -75,7 +79,7 @@ class WhmcsImporter
     private ServerImporter $servers;
 
     /** @param  string|null  $encryptionHash  WHMCS's cc_encryption_hash, to bring stored passwords over */
-    public function __construct(private ?string $attachmentsPath = null, private ?string $encryptionHash = null) {}
+    public function __construct(private ?string $attachmentsPath = null, private ?string $encryptionHash = null, private ?string $downloadsPath = null) {}
 
     /** @throws ImportException when this install already has data */
     public function run(ConnectionInterface $source, bool $dryRun): ImportReport
@@ -100,6 +104,7 @@ class WhmcsImporter
         } catch (Throwable $e) {
             DB::rollBack();
             $this->tickets?->removeCopiedFiles();
+            $this->support?->removeCopiedFiles();
 
             throw $e;
         }
@@ -129,6 +134,8 @@ class WhmcsImporter
         $this->importTransactions();
         $this->tickets = new TicketImporter($this->run, $this->clients, $this->attachmentsPath);
         $this->tickets->import();
+        $this->support = new SupportImporter($this->run, $this->servers, $this->tickets->departments(), $this->catalog->products, $this->downloadsPath);
+        $this->support->import();
         $this->reportNotImported();
     }
 

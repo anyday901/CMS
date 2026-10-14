@@ -58,6 +58,12 @@ class ServerImporter
         $this->importGroups();
     }
 
+    /** The local id of a WHMCS server, or null when it wasn't imported. */
+    public function serverId(mixed $whmcsId): ?int
+    {
+        return $this->servers[(int) $whmcsId]['id'] ?? null;
+    }
+
     /**
      * A product's module, settings and server group, for a product on a
      * WHMCS module this app has, or null.

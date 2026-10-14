@@ -21,6 +21,35 @@
             @include('tickets._message', ['download' => fn ($file) => route('portal.tickets.attachment', [$ticket, $file])])
         @endforeach
 
+        @if ($ticket->feedback)
+            <div id="feedback" class="rounded-lg border border-ink-200 bg-white p-4 text-sm">
+                <div class="font-semibold">Your feedback</div>
+                <div class="mt-1"><x-rating :value="$ticket->feedback->rating" /> <span class="text-ink-600">{{ $ticket->feedback->label() }}</span></div>
+                @if ($ticket->feedback->comment)<p class="mt-1 whitespace-pre-line text-ink-700">{{ $ticket->feedback->comment }}</p>@endif
+            </div>
+        @elseif ($ticket->wantsFeedback())
+            <form id="feedback" method="POST" action="{{ route('portal.tickets.feedback', $ticket) }}" class="space-y-3 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm">
+                @csrf
+                <fieldset>
+                    <legend class="font-display text-base font-semibold">How did we do?</legend>
+                    <p class="text-ink-600">Rate the support you had on this ticket.</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach (App\Models\TicketFeedback::LABELS as $rating => $label)
+                            <label class="flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 ring-1 ring-ink-300 has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:ring-brand-600">
+                                <input type="radio" name="rating" value="{{ $rating }}" required class="sr-only" @checked((int) old('rating') === $rating)>
+                                <span aria-hidden="true">{{ str_repeat('★', $rating) }}</span> {{ $label }}
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('rating')<p class="mt-1 text-red-700">{{ $message }}</p>@enderror
+                </fieldset>
+                <label class="block">Anything to add? <span class="text-ink-500">(optional)</span>
+                    <textarea name="comment" rows="3" maxlength="2000" class="mt-1 block w-full rounded-md bg-white px-3 py-2 ring-1 ring-ink-300">{{ old('comment') }}</textarea>
+                </label>
+                <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Send feedback</button>
+            </form>
+        @endif
+
         <form method="POST" action="{{ route('portal.tickets.reply', $ticket) }}" enctype="multipart/form-data" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
             @csrf
             <label for="reply-body" class="block font-display text-base font-semibold">{{ $ticket->status === TicketStatus::Closed ? 'Reply to reopen this ticket' : 'Reply' }}</label>

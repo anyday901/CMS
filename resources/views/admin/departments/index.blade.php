@@ -16,7 +16,7 @@
                                     <td class="px-4 py-2"><a href="{{ route('admin.departments.edit', $item) }}" class="text-brand-600">{{ $item->name }}</a></td>
                                     <td class="px-4 py-2">{{ $item->email ?? '—' }}</td>
                                     <td class="px-4 py-2">{{ $item->tickets_count }}</td>
-                                    <td class="px-4 py-2 text-ink-600">{{ collect($item->sla_hours ?? [])->map(fn ($hours, $priority) => ucfirst($priority).' '.(float) $hours.'h')->join(', ') ?: '—' }}</td>
+                                    <td class="px-4 py-2 text-ink-600">{{ collect($item->sla_hours ?? [])->map(fn ($hours, $priority) => ucfirst($priority).' '.(float) $hours.'h')->join(', ') ?: '—' }}@if ($item->sla_hours && $item->sla_business_hours) <span class="text-ink-500">(business hours)</span>@endif</td>
                                     <td class="px-4 py-2 text-right">@unless ($item->active)<x-status-badge status="off" />@endunless</td>
                                 </tr>
                             @endforeach
