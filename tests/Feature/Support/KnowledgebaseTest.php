@@ -17,6 +17,8 @@ class KnowledgebaseTest extends TestCase
 
     private const DNS_TITLE = 'Pointing your domain at us';
 
+    private const ADMIN_CATEGORIES = '/admin/kb-categories';
+
     private function article(KbCategory $category, array $attributes = []): KbArticle
     {
         return KbArticle::create($attributes + [
@@ -32,12 +34,12 @@ class KnowledgebaseTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
 
-        $this->post('/admin/kb-categories', ['name' => 'Domains'])->assertRedirect(self::ADMIN_KB);
+        $this->post(self::ADMIN_CATEGORIES, ['name' => 'Domains'])->assertRedirect(self::ADMIN_KB);
         $domains = KbCategory::sole();
-        $this->post('/admin/kb-categories', ['name' => 'DNS', 'parent_id' => $domains->id])->assertRedirect();
+        $this->post(self::ADMIN_CATEGORIES, ['name' => 'DNS', 'parent_id' => $domains->id])->assertRedirect();
         $dns = KbCategory::where('name', 'DNS')->sole();
         // Categories go one level deep.
-        $this->post('/admin/kb-categories', ['name' => 'Deeper', 'parent_id' => $dns->id])->assertSessionHasErrors('parent_id');
+        $this->post(self::ADMIN_CATEGORIES, ['name' => 'Deeper', 'parent_id' => $dns->id])->assertSessionHasErrors('parent_id');
 
         $this->post('/admin/kb-articles', ['kb_category_id' => $dns->id, 'title' => self::DNS_TITLE, 'body' => 'Set your nameservers.', 'published' => '1'])->assertRedirect();
         $article = KbArticle::sole();
@@ -49,9 +51,9 @@ class KnowledgebaseTest extends TestCase
         $this->assertSame(['Renamed', false, $domains->id], [$article->fresh()->title, $article->fresh()->published, $article->fresh()->kb_category_id]);
 
         // A category with articles can't be deleted.
-        $this->delete("/admin/kb-categories/{$domains->id}")->assertSessionHasErrors('category');
+        $this->delete(self::ADMIN_CATEGORIES."/{$domains->id}")->assertSessionHasErrors('category');
         $this->delete("/admin/kb-articles/{$article->id}")->assertRedirect(self::ADMIN_KB);
-        $this->delete("/admin/kb-categories/{$dns->id}")->assertRedirect();
+        $this->delete(self::ADMIN_CATEGORIES."/{$dns->id}")->assertRedirect();
         $this->assertModelMissing($dns);
 
         $this->actingAs(User::factory()->create(['role' => StaffRole::Custom, 'permissions' => ['manage-clients']]), 'web');

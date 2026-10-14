@@ -16,6 +16,8 @@ class AnnouncementTest extends TestCase
 
     private const LAUNCH = 'New data center in Dallas';
 
+    private const SCHEDULED = 'Coming soon';
+
     public function test_staff_publish_announcements(): void
     {
         $this->actingAs(User::factory()->create(), 'web');
@@ -35,15 +37,15 @@ class AnnouncementTest extends TestCase
     {
         $this->travelTo('2026-10-14 12:00');
         $live = Announcement::create(['title' => self::LAUNCH, 'body' => 'We have **opened** Dallas.', 'published_at' => now()->subDay()]);
-        Announcement::create(['title' => 'Coming soon', 'body' => 'Later', 'published_at' => now()->addDay()]);
+        Announcement::create(['title' => self::SCHEDULED, 'body' => 'Later', 'published_at' => now()->addDay()]);
         $draft = Announcement::create(['title' => 'Draft news', 'body' => 'Not yet', 'published' => false, 'published_at' => now()->subDay()]);
 
-        $this->get('/announcements')->assertOk()->assertSee(self::LAUNCH)->assertDontSee('Coming soon')->assertDontSee('Draft news');
+        $this->get('/announcements')->assertOk()->assertSee(self::LAUNCH)->assertDontSee(self::SCHEDULED)->assertDontSee('Draft news');
         $this->get("/announcements/{$live->id}")->assertOk()->assertSee('<strong>opened</strong>', false);
         $this->get("/announcements/{$draft->id}")->assertNotFound();
         $this->get('/announcements/rss')->assertOk()->assertHeader('Content-Type', 'application/rss+xml; charset=UTF-8')->assertSee(self::LAUNCH);
 
         $this->actingAs(Client::factory()->create(), 'client');
-        $this->get('/portal')->assertOk()->assertSee(self::LAUNCH)->assertDontSee('Coming soon');
+        $this->get('/portal')->assertOk()->assertSee(self::LAUNCH)->assertDontSee(self::SCHEDULED);
     }
 }

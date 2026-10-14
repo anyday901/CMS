@@ -24,6 +24,10 @@ class TicketEscalationTest extends TestCase
 
     private const OPENED = '2026-10-14 09:00';
 
+    private const RULE_NAME = 'Urgent and late';
+
+    private const APPLIED_ONCE = '1 time(s)';
+
     private Department $technical;
 
     private Department $managers;
@@ -88,13 +92,13 @@ class TicketEscalationTest extends TestCase
         $this->post(self::RULES, ['name' => 'Does nothing', 'minutes_since_reply' => '30'])->assertSessionHasErrors('name');
         $this->post(self::RULES, ['name' => 'Matches everything', 'set_priority' => 'high'])->assertSessionHasErrors('minutes_since_reply');
         $this->post(self::RULES, [
-            'name' => 'Urgent and late', 'active' => '1', 'priorities' => ['urgent'], 'department_ids' => [$this->technical->id],
+            'name' => self::RULE_NAME, 'active' => '1', 'priorities' => ['urgent'], 'department_ids' => [$this->technical->id],
             'sla_breached' => '1', 'set_department_id' => $this->managers->id,
         ])->assertRedirect(self::RULES);
 
         $rule = EscalationRule::sole();
         $this->assertSame([[$this->technical->id], ['urgent'], true], [$rule->department_ids, $rule->priorities, $rule->sla_breached]);
-        $this->get(self::RULES)->assertOk()->assertSee('Urgent and late')->assertSee('priority Urgent')->assertSee('Move to Managers');
+        $this->get(self::RULES)->assertOk()->assertSee(self::RULE_NAME)->assertSee('priority Urgent')->assertSee('Move to Managers');
 
         $this->actingAs(User::factory()->create(['role' => 'support']), 'web');
         $this->get(self::RULES)->assertForbidden();
@@ -104,7 +108,7 @@ class TicketEscalationTest extends TestCase
     {
         $manager = User::factory()->create(['name' => 'Morgan']);
         $rule = EscalationRule::create([
-            'name' => 'Urgent and late', 'priorities' => ['urgent'], 'statuses' => ['open', 'customer_reply'],
+            'name' => self::RULE_NAME, 'priorities' => ['urgent'], 'statuses' => ['open', 'customer_reply'],
             'sla_breached' => true, 'set_department_id' => $this->managers->id, 'assign_to' => $manager->id,
             'set_priority' => 'high', 'notify_user_ids' => [$manager->id], 'reply' => 'A senior engineer is on it.',
         ]);
@@ -114,7 +118,7 @@ class TicketEscalationTest extends TestCase
         $this->artisan('tickets:escalate')->expectsOutputToContain('0 time(s)')->assertSuccessful();
 
         $this->travel(61)->minutes();
-        $this->artisan('tickets:escalate')->expectsOutputToContain('1 time(s)')->assertSuccessful();
+        $this->artisan('tickets:escalate')->expectsOutputToContain(self::APPLIED_ONCE)->assertSuccessful();
         $ticket->refresh();
         $this->assertSame([$this->managers->id, $manager->id, TicketPriority::High, [$rule->id]], [$ticket->department_id, $ticket->assigned_to, $ticket->priority, $ticket->escalations]);
         $this->assertSame(TicketStatus::Open, $ticket->status);
@@ -129,7 +133,7 @@ class TicketEscalationTest extends TestCase
         app(TicketDesk::class)->clientReply($ticket, 'Any news?');
         $this->assertNull($ticket->fresh()->escalations);
         $this->travel(2)->hours();
-        $this->artisan('tickets:escalate')->expectsOutputToContain('1 time(s)');
+        $this->artisan('tickets:escalate')->expectsOutputToContain(self::APPLIED_ONCE);
     }
 
     public function test_inactive_rules_and_closed_tickets_are_left_alone(): void
@@ -141,7 +145,7 @@ class TicketEscalationTest extends TestCase
         $closed->update(['status' => TicketStatus::Closed]);
 
         $this->travel(2)->hours();
-        $this->artisan('tickets:escalate')->expectsOutputToContain('1 time(s)');
+        $this->artisan('tickets:escalate')->expectsOutputToContain(self::APPLIED_ONCE);
 
         $this->assertSame([TicketStatus::OnHold, TicketPriority::Urgent], [$ticket->fresh()->status, $ticket->fresh()->priority]);
         $this->assertSame(TicketStatus::Closed, $closed->fresh()->status);

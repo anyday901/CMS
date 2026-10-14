@@ -71,6 +71,21 @@ class DownloadTest extends TestCase
         $this->assertModelMissing($download);
     }
 
+    public function test_upload_size_limit_comes_from_config(): void
+    {
+        $this->actingAs(User::factory()->create(), 'web');
+        $upload = fn () => $this->post(self::ADMIN, [
+            'download_category_id' => $this->category->id, 'title' => self::AGENT,
+            'file' => UploadedFile::fake()->create('agent.zip', 9 * 1024),
+        ]);
+
+        $upload()->assertSessionHasErrors('file');
+
+        config(['support.download_max_mb' => 10]);
+        $upload()->assertRedirect(self::ADMIN);
+        $this->assertSame(9 * 1024 * 1024, Download::sole()->size);
+    }
+
     public function test_who_can_download(): void
     {
         $public = $this->download(['title' => 'Public guide']);

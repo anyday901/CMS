@@ -22,6 +22,8 @@ class TicketCustomFieldTest extends TestCase
 
     private const NEW_TICKET = '/portal/support/new';
 
+    private const STAFF_FIELD = 'Root cause';
+
     private Department $technical;
 
     private Department $sales;
@@ -53,12 +55,12 @@ class TicketCustomFieldTest extends TestCase
     {
         $domain = CustomField::create(['entity' => 'ticket', 'department_id' => $this->technical->id, 'name' => self::DOMAIN_FIELD, 'type' => 'text', 'required' => true]);
         $everywhere = CustomField::create(['entity' => 'ticket', 'name' => 'Urgency reason', 'type' => 'textarea']);
-        $staffOnly = CustomField::create(['entity' => 'ticket', 'name' => 'Root cause', 'type' => 'text', 'admin_only' => true]);
+        $staffOnly = CustomField::create(['entity' => 'ticket', 'name' => self::STAFF_FIELD, 'type' => 'text', 'admin_only' => true]);
         $this->actingAs(Client::factory()->create(), 'client');
 
         $this->get(self::NEW_TICKET)->assertOk()->assertSee('Which team can help?')->assertDontSee(self::DOMAIN_FIELD);
         $this->get(self::NEW_TICKET.'?department='.$this->sales->id)->assertOk()->assertSee('Urgency reason')->assertDontSee(self::DOMAIN_FIELD);
-        $this->get(self::NEW_TICKET.'?department='.$this->technical->id)->assertOk()->assertSee(self::DOMAIN_FIELD)->assertDontSee('Root cause');
+        $this->get(self::NEW_TICKET.'?department='.$this->technical->id)->assertOk()->assertSee(self::DOMAIN_FIELD)->assertDontSee(self::STAFF_FIELD);
 
         $ticket = ['department_id' => $this->technical->id, 'subject' => 'Site down', 'priority' => 'medium', 'body' => 'Help'];
         $this->post('/portal/support', $ticket)->assertSessionHasErrors("custom_fields.{$domain->id}");
@@ -66,11 +68,11 @@ class TicketCustomFieldTest extends TestCase
 
         $saved = Ticket::sole();
         $this->assertSame([(string) $domain->id => self::DOMAIN], $saved->custom_fields);
-        $this->get("/portal/support/{$saved->id}")->assertSee(self::DOMAIN_FIELD)->assertSee(self::DOMAIN)->assertDontSee('Root cause');
+        $this->get("/portal/support/{$saved->id}")->assertSee(self::DOMAIN_FIELD)->assertSee(self::DOMAIN)->assertDontSee(self::STAFF_FIELD);
 
         // Staff see every field, can fill the staff-only one, and can leave required ones empty.
         $this->actingAs(User::factory()->create(), 'web');
-        $this->get("/admin/tickets/{$saved->id}")->assertOk()->assertSee(self::DOMAIN)->assertSee('Root cause');
+        $this->get("/admin/tickets/{$saved->id}")->assertOk()->assertSee(self::DOMAIN)->assertSee(self::STAFF_FIELD);
         $this->put("/admin/tickets/{$saved->id}", [
             'status' => 'open', 'priority' => 'medium', 'department_id' => $this->technical->id,
             'custom_fields' => [$domain->id => '', $everywhere->id => 'Outage', $staffOnly->id => 'Disk full'],
