@@ -145,6 +145,7 @@ class ServerController extends Controller
             'verify_tls' => $request->boolean('verify_tls'),
             'active' => $request->boolean('active'),
             'monitor' => $request->boolean('monitor'),
+            'show_status' => $request->boolean('show_status'),
         ];
     }
 

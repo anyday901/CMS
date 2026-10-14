@@ -2,6 +2,13 @@
 <x-portal-layout title="Home">
     <h1 class="mb-6 text-2xl font-semibold">Welcome, {{ $client->first_name }}</h1>
 
+    @foreach ($issues as $issue)
+        <div class="mb-4 rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+            <strong>{{ $issue->statusLabel() }}: {{ $issue->title }}</strong> (affects {{ $issue->affects() }}).
+            <a href="{{ route('network.index') }}" class="font-medium text-brand-700">See network status</a>
+        </div>
+    @endforeach
+
     @if ($client->credit_balance > 0)
         <p class="mb-4 text-sm text-ink-700">You have <strong>{{ Money::format($client->credit_balance, $client->currency) }}</strong> of account credit, which you can use on any unpaid invoice.</p>
     @endif
@@ -26,6 +33,22 @@
         <p class="text-sm text-ink-500">You're all paid up.</p>
     @else
         @include('portal.invoices._table', ['invoices' => $unpaid])
+    @endif
+
+    @if ($announcements->isNotEmpty())
+        <div class="mt-8 mb-3 flex items-baseline gap-3">
+            <h2 class="text-lg font-semibold">Announcements</h2>
+            <a href="{{ route('announcements.index') }}" class="text-sm text-brand-600">See all</a>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3">
+            @foreach ($announcements as $announcement)
+                <a href="{{ route('announcements.show', $announcement) }}" class="block rounded-lg border border-ink-200 bg-white p-4 text-sm hover:ring-1 hover:ring-brand-300">
+                    <span class="text-ink-500">{{ $announcement->published_at->format('M j, Y') }}</span>
+                    <span class="block font-semibold">{{ $announcement->title }}</span>
+                    <span class="mt-1 block text-ink-600">{{ App\Support\Markdown::excerpt($announcement->body, 110) }}</span>
+                </a>
+            @endforeach
+        </div>
     @endif
 
     @if ($credit->isNotEmpty())

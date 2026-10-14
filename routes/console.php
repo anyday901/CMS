@@ -12,6 +12,7 @@ use App\Models\Department;
 use App\Monitoring\ServerMonitor;
 use App\Provisioning\UsageCollector;
 use App\Tickets\InboundMail;
+use App\Tickets\TicketEscalator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -68,6 +69,11 @@ Artisan::command('tickets:pipe {file? : Read the email from this file instead of
     return 0;
 })->purpose('Read an email on standard input and add it to a ticket or open a new one');
 
+Artisan::command('tickets:escalate', function (TicketEscalator $escalator) {
+    $applied = $escalator->run(now());
+    $this->info("Applied escalation rules {$applied} time(s).");
+})->purpose('Apply the ticket escalation rules to the open tickets that match them');
+
 Artisan::command('usage:collect', function (UsageCollector $collector) {
     $result = $collector->collect(now());
     $this->info("Read the disk and bandwidth use of {$result['services']} service(s).");
@@ -85,5 +91,6 @@ Artisan::command('servers:check', function (ServerMonitor $monitor) {
 
 Schedule::command('billing:run')->dailyAt('00:05')->withoutOverlapping();
 Schedule::command('usage:collect')->hourlyAt(50)->withoutOverlapping();
+Schedule::command('tickets:escalate')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('servers:check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('activity:prune')->dailyAt('03:15');

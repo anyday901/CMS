@@ -1,8 +1,9 @@
 @php use App\Models\CustomField; @endphp
 <label class="block">For
     <select name="entity" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-        <option value="client" @selected(old('entity', $field->entity) === 'client')>Clients</option>
-        <option value="service" @selected(old('entity', $field->entity) === 'service')>Services</option>
+        @foreach (CustomField::ENTITIES as $value => $label)
+            <option value="{{ $value }}" @selected(old('entity', $field->entity) === $value)>{{ $label }}</option>
+        @endforeach
     </select>
 </label>
 <label class="block">Product (services only)
@@ -10,6 +11,14 @@
         <option value="">Every product</option>
         @foreach ($products as $product)
             <option value="{{ $product->id }}" @selected((string) old('product_id', $field->product_id) === (string) $product->id)>{{ $product->name }}</option>
+        @endforeach
+    </select>
+</label>
+<label class="block">Department (tickets only)
+    <select name="department_id" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+        <option value="">Every department</option>
+        @foreach ($departments as $department)
+            <option value="{{ $department->id }}" @selected((string) old('department_id', $field->department_id) === (string) $department->id)>{{ $department->name }}</option>
         @endforeach
     </select>
 </label>

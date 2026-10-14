@@ -59,7 +59,7 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Support</legend>
-            <p class="text-ink-600">Add and edit ticket departments and their email addresses under <a href="{{ route('admin.departments.index') }}" class="text-brand-600">Departments</a>.</p>
+            <p class="text-ink-600">Add and edit ticket departments, their email addresses and response time targets (SLAs) under <a href="{{ route('admin.departments.index') }}" class="text-brand-600">Departments</a>, and move, reassign or flag tickets automatically with <a href="{{ route('admin.escalation-rules.index') }}" class="text-brand-600">Escalation rules</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">

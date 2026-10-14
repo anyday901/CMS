@@ -7,6 +7,7 @@ use App\Enums\TicketStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\CannedReply;
+use App\Models\CustomField;
 use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
@@ -25,7 +26,7 @@ class TicketController extends Controller
     public function index(Request $request): View
     {
         $filters = [
-            'status' => in_array($request->query('status'), ['all', 'answered', 'on_hold', 'closed'], true) ? $request->query('status') : 'waiting',
+            'status' => in_array($request->query('status'), ['all', 'overdue', 'answered', 'on_hold', 'closed'], true) ? $request->query('status') : 'waiting',
             'department' => $request->integer('department') ?: null,
             'mine' => $request->boolean('mine'),
         ];
@@ -33,10 +34,11 @@ class TicketController extends Controller
         $tickets = Ticket::query()
             ->with(['client', 'department', 'assignee'])
             ->when($filters['status'] === 'waiting', fn ($query) => $query->awaitingStaff())
+            ->when($filters['status'] === 'overdue', fn ($query) => $query->overdue())
             ->when(in_array($filters['status'], ['answered', 'on_hold', 'closed'], true), fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['department'], fn ($query, $id) => $query->where('department_id', $id))
             ->when($filters['mine'], fn ($query) => $query->where('assigned_to', $request->user()->id))
-            ->when($filters['status'] === 'waiting',
+            ->when(in_array($filters['status'], ['waiting', 'overdue'], true),
                 fn ($query) => $query->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at'),
                 fn ($query) => $query->latest('last_reply_at'))
             ->orderBy('id')
@@ -47,6 +49,7 @@ class TicketController extends Controller
             'tickets' => $tickets,
             'filters' => $filters,
             'departments' => Department::orderBy('name')->get(),
+            'overdueCount' => Ticket::overdue()->count(),
         ]);
     }
 
@@ -60,20 +63,28 @@ class TicketController extends Controller
                 ->map(fn (CannedReply $reply) => ['title' => $reply->title, 'body' => $reply->bodyFor($ticket, $request->user())]),
             'departments' => Department::orderBy('name')->get(),
             'staff' => User::orderBy('name')->get()->filter(fn (User $user) => $user->allows('manage-tickets')),
+            'customFields' => $ticket->customFieldDefinitions(),
         ]);
     }
 
-    /** Status, priority, department and assignee. */
+    /** Status, priority, department, assignee and custom fields. */
     public function update(Request $request, Ticket $ticket): RedirectResponse
     {
+        $fields = CustomField::forTicket($request->integer('department_id'))->get();
         $data = $request->validate([
             'status' => ['required', Rule::enum(TicketStatus::class)],
             'priority' => ['required', Rule::enum(TicketPriority::class)],
             'department_id' => ['required', 'exists:departments,id'],
             'assigned_to' => ['nullable', 'exists:users,id'],
-        ]);
+            // Staff can leave a required field empty, such as on a ticket opened by email.
+        ] + collect(CustomField::rules($fields))->map(fn (array $rules) => array_map(fn ($rule) => match ($rule) {
+            'required' => 'nullable',
+            'accepted' => 'in:0,1',
+            default => $rule,
+        }, $rules))->all(), [], CustomField::attributeNames($fields));
+        unset($data['custom_fields']);
 
-        $ticket->update($data);
+        $ticket->update($data + ['custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $ticket->custom_fields)]);
 
         if ($ticket->wasChanged()) {
             Activity::record("Updated ticket #{$ticket->id}", $ticket, ['changed' => array_keys(array_diff_key($ticket->getChanges(), ['updated_at' => 1]))]);

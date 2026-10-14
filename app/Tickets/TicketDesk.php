@@ -95,7 +95,7 @@ class TicketDesk
     {
         $message = DB::transaction(function () use ($ticket, $body, $files, $email) {
             $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id] + ($email?->attributes() ?? []), $body, $files);
-            $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now()]);
+            $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now(), 'escalations' => null]);
             Activity::record("Client replied to ticket #{$ticket->id}", $ticket, $email ? ['via' => 'email'] : []);
 
             return $message;
@@ -117,7 +117,12 @@ class TicketDesk
             $message = $this->addMessage($ticket, ['user_id' => $user->id, 'internal' => $internal], $body, $files);
 
             if (! $internal) {
-                $ticket->update(['status' => TicketStatus::Answered, 'last_reply_at' => now()]);
+                $ticket->update([
+                    'status' => TicketStatus::Answered,
+                    'last_reply_at' => now(),
+                    'first_response_at' => $ticket->first_response_at ?? now(),
+                    'escalations' => null,
+                ]);
             }
             Activity::record(($internal ? 'Added a note to' : 'Replied to')." ticket #{$ticket->id}", $ticket);
 
@@ -130,6 +135,20 @@ class TicketDesk
                 'reply' => $message->body,
             ], ticket: $ticket);
         }
+
+        return $message;
+    }
+
+    /**
+     * A reply an escalation rule posts in the business's name. It's emailed
+     * like a staff reply but leaves the status and response due time alone.
+     */
+    public function automatedReply(Ticket $ticket, string $body): TicketMessage
+    {
+        $name = (string) config('app.name');
+        $message = $this->addMessage($ticket, ['author_name' => $name], $body, []);
+
+        $this->mailer->send($ticket->client, 'ticket_reply', ['staff_name' => $name, 'reply' => $message->body], ticket: $ticket);
 
         return $message;
     }
@@ -155,7 +174,7 @@ class TicketDesk
     }
 
     /** Emails the assignee, or everyone who handles tickets when nobody is assigned. */
-    private function alertStaff(Ticket $ticket, string $subject, string ...$lines): void
+    public function alertStaff(Ticket $ticket, string $subject, string ...$lines): void
     {
         $assignee = $ticket->assignee;
 

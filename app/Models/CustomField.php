@@ -9,10 +9,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /**
- * An extra field staff add to clients or services, such as a VAT number or
- * a server hostname. Values are kept on the client or service by field id.
- * A service field can be for every product or for one product. Fields marked
- * admin only are hidden from clients.
+ * An extra field staff add to clients, services or tickets, such as a VAT number or
+ * a server hostname or the domain a ticket is about. Values are kept on
+ * the client, service or ticket by field id. A service field can be for every
+ * product or for one product, and a ticket field for every department or one
+ * department. Fields marked admin only are hidden from clients.
  */
 class CustomField extends Model
 {
@@ -20,11 +21,15 @@ class CustomField extends Model
 
     public const SERVICE = 'service';
 
+    public const TICKET = 'ticket';
+
+    public const ENTITIES = [self::CLIENT => 'Clients', self::SERVICE => 'Services', self::TICKET => 'Tickets'];
+
     public const CHECKBOX = 'checkbox';
 
     public const TYPES = ['text' => 'Text', 'textarea' => 'Text area', 'dropdown' => 'Dropdown', self::CHECKBOX => 'Checkbox'];
 
-    protected $fillable = ['entity', 'product_id', 'name', 'type', 'options', 'help', 'required', 'admin_only', 'sort_order'];
+    protected $fillable = ['entity', 'product_id', 'department_id', 'name', 'type', 'options', 'help', 'required', 'admin_only', 'sort_order'];
 
     protected function casts(): array
     {
@@ -34,6 +39,11 @@ class CustomField extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /** @param  Builder<self>  $query */
@@ -53,6 +63,14 @@ class CustomField extends Model
     {
         return static::where('entity', self::SERVICE)
             ->where(fn ($query) => $query->whereNull('product_id')->orWhere('product_id', $productId))
+            ->ordered();
+    }
+
+    /** @return Builder<self> Ticket fields for every department and for this one. */
+    public static function forTicket(?int $departmentId): Builder
+    {
+        return static::where('entity', self::TICKET)
+            ->where(fn ($query) => $query->whereNull('department_id')->orWhere('department_id', $departmentId))
             ->ordered();
     }
 

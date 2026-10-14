@@ -56,6 +56,10 @@
             <div class="space-y-2 rounded-lg border border-ink-200 bg-white p-4 text-sm">
                 <div><div class="text-ink-500">Client</div><a href="{{ route('admin.clients.show', $ticket->client) }}" class="text-brand-600">{{ $ticket->client->fullName() }}</a> <span class="text-ink-500">{{ $ticket->client->email }}</span></div>
                 <div><div class="text-ink-500">Opened</div>{{ $ticket->created_at->format('M j, Y g:ia') }}</div>
+                <div><div class="text-ink-500">Response due</div>@include('admin.tickets._due')</div>
+                @if ($ticket->first_response_at)
+                    <div><div class="text-ink-500">First answered</div>{{ $ticket->first_response_at->format('M j, Y g:ia') }} ({{ $ticket->first_response_at->diffForHumans($ticket->created_at, syntax: Carbon\CarbonInterface::DIFF_ABSOLUTE) }} after opening)</div>
+                @endif
             </div>
 
             <form method="POST" action="{{ route('admin.tickets.update', $ticket) }}" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
@@ -89,6 +93,11 @@
                         @endforeach
                     </select>
                 </label>
+                @if ($customFields->isNotEmpty())
+                    <div class="space-y-3 border-t border-ink-100 pt-3">
+                        @include('custom-fields._inputs', ['fields' => $customFields, 'values' => $ticket->custom_fields ?? []])
+                    </div>
+                @endif
                 <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Save</button>
             </form>
         </aside>

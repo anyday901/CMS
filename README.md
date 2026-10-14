@@ -13,7 +13,8 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
-- Support tickets with email piping
+- Support tickets with email piping, custom fields per department, response time targets (SLAs) and escalation rules
+- A knowledge base with search, announcements, a network status page and a downloads area
 - An importer for existing WHMCS installs
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -76,7 +77,7 @@ The full steps, and what changes for clients, are in [docs/install.md](docs/inst
 
 Clients log in at `/portal` to see their services and invoices, update their details and add contacts. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
 
-Clients open and follow support tickets under **Support**.
+Clients open and follow support tickets under **Support**, which also links the knowledge base, announcements, downloads and network status. Those four pages are public, so visitors who aren't logged in can read them from **Help** in the store menu.
 
 ## Store and ordering
 
@@ -143,7 +144,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
 
 ### Searching clients
 
@@ -240,6 +241,23 @@ Staff are emailed when something needs a person: a provisioning action fails or 
 Add at least one department under **Settings > Departments** (for example Sales and Technical) so clients can open tickets. Give a department an email address to make it the reply-to on ticket emails and to accept tickets by email.
 
 Clients open tickets in the portal under **Support**, choosing a department and priority, and can attach up to 5 files of 10 MB each (images, PDFs, text, office documents or zip). Staff see them under **Tickets**, which lists tickets waiting on staff first, most urgent and longest waiting at the top, and can filter by status, department and "assigned to me". On a ticket, staff reply (emailed to the client), add internal notes (never shown to or emailed to the client), and change the status, priority, department and assignee. A client reply reopens a closed ticket. Save answers you give often under **Tickets > Canned replies**; on a ticket, pick one from **Canned reply** to add it to your reply, with placeholders like `{client_first_name}`, `{ticket_id}` and `{staff_name}` filled in. Attachments are stored privately in `storage/app/private/tickets` and are only downloaded by staff and the ticket's client.
+
+### Ticket custom fields, SLAs and escalation rules
+
+Under **Settings > Custom fields**, choose **Tickets** to add a field clients fill in when they open a ticket, for every department or one department (for example a domain name for Technical, or a budget for Sales). Clients pick the department first, then see its fields. Staff see and change every field on the ticket, including staff-only ones, and can leave a required field empty (such as on a ticket opened by email).
+
+Each department can have **response time targets (SLA)**: the hours staff have to answer a ticket waiting on them, by priority. A ticket's response is due that long after the client's last message; a staff reply clears it and the next client reply starts it again. **Tickets** shows when each ticket is due, with an **Overdue** filter, and a ticket's page shows when it was first answered. Targets are in calendar hours, not business hours.
+
+**Tickets > Escalation rules** change open tickets automatically. A rule matches tickets by department, status and priority, and by how long since the last reply or whether the response is overdue; it can move them to another department, change their status or priority, assign them, email the assignee or chosen staff, and post a reply to the client in your business's name. `php artisan tickets:escalate` runs the rules every five minutes from the scheduler. A rule changes a ticket once, and again only after someone replies.
+
+### Knowledge base, announcements, network status and downloads
+
+These are under **Support** in the admin area, for staff who handle tickets.
+
+- **Knowledge base** (`/knowledgebase`): articles written in Markdown, in categories one level deep, with search over titles, text and tags. Hidden categories and unpublished articles aren't shown. Each article counts its views and asks "Was this article helpful?".
+- **Announcements** (`/announcements`, with an RSS feed at `/announcements/rss`): dated news, which can be written ahead and shown from its date. The latest three show on the portal home page.
+- **Network status** (`/network-status`): current issues and planned maintenance, each affecting a server or something described in words, with a status, priority, start and end. Clients with a service on an affected server see a notice on their portal home page. Tick **Show on the network status page** on a server (under **Status monitoring**) to list its name, status and 30-day uptime there; its host name and address aren't shown.
+- **Downloads** (`/downloads`): files in categories, kept in `storage/app/private/downloads` and always sent as downloads. A file can be for everyone, for logged-in clients, or for clients with an active service of chosen products. Uploads are limited to 7.5 MB, and to PHP's `upload_max_filesize` and `post_max_size`.
 
 ### Tickets by email
 

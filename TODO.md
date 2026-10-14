@@ -129,15 +129,18 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Try the cPanel transfer, Proxmox migration (in a cluster and remote), usage readings and server load against live servers (built from the API docs and tested with mocked replies)
 - [ ] Automatic copies for Plesk (Plesk Migrator) and DirectAdmin moves, and for moves between modules
 - [ ] Import WHMCS licensing add-on licenses
-- [ ] Client-facing server status page (with Network status in milestone 9)
+- [x] Client-facing server status page (with Network status in milestone 9)
 
 ## Milestone 9: Support parity
-- [ ] Knowledge base with categories and search
-- [ ] Announcements
-- [ ] Network status (planned and current issues)
-- [ ] Downloads area, optionally limited to clients with a product
-- [ ] Custom ticket fields per department
-- [ ] Ticket escalation rules and SLAs
+- [x] Knowledge base with categories and search
+- [x] Announcements
+- [x] Network status (planned and current issues)
+- [x] Downloads area, optionally limited to clients with a product
+- [x] Custom ticket fields per department
+- [x] Ticket escalation rules and SLAs
+- [ ] Import WHMCS knowledge base articles, announcements, network issues, downloads, ticket custom fields and escalation rules
+- [ ] Business hours for SLAs (targets are in calendar hours for now)
+- [ ] Suggest knowledge base articles as a client types a new ticket
 - [ ] Auto-close inactive answered tickets
 - [ ] Merge and split tickets, and ticket tags
 - [ ] Ticket feedback ratings
