@@ -257,7 +257,7 @@ These are under **Support** in the admin area, for staff who handle tickets.
 - **Knowledge base** (`/knowledgebase`): articles written in Markdown, in categories one level deep, with search over titles, text and tags. Hidden categories and unpublished articles aren't shown. Each article counts its views and asks "Was this article helpful?".
 - **Announcements** (`/announcements`, with an RSS feed at `/announcements/rss`): dated news, which can be written ahead and shown from its date. The latest three show on the portal home page.
 - **Network status** (`/network-status`): current issues and planned maintenance, each affecting a server or something described in words, with a status, priority, start and end. Clients with a service on an affected server see a notice on their portal home page. Tick **Show on the network status page** on a server (under **Status monitoring**) to list its name, status and 30-day uptime there; its host name and address aren't shown.
-- **Downloads** (`/downloads`): files in categories, kept in `storage/app/private/downloads` and always sent as downloads. A file can be for everyone, for logged-in clients, or for clients with an active service of chosen products. Uploads are limited to 8 MB by default (set `DOWNLOADS_MAX_MB` for more), and to PHP's `upload_max_filesize` and `post_max_size`.
+- **Downloads** (`/downloads`): files in categories, kept in `storage/app/private/downloads` and always sent as downloads. A file can be for everyone, for logged-in clients, or for clients with an active service of chosen products. Uploads are limited to 8 MB, and to PHP's `upload_max_filesize` and `post_max_size`.
 
 ### Tickets by email
 

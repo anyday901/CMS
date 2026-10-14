@@ -25,7 +25,7 @@
         </label>
         <label for="download-file" class="block">{{ $download->exists ? 'Replace the file (optional)' : 'File' }}
             <input id="download-file" type="file" name="file" @required(! $download->exists) class="mt-1 block w-full">
-            <span class="text-ink-500">Up to {{ Number::fileSize(App\Http\Controllers\Admin\DownloadController::maxKb() * 1024) }}, if PHP's upload limits allow it.@if ($download->exists) Now: {{ $download->file_name }} ({{ Number::fileSize($download->size) }}).@endif</span>
+            <span class="text-ink-500">Up to {{ Number::fileSize(App\Http\Controllers\Admin\DownloadController::MAX_KB * 1024) }}, if PHP's upload limits allow it.@if ($download->exists) Now: {{ $download->file_name }} ({{ Number::fileSize($download->size) }}).@endif</span>
         </label>
         <label class="flex items-center gap-2"><input type="checkbox" name="clients_only" value="1" @checked(old('clients_only', $download->clients_only))> Logged-in clients only</label>
         <fieldset>

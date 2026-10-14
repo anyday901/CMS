@@ -16,11 +16,8 @@ use Illuminate\View\View;
 /** Files in the downloads area, kept on the private disk. */
 class DownloadController extends Controller
 {
-    /** Largest upload, in KB, from config/support.php. */
-    public static function maxKb(): int
-    {
-        return max(1, config('support.download_max_mb')) * 1024;
-    }
+    /** Largest upload, in KB (8 MB). PHP's upload_max_filesize and post_max_size must allow it too. */
+    public const MAX_KB = 8192;
 
     public function index(): View
     {
@@ -89,7 +86,7 @@ class DownloadController extends Controller
             'download_category_id' => ['required', 'exists:download_categories,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
-            'file' => [$new ? 'required' : 'nullable', 'file', 'max:'.self::maxKb()],
+            'file' => [$new ? 'required' : 'nullable', 'file', 'max:'.self::MAX_KB],
             'product_ids' => ['array'],
             'product_ids.*' => ['exists:products,id'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:100000'],
