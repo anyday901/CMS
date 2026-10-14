@@ -106,7 +106,9 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertSame('ZIPDATA', Storage::disk('local')->get($download->path));
         $this->assertSame(['found' => 3, 'imported' => 1, 'skipped' => 2], $report->counts()['Downloads']);
         $this->assertStringContainsString('links to https://docs.example.com', $report->toMarkdown());
-        $this->assertSame(['found' => 2, 'imported' => 1, 'skipped' => 1], $report->counts()['Download categories']);
+        // "Old tools" is visible itself but sits under the hidden "Old", so it stays out too.
+        $this->assertSame(['found' => 3, 'imported' => 1, 'skipped' => 2], $report->counts()['Download categories']);
+        $this->assertStringContainsString('"Old tools" is hidden in WHMCS, or sits under a hidden category', $report->toMarkdown());
     }
 
     public function test_downloads_need_the_folder(): void

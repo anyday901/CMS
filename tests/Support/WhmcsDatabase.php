@@ -430,11 +430,11 @@ class WhmcsDatabase
             ['title' => 'Email delays', 'description' => 'Queue backed up', 'type' => 'System', 'affecting' => 'Email', 'server' => 0, 'priority' => 'Critical', 'startdate' => '2026-09-10 08:00:00', 'enddate' => null, 'status' => 'Resolved', 'lastupdate' => '2026-09-10 10:00:00'],
         ]);
 
-        $db->table('tbldownloadcats')->insert([['id' => 1, 'parentid' => 0, 'name' => 'Software', 'description' => 'Tools', 'hidden' => ''], ['id' => 2, 'parentid' => 0, 'name' => 'Old', 'description' => '', 'hidden' => 'on']]);
+        $db->table('tbldownloadcats')->insert([['id' => 1, 'parentid' => 0, 'name' => 'Software', 'description' => 'Tools', 'hidden' => ''], ['id' => 2, 'parentid' => 0, 'name' => 'Old', 'description' => '', 'hidden' => 'on'], ['id' => 3, 'parentid' => 2, 'name' => 'Old tools', 'description' => '', 'hidden' => '']]);
         $db->table('tbldownloads')->insert([
             ['id' => 1, 'category' => 1, 'type' => 'zip', 'title' => 'Backup tool', 'description' => 'Backs up', 'downloads' => 12, 'location' => 'backup-tool.zip', 'clientsonly' => 'on', 'hidden' => '', 'productdownload' => 'on'],
             ['id' => 2, 'category' => 1, 'type' => 'link', 'title' => 'Docs site', 'description' => '', 'downloads' => 0, 'location' => 'https://docs.example.com', 'clientsonly' => '', 'hidden' => '', 'productdownload' => ''],
-            ['id' => 3, 'category' => 2, 'type' => 'zip', 'title' => 'Ancient', 'description' => '', 'downloads' => 0, 'location' => 'ancient.zip', 'clientsonly' => '', 'hidden' => '', 'productdownload' => ''],
+            ['id' => 3, 'category' => 3, 'type' => 'zip', 'title' => 'Ancient', 'description' => '', 'downloads' => 0, 'location' => 'ancient.zip', 'clientsonly' => '', 'hidden' => '', 'productdownload' => ''],
         ]);
         $db->table('tblproduct_downloads')->insert(['product_id' => 3, 'download_id' => 1]);
 

@@ -212,12 +212,13 @@ class SupportImporter
         }
 
         $categories = [];
+        $rows = $this->run->table('tbldownloadcats')->orderBy('id')->get()->keyBy(fn ($row) => (int) $row->id);
 
-        foreach ($this->run->table('tbldownloadcats')->orderBy('id')->cursor() as $row) {
+        foreach ($rows as $row) {
             $this->run->report->found(self::DOWNLOAD_CATEGORIES);
 
-            if (Whmcs::on($row->hidden ?? '')) {
-                $this->run->report->skipped(self::DOWNLOAD_CATEGORIES, '"'.Whmcs::text($row->name).'" is hidden in WHMCS, so it and its downloads were left out.');
+            if (self::hiddenCategory($row, $rows)) {
+                $this->run->report->skipped(self::DOWNLOAD_CATEGORIES, '"'.Whmcs::text($row->name).'" is hidden in WHMCS, or sits under a hidden category, so it and its downloads were left out.');
 
                 continue;
             }
@@ -243,6 +244,26 @@ class SupportImporter
         foreach ($this->run->table('tbldownloads')->orderBy('id')->cursor() as $row) {
             $this->importDownload($row, $categories, $products->get((int) $row->id, collect()));
         }
+    }
+
+    /**
+     * Whether a download category or any category above it is hidden in WHMCS.
+     *
+     * @param  Collection<int, object>  $rows
+     */
+    private static function hiddenCategory(object $row, Collection $rows): bool
+    {
+        $seen = [];
+
+        while ($row !== null && ! isset($seen[(int) $row->id])) {
+            if (Whmcs::on($row->hidden ?? '')) {
+                return true;
+            }
+            $seen[(int) $row->id] = true;
+            $row = $rows->get((int) ($row->parentid ?? 0));
+        }
+
+        return false;
     }
 
     /**

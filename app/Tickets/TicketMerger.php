@@ -60,7 +60,7 @@ class TicketMerger
                 'last_reply_at' => $others->pluck('last_reply_at')->push($into->last_reply_at)->filter()->max(),
                 'first_response_at' => $others->pluck('first_response_at')->push($into->first_response_at)->filter()->min(),
                 'custom_fields' => array_replace(...$others->map(fn (Ticket $ticket) => $ticket->custom_fields ?? [])->push($into->custom_fields ?? [])->all()) ?: null,
-                'status' => $this->mergedStatus($into, $others),
+                'status' => $this->statusFromMessages($into, $into->status === TicketStatus::Closed && $others->every(fn (Ticket $ticket) => $ticket->status === TicketStatus::Closed)),
                 'escalations' => null,
             ]);
 
@@ -78,20 +78,17 @@ class TicketMerger
     }
 
     /**
-     * Who the merged ticket waits on now, from who wrote last: staff when the
-     * client did (unless staff put it on hold), the client when staff did. A
-     * closed ticket stays closed unless a merged ticket was still open.
-     *
-     * @param  Collection<int, Ticket>  $others
+     * Who a ticket waits on after messages moved in or out, from who wrote
+     * last: staff when the client did (unless staff put it on hold), the
+     * client when staff did. A closed ticket stays closed when $staysClosed.
      */
-    private function mergedStatus(Ticket $into, Collection $others): TicketStatus
+    private function statusFromMessages(Ticket $ticket, bool $staysClosed): TicketStatus
     {
-        $public = $into->messages()->where('internal', false);
+        $public = $ticket->messages()->where('internal', false);
         $latest = (clone $public)->get()->last();
-        $closed = $into->status === TicketStatus::Closed && $others->every(fn (Ticket $ticket) => $ticket->status === TicketStatus::Closed);
 
         return match (true) {
-            $latest === null || $closed || $into->status === TicketStatus::OnHold => $into->status,
+            $latest === null || $staysClosed || $ticket->status === TicketStatus::OnHold => $ticket->status,
             ! $latest->fromStaff() => (clone $public)->whereNull('client_id')->exists() ? TicketStatus::CustomerReply : TicketStatus::Open,
             default => TicketStatus::Answered,
         };
@@ -113,6 +110,10 @@ class TicketMerger
             throw new InvalidArgumentException('Pick the messages to move from this ticket.');
         }
 
+        if ($moving->every(fn (TicketMessage $message) => $message->internal)) {
+            throw new InvalidArgumentException('Pick at least one message the client can see; internal notes alone would make an empty ticket.');
+        }
+
         if ($from->messages()->whereKeyNot($moving->modelKeys())->where('internal', false)->doesntExist()) {
             throw new InvalidArgumentException('Leave at least one message, other than internal notes, on this ticket.');
         }
@@ -126,16 +127,19 @@ class TicketMerger
                 'department_id' => $attributes['department_id'],
                 'subject' => Str::limit(trim($attributes['subject']), 250, ''),
                 'priority' => $attributes['priority'],
-                'status' => $latest === null || ! $latest->fromStaff() ? TicketStatus::Open : TicketStatus::Answered,
+                'status' => $latest->fromStaff() ? TicketStatus::Answered : TicketStatus::Open,
                 'assigned_to' => $from->assigned_to,
                 'custom_fields' => $from->custom_fields,
-                'last_reply_at' => $latest->created_at ?? now(),
+                'last_reply_at' => $latest->created_at,
             ]);
             $ticket->syncTags($from->tags->pluck('name')->all());
             TicketMessage::whereKey($moving->modelKeys())->update(['ticket_id' => $ticket->id]);
 
             $remaining = $from->messages()->where('internal', false)->get()->last();
-            $from->update(['last_reply_at' => $remaining?->created_at ?? $from->last_reply_at]);
+            $from->update([
+                'last_reply_at' => $remaining?->created_at ?? $from->last_reply_at,
+                'status' => $this->statusFromMessages($from, $from->status === TicketStatus::Closed),
+            ]);
 
             $ticket->messages()->create(['user_id' => $by->id, 'internal' => true, 'body' => "Split from ticket #{$from->id} ({$from->subject})."]);
             $from->messages()->create(['user_id' => $by->id, 'internal' => true, 'body' => "Moved {$moving->count()} message(s) to ticket #{$ticket->id} ({$ticket->subject})."]);

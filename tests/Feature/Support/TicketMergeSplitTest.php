@@ -116,6 +116,43 @@ class TicketMergeSplitTest extends TestCase
         $this->assertSame(1, EmailLog::where('template', 'ticket_opened')->where('ticket_id', $new->id)->count());
     }
 
+    public function test_a_split_recomputes_who_the_source_ticket_waits_on(): void
+    {
+        $ticket = $this->open('Two problems', 'Email is broken');
+        $desk = app(TicketDesk::class);
+        $desk->staffReply($ticket, $this->staff, 'Looking at email');
+        $this->travel(5)->minutes();
+        $desk->clientReply($ticket->fresh(), 'Also, my invoice is wrong');
+        $this->travel(5)->minutes();
+        $answer = $desk->staffReply($ticket->fresh(), $this->staff, 'Invoice fixed');
+        $this->assertSame(TicketStatus::Answered, $ticket->fresh()->status);
+
+        $this->actingAs($this->staff, 'web')->post(route('admin.tickets.split', $ticket), [
+            'messages' => [$answer->id],
+            'split_subject' => 'Invoice',
+            'split_department_id' => $this->department->id,
+            'split_priority' => 'low',
+        ])->assertRedirect();
+
+        // The client wrote last on what's left, so the ticket waits on staff again.
+        $this->assertSame(TicketStatus::CustomerReply, $ticket->fresh()->status);
+        $this->assertSame(TicketStatus::Answered, Ticket::latest('id')->first()->status);
+    }
+
+    public function test_internal_notes_alone_cannot_be_split_off(): void
+    {
+        $ticket = $this->open('One problem', 'Email is broken');
+        $note = app(TicketDesk::class)->staffReply($ticket, $this->staff, 'Check the MX record', internal: true);
+
+        $this->actingAs($this->staff, 'web')->post(route('admin.tickets.split', $ticket), [
+            'messages' => [$note->id],
+            'split_subject' => 'Notes',
+            'split_department_id' => $this->department->id,
+            'split_priority' => 'low',
+        ])->assertSessionHasErrors('messages');
+        $this->assertSame(1, Ticket::count());
+    }
+
     public function test_a_split_leaves_at_least_one_message(): void
     {
         $ticket = $this->open('One problem', 'Email is broken');
