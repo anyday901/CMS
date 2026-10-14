@@ -35,8 +35,8 @@
                     <p class="text-ink-600">Rate the support you had on this ticket.</p>
                     <div class="mt-2 flex flex-wrap gap-2">
                         @foreach (App\Models\TicketFeedback::LABELS as $rating => $label)
-                            <label class="flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 ring-1 ring-ink-300 has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:ring-brand-600">
-                                <input type="radio" name="rating" value="{{ $rating }}" required class="sr-only" @checked((int) old('rating') === $rating)>
+                            <label for="rating-{{ $rating }}" class="flex cursor-pointer items-center gap-1.5 rounded-full bg-white px-3 py-1.5 ring-1 ring-ink-300 has-[:checked]:bg-brand-600 has-[:checked]:text-white has-[:checked]:ring-brand-600">
+                                <input id="rating-{{ $rating }}" type="radio" name="rating" value="{{ $rating }}" required class="sr-only" @checked((int) old('rating') === $rating)>
                                 <span aria-hidden="true">{{ str_repeat('★', $rating) }}</span> {{ $label }}
                             </label>
                         @endforeach

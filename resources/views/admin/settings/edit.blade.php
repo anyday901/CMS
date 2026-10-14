@@ -77,7 +77,7 @@
                         <tr>
                             <td class="py-1 pr-4">
                                 <input type="hidden" name="hours[{{ $day }}][open]" value="0">
-                                <label class="flex items-center gap-2"><input type="checkbox" name="hours[{{ $day }}][open]" value="1" @checked(old("hours.{$day}.open", $hours !== null))> {{ $name }}</label>
+                                <label for="hours-{{ $day }}" class="flex items-center gap-2"><input id="hours-{{ $day }}" type="checkbox" name="hours[{{ $day }}][open]" value="1" @checked(old("hours.{$day}.open", $hours !== null))> {{ $name }}</label>
                             </td>
                             <td class="py-1 pr-4"><input type="time" name="hours[{{ $day }}][from]" value="{{ old("hours.{$day}.from", $hours[0] ?? '09:00') }}" aria-label="{{ $name }} opens" class="rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
                             <td class="py-1"><input type="time" name="hours[{{ $day }}][to]" value="{{ old("hours.{$day}.to", $hours[1] ?? '17:00') }}" aria-label="{{ $name }} closes" class="rounded-md px-2 py-1 ring-1 ring-ink-300">

@@ -41,7 +41,7 @@
                                 </select>
                             </label>
                         </div>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->client->first_name }} the new ticket number</label>
+                        <label for="split-notify" class="flex items-center gap-2"><input id="split-notify" type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->client->first_name }} the new ticket number</label>
                         <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Split ticked messages</button>
                     </form>
                 </details>
@@ -172,7 +172,7 @@
                     @error('tickets')<p class="text-red-700">{{ $message }}</p>@enderror
                     <div class="max-h-48 space-y-1 overflow-y-auto">
                         @foreach ($otherTickets as $other)
-                            <label class="flex items-start gap-2"><input type="checkbox" name="tickets[]" value="{{ $other->id }}" class="mt-1"> <span>#{{ $other->id }} {{ $other->subject }} <span class="text-ink-500">· {{ $other->status->label() }}</span></span></label>
+                            <label for="merge-{{ $other->id }}" class="flex items-start gap-2"><input id="merge-{{ $other->id }}" type="checkbox" name="tickets[]" value="{{ $other->id }}" class="mt-1"> <span>#{{ $other->id }} {{ $other->subject }} <span class="text-ink-500">· {{ $other->status->label() }}</span></span></label>
                         @endforeach
                     </div>
                     <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Merge</button>

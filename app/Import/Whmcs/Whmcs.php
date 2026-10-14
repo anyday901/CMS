@@ -106,12 +106,12 @@ class Whmcs
         $decode = fn (string $value) => html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $inline = fn (string $value) => trim((string) preg_replace('/\s+/', ' ', $decode($value)));
 
-        // Code blocks are set aside so the clean-up below leaves them as they are.
+        // Code blocks are set aside, behind a private-use character, so the clean-up below leaves them as they are.
         $blocks = [];
         $text = (string) preg_replace_callback('#<pre\b[^>]*>(.*?)</pre>#is', function ($m) use (&$blocks, $decode) {
             $blocks[] = "```\n".trim($decode((string) preg_replace('#<br\s*/?>#i', "\n", $m[1])), "\n")."\n```";
 
-            return "\n\n\u{1}".(count($blocks) - 1)."\u{1}\n\n";
+            return "\n\n\u{E000}".(count($blocks) - 1)."\u{E000}\n\n";
         }, $text);
         $text = (string) preg_replace_callback('#<h([1-6])\b[^>]*>(.*?)</h\1>#is', fn ($m) => "\n\n".str_repeat('#', (int) $m[1]).' '.$inline($m[2])."\n\n", $text);
         $text = (string) preg_replace_callback('#<ol\b[^>]*>(.*?)</ol>#is', fn ($m) => "\n\n".preg_replace('#<li\b[^>]*>#i', "\n1. ", $m[1])."\n\n", $text);
@@ -141,7 +141,7 @@ class Whmcs
         $text = (string) preg_replace('/^[ \t]+(?!$)/m', '', $text);
         $text = (string) preg_replace('/[ \t]+$/m', '', $text);
 
-        $text = (string) preg_replace_callback('/\x{1}(\d+)\x{1}/u', fn ($m) => $blocks[(int) $m[1]], $text);
+        $text = (string) preg_replace_callback('/\x{E000}(\d+)\x{E000}/u', fn ($m) => $blocks[(int) $m[1]], $text);
 
         return trim((string) preg_replace("/\n{3,}/", "\n\n", $text));
     }
