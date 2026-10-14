@@ -91,6 +91,9 @@
                 <span class="text-ink-500">Such as the web server (80, 443), FTP (21) and mail (25, 993). One that doesn't answer puts the server in warning.</span>
             </label>
             @error('monitor_ports')<p class="text-red-700">{{ $message }}</p>@enderror
+            <input type="hidden" name="show_status" value="0">
+            <label class="flex items-start gap-2"><input type="checkbox" name="show_status" value="1" class="mt-0.5" @checked(old('show_status', $server->show_status))>
+                <span>Show this server's name, status and uptime on the public <a href="{{ route('network.index') }}" class="text-brand-600">network status</a> page. Its host name and address aren't shown.</span></label>
         </fieldset>
 
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button>

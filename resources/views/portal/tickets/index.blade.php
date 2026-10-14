@@ -1,4 +1,5 @@
 <x-portal-layout title="Support">
+    @include('help._nav')
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Support</h1>
         <a href="{{ route('portal.tickets.create') }}" class="ml-auto rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">Open a ticket</a>

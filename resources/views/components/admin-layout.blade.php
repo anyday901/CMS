@@ -21,6 +21,7 @@
                         'admin.orders.index' => 'Orders'.(($pendingOrders = App\Models\Order::where('status', App\Enums\OrderStatus::Pending)->count()) ? " ({$pendingOrders})" : ''),
                         'admin.invoices.index' => 'Invoices',
                         'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
+                        'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
@@ -31,7 +32,8 @@
                 @endphp
                 @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
-                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
+
+                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
                 <form method="POST" action="{{ route('admin.logout') }}" class="ml-auto">
                     @csrf

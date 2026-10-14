@@ -77,13 +77,15 @@ Parts of milestone 5 (ordering and cart) are already in, so they ship with v1:
 - Upgrades and downgrades: clients move to the products set as upgrades, prorated by day; staff move a service to any product and billing cycle, with or without charging.
 - Cancellation requests from the portal (or by staff for the client), straight away or at the end of the billing period. A request stops renewals; end-of-period ones are carried out by the nightly billing run and can be withdrawn until then.
 
+Parts of milestone 9 (support parity) are in too: a knowledge base with search, announcements, a network status page, a downloads area (optionally only for clients with a product), custom ticket fields per department, response time targets (SLAs) and escalation rules.
+
 Still to come in milestone 5: fraud checks on new orders. See [TODO.md](../TODO.md).
 
 ## Out of scope for v1 (planned after v1)
 These come after the switchover, as part of WHMCS parity:
 - Domain registration and registrar modules.
 - Control panel modules.
-- Affiliates, quotes, knowledge base, multi-currency, multi-language.
+- Affiliates, quotes, multi-currency, multi-language.
 - Marketplace for third-party modules.
 
 ## Milestones

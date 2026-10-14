@@ -20,7 +20,7 @@ class Server extends Model
 
     protected $fillable = [
         'name', 'module', 'hostname', 'ip_address', 'assigned_ips', 'port', 'secure', 'verify_tls',
-        'username', 'password', 'api_token', 'max_accounts', 'active', 'monitor', 'monitor_ports',
+        'username', 'password', 'api_token', 'max_accounts', 'active', 'monitor', 'monitor_ports', 'show_status',
     ];
 
     protected $hidden = ['password', 'api_token'];
@@ -47,6 +47,7 @@ class Server extends Model
             'max_accounts' => 'integer',
             'active' => 'boolean',
             'monitor' => 'boolean',
+            'show_status' => 'boolean',
             'status_ports' => 'array',
             'status_load' => 'array',
             'status_misses' => 'integer',

@@ -1,11 +1,11 @@
 @php use App\Models\CustomField; @endphp
 <x-admin-layout title="Custom fields">
     <h1 class="mb-2 text-2xl font-semibold">Custom fields</h1>
-    <p class="mb-6 max-w-2xl text-sm text-ink-600">Extra details to keep on clients and services, such as a VAT number or a server hostname. Client fields show on the client's page and, unless staff only, on their portal account page where they can fill them in. Service fields show on the service page and, unless staff only, to the client read-only. They're also sent to provisioning modules.</p>
+    <p class="mb-6 max-w-2xl text-sm text-ink-600">Extra details to keep on clients and services, such as a VAT number or a server hostname. Client fields show on the client's page and, unless staff only, on their portal account page where they can fill them in. Service fields show on the service page and, unless staff only, to the client read-only. They're also sent to provisioning modules. Ticket fields are asked for when a client opens a ticket in their department, and staff see and edit them on the ticket.</p>
 
     <div class="grid gap-6 md:grid-cols-3">
         <div class="space-y-6 md:col-span-2">
-            @foreach (['Client fields' => $clientFields, 'Service fields' => $serviceFields] as $heading => $list)
+            @foreach (['Client fields' => $clientFields, 'Service fields' => $serviceFields, 'Ticket fields' => $ticketFields] as $heading => $list)
                 <div>
                     <h2 class="mb-2 font-semibold">{{ $heading }}</h2>
                     @if ($list->isEmpty())
@@ -16,7 +16,7 @@
                                 <div class="flex items-center gap-4 px-4 py-3">
                                     <div class="min-w-0 flex-1">
                                         <a href="{{ route('admin.custom-fields.edit', $item) }}" class="font-medium text-brand-600">{{ $item->name }}</a>
-                                        <span class="text-ink-500">{{ CustomField::TYPES[$item->type] }}{{ $item->entity === 'service' ? ' · '.($item->product?->name ?? 'Every product') : '' }}{{ $item->required ? ' · required' : '' }}{{ $item->admin_only ? ' · staff only' : '' }}</span>
+                                        <span class="text-ink-500">{{ CustomField::TYPES[$item->type] }}{{ match ($item->entity) { 'service' => ' · '.($item->product?->name ?? 'Every product'), 'ticket' => ' · '.($item->department?->name ?? 'Every department'), default => '' } }}{{ $item->required ? ' · required' : '' }}{{ $item->admin_only ? ' · staff only' : '' }}</span>
                                     </div>
                                     <form method="POST" action="{{ route('admin.custom-fields.destroy', $item) }}" onsubmit="return confirm('Delete this field? Saved values will no longer show.')">
                                         @csrf @method('DELETE')

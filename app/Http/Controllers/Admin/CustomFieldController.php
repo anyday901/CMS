@@ -5,13 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\CustomField;
+use App\Models\Department;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-/** Extra fields on clients and services. */
+/** Extra fields on clients, services and tickets. */
 class CustomFieldController extends Controller
 {
     public function index(): View
@@ -19,8 +20,10 @@ class CustomFieldController extends Controller
         return view('admin.custom-fields.index', [
             'clientFields' => CustomField::forClients()->get(),
             'serviceFields' => CustomField::where('entity', CustomField::SERVICE)->with('product')->ordered()->get(),
-            'field' => new CustomField(['entity' => CustomField::CLIENT, 'type' => 'text']),
+            'ticketFields' => CustomField::where('entity', CustomField::TICKET)->with('department')->ordered()->get(),
+            'field' => new CustomField(['entity' => request('entity') === CustomField::TICKET ? CustomField::TICKET : CustomField::CLIENT, 'type' => 'text']),
             'products' => Product::orderBy('name')->get(),
+            'departments' => Department::orderBy('name')->get(),
         ]);
     }
 
@@ -34,7 +37,11 @@ class CustomFieldController extends Controller
 
     public function edit(CustomField $customField): View
     {
-        return view('admin.custom-fields.edit', ['field' => $customField, 'products' => Product::orderBy('name')->get()]);
+        return view('admin.custom-fields.edit', [
+            'field' => $customField,
+            'products' => Product::orderBy('name')->get(),
+            'departments' => Department::orderBy('name')->get(),
+        ]);
     }
 
     public function update(Request $request, CustomField $customField): RedirectResponse
@@ -57,8 +64,9 @@ class CustomFieldController extends Controller
     private function validated(Request $request): array
     {
         $data = $request->validate([
-            'entity' => ['required', Rule::in([CustomField::CLIENT, CustomField::SERVICE])],
+            'entity' => ['required', Rule::in(array_keys(CustomField::ENTITIES))],
             'product_id' => ['nullable', Rule::exists('products', 'id')],
+            'department_id' => ['nullable', Rule::exists('departments', 'id')],
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::in(array_keys(CustomField::TYPES))],
             'options' => ['nullable', 'required_if:type,dropdown', 'string', 'max:5000'],
@@ -69,6 +77,7 @@ class CustomFieldController extends Controller
         return [
             ...$data,
             'product_id' => $data['entity'] === CustomField::SERVICE ? ($data['product_id'] ?? null) : null,
+            'department_id' => $data['entity'] === CustomField::TICKET ? ($data['department_id'] ?? null) : null,
             'options' => $data['type'] === 'dropdown' ? $data['options'] : null,
             'sort_order' => (int) ($data['sort_order'] ?? 0),
             'required' => $request->boolean('required'),

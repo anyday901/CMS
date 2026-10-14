@@ -10,6 +10,11 @@
         @endif
     </div>
     <p class="mb-6 text-sm text-ink-500">{{ $ticket->department->name }} · opened {{ $ticket->created_at->format('M j, Y') }}</p>
+    @if ($fields->isNotEmpty())
+        <div class="mb-6 grid max-w-3xl gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm sm:grid-cols-2">
+            @include('custom-fields._values', ['fields' => $fields, 'values' => $ticket->custom_fields ?? [], 'wide' => 'sm:col-span-2'])
+        </div>
+    @endif
 
     <div class="max-w-3xl space-y-4">
         @foreach ($ticket->messages as $message)

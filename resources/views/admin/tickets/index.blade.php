@@ -1,10 +1,13 @@
 <x-admin-layout title="Tickets">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 class="text-2xl font-semibold">Tickets</h1>
-        <a href="{{ route('admin.canned-replies.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Canned replies</a>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('admin.canned-replies.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Canned replies</a>
+            @can('manage-settings')<a href="{{ route('admin.escalation-rules.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Escalation rules</a>@endcan
+        </div>
     </div>
     <form method="GET" class="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        @foreach (['waiting' => 'Waiting on us', 'answered' => 'Answered', 'on_hold' => 'On hold', 'closed' => 'Closed', 'all' => 'All'] as $value => $label)
+        @foreach (['waiting' => 'Waiting on us', 'overdue' => 'Overdue'.($overdueCount ? " ({$overdueCount})" : ''), 'answered' => 'Answered', 'on_hold' => 'On hold', 'closed' => 'Closed', 'all' => 'All'] as $value => $label)
             <a href="{{ route('admin.tickets.index', array_filter(['status' => $value === 'waiting' ? null : $value, 'department' => $filters['department'], 'mine' => $filters['mine'] ? 1 : null])) }}"
                class="rounded-full px-3 py-1 {{ $filters['status'] === $value ? 'bg-brand-600 text-white' : 'bg-white ring-1 ring-ink-300' }}">{{ $label }}</a>
         @endforeach

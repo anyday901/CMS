@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\Help;
 use App\Http\Controllers\InboundEmailController;
 use App\Http\Controllers\Portal;
 use App\Http\Controllers\Store;
@@ -30,6 +31,20 @@ Route::middleware(EnsureClientCanLogIn::class)->group(function () {
     Route::get('checkout', [Store\CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('checkout', [Store\CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
     Route::get('checkout/login', [Store\CheckoutController::class, 'login'])->middleware('guest:client')->name('checkout.login');
+});
+
+// The public help pages: knowledge base, announcements, network status and downloads.
+Route::middleware(EnsureClientCanLogIn::class)->group(function () {
+    Route::get('knowledgebase', [Help\KnowledgebaseController::class, 'index'])->name('kb.index');
+    Route::get('knowledgebase/category/{category}', [Help\KnowledgebaseController::class, 'category'])->name('kb.category');
+    Route::get('knowledgebase/{article}', [Help\KnowledgebaseController::class, 'article'])->whereNumber('article')->name('kb.article');
+    Route::post('knowledgebase/{article}/vote', [Help\KnowledgebaseController::class, 'vote'])->middleware('throttle:20,1')->name('kb.vote');
+    Route::get('announcements', [Help\AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::get('announcements/rss', [Help\AnnouncementController::class, 'rss'])->name('announcements.rss');
+    Route::get('announcements/{announcement}', [Help\AnnouncementController::class, 'show'])->whereNumber('announcement')->name('announcements.show');
+    Route::get('network-status', Help\NetworkStatusController::class)->name('network.index');
+    Route::get('downloads', [Help\DownloadController::class, 'index'])->name('downloads.index');
+    Route::get('downloads/{download}', [Help\DownloadController::class, 'file'])->middleware('throttle:30,1')->name('downloads.file');
 });
 
 Route::prefix('portal')->name('portal.')->group(function () {
@@ -160,11 +175,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('tickets/{ticket}', [Admin\TicketController::class, 'update'])->name('tickets.update');
             Route::post('tickets/{ticket}/reply', [Admin\TicketController::class, 'reply'])->name('tickets.reply');
             Route::get('tickets/{ticket}/files/{attachment}', [Admin\TicketController::class, 'attachment'])->name('tickets.attachment');
+
+            // Knowledge base, announcements, network status and downloads.
+            Route::get('knowledgebase', [Admin\KbCategoryController::class, 'index'])->name('kb.index');
+            Route::resource('kb-categories', Admin\KbCategoryController::class)->only(['store', 'edit', 'update', 'destroy']);
+            Route::resource('kb-articles', Admin\KbArticleController::class)->except(['index', 'show']);
+            Route::resource('announcements', Admin\AnnouncementController::class)->except('show');
+            Route::resource('network-issues', Admin\NetworkIssueController::class)->except('show');
+            Route::post('network-issues/{network_issue}/resolve', [Admin\NetworkIssueController::class, 'resolve'])->name('network-issues.resolve');
+            Route::resource('downloads', Admin\DownloadController::class)->except('show');
+            Route::resource('download-categories', Admin\DownloadCategoryController::class)->only(['store', 'edit', 'update', 'destroy']);
         });
 
         Route::middleware('can:manage-settings')->group(function () {
             Route::resource('custom-fields', Admin\CustomFieldController::class)->except(['show', 'create']);
             Route::resource('departments', Admin\DepartmentController::class)->only(['index', 'store', 'edit', 'update']);
+            Route::resource('escalation-rules', Admin\EscalationRuleController::class)->except('show');
             Route::get('email-templates', [Admin\EmailTemplateController::class, 'index'])->name('email-templates.index');
             Route::get('email-templates/{key}', [Admin\EmailTemplateController::class, 'edit'])->name('email-templates.edit');
             Route::put('email-templates/{key}', [Admin\EmailTemplateController::class, 'update'])->name('email-templates.update');
