@@ -39,8 +39,7 @@ class NetworkIssue extends Model
     /** @param  Builder<self>  $query Not resolved and already started. */
     public function scopeCurrent(Builder $query): void
     {
-        $query->where('status', '!=', self::RESOLVED)
-            ->where(fn ($query) => $query->where('status', '!=', self::SCHEDULED)->orWhere('starts_at', '<=', now()))
+        $query->where('status', '!=', self::RESOLVED)->where('starts_at', '<=', now())
             ->orderByRaw("case priority when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
             ->latest('starts_at');
     }

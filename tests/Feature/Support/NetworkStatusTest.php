@@ -53,6 +53,10 @@ class NetworkStatusTest extends TestCase
         $page->assertSeeInOrder(['Current issues', self::OUTAGE, 'Servers', 'shown-server', 'Planned maintenance', 'Kernel updates', 'Resolved', 'Email delays']);
         $page->assertDontSee('quiet-server');
 
+        // An issue dated ahead isn't current yet, whatever its status.
+        NetworkIssue::create(['title' => 'Future outage', 'description' => 'x', 'priority' => 'high', 'status' => 'investigating', 'starts_at' => now()->addHour()]);
+        $this->get(self::PAGE)->assertDontSee('Future outage');
+
         NetworkIssue::query()->update(['status' => NetworkIssue::RESOLVED]);
         $this->get(self::PAGE)->assertSee('All systems are working normally');
     }
