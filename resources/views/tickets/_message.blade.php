@@ -7,7 +7,7 @@
 ])>
     <header class="mb-2 flex flex-wrap items-baseline gap-x-2 text-ink-500">
         @if ($splittable ?? false)
-            <input type="checkbox" form="split-form" name="messages[]" value="{{ $message->id }}" @checked(in_array((string) $message->id, (array) old('messages', []), true)) aria-label="Move this message to a new ticket" class="split-pick hidden self-center">
+            <label for="split-pick-{{ $message->id }}" class="split-pick hidden self-center"><input id="split-pick-{{ $message->id }}" type="checkbox" form="split-form" name="messages[]" value="{{ $message->id }}" @checked(in_array((string) $message->id, (array) old('messages', []), true))><span class="sr-only">Move this message to a new ticket</span></label>
         @endif
         <span class="font-semibold text-ink-900">{{ $message->authorName() }}</span>
         @if ($message->fromStaff())<span>Staff</span>@endif
