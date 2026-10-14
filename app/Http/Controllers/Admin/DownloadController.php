@@ -16,8 +16,11 @@ use Illuminate\View\View;
 /** Files in the downloads area, kept on the private disk. */
 class DownloadController extends Controller
 {
-    /** Largest upload, in KB (8 MB). PHP's upload_max_filesize and post_max_size must allow it too. */
-    public const MAX_KB = 8192;
+    /**
+     * Largest upload, in KB (7.5 MB), under SonarCloud's 8,000,000 byte ceiling.
+     * PHP's upload_max_filesize and post_max_size must allow it too.
+     */
+    public const MAX_KB = 7680;
 
     public function index(): View
     {

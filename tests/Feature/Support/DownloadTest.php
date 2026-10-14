@@ -71,7 +71,7 @@ class DownloadTest extends TestCase
         $this->assertModelMissing($download);
     }
 
-    public function test_uploads_are_limited_to_8_mb(): void
+    public function test_uploads_are_limited_to_7_5_mb(): void
     {
         $this->actingAs(User::factory()->create(), 'web');
         $upload = fn (int $kb) => $this->post(self::ADMIN, [
@@ -79,9 +79,9 @@ class DownloadTest extends TestCase
             'file' => UploadedFile::fake()->create('agent.zip', $kb),
         ]);
 
-        $upload(8 * 1024 + 1)->assertSessionHasErrors('file');
-        $upload(8 * 1024)->assertRedirect(self::ADMIN);
-        $this->assertSame(8 * 1024 * 1024, Download::sole()->size);
+        $upload(7680 + 1)->assertSessionHasErrors('file');
+        $upload(7680)->assertRedirect(self::ADMIN);
+        $this->assertSame(7680 * 1024, Download::sole()->size);
     }
 
     public function test_who_can_download(): void
