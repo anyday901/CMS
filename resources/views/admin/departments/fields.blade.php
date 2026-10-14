@@ -14,8 +14,8 @@
     <p class="text-ink-500">Hours staff have to answer a ticket waiting on them, by priority. Leave empty for no target. Tickets past it show as overdue, and escalation rules can act on them.</p>
     <div class="grid grid-cols-2 gap-3">
         @foreach (App\Enums\TicketPriority::cases() as $priority)
-            <label class="block">{{ $priority->label() }}
-                <input type="number" step="0.25" min="0.1" max="8760" name="sla_hours[{{ $priority->value }}]" value="{{ old("sla_hours.{$priority->value}", $department->sla_hours[$priority->value] ?? '') }}" placeholder="Hours" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+            <label for="sla-{{ $priority->value }}" class="block">{{ $priority->label() }}
+                <input id="sla-{{ $priority->value }}" type="number" step="0.25" min="0.1" max="8760" name="sla_hours[{{ $priority->value }}]" value="{{ old("sla_hours.{$priority->value}", $department->sla_hours[$priority->value] ?? '') }}" placeholder="Hours" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
         @endforeach
     </div>

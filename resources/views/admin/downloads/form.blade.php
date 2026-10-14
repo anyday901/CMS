@@ -23,8 +23,8 @@
         <label class="block">Description (optional)
             <textarea name="description" rows="3" maxlength="5000" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('description', $download->description) }}</textarea>
         </label>
-        <label class="block">{{ $download->exists ? 'Replace the file (optional)' : 'File' }}
-            <input type="file" name="file" @required(! $download->exists) class="mt-1 block w-full">
+        <label for="download-file" class="block">{{ $download->exists ? 'Replace the file (optional)' : 'File' }}
+            <input id="download-file" type="file" name="file" @required(! $download->exists) class="mt-1 block w-full">
             <span class="text-ink-500">Up to {{ Number::fileSize(App\Http\Controllers\Admin\DownloadController::MAX_KB * 1024) }}, if PHP's upload limits allow it.@if ($download->exists) Now: {{ $download->file_name }} ({{ Number::fileSize($download->size) }}).@endif</span>
         </label>
         <label class="flex items-center gap-2"><input type="checkbox" name="clients_only" value="1" @checked(old('clients_only', $download->clients_only))> Logged-in clients only</label>
@@ -32,7 +32,7 @@
             <legend class="mb-1">Only for clients with an active service of (none ticked for no product limit)</legend>
             <div class="max-h-40 space-y-1 overflow-y-auto rounded-md p-2 ring-1 ring-ink-200">
                 @forelse ($products as $product)
-                    <label class="flex items-center gap-2"><input type="checkbox" name="product_ids[]" value="{{ $product->id }}" @checked(in_array($product->id, array_map('intval', (array) old('product_ids', $download->exists ? $download->products->modelKeys() : []))))> {{ $product->name }}</label>
+                    <label for="product-{{ $product->id }}" class="flex items-center gap-2"><input id="product-{{ $product->id }}" type="checkbox" name="product_ids[]" value="{{ $product->id }}" @checked(in_array($product->id, array_map('intval', (array) old('product_ids', $download->exists ? $download->products->modelKeys() : []))))> {{ $product->name }}</label>
                 @empty
                     <span class="text-ink-500">No products yet.</span>
                 @endforelse

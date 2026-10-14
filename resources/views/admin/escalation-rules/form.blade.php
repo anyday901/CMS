@@ -25,20 +25,20 @@
                 <div>
                     <div class="mb-1 text-ink-600">In department</div>
                     @foreach ($departments as $department)
-                        <label class="flex items-center gap-2"><input type="checkbox" name="department_ids[]" value="{{ $department->id }}" @checked($checked('department_ids', $department->id, $rule->department_ids))> {{ $department->name }}</label>
+                        <label for="department-{{ $department->id }}" class="flex items-center gap-2"><input id="department-{{ $department->id }}" type="checkbox" name="department_ids[]" value="{{ $department->id }}" @checked($checked('department_ids', $department->id, $rule->department_ids))> {{ $department->name }}</label>
                     @endforeach
                 </div>
                 <div>
                     <div class="mb-1 text-ink-600">With status</div>
                     @foreach (TicketStatus::cases() as $status)
                         @continue($status === TicketStatus::Closed)
-                        <label class="flex items-center gap-2"><input type="checkbox" name="statuses[]" value="{{ $status->value }}" @checked($checked('statuses', $status->value, $rule->statuses))> {{ $status->label() }}</label>
+                        <label for="status-{{ $status->value }}" class="flex items-center gap-2"><input id="status-{{ $status->value }}" type="checkbox" name="statuses[]" value="{{ $status->value }}" @checked($checked('statuses', $status->value, $rule->statuses))> {{ $status->label() }}</label>
                     @endforeach
                 </div>
                 <div>
                     <div class="mb-1 text-ink-600">With priority</div>
                     @foreach (TicketPriority::cases() as $priority)
-                        <label class="flex items-center gap-2"><input type="checkbox" name="priorities[]" value="{{ $priority->value }}" @checked($checked('priorities', $priority->value, $rule->priorities))> {{ $priority->label() }}</label>
+                        <label for="priority-{{ $priority->value }}" class="flex items-center gap-2"><input id="priority-{{ $priority->value }}" type="checkbox" name="priorities[]" value="{{ $priority->value }}" @checked($checked('priorities', $priority->value, $rule->priorities))> {{ $priority->label() }}</label>
                     @endforeach
                 </div>
             </div>
@@ -88,7 +88,7 @@
                 <div class="mb-1 text-ink-600">Email</div>
                 <label class="flex items-center gap-2"><input type="checkbox" name="notify_assignee" value="1" @checked(old('notify_assignee', $rule->notify_assignee))> The ticket's assignee</label>
                 @foreach ($staff as $user)
-                    <label class="flex items-center gap-2"><input type="checkbox" name="notify_user_ids[]" value="{{ $user->id }}" @checked($checked('notify_user_ids', $user->id, $rule->notify_user_ids))> {{ $user->name }}</label>
+                    <label for="notify-{{ $user->id }}" class="flex items-center gap-2"><input id="notify-{{ $user->id }}" type="checkbox" name="notify_user_ids[]" value="{{ $user->id }}" @checked($checked('notify_user_ids', $user->id, $rule->notify_user_ids))> {{ $user->name }}</label>
                 @endforeach
             </div>
             <label class="block">Reply to the client (optional)

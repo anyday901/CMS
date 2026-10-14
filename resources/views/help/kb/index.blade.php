@@ -28,9 +28,9 @@
         <div class="grid gap-4 sm:grid-cols-2">
             @foreach ($categories as $category)
                 <a href="{{ route('kb.category', $category) }}" class="block rounded-lg border border-ink-200 bg-white p-4 text-sm hover:ring-1 hover:ring-brand-300">
-                    <div class="font-display text-base font-semibold">{{ $category->name }} <span class="text-sm font-normal text-ink-500">({{ $category->articles_count }})</span></div>
-                    @if ($category->description)<p class="mt-1 text-ink-600">{{ $category->description }}</p>@endif
-                    @if ($category->children->isNotEmpty())<p class="mt-2 text-ink-500">{{ $category->children->pluck('name')->join(' · ') }}</p>@endif
+                    <span class="block font-display text-base font-semibold">{{ $category->name }} <span class="text-sm font-normal text-ink-500">({{ $category->articles_count }})</span></span>
+                    @if ($category->description)<span class="mt-1 block text-ink-600">{{ $category->description }}</span>@endif
+                    @if ($category->children->isNotEmpty())<span class="mt-2 block text-ink-500">{{ $category->children->pluck('name')->join(' · ') }}</span>@endif
                 </a>
             @endforeach
         </div>

@@ -3,7 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $article->exists ? 'Edit article' : 'New article' }}</h1>
         @if ($article->exists && $article->isVisible())
-            <a href="{{ route('kb.article', $article) }}" class="text-sm text-brand-600" target="_blank">View it as a client</a>
+            <a href="{{ route('kb.article', $article) }}" class="text-sm text-brand-600" target="_blank" rel="noopener">View it as a client</a>
         @endif
     </div>
     @if ($categories->isEmpty())

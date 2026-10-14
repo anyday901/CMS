@@ -2,7 +2,7 @@
     @include('admin.support._nav')
     <div class="mb-2 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Announcements</h1>
-        <a href="{{ route('announcements.index') }}" class="text-sm text-brand-600" target="_blank">View them as a client</a>
+        <a href="{{ route('announcements.index') }}" class="text-sm text-brand-600" target="_blank" rel="noopener">View them as a client</a>
         <a href="{{ route('admin.announcements.create') }}" class="ml-auto rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">New announcement</a>
     </div>
     <p class="mb-6 max-w-2xl text-sm text-ink-600">News for clients. The latest three show on the portal home page, and all of them at <code>/announcements</code> with an RSS feed. Date one ahead to publish it then.</p>

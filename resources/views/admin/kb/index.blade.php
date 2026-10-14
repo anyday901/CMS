@@ -2,7 +2,7 @@
     @include('admin.support._nav')
     <div class="mb-2 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Knowledge base</h1>
-        <a href="{{ route('kb.index') }}" class="text-sm text-brand-600" target="_blank">View it as a client</a>
+        <a href="{{ route('kb.index') }}" class="text-sm text-brand-600" target="_blank" rel="noopener">View it as a client</a>
         <a href="{{ route('admin.kb-articles.create', array_filter(['category' => $filter])) }}" class="ml-auto rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">New article</a>
     </div>
     <p class="mb-6 max-w-2xl text-sm text-ink-600">Articles are written in Markdown and anyone can read them at <code>/knowledgebase</code>, with search. Put articles in categories, and categories one level inside another.</p>

@@ -3,7 +3,7 @@
     @include('admin.support._nav')
     <div class="mb-2 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Downloads</h1>
-        <a href="{{ route('downloads.index') }}" class="text-sm text-brand-600" target="_blank">View them as a client</a>
+        <a href="{{ route('downloads.index') }}" class="text-sm text-brand-600" target="_blank" rel="noopener">View them as a client</a>
         @if ($categories->isNotEmpty())
             <a href="{{ route('admin.downloads.create') }}" class="ml-auto rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">New download</a>
         @endif
