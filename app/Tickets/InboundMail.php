@@ -120,16 +120,16 @@ class InboundMail
         };
     }
 
-    /** The ticket a subject line names, by its number here or its old WHMCS number. */
+    /** The ticket a subject line names, by its number here or its old WHMCS number, or the ticket it was merged into. */
     private function ticketIn(string $subject): ?Ticket
     {
-        if (preg_match(self::TICKET_PATTERN, $subject, $m)) {
-            return Ticket::find((int) $m[1]);
-        }
+        $ticket = match (true) {
+            (bool) preg_match(self::TICKET_PATTERN, $subject, $m) => Ticket::find((int) $m[1]),
+            (bool) preg_match(self::WHMCS_TICKET_PATTERN, $subject, $m) => Ticket::where('whmcs_tid', $m[1])->first(),
+            default => null,
+        };
 
-        return preg_match(self::WHMCS_TICKET_PATTERN, $subject, $m)
-            ? Ticket::where('whmcs_tid', $m[1])->first()
-            : null;
+        return $ticket?->merged_into_id !== null ? $ticket->mergedInto : $ticket;
     }
 
     /** @return array{0: string, 1: string} */

@@ -85,12 +85,14 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:10,1')->name('services.license.reissue');
         Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
         Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
+        Route::get('support/suggest', [Portal\TicketController::class, 'suggest'])->middleware('throttle:60,1')->name('tickets.suggest');
         Route::middleware('throttle:20,1')->group(function () {
             Route::post('support', [Portal\TicketController::class, 'store'])->name('tickets.store');
             Route::post('support/{ticket}/reply', [Portal\TicketController::class, 'reply'])->name('tickets.reply');
         });
         Route::get('support/{ticket}', [Portal\TicketController::class, 'show'])->name('tickets.show');
         Route::post('support/{ticket}/close', [Portal\TicketController::class, 'close'])->name('tickets.close');
+        Route::post('support/{ticket}/feedback', [Portal\TicketController::class, 'feedback'])->middleware('throttle:10,1')->name('tickets.feedback');
         Route::get('support/{ticket}/files/{attachment}', [Portal\TicketController::class, 'attachment'])->name('tickets.attachment');
         Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
         Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
@@ -171,9 +173,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('can:manage-tickets')->group(function () {
             Route::resource('canned-replies', Admin\CannedReplyController::class)->except(['show', 'create']);
             Route::get('tickets', [Admin\TicketController::class, 'index'])->name('tickets.index');
+            Route::get('tickets/feedback', Admin\TicketFeedbackController::class)->name('tickets.feedback');
             Route::get('tickets/{ticket}', [Admin\TicketController::class, 'show'])->name('tickets.show');
             Route::put('tickets/{ticket}', [Admin\TicketController::class, 'update'])->name('tickets.update');
             Route::post('tickets/{ticket}/reply', [Admin\TicketController::class, 'reply'])->name('tickets.reply');
+            Route::post('tickets/{ticket}/merge', [Admin\TicketController::class, 'merge'])->name('tickets.merge');
+            Route::post('tickets/{ticket}/split', [Admin\TicketController::class, 'split'])->name('tickets.split');
             Route::get('tickets/{ticket}/files/{attachment}', [Admin\TicketController::class, 'attachment'])->name('tickets.attachment');
 
             // Knowledge base, announcements, network status and downloads.

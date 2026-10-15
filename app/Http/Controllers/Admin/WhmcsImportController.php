@@ -50,6 +50,7 @@ class WhmcsImportController extends Controller
             'username' => self::DETAIL,
             'password' => array_slice(self::DETAIL, 1),
             'attachments' => ['nullable', 'string', 'max:1000'],
+            'downloads' => ['nullable', 'string', 'max:1000'],
             'encryption_hash' => ['nullable', 'string', 'max:255'],
         ]);
 

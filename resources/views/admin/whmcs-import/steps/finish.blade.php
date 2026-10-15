@@ -14,6 +14,7 @@
     @foreach ([
         ['Add your staff.', 'Staff accounts are not copied from WHMCS. Add them under Staff.'],
         ['Check your servers.', 'Open each server under Products > Servers and press Test connection. Products on cPanel, Plesk and DirectAdmin kept their package; Proxmox products need their template, cores and memory set.'],
+        ['Check your support setup.', 'Escalation rules came over turned off: check each one under Tickets > Escalation rules and turn it on. Knowledge base articles that were for logged-in clients only came over unpublished. Set business hours and response time targets on each department.'],
         ['Let clients log in as before.', 'They use their client email address and their WHMCS password, which is stored again with this app\'s hashing the first time it works.'],
         ['Run both side by side for a billing cycle.', 'On the server, php artisan whmcs:compare --simulate lists every renewal where this app and WHMCS would bill differently, without saving anything.'],
         ['Switch over.', 'Turn off the WHMCS cron, move payment gateway webhooks here, point your support email addresses at this app, set real MAIL_* settings and tell clients the new address.'],

@@ -2,6 +2,9 @@
 
 namespace App\Import\Whmcs;
 
+use App\Enums\TicketStatus;
+use App\Models\CustomField;
+use App\Models\TicketTag;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,11 +21,25 @@ class TicketImporter
 
     private const ATTACHMENTS = 'Ticket attachments';
 
+    private const FIELDS = 'Ticket custom fields';
+
     /** @var array<int, int> WHMCS department id => local department id */
     private array $departments = [];
 
     /** @var list<string> attachment files copied in, removed again if the import fails */
     private array $copied = [];
+
+    /** @var array<int, array{id: int, type: string}> WHMCS ticket custom field id => local field */
+    private array $fields = [];
+
+    /** @var array<string, int> tag name => local tag id */
+    private array $tags = [];
+
+    /** @var array<int, true> imported ticket ids */
+    private array $imported = [];
+
+    /** @var array<int, object> merged WHMCS tickets, by id, brought over once every ticket is in */
+    private array $merged = [];
 
     /** @param  array<int, string>  $clients  imported client ids => currency */
     public function __construct(private ImportRun $run, private array $clients, private ?string $attachmentsPath = null) {}
@@ -30,14 +47,29 @@ class TicketImporter
     public function import(): void
     {
         $this->importDepartments();
+        $this->importFields();
 
         $this->run->chunk('tbltickets', function ($rows) {
-            $replies = $this->run->table('tblticketreplies')->whereIn('tid', $rows->pluck('id'))->orderBy('id')->get()->groupBy('tid');
+            $ids = $rows->pluck('id');
+            $replies = $this->run->table('tblticketreplies')->whereIn('tid', $ids)->orderBy('id')->get()->groupBy('tid');
+            $values = $this->fields === [] ? collect() : $this->run->table('tblcustomfieldsvalues')
+                ->whereIn('fieldid', array_keys($this->fields))->whereIn('relid', $ids)->get()->groupBy('relid');
+            $tags = $this->run->hasTables('tbltickettags')
+                ? $this->run->table('tbltickettags')->whereIn('ticketid', $ids)->orderBy('id')->get()->groupBy('ticketid')
+                : collect();
 
             foreach ($rows as $row) {
-                $this->importTicket($row, $replies->get($row->id, collect()));
+                $this->importTicket($row, $replies->get($row->id, collect()), $values->get($row->id, collect()), $tags->get($row->id, collect()));
             }
         });
+
+        $this->importMerged();
+    }
+
+    /** @return array<int, int> WHMCS department id => local department id */
+    public function departments(): array
+    {
+        return $this->departments;
     }
 
     public function removeCopiedFiles(): void
@@ -80,9 +112,56 @@ class TicketImporter
         }
     }
 
-    /** @param  Collection<int, object>  $messages */
-    private function importTicket(object $row, Collection $messages): void
+    /** Custom fields of support departments, which WHMCS keeps with the client and product fields. */
+    private function importFields(): void
     {
+        if (! $this->run->hasTables('tblcustomfields', 'tblcustomfieldsvalues')) {
+            return;
+        }
+
+        foreach ($this->run->table('tblcustomfields')->where('type', 'support')->orderBy('sortorder')->orderBy('id')->cursor() as $row) {
+            $this->run->report->found(self::FIELDS);
+            $department = (int) $row->relid > 0 ? ($this->departments[(int) $row->relid] ?? null) : null;
+
+            if ((int) $row->relid > 0 && $department === null) {
+                $this->run->report->skipped(self::FIELDS, '"'.Whmcs::label($row->fieldname)."\" belongs to department {$row->relid}, which wasn't found.");
+
+                continue;
+            }
+
+            $type = CatalogImporter::fieldType($row->fieldtype);
+            $id = DB::table('custom_fields')->insertGetId([
+                'entity' => CustomField::TICKET,
+                'department_id' => $department,
+                'name' => Str::limit(Whmcs::label($row->fieldname), 250, ''),
+                'type' => $type,
+                'options' => $type === 'dropdown' ? CatalogImporter::dropdownOptions($row->fieldoptions) : null,
+                'help' => Whmcs::short($row->description ?? ''),
+                'required' => Whmcs::on($row->required ?? ''),
+                'admin_only' => Whmcs::on($row->adminonly ?? ''),
+                'sort_order' => (int) ($row->sortorder ?? 0),
+                'created_at' => $this->run->now,
+                'updated_at' => $this->run->now,
+            ]);
+
+            $this->fields[(int) $row->id] = ['id' => $id, 'type' => $type];
+            $this->run->report->imported(self::FIELDS);
+        }
+    }
+
+    /**
+     * @param  Collection<int, object>  $messages
+     * @param  Collection<int, object>  $values  custom field values
+     * @param  Collection<int, object>  $tags
+     */
+    private function importTicket(object $row, Collection $messages, Collection $values, Collection $tags): void
+    {
+        if ((int) ($row->merged_ticket_id ?? 0) > 0) {
+            $this->merged[(int) $row->id] = $row;
+
+            return;
+        }
+
         $this->run->report->found(self::TICKETS);
         $this->run->report->found(self::REPLIES, $messages->count());
 
@@ -90,7 +169,6 @@ class TicketImporter
             (int) $row->userid === 0 => 'was sent by someone without a client account',
             ! isset($this->clients[(int) $row->userid]) => "belongs to client {$row->userid}, which wasn't imported",
             ! isset($this->departments[(int) $row->did]) => "is in department {$row->did}, which wasn't found",
-            (int) ($row->merged_ticket_id ?? 0) > 0 => "was merged into ticket {$row->merged_ticket_id}",
             default => null,
         };
 
@@ -110,10 +188,14 @@ class TicketImporter
             'subject' => Whmcs::short($row->title) ?? '(No subject)',
             'status' => Whmcs::ticketStatus($row->status)->value,
             'priority' => Whmcs::priority($row->urgency)->value,
+            'custom_fields' => $this->fieldValues($values),
             'last_reply_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
+            'closed_at' => Whmcs::ticketStatus($row->status) === TicketStatus::Closed ? (Whmcs::dateTime($row->lastreply ?? null) ?? $opened) : null,
             'created_at' => $opened,
             'updated_at' => $this->run->now,
         ]);
+        $this->imported[(int) $row->id] = true;
+        $this->tag((int) $row->id, $tags);
 
         $this->message((int) $row->id, (int) $row->userid, $row, $opened);
 
@@ -123,6 +205,84 @@ class TicketImporter
         }
 
         $this->run->report->imported(self::TICKETS);
+    }
+
+    /**
+     * Tickets merged into another in WHMCS. Their messages are already on
+     * the ticket they were merged into; each comes over closed and pointing
+     * at it, so its old number still leads somewhere.
+     */
+    private function importMerged(): void
+    {
+        foreach ($this->merged as $id => $row) {
+            $this->run->report->found(self::TICKETS);
+            $into = (int) $row->merged_ticket_id;
+            $seen = [$id => true];
+
+            // Follow a ticket merged into one that was itself merged later.
+            while (isset($this->merged[$into]) && ! isset($seen[$into])) {
+                $seen[$into] = true;
+                $into = (int) $this->merged[$into]->merged_ticket_id;
+            }
+
+            if (! isset($this->imported[$into])) {
+                $this->run->report->skipped(self::TICKETS, "Ticket #{$row->tid} ({$row->title}) was merged into ticket {$row->merged_ticket_id}, which wasn't imported.");
+
+                continue;
+            }
+
+            $opened = Whmcs::dateTime($row->date) ?? $this->run->now;
+            DB::table('tickets')->insert([
+                'id' => $id,
+                'whmcs_tid' => Str::limit((string) $row->tid, 32, ''),
+                'client_id' => (int) DB::table('tickets')->where('id', $into)->value('client_id'),
+                'merged_into_id' => $into,
+                'department_id' => (int) DB::table('tickets')->where('id', $into)->value('department_id'),
+                'subject' => Whmcs::short($row->title) ?? '(No subject)',
+                'status' => TicketStatus::Closed->value,
+                'priority' => Whmcs::priority($row->urgency)->value,
+                'last_reply_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
+                'closed_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
+                'created_at' => $opened,
+                'updated_at' => $this->run->now,
+            ]);
+            $this->run->report->imported(self::TICKETS);
+        }
+
+        if ($this->merged !== []) {
+            $this->run->report->note(self::TICKETS, 'Tickets merged in WHMCS came over closed, pointing at the ticket they were merged into, so their numbers and email replies still find it.');
+        }
+    }
+
+    /** @param  Collection<int, object>  $values */
+    private function fieldValues(Collection $values): ?string
+    {
+        $saved = [];
+
+        foreach ($values as $value) {
+            $field = $this->fields[(int) $value->fieldid] ?? null;
+            if ($field === null) {
+                continue;
+            }
+
+            $checked = Whmcs::on($value->value) ? '1' : '';
+            $text = $field['type'] === CustomField::CHECKBOX ? $checked : Whmcs::text($value->value);
+
+            if ($text !== '') {
+                $saved[$field['id']] = $text;
+            }
+        }
+
+        return Whmcs::fieldValues($saved);
+    }
+
+    /** @param  Collection<int, object>  $tags */
+    private function tag(int $ticketId, Collection $tags): void
+    {
+        foreach (TicketTag::normalize($tags->map(fn ($tag) => Whmcs::text($tag->tag))) as $name) {
+            $this->tags[$name] ??= DB::table('ticket_tags')->insertGetId(['name' => $name, 'created_at' => $this->run->now, 'updated_at' => $this->run->now]);
+            $this->run->queue('ticket_ticket_tag', ['ticket_id' => $ticketId, 'ticket_tag_id' => $this->tags[$name]]);
+        }
     }
 
     /** A ticket's first message (kept on the ticket row in WHMCS) or one of its replies. */

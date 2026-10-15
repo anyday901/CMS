@@ -16,25 +16,27 @@ class WhmcsImport extends Command
         {--dry-run : Show what would be imported, then undo it all}
         {--connection=whmcs : Database connection for the WHMCS database (see WHMCS_DB_* in .env)}
         {--attachments= : Path to the WHMCS attachments folder, to bring ticket attachments over}
+        {--downloads= : Path to the WHMCS downloads folder, to bring files on its Downloads page over}
         {--hash= : The cc_encryption_hash from WHMCS\'s configuration.php, to bring server and service passwords over}
         {--report= : Where to write the full report (default: storage/app/whmcs/)}';
 
-    protected $description = 'Import servers, clients, products, services, invoices, payments and tickets from a WHMCS database';
+    protected $description = 'Import servers, clients, products, services, invoices, payments, tickets and support content from a WHMCS database';
 
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $attachments = $this->option('attachments');
+        $downloads = $this->option('downloads');
 
         try {
-            $source = $this->source($attachments);
+            $source = $this->source($attachments, $downloads);
 
             if (! $dryRun && ! $this->confirm('Import WHMCS into this install now? Run with --dry-run first to check the report.', true)) {
                 return self::FAILURE;
             }
 
             $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
-            $report = (new WhmcsImporter($attachments, $this->option('hash')))->run($source, $dryRun);
+            $report = (new WhmcsImporter($attachments, $this->option('hash'), $downloads))->run($source, $dryRun);
         } catch (ImportException $e) {
             $this->error($e->getMessage());
 
@@ -55,11 +57,13 @@ class WhmcsImport extends Command
         return self::SUCCESS;
     }
 
-    /** @throws ImportException when the attachments folder or the WHMCS database can't be reached */
-    private function source(?string $attachments): ConnectionInterface
+    /** @throws ImportException when the attachments or downloads folder or the WHMCS database can't be reached */
+    private function source(?string $attachments, ?string $downloads): ConnectionInterface
     {
-        if ($attachments !== null && ! is_dir($attachments)) {
-            throw new ImportException("No folder at {$attachments}.");
+        foreach ([$attachments, $downloads] as $folder) {
+            if ($folder !== null && ! is_dir($folder)) {
+                throw new ImportException("No folder at {$folder}.");
+            }
         }
 
         try {

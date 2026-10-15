@@ -66,6 +66,11 @@
         <span class="text-ink-500">Leave blank to skip ticket attachments. The report lists the files it skipped.</span>
     </label>
 
+    <label class="block">WHMCS downloads folder on this server <span class="text-ink-500">(optional)</span>
+        <input name="downloads" value="{{ old('downloads', $connected['downloads'] ?? '') }}" placeholder="/var/www/whmcs/downloads" class="{{ $field }}">
+        <span class="text-ink-500">The folder WHMCS keeps files for its Downloads page in. Leave blank to skip downloads; the knowledge base, announcements and the rest still come over.</span>
+    </label>
+
     <label class="block">WHMCS encryption hash <span class="text-ink-500">(optional)</span>
         <input type="password" name="encryption_hash" autocomplete="off" placeholder="{{ ($connected['has_hash'] ?? false) ? 'Given; enter it again to change it' : '' }}" class="{{ $field }}">
         <span class="text-ink-500">The <code>$cc_encryption_hash</code> line in WHMCS's configuration.php. With it, server passwords and your clients' control panel passwords come over; without it, you enter them here later. Kept, encrypted, in your login session only.</span>

@@ -39,8 +39,8 @@ class DepartmentController extends Controller
     {
         $department->update($this->validated($request, $department));
         // Waiting tickets follow the new response times.
-        if ($department->wasChanged('sla_hours')) {
-            $department->tickets()->awaitingStaff()->each(fn (Ticket $ticket) => $ticket->forceFill(['response_due_at' => $ticket->responseDueAt()])->saveQuietly());
+        if ($department->wasChanged(['sla_hours', 'sla_business_hours'])) {
+            Ticket::refreshResponseDue(Ticket::where('department_id', $department->id));
         }
         Activity::record("Updated department {$department->name}", $department, ['changed' => array_keys($department->getChanges())]);
 
@@ -61,6 +61,12 @@ class DepartmentController extends Controller
             ->filter(fn ($hours) => filled($hours))
             ->map(fn ($hours) => (float) $hours);
 
-        return [...$data, 'sla_hours' => $sla->isEmpty() ? null : $sla->all(), 'active' => $request->boolean('active')];
+        return [
+            ...$data,
+            'sla_hours' => $sla->isEmpty() ? null : $sla->all(),
+            'sla_business_hours' => $request->boolean('sla_business_hours'),
+            'feedback_requests' => $request->boolean('feedback_requests'),
+            'active' => $request->boolean('active'),
+        ];
     }
 }

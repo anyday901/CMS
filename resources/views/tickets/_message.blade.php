@@ -1,4 +1,4 @@
-{{-- One ticket message. $download is a closure giving the URL for an attachment. --}}
+{{-- One ticket message. $download is a closure giving the URL for an attachment; $splittable adds a box to tick it for splitting off. --}}
 <article @class([
     'rounded-lg border p-4 text-sm',
     'border-amber-200 bg-amber-50' => $message->internal,
@@ -6,6 +6,9 @@
     'border-ink-200 bg-white' => ! $message->internal && ! $message->fromStaff(),
 ])>
     <header class="mb-2 flex flex-wrap items-baseline gap-x-2 text-ink-500">
+        @if ($splittable ?? false)
+            <label for="split-pick-{{ $message->id }}" class="split-pick hidden self-center"><input id="split-pick-{{ $message->id }}" type="checkbox" form="split-form" name="messages[]" value="{{ $message->id }}" @checked(in_array((string) $message->id, (array) old('messages', []), true))><span class="sr-only">Move this message to a new ticket</span></label>
+        @endif
         <span class="font-semibold text-ink-900">{{ $message->authorName() }}</span>
         @if ($message->fromStaff())<span>Staff</span>@endif
         @if ($message->internal)<span class="font-semibold text-amber-800">Internal note</span>@endif

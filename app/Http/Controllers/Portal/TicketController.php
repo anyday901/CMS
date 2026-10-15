@@ -8,12 +8,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\CustomField;
 use App\Models\Department;
+use App\Models\KbArticle;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
+use App\Models\TicketFeedback;
+use App\Support\Markdown;
 use App\Tickets\TicketDesk;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,7 +27,7 @@ class TicketController extends Controller
 {
     public function index(Request $request): View
     {
-        $tickets = $request->user('client')->tickets()
+        $tickets = $request->user('client')->tickets()->listed()
             ->with('department')
             ->orderByRaw('case when status = ? then 1 else 0 end', [TicketStatus::Closed->value])
             ->latest('last_reply_at')
@@ -67,12 +72,49 @@ class TicketController extends Controller
         return redirect()->route('portal.tickets.show', $ticket)->with('status', "Ticket #{$ticket->id} opened. We'll be in touch soon.");
     }
 
-    public function show(Request $request, int $ticket): View
+    public function show(Request $request, int $ticket): View|RedirectResponse
+    {
+        $found = $this->find($request, $ticket);
+
+        if ($found->id !== $ticket) {
+            return redirect()->route('portal.tickets.show', $found)->with('status', "Ticket #{$ticket} was merged into this one.");
+        }
+
+        $found->load(['department', 'feedback', 'messages' => fn ($query) => $query->where('internal', false)->with(['user', 'client', 'attachments'])]);
+
+        return view('portal.tickets.show', ['ticket' => $found, 'fields' => $found->customFieldDefinitions(clientView: true)]);
+    }
+
+    /**
+     * Knowledge base articles that might answer the ticket being typed.
+     * Returned as JSON for the new ticket form.
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $text = trim((string) $request->query('subject').' '.Str::limit((string) $request->query('body'), 300, ''));
+
+        return response()->json(['articles' => KbArticle::suggest($text)->map(fn (KbArticle $article) => [
+            'title' => $article->title,
+            'url' => route('kb.article', $article),
+            'excerpt' => Markdown::excerpt($article->body, 140),
+        ])]);
+    }
+
+    /** The client's rating of the support on a closed ticket. Once per ticket. */
+    public function feedback(Request $request, int $ticket): RedirectResponse
     {
         $ticket = $this->find($request, $ticket);
-        $ticket->load(['department', 'messages' => fn ($query) => $query->where('internal', false)->with(['user', 'client', 'attachments'])]);
+        abort_unless($ticket->wantsFeedback(), 403);
 
-        return view('portal.tickets.show', ['ticket' => $ticket, 'fields' => $ticket->customFieldDefinitions(clientView: true)]);
+        $data = $request->validate([
+            'rating' => ['required', 'integer', 'between:1,'.TicketFeedback::MAX_RATING],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $ticket->feedback()->create(['client_id' => $ticket->client_id, 'rating' => (int) $data['rating'], 'comment' => filled($data['comment'] ?? null) ? trim($data['comment']) : null]);
+        Activity::record("Rated ticket #{$ticket->id} {$data['rating']} out of ".TicketFeedback::MAX_RATING, $ticket);
+
+        return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Thanks for your feedback.');
     }
 
     public function reply(Request $request, int $ticket, TicketDesk $desk): RedirectResponse
@@ -85,11 +127,10 @@ class TicketController extends Controller
         return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Reply sent.');
     }
 
-    public function close(Request $request, int $ticket): RedirectResponse
+    public function close(Request $request, int $ticket, TicketDesk $desk): RedirectResponse
     {
         $ticket = $this->find($request, $ticket);
-        $ticket->update(['status' => TicketStatus::Closed]);
-        Activity::record("Closed ticket #{$ticket->id}", $ticket);
+        $desk->close($ticket);
 
         return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Ticket closed. Reply any time to reopen it.');
     }
@@ -104,8 +145,11 @@ class TicketController extends Controller
         return Storage::disk('local')->download($file->path, $file->name, ['X-Content-Type-Options' => 'nosniff']);
     }
 
+    /** The client's ticket, or the ticket it was merged into. */
     private function find(Request $request, int $id): Ticket
     {
-        return $request->user('client')->tickets()->findOrFail($id);
+        $ticket = $request->user('client')->tickets()->findOrFail($id);
+
+        return $ticket->merged_into_id !== null ? $request->user('client')->tickets()->findOrFail($ticket->merged_into_id) : $ticket;
     }
 }

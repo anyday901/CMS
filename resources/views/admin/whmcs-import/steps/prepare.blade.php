@@ -16,7 +16,7 @@
     </li>
     <li class="flex gap-3">
         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 font-semibold text-ink-700" aria-hidden="true">2</span>
-        <div><strong>Optional: copy the WHMCS attachments folder to this server</strong> <span class="text-ink-600">to bring ticket attachments over.</span></div>
+        <div><strong>Optional: copy the WHMCS attachments and downloads folders to this server</strong> <span class="text-ink-600">to bring ticket attachments and the files on your Downloads page over.</span></div>
     </li>
     <li class="flex gap-3">
         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 font-semibold text-ink-700" aria-hidden="true">3</span>

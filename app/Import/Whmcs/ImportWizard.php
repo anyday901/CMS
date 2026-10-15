@@ -53,7 +53,7 @@ class ImportWizard
     public const DRY_RUN_SUMMARY = 'dry_run';
 
     /** WHMCS tables counted when connecting, to show the right database was picked. */
-    private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets'];
+    private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets', 'Knowledge base articles' => 'tblknowledgebase'];
 
     /** Notes kept per report section for the page; the saved report has them all. */
     private const NOTES_SHOWN = 10;
@@ -103,10 +103,10 @@ class ImportWizard
      */
     public function connect(array $details): void
     {
-        $attachments = self::attachments($details);
-
-        if ($attachments !== null && ! is_dir($attachments)) {
-            throw new ImportException("No folder at {$attachments} on this server.");
+        foreach ([self::folder($details, 'attachments'), self::folder($details, 'downloads')] as $folder) {
+            if ($folder !== null && ! is_dir($folder)) {
+                throw new ImportException("No folder at {$folder} on this server.");
+            }
         }
 
         $details[self::PASSWORD] = Crypt::encryptString((string) ($details[self::PASSWORD] ?? ''));
@@ -140,7 +140,7 @@ class ImportWizard
         ignore_user_abort(true);
 
         $hash = filled($details[self::HASH] ?? null) ? Crypt::decryptString($details[self::HASH]) : null;
-        $report = (new WhmcsImporter(self::attachments($details), $hash))
+        $report = (new WhmcsImporter(self::folder($details, 'attachments'), $hash, self::folder($details, 'downloads')))
             ->run($this->open($details), $dryRun);
         $this->session->put(self::SESSION.'.'.($dryRun ? self::DRY_RUN_SUMMARY : 'import'), $this->summarize($report));
 
@@ -191,10 +191,14 @@ class ImportWizard
         return $source;
     }
 
-    /** @param  array<string, mixed>  $details */
-    private static function attachments(array $details): ?string
+    /**
+     * The WHMCS attachments or downloads folder given, or null.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    private static function folder(array $details, string $key): ?string
     {
-        return filled($details['attachments'] ?? null) ? (string) $details['attachments'] : null;
+        return filled($details[$key] ?? null) ? (string) $details[$key] : null;
     }
 
     /** @return array<string, int|null> */

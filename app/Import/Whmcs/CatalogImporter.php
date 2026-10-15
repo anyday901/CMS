@@ -270,14 +270,14 @@ class CatalogImporter
                 continue;
             }
 
-            $type = $this->fieldType($row->fieldtype);
+            $type = self::fieldType($row->fieldtype);
 
             $id = DB::table('custom_fields')->insertGetId([
                 'entity' => $entity,
                 'product_id' => $productId,
                 'name' => Str::limit(Whmcs::label($row->fieldname), 250, ''),
                 'type' => $type,
-                'options' => $type === 'dropdown' ? $this->dropdownOptions($row->fieldoptions) : null,
+                'options' => $type === 'dropdown' ? self::dropdownOptions($row->fieldoptions) : null,
                 'help' => Whmcs::short($row->description ?? ''),
                 'required' => Whmcs::on($row->required ?? ''),
                 'admin_only' => Whmcs::on($row->adminonly ?? ''),
@@ -291,7 +291,7 @@ class CatalogImporter
         }
     }
 
-    private function fieldType(mixed $whmcsType): string
+    public static function fieldType(mixed $whmcsType): string
     {
         return match (strtolower((string) $whmcsType)) {
             'textarea' => 'textarea',
@@ -302,7 +302,7 @@ class CatalogImporter
     }
 
     /** WHMCS keeps dropdown choices comma separated; here they are one per line. */
-    private function dropdownOptions(mixed $options): string
+    public static function dropdownOptions(mixed $options): string
     {
         return implode("\n", array_filter(array_map(Whmcs::text(...), explode(',', (string) $options))));
     }

@@ -19,4 +19,12 @@
             </label>
         @endforeach
     </div>
+    <label class="flex items-start gap-2">
+        <input type="checkbox" name="sla_business_hours" value="1" class="mt-1" @checked(old('sla_business_hours', $department->sla_business_hours))>
+        <span>Count business hours only, so a ticket that comes in at night or on a holiday is due once you're open. Set your opening hours under <a href="{{ route('admin.settings.edit') }}#business-hours" class="text-brand-600">Settings</a>.</span>
+    </label>
 </fieldset>
+<label class="flex items-start gap-2 border-t border-ink-100 pt-3">
+    <input type="checkbox" name="feedback_requests" value="1" class="mt-1" @checked(old('feedback_requests', $department->feedback_requests))>
+    <span>Ask clients to rate the support when a ticket is closed. Ratings show on the ticket and under <a href="{{ route('admin.tickets.feedback') }}" class="text-brand-600">Ticket feedback</a>.</span>
+</label>
