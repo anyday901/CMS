@@ -126,6 +126,10 @@ class ClientMerger
                     'permissions' => array_values(array_unique([...($same->permissions ?? []), ...($contact->permissions ?? [])])),
                     'phone' => $same->phone ?: $contact->phone,
                 ])->save();
+
+                // Its sign-in history now belongs to the contact it was folded into.
+                LoginAttempt::where('account_type', $contact->getMorphClass())->where('account_id', $contact->id)
+                    ->update(['account_id' => $same->id]);
             }
 
             $contact->delete();

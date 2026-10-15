@@ -247,6 +247,22 @@ class MultiAccountContactTest extends TestCase
         $this->assertSame(3, KnownDevice::count());
     }
 
+    public function test_pruning_old_devices_keeps_the_last_one_so_a_new_device_is_still_emailed_about(): void
+    {
+        Mail::fake();
+        $client = Client::factory()->create(['password' => self::PASSWORD]);
+        $email = strtolower($client->email);
+        foreach ([3, 2] as $years) {
+            KnownDevice::create(['email' => $email, 'token_hash' => hash('sha256', "old-{$years}"), 'last_used_at' => now()->subYears($years), 'created_at' => now()->subYears($years)]);
+        }
+
+        $this->artisan('model:prune', ['--model' => [KnownDevice::class]])->assertSuccessful();
+        $this->assertSame([hash('sha256', 'old-2')], KnownDevice::pluck('token_hash')->all());
+
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
+        $this->assertSame('new_device_login', EmailLog::sole()->template);
+    }
+
     public function test_contacts_are_emailed_about_new_devices_too(): void
     {
         Mail::fake();

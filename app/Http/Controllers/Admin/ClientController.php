@@ -58,15 +58,21 @@ class ClientController extends Controller
             fputcsv($out, ['id', 'first_name', 'last_name', 'company', 'email', 'phone', 'country', 'status', 'group', 'marketing_emails', 'marketing_consent_at', 'unsubscribe_url', 'created_at'], escape: '');
             $query->chunk(500, function ($clients) use ($out) {
                 foreach ($clients as $client) {
-                    fputcsv($out, [
+                    fputcsv($out, array_map(self::csvCell(...), [
                         $client->id, $client->first_name, $client->last_name, $client->company, $client->email, $client->phone,
                         $client->country, $client->status->value, $client->group?->name, $client->marketing_emails ? 'yes' : 'no',
                         $client->marketing_consent_at?->toIso8601String(), $client->unsubscribeUrl(), $client->created_at?->toIso8601String(),
-                    ], escape: '');
+                    ]), escape: '');
                 }
             });
             fclose($out);
         }, 'clients-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /** Stops a spreadsheet treating a value such as "=HYPERLINK(...)" as a formula. */
+    private static function csvCell(mixed $value): mixed
+    {
+        return is_string($value) && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
     /** The values clients have for a column, for the search's dropdowns. */

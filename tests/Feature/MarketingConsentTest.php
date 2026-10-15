@@ -77,7 +77,7 @@ class MarketingConsentTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
         $group = ClientGroup::create(['name' => 'VIP', 'colour' => '#dc2626']);
-        $yes = Client::factory()->create(['first_name' => 'Ada', 'last_name' => 'Yes', 'client_group_id' => $group->id]);
+        $yes = Client::factory()->create(['first_name' => 'Ada', 'last_name' => 'Yes', 'company' => '=HYPERLINK("https://evil.example")', 'client_group_id' => $group->id]);
         $yes->setMarketingConsent(true);
         $yes->save();
         Client::factory()->create(['first_name' => 'Bea', 'last_name' => 'No']);
@@ -91,6 +91,8 @@ class MarketingConsentTest extends TestCase
         $this->assertStringStartsWith('id,first_name,last_name', $lines[0]);
         $this->assertStringContainsString('Ada,Yes', $lines[1]);
         $this->assertStringContainsString('VIP,yes', $lines[1]);
+        // A value a spreadsheet would run as a formula is written as text.
+        $this->assertStringContainsString('"\'=HYPERLINK(""https://evil.example"")"', $lines[1]);
         $this->assertStringContainsString('/unsubscribe/'.$yes->id.'?signature=', $lines[1]);
     }
 

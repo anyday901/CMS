@@ -47,7 +47,8 @@ class ClientMergeTest extends TestCase
         $invoice = Invoice::create(['client_id' => $old->id, 'currency' => $old->currency, 'issue_date' => today(), 'due_date' => today()]);
         $ticket = app(TicketDesk::class)->open($old, Department::create(['name' => 'Support']), 'Old ticket', 'Hello');
         $keep->contacts()->create(['first_name' => 'Bob', 'last_name' => 'Books', 'email' => self::SHARED, 'invoice_emails' => true]);
-        $old->contacts()->create(['first_name' => 'Bob', 'last_name' => 'Books', 'email' => self::SHARED, 'support_emails' => true, 'portal_access' => true, 'permissions' => ['support']]);
+        $oldBob = $old->contacts()->create(['first_name' => 'Bob', 'last_name' => 'Books', 'email' => self::SHARED, 'support_emails' => true, 'portal_access' => true, 'permissions' => ['support']]);
+        $bobLogin = LoginAttempt::create(['area' => 'portal', 'email' => self::SHARED, 'account_type' => $oldBob->getMorphClass(), 'account_id' => $oldBob->id, 'client_id' => $old->id, 'outcome' => 'success', 'created_at' => now()]);
         $old->contacts()->create(['first_name' => 'Dev', 'last_name' => 'Eloper', 'email' => 'dev@example.com']);
         $old->clientNotes()->create(['body' => 'Old note']);
         $todo = Todo::create(['title' => 'Call Ada', 'client_id' => $old->id]);
@@ -65,7 +66,7 @@ class ClientMergeTest extends TestCase
         $this->assertSame($keep->id, $invoice->fresh()->client_id);
         $this->assertSame($keep->id, $ticket->fresh()->client_id);
         $this->assertSame($keep->id, $todo->fresh()->client_id);
-        $this->assertSame($keep->id, LoginAttempt::sole()->client_id);
+        $this->assertSame([$keep->id], LoginAttempt::pluck('client_id')->unique()->values()->all());
 
         // Credit adds up, with a line in the history.
         $this->assertSame(1700, $keep->fresh()->credit_balance);
@@ -78,6 +79,8 @@ class ClientMergeTest extends TestCase
         $this->assertTrue($bob->invoice_emails && $bob->support_emails && $bob->portal_access);
         $this->assertSame(['support'], $bob->permissions);
         $this->assertFalse($contacts[self::DUPLICATE]->portal_access);
+        // Its sign-in history follows it.
+        $this->assertSame($bob->id, $bobLogin->fresh()->account_id);
 
         // Its details are kept in a note, and the merge is logged.
         $note = ClientNote::where('body', 'like', 'Merged from client #%')->sole();
