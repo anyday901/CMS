@@ -170,7 +170,15 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] An account holder reaching other accounts with their own login too (WHMCS 8 users who own one client and are users of another)
 
 ## Milestone 11: Reports, automation and integrations
-- [ ] Reports: income, sales by product, invoice aging, tax, client growth, ticket stats, with CSV export
+- [ ] Reports area in the admin (Reports menu, each report with date range, currency and CSV export, behind a `view-reports` permission)
+  - [ ] Income: annual income, monthly transactions, daily performance, income forecast from active services
+  - [ ] Sales: income by product, new orders and new clients by month, promotion usage, top clients by income
+  - [ ] Invoices: aging (current, 30, 60, 90+ days), credits given and used, client statements
+  - [ ] Tax: tax collected by rate and country (sales tax liability, EU VAT)
+  - [ ] Clients and services: clients by country and group, client growth and churn, retention time, suspensions and cancellations by reason, server revenue
+  - [ ] Support: tickets opened and closed, first response and resolution times, replies by staff, ratings and feedback comments, tags
+- [ ] WHMCS import brings over the history reports read, so they cover the years before the switch: orders, promotions and their usage, the credit log, cancellation requests and the activity log (invoices, payments, services and tickets already come over)
+- [ ] The WHMCS import wizard explains that custom WHMCS reports (PHP files in `modules/reports`) can't be copied, since the importer only reads the database, and points to the closest built-in reports
 - [ ] Automation settings page (all billing run days in one place) and a cron status page
 - [ ] Mass mail to filtered clients (marketing ones only to clients who agreed, with their unsubscribe link and a List-Unsubscribe header)
 - [ ] Staff notifications to Slack, Discord or Teams
