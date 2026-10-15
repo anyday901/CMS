@@ -10,4 +10,5 @@
         @csrf @method('DELETE')
         <button class="rounded-full px-4 py-2 text-sm text-red-700 ring-1 ring-red-200 hover:bg-red-50">Delete category</button>
     </form>
+    @include('admin.support._translations', ['model' => $category, 'type' => 'kb-categories', 'named' => true])
 </x-admin-layout>

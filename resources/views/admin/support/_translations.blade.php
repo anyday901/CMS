@@ -1,6 +1,7 @@
-{{-- Translations of $model (a knowledge base article or announcement), $type being its translations route segment; $withTags adds a tags field. --}}
+{{-- Translations of $model (a knowledge base article, category or announcement), $type being its translations route segment; $withTags adds a tags field, and $named makes it a name and an optional description. --}}
 @php
     $languages = App\Support\Language::others();
+    $named ??= false;
     $saved = $model->translations->keyBy('locale');
 @endphp
 <section id="translations" class="mt-8 max-w-3xl">
@@ -8,7 +9,7 @@
     @if ($languages === [])
         <p class="text-sm text-ink-600">This is in {{ App\Support\Language::name(App\Support\Language::main()) }}. To translate it, add languages under @can('manage-settings')<a href="{{ route('admin.settings.edit') }}#languages" class="text-brand-600">Settings</a>@else Settings @endcan.</p>
     @else
-        <p class="mb-3 text-sm text-ink-600">Visitors see the translation into their language, or the {{ App\Support\Language::name(App\Support\Language::main()) }} text above when there isn't one.@if ($saved->keys()->diff($languages)->isNotEmpty()) Translations into languages no longer offered under Settings are kept but not shown.@endif</p>
+        <p class="mb-3 text-sm text-ink-600">Visitors see the translation into their language, or the {{ App\Support\Language::name(App\Support\Language::main()) }} {{ $named ? 'name and description' : 'text' }} above when there isn't one.@if ($saved->keys()->diff($languages)->isNotEmpty()) Translations into languages no longer offered under Settings are kept but not shown.@endif</p>
         <div class="space-y-2">
             @foreach ($languages as $code)
                 @php
@@ -20,12 +21,19 @@
                     <form method="POST" action="{{ route('admin.translations.update', [$type, $model->id, $code]) }}" lang="{{ $code }}" class="space-y-3 border-t border-ink-100 p-4">
                         @csrf @method('PUT')
                         <input type="hidden" name="locale" value="{{ $code }}">
-                        <label class="block">Title
+                        <label class="block">{{ $named ? 'Name' : 'Title' }}
                             <input name="title" value="{{ $mine ? old('title') : $translation?->title }}" required maxlength="255" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                         </label>
-                        <label class="block">Text (Markdown)
-                            <textarea name="body" rows="10" required class="mt-1 w-full rounded-md px-3 py-2 font-mono text-xs ring-1 ring-ink-300">{{ $mine ? old('body') : $translation?->body }}</textarea>
-                        </label>
+                        @if ($named)
+                            <label class="block">Description (optional)
+                                <textarea name="body" rows="2" maxlength="2000" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $mine ? old('body') : $translation?->body }}</textarea>
+                                <span class="text-ink-500">Left blank, the main description is used.</span>
+                            </label>
+                        @else
+                            <label class="block">Text (Markdown)
+                                <textarea name="body" rows="10" required class="mt-1 w-full rounded-md px-3 py-2 font-mono text-xs ring-1 ring-ink-300">{{ $mine ? old('body') : $translation?->body }}</textarea>
+                            </label>
+                        @endif
                         @if ($withTags ?? false)
                             <label class="block">Tags (optional)
                                 <input name="tags" value="{{ $mine ? old('tags') : $translation?->tags }}" maxlength="255" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">

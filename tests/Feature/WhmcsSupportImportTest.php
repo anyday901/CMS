@@ -261,6 +261,10 @@ class WhmcsSupportImportTest extends TestCase
     {
         $this->whmcs->table('tblknowledgebase')->insert(['id' => 4, 'title' => 'Mot de passe cPanel', 'article' => '<p>En français</p>', 'parentid' => 1, 'language' => 'french']);
         $this->whmcs->table('tblknowledgebase')->insert(['id' => 5, 'title' => 'Klingon', 'article' => '<p>?</p>', 'parentid' => 1, 'language' => 'klingon!']);
+        $this->whmcs->table('tblknowledgebasecats')->insert([
+            ['id' => 5, 'parentid' => 0, 'name' => 'Premiers pas', 'description' => 'Les &eacute;tapes', 'hidden' => '', 'catid' => 1, 'language' => 'french'],
+            ['id' => 6, 'parentid' => 0, 'name' => 'Courriel', 'description' => '', 'hidden' => '', 'catid' => 99, 'language' => 'french'],
+        ]);
         $this->whmcs->table('tblknowledgebasetags')->insert(['articleid' => 4, 'tag' => 'mot de passe']);
         $this->whmcs->table('tblconfiguration')->insert(['setting' => 'Language', 'value' => 'english']);
 
@@ -272,9 +276,13 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertSame(['Mot de passe cPanel', 'En français', 'mot de passe'], [$french->title, $french->body, $french->tags]);
         $this->assertSame('Neues Rechenzentrum', Announcement::where('title', self::ANNOUNCEMENT)->sole()->translations->sole()->title);
         $this->assertSame(['en', ['de', 'fr']], [config('help.main_language'), config('help.languages')]);
-        $this->assertSame(['found' => 4, 'imported' => 3, 'skipped' => 1], $report->counts()['Translations']);
+        $this->assertSame(['found' => 7, 'imported' => 5, 'skipped' => 2], $report->counts()['Translations']);
+        $this->assertSame(3, KbCategory::count(), 'Translated categories are translations, not categories of their own.');
+        $category = KbCategory::where('name', 'Getting started')->sole();
+        $this->assertSame([['de', 'Erste Schritte', null], ['fr', 'Premiers pas', 'Les étapes']], $category->translations->map(fn ($t) => [$t->locale, $t->title, $t->body])->all());
+        $this->assertStringContainsString('"Courriel" (french) was left out: the category it translates wasn\'t imported.', $report->toMarkdown());
 
-        $this->get(route('kb.article', $article), ['Accept-Language' => 'de'])->assertOk()->assertSee('cPanel Passwort');
+        $this->get(route('kb.article', $article), ['Accept-Language' => 'de'])->assertOk()->assertSee('cPanel Passwort')->assertSee('Erste Schritte');
     }
 
     public function test_a_dry_run_leaves_the_language_settings_alone(): void

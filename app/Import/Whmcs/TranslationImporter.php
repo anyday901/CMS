@@ -4,6 +4,7 @@ namespace App\Import\Whmcs;
 
 use App\Models\Announcement;
 use App\Models\KbArticle;
+use App\Models\KbCategory;
 use App\Support\Language;
 use App\Support\Settings;
 use Illuminate\Support\Collection;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Translations of knowledge base articles and announcements, and the
+ * Translations of knowledge base articles, categories and announcements, and the
  * languages they bring: WHMCS's default language becomes the main one, and
  * the languages translations came in are offered to visitors.
  */
@@ -50,14 +51,46 @@ class TranslationImporter
      */
     public function import(string $class, array $originals, object $row, string $titleColumn, string $bodyColumn, ?Collection $tags = null): void
     {
+        $this->save($class, $originals[(int) $row->parentid] ?? null, $row, [
+            'title' => Str::limit(Whmcs::text($row->{$titleColumn}), 250, '') ?: 'Untitled',
+            'body' => HtmlToMarkdown::convert($row->{$bodyColumn} ?? '') ?: SupportImporter::NO_TEXT,
+            'tags' => $tags === null ? null : self::tags($tags),
+        ]);
+    }
+
+    /**
+     * A WHMCS translation of a knowledge base category: a row of its own whose
+     * catid names the original, with the name and description in that language.
+     *
+     * @param  array<int, int>  $originals  WHMCS id => imported id
+     */
+    public function importCategory(array $originals, object $row): void
+    {
+        $this->save(KbCategory::class, $originals[(int) $row->catid] ?? null, $row, [
+            'title' => Whmcs::short($row->name) ?? 'Untitled',
+            'body' => Whmcs::text($row->description ?? '') ?: null,
+            'tags' => null,
+        ]);
+    }
+
+    /**
+     * @param  class-string<KbArticle|KbCategory|Announcement>  $class
+     * @param  array{title: string, body: ?string, tags: ?string}  $text
+     */
+    private function save(string $class, ?int $original, object $row, array $text): void
+    {
         $this->run->report->found(self::TRANSLATIONS);
-        $title = Whmcs::text($row->{$titleColumn});
+        $title = $text['title'];
         $language = trim((string) ($row->language ?? ''));
         $locale = Language::fromWhmcs($language);
-        $noun = $class === KbArticle::class ? 'article' : 'announcement';
+        $noun = match ($class) {
+            KbArticle::class => 'article',
+            KbCategory::class => 'category',
+            default => 'announcement',
+        };
 
         $problem = match (true) {
-            ! isset($originals[(int) $row->parentid]) => "the {$noun} it translates wasn't imported",
+            $original === null => "the {$noun} it translates wasn't imported",
             $locale === null => "WHMCS's language \"{$language}\" has no language code here",
             $locale === $this->main => "it's in the main language, ".Language::name($locale),
             default => null,
@@ -69,8 +102,7 @@ class TranslationImporter
             return;
         }
 
-        $model = new $class;
-        $key = [$model->getMorphClass(), $originals[(int) $row->parentid], $locale];
+        $key = [(new $class)->getMorphClass(), $original, $locale];
 
         // WHMCS can hold two translations into one language; the first wins.
         if (isset($this->translated[implode('|', $key)])) {
@@ -83,9 +115,7 @@ class TranslationImporter
             'translatable_type' => $key[0],
             'translatable_id' => $key[1],
             'locale' => $locale,
-            'title' => Str::limit($title, 250, '') ?: 'Untitled',
-            'body' => HtmlToMarkdown::convert($row->{$bodyColumn} ?? '') ?: SupportImporter::NO_TEXT,
-            'tags' => $tags === null ? null : self::tags($tags),
+            ...$text,
             'created_at' => $this->run->now,
             'updated_at' => $this->run->now,
         ]);
@@ -113,7 +143,7 @@ class TranslationImporter
         }
 
         if ($this->languages !== []) {
-            $this->run->report->note(self::TRANSLATIONS, 'Translations came over in '.collect(array_keys($this->languages))->map(fn (string $code) => Language::name($code))->join(', ', ' and ').', and visitors can now pick those languages. Knowledge base categories keep their main language names.');
+            $this->run->report->note(self::TRANSLATIONS, 'Translations came over in '.collect(array_keys($this->languages))->map(fn (string $code) => Language::name($code))->join(', ', ' and ').', and visitors can now pick those languages.');
         }
 
         if (! $this->run->report->dryRun && ($changed || $this->languages !== [])) {
