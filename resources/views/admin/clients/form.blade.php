@@ -21,12 +21,27 @@
                 @endforeach
             </select>
         </label>
+        <label class="block">Client group
+            <select name="client_group_id" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <option value="">None</option>
+                @foreach ($groups as $group)
+                    <option value="{{ $group->id }}" @selected((string) old('client_group_id', $client->client_group_id) === (string) $group->id)>{{ $group->name }}</option>
+                @endforeach
+            </select>
+            @can('manage-settings')<span class="mt-1 block text-ink-500">Add groups under <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">Client groups</a>.</span>@endcan
+        </label>
         @include('custom-fields._inputs', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-2'])
-        <div class="md:col-span-2">
+        <div class="space-y-2 md:col-span-2">
             <input type="hidden" name="tax_exempt" value="0">
             <label class="flex items-center gap-2"><input type="checkbox" name="tax_exempt" value="1" @checked(old('tax_exempt', $client->tax_exempt))> Tax exempt</label>
+            <input type="hidden" name="marketing_emails" value="0">
+            <label class="flex items-start gap-2"><input type="checkbox" name="marketing_emails" value="1" class="mt-1" @checked(old('marketing_emails', $client->marketing_emails))>
+                <span>Agreed to marketing emails (news and offers)
+                    @if ($client->marketing_consent_at)<span class="block text-ink-500">{{ $client->marketing_emails ? 'Agreed' : 'Said no' }} on {{ $client->marketing_consent_at->format('M j, Y') }}. Only tick this if the client asked you to.</span>@else<span class="block text-ink-500">Only tick this if the client asked you to.</span>@endif
+                </span>
+            </label>
         </div>
-        <label class="block md:col-span-2">Notes
+        <label class="block md:col-span-2">Profile notes <span class="text-ink-500">(dated notes, and pinned ones, are on the client's page)</span>
             <textarea name="notes" rows="3" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('notes', $client->notes) }}</textarea>
         </label>
         <div class="md:col-span-2">

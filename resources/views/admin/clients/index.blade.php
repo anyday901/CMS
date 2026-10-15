@@ -56,7 +56,16 @@
                     </select>
                 </label>
             @endforeach
-            @foreach (['credit_balance' => 'Has credit balance', 'tax_exempt' => 'Tax exempt'] as $field => $label)
+            <label class="block">Client group
+                <select name="group" class="{{ $panelInput }}">
+                    <option value="">Any</option>
+                    @foreach ($groups as $group)
+                        <option value="{{ $group->id }}" @selected($search->get('group') === (string) $group->id)>{{ $group->name }}</option>
+                    @endforeach
+                    <option value="{{ App\Support\ClientSearch::NO_GROUP }}" @selected($search->get('group') === App\Support\ClientSearch::NO_GROUP)>Not in a group</option>
+                </select>
+            </label>
+            @foreach (['credit_balance' => 'Has credit balance', 'tax_exempt' => 'Tax exempt', 'marketing_emails' => 'Agreed to marketing emails'] as $field => $label)
                 <label class="block">{{ $label }}
                     <select name="{{ $field }}" class="{{ $panelInput }}">
                         @foreach ($yesNo as $value => $text)
@@ -81,6 +90,11 @@
         @if ($search->filters() !== [])
             <a href="{{ route('admin.clients.index', $search->showsClosed() ? ['show_closed' => 1] : []) }}" class="text-brand-600">Clear search</a>
         @endif
+        @can('manage-clients')
+            @if ($clients->total() > 0)
+                <a href="{{ route('admin.clients.export', request()->query()) }}" class="text-brand-600">Export to CSV</a>
+            @endif
+        @endcan
         @unless ($search->get('status'))
             @php $hiding = $search->hidesClosed(); @endphp
             <a href="{{ route('admin.clients.index', $search->withClosed($hiding)) }}" role="switch" aria-checked="{{ $hiding ? 'true' : 'false' }}"
@@ -100,7 +114,7 @@
                 <tbody class="divide-y divide-ink-100">
                     @foreach ($clients as $client)
                         <tr>
-                            <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $client) }}" class="text-brand-600">{{ $client->fullName() }}</a></td>
+                            <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $client) }}" class="text-brand-600">{{ $client->fullName() }}</a> <x-client-group-badge :group="$client->group" class="ml-1" /></td>
                             <td class="px-4 py-2">{{ $client->company }}</td>
                             <td class="px-4 py-2">{{ $client->email }}</td>
                             <td class="px-4 py-2">{{ $client->services_count }}</td>

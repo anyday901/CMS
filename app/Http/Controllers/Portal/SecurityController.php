@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\ManagesTwoFactor;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\ClientContact;
+use App\Models\LoginAttempt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,9 +26,9 @@ class SecurityController extends Controller
         $account = PortalContact::account();
         $client = $request->user('client');
 
-        // The account holder sees every login to the account, contacts' too.
+        // The account holder sees every login to the account, contacts' too; a contact sees their own, on every account.
         $logins = $account instanceof ClientContact
-            ? $account->loginAttempts()
+            ? LoginAttempt::where('account_type', $account->getMorphClass())->whereIn('account_id', ClientContact::loginsFor($account->email)->select('id'))
             : $client->loginAttempts()->with('account');
 
         return view('portal.security', [

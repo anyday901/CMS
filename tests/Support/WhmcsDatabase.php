@@ -74,6 +74,34 @@ class WhmcsDatabase
             $t->integer('currency')->default(1);
             $t->decimal('credit', 16, 2)->default(0);
             $t->date('datecreated')->nullable();
+            $t->integer('groupid')->default(0);
+            $t->integer('marketing_emails_opt_in')->default(0);
+        });
+        $schema->create('tblclientgroups', function (Blueprint $t) {
+            $t->id();
+            $t->string('groupname');
+            $t->string('groupcolour')->nullable();
+            $t->decimal('discountpercent', 10, 2)->default(0);
+            $t->text('susptermexempt')->nullable();
+            $t->text('separateinvoices')->nullable();
+        });
+        $schema->create('tblnotes', function (Blueprint $t) {
+            $t->id();
+            $t->integer('userid');
+            $t->integer('adminid')->default(0);
+            $t->dateTime('created')->nullable();
+            $t->dateTime('modified')->nullable();
+            $t->text('note');
+            $t->integer('sticky')->default(0);
+        });
+        $schema->create('tbltodolist', function (Blueprint $t) {
+            $t->id();
+            $t->date('date')->nullable();
+            $t->text('title');
+            $t->text('description')->nullable();
+            $t->integer('admin')->default(0);
+            $t->text('status')->nullable();
+            $t->date('duedate')->nullable();
         });
         $schema->create('tblusers', function (Blueprint $t) {
             $t->id();

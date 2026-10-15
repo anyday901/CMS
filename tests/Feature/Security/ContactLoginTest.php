@@ -120,7 +120,7 @@ class ContactLoginTest extends TestCase
         $contact = $this->contact($client, ['support']);
         $this->logInAs($contact);
 
-        // Contacts never get a remember-me cookie, which would sign in the account holder.
+        // A contact's remember-me is their own, never the account holder's.
         $this->assertSame('owner-remember-token', $client->fresh()->remember_token);
 
         $contact->update(['portal_access' => false]);
@@ -163,12 +163,11 @@ class ContactLoginTest extends TestCase
         $this->contact(Client::factory()->create(), ['billing']);
         $this->actingAs($client, 'client');
 
-        // A login contact can't use a client's email, or another login contact's.
+        // A login contact can't use a client's email.
         $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => $other->email, 'portal_access' => '1'])->assertSessionHasErrors('email');
-        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER, 'portal_access' => '1'])->assertSessionHasErrors('email');
 
-        // Without a login, the same bookkeeper can be on several accounts.
-        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasNoErrors();
+        // Another account's login contact is the same person, who shares their login.
+        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER, 'portal_access' => '1'])->assertSessionHasNoErrors();
 
         // And no client can take a login contact's email.
         $this->put(self::ACCOUNT, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasErrors('email');

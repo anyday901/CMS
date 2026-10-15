@@ -53,6 +53,8 @@
                     <input type="password" name="password_confirmation" required autocomplete="new-password" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 </label>
             </div>
+            <label class="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" name="marketing_emails" value="1" class="mt-1" @checked(old('marketing_emails'))>
+                <span>Email me news and special offers. You can unsubscribe at any time.</span></label>
             <x-captcha form="register" />
         @endauth
         <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">Place order</button>

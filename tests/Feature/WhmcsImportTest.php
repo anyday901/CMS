@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Client;
+use App\Models\ClientContact;
 use App\Models\CustomField;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -15,6 +16,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
+use App\Models\Todo;
 use App\Tickets\InboundMail;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -267,8 +269,63 @@ class WhmcsImportTest extends TestCase
         $this->assertSame([true, ['billing']], [$contacts['bob@example.com']->portal_access, $contacts['bob@example.com']->permissions]);
         // A contact with the owner's email can't sign in as well.
         $this->assertFalse($contacts[self::EMAIL]->portal_access);
-        $this->assertStringContainsString('another client or contact signs in with that email', $report->toMarkdown());
+        $this->assertStringContainsString('a client signs in with that email', $report->toMarkdown());
         $this->assertTrue(Client::sole()->hasVerifiedEmail());
+    }
+
+    public function test_a_whmcs_user_of_several_clients_gets_one_login_for_all_of_them(): void
+    {
+        $this->whmcs->table('tblclients')->insert([
+            'id' => 8, 'firstname' => 'Grace', 'lastname' => 'Hopper', 'companyname' => 'Navy', 'email' => 'grace@example.com',
+            'country' => 'US', 'status' => 'Active', 'currency' => 1, 'password' => '', 'datecreated' => '2021-01-02',
+        ]);
+        $this->whmcs->table('tblusers')->insert(['id' => 2, 'first_name' => 'Fin', 'last_name' => 'Ance', 'email' => 'fin@example.com', 'password' => 'x']);
+        $this->whmcs->table('tblusers_clients')->insert([
+            ['auth_user_id' => 2, 'client_id' => 7, 'owner' => 0, 'permissions' => 'invoices'],
+            ['auth_user_id' => 2, 'client_id' => 8, 'owner' => 0, 'permissions' => 'tickets'],
+        ]);
+
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+
+        $contacts = ClientContact::where('email', 'fin@example.com')->orderBy('client_id')->get();
+        $this->assertSame([[7, ['billing']], [8, ['support']]], $contacts->map(fn ($contact) => [$contact->client_id, $contact->permissions])->all());
+        $this->assertTrue($contacts->every->portal_access);
+
+        // One Forgot password sets the login for both accounts.
+        $contacts[0]->forceFill(['password' => 'fin-password-1'])->save();
+        $this->assertSame($contacts[0]->fresh()->password, $contacts[1]->fresh()->password);
+    }
+
+    public function test_client_groups_notes_to_dos_and_marketing_consent_come_over(): void
+    {
+        $this->whmcs->table('tblclientgroups')->insert([
+            ['id' => 3, 'groupname' => 'Resellers', 'groupcolour' => '#AA00FF', 'discountpercent' => 10, 'susptermexempt' => 'on', 'separateinvoices' => ''],
+        ]);
+        $this->whmcs->table('tblclients')->where('id', 7)->update(['groupid' => 3, 'marketing_emails_opt_in' => 1]);
+        $this->whmcs->table('tbladmins')->insert(['id' => 1, 'email' => 'jane@example.com', 'firstname' => 'Jane', 'lastname' => 'Admin']);
+        $this->whmcs->table('tblnotes')->insert([
+            ['userid' => 7, 'adminid' => 1, 'created' => '2024-03-01 10:00:00', 'modified' => '2024-03-02 10:00:00', 'note' => 'Prefers &quot;email&quot;', 'sticky' => 1],
+            ['userid' => 99, 'adminid' => 1, 'created' => '2024-03-01 10:00:00', 'modified' => '2024-03-01 10:00:00', 'note' => 'Orphan', 'sticky' => 0],
+        ]);
+        $this->whmcs->table('tbltodolist')->insert([
+            ['date' => '2024-04-01', 'title' => 'Renew certificate', 'description' => 'Wildcard', 'admin' => 1, 'status' => 'In Progress', 'duedate' => '2024-05-01'],
+            ['date' => '2024-04-02', 'title' => 'Old job', 'description' => '', 'admin' => 0, 'status' => 'Completed', 'duedate' => '0000-00-00'],
+        ]);
+
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        $client = Client::sole();
+
+        $this->assertSame(['Resellers', '#aa00ff'], [$client->group->name, $client->group->colour]);
+        $this->assertStringContainsString('a 10% discount, no automatic suspension or termination', $report->toMarkdown());
+        $this->assertTrue($client->marketing_emails);
+
+        $note = $client->clientNotes()->sole();
+        $this->assertSame(['Prefers "email"', true, 'jane@example.com'], [$note->body, $note->pinned, $note->user->email]);
+        $this->assertSame(['found' => 2, 'imported' => 1, 'skipped' => 1], $report->counts()['Client notes']);
+
+        $todos = Todo::orderBy('id')->get();
+        $this->assertSame([Todo::IN_PROGRESS, '2024-05-01', 'jane@example.com'], [$todos[0]->status, $todos[0]->due_on->toDateString(), $todos[0]->user->email]);
+        $this->assertSame([Todo::DONE, null, null], [$todos[1]->status, $todos[1]->due_on, $todos[1]->user]);
     }
 
     public function test_replies_to_old_whmcs_ticket_emails_find_the_ticket(): void

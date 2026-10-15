@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\BlockBannedIps;
 use App\Http\Middleware\EnsureContactCan;
+use App\Http\Middleware\RecallPortalContact;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,9 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: ['webhooks/*']);
-        $middleware->web(append: [BlockBannedIps::class]);
+        // Mail apps' one-click unsubscribe posts without a session; the link is signed instead.
+        $middleware->validateCsrfTokens(except: ['webhooks/*', 'unsubscribe/*']);
+        $middleware->web(append: [BlockBannedIps::class, RecallPortalContact::class]);
         $middleware->alias(['contact.can' => EnsureContactCan::class]);
+        // A remembered contact is signed back in before routes check who is signed in.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: RecallPortalContact::class);
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin*')
             ? route('admin.login')
             : route('portal.login'));

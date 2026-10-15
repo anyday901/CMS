@@ -104,6 +104,20 @@ class EmailTemplates
                 'placeholders' => ['account_name', 'contact_permissions', 'reset_url', 'expire_hours'],
                 'sensitive' => true,
             ],
+            'contact_account_added' => [
+                'name' => 'Contact added to another account',
+                'description' => 'Sent to a contact who already signs in to the portal when another account gives them access with the same email. They use the login they have. {client_first_name} is the contact\'s first name here.',
+                'subject' => 'You can now sign in to {account_name} at {company_name}',
+                'body' => "Hello {client_first_name},\n\n{account_name} has given you access to their account at {company_name}, so you can {contact_permissions}.\n\nSign in with the email and password you already use. You'll be asked which account to open, and you can switch accounts from the menu.\n\n[Sign in]({login_url})",
+                'placeholders' => ['account_name', 'contact_permissions', 'login_url'],
+            ],
+            'new_device_login' => [
+                'name' => 'New device sign-in',
+                'description' => 'Sent when a client or contact signs in to the portal from a browser or device that hasn\'t signed in with their email before. Turn it off under Settings > Security.',
+                'subject' => 'New sign-in to your {company_name} account',
+                'body' => "Hello {client_first_name},\n\nSomeone just signed in to your account from a device we haven't seen before:\n\n- When: {login_time}\n- Browser: {login_browser}\n- IP address: {login_ip}\n\nIf this was you, there's nothing to do.\n\nIf it wasn't, [reset your password]({password_url}) straight away, and turn on two-factor authentication under Security in the portal.\n\n{company_name}",
+                'placeholders' => ['login_time', 'login_browser', 'login_ip', 'password_url'],
+            ],
             'ticket_opened' => [
                 'name' => 'Ticket received',
                 'description' => 'Sent when a client opens a ticket, in the portal or by email, and when someone without an account does (with their private link to the ticket).',

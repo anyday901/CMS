@@ -75,6 +75,19 @@ class AccountController extends Controller
         return $export->download($client);
     }
 
+    /** The account holder says yes or no to news and offers by email. */
+    public function marketing(Request $request): RedirectResponse
+    {
+        $client = $request->user('client');
+
+        if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
+            $client->save();
+            Activity::record($client->marketing_emails ? 'Agreed to marketing emails' : 'Opted out of marketing emails', $client);
+        }
+
+        return back()->with('status', $client->marketing_emails ? "Thanks, we'll email you news and offers." : "You won't get news and offers by email.");
+    }
+
     public function password(Request $request): RedirectResponse
     {
         $data = $request->validate([

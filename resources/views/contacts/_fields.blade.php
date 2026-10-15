@@ -18,7 +18,7 @@
     <input type="hidden" name="portal_access" value="0">
     <label class="flex items-start gap-2"><input type="checkbox" name="portal_access" value="1" class="mt-1" @checked(old('portal_access', $contact->portal_access))>
         <span><span class="font-medium">Can sign in to the portal</span> with this email and their own password.
-            @unless ($contact->password)They get an email with a link to choose one.@endunless</span>
+            @unless ($contact->password)They get an email with a link to choose one, or, if they already sign in to another account with this email, they use that login here too.@endunless</span>
     </label>
     <p class="pl-6 text-ink-600">What they can do there:</p>
     @foreach (App\Models\ClientContact::PERMISSIONS as $key => $label)

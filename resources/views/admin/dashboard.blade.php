@@ -57,6 +57,12 @@
         <a href="{{ route('admin.tickets.index') }}" class="mt-2 inline-block text-sm text-brand-600">View all tickets</a>
     @endif
 
+    @if ($todos->isNotEmpty())
+        <h2 class="mb-3 mt-10 text-lg font-semibold">Your to-do list</h2>
+        @include('admin.todos._table', ['todos' => $todos])
+        <a href="{{ route('admin.todos.index') }}" class="mt-2 inline-block text-sm text-brand-600">View your to-do list</a>
+    @endif
+
     @if ($openTasks->isNotEmpty())
         <h2 class="mb-3 mt-10 text-lg font-semibold">Open tasks</h2>
         @include('admin.tasks._table', ['tasks' => $openTasks])

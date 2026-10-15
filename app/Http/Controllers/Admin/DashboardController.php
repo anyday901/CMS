@@ -17,6 +17,7 @@ use App\Models\Order;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\Ticket;
+use App\Models\Todo;
 use App\Models\Transaction;
 use Illuminate\View\View;
 
@@ -35,6 +36,8 @@ class DashboardController extends Controller
                 ->where('gateway', '!=', CreditApplier::GATEWAY)->sum('amount'),
             'pendingOrders' => Order::where('status', OrderStatus::Pending)->with(['client', 'invoice', 'services.product'])->oldest('id')->limit(10)->get(),
             'cancellations' => CancellationRequest::pending()->with(['service.client', 'service.product'])->orderBy('cancel_on')->limit(10)->get(),
+            'todos' => Todo::unfinished()->where(fn ($query) => $query->where('user_id', request()->user()->id)->orWhereNull('user_id'))
+                ->with(['user', 'client'])->orderByRaw('due_on is null')->orderBy('due_on')->oldest('id')->limit(10)->get(),
             'openTasks' => FulfillmentTask::open()->with(['service.client', 'service.product'])->oldest()->limit(10)->get(),
             'waitingTickets' => request()->user()->can('manage-tickets')
                 ? Ticket::awaitingStaff()->with(['client', 'department', 'assignee', 'tags'])->orderByRaw(TicketPriority::orderSql())->oldest('last_reply_at')->limit(10)->get()

@@ -10,6 +10,7 @@ use App\Models\CreditEntry;
 use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\Order;
 use App\Models\Service;
@@ -43,8 +44,9 @@ class ClientDataExport
             'note' => 'Amounts are in minor units (cents) of the currency shown. Passwords and security codes are not included.',
             'client' => $this->only($client, [
                 'id', 'first_name', 'last_name', 'company', 'email', 'email_verified_at', 'phone', 'address1', 'address2',
-                'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'status', 'credit_balance', 'custom_fields', 'created_at',
-            ]) + ['two_factor_enabled' => $client->hasTwoFactor()],
+                'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'status', 'credit_balance', 'custom_fields',
+                'marketing_emails', 'marketing_consent_at', 'created_at',
+            ]) + ['group' => $client->group?->name, 'two_factor_enabled' => $client->hasTwoFactor()],
             'contacts' => $client->contacts->map(fn (ClientContact $contact) => $this->only($contact, [
                 'first_name', 'last_name', 'email', 'phone', 'invoice_emails', 'support_emails', 'portal_access', 'permissions', 'last_login_at', 'created_at',
             ]))->all(),
@@ -79,6 +81,8 @@ class ClientDataExport
                 ])->all(),
             ])->all(),
             'emails' => $client->emailLogs()->orderBy('id')->get()->map(fn (EmailLog $email) => $this->only($email, ['to', 'cc', 'subject', 'body', 'status', 'sent_at', 'created_at']))->all(),
+            'devices' => KnownDevice::whereIn('email', $client->contacts->pluck('email')->push($client->email)->map(fn ($email) => strtolower((string) $email)))
+                ->orderBy('id')->get()->map(fn (KnownDevice $device) => $this->only($device, ['email', 'user_agent', 'ip_address', 'created_at', 'last_used_at']))->all(),
             'logins' => $client->loginAttempts()->orderBy('id')->get()->map(fn (LoginAttempt $login) => $this->only($login, ['email', 'ip_address', 'user_agent', 'outcome', 'created_at']))->all(),
             'activity' => Activity::where('client_id', $client->id)->orderBy('id')->get()->map(fn (Activity $entry) => $this->only($entry, ['actor_name', 'description', 'ip_address', 'created_at']))->all(),
         ];

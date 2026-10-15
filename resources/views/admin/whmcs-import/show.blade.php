@@ -2,7 +2,7 @@
 <x-admin-layout title="Import from WHMCS">
     <p class="mb-1 text-sm"><a href="{{ route('admin.settings.edit') }}" class="text-brand-600">Settings</a></p>
     <h1 class="mb-2 text-2xl font-semibold">Import from WHMCS</h1>
-    <p class="mb-6 max-w-3xl text-sm text-ink-600">Copy clients, contacts, servers, products, services, invoices, payments, credit, admins, tickets with their feedback ratings and your support content (knowledge base and announcements with their translations, network issues, downloads and escalation rules) from WHMCS into this install. The walkthrough checks everything with a dry run first, so nothing is saved until the last step.</p>
+    <p class="mb-6 max-w-3xl text-sm text-ink-600">Copy clients with their groups, notes and contacts, the to-do list, servers, products, services, invoices, payments, credit, admins, tickets with their feedback ratings and your support content (knowledge base and announcements with their translations, network issues, downloads and escalation rules) from WHMCS into this install. The walkthrough checks everything with a dry run first, so nothing is saved until the last step.</p>
 
     <ol class="mb-8 grid grid-cols-5 gap-2" aria-label="Import steps">
         @foreach (ImportWizard::STEPS as $number => $label)

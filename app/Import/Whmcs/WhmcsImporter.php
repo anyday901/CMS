@@ -17,8 +17,8 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Copies a WHMCS database into this app: servers and server groups, clients
- * and their contacts, products with prices, configurable options and module
+ * Copies a WHMCS database into this app: servers and server groups, client
+ * groups, clients and their contacts, staff notes on clients, the to-do list, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
  * transactions, admins as staff, ticket departments, custom fields, tags,
  * tickets (guest tickets too), replies and feedback ratings, and the
@@ -79,6 +79,8 @@ class WhmcsImporter
 
     private ContactLoginImporter $logins;
 
+    private ClientExtrasImporter $extras;
+
     private ServerImporter $servers;
 
     /** @param  string|null  $encryptionHash  WHMCS's cc_encryption_hash, to bring stored passwords over */
@@ -130,6 +132,8 @@ class WhmcsImporter
         $this->servers->import();
         $this->catalog = new CatalogImporter($this->run, $this->servers);
         $this->catalog->import();
+        $this->extras = new ClientExtrasImporter($this->run);
+        $this->extras->importGroups();
         $this->importClients();
         $this->importContacts();
         $this->logins->importUsers($this->clients);
@@ -139,6 +143,8 @@ class WhmcsImporter
         $this->importTransactions();
         $staff = new StaffImporter($this->run);
         $staff->import();
+        $this->extras->importNotes($this->clients, $staff);
+        $this->extras->importTodos($staff);
         $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
         $this->tickets->import();
         $this->support = new SupportImporter($this->run, $this->servers, $staff, $this->tickets->departments(), $this->catalog->products, $this->downloadsPath);
@@ -240,6 +246,9 @@ class WhmcsImporter
             'currency' => $this->run->currency($row->currency ?? 0),
             'tax_exempt' => Whmcs::on($row->taxexempt ?? ''),
             'status' => Whmcs::clientStatus($row->status ?? '')->value,
+            'client_group_id' => $this->extras->groupId($row->groupid ?? 0),
+            // WHMCS 7.10 and later ask for marketing consent; older installs never did, so nobody counts as agreeing.
+            'marketing_emails' => Whmcs::on($row->marketing_emails_opt_in ?? ''),
             'credit_balance' => Whmcs::cents($row->credit ?? 0),
             'notes' => Whmcs::text($row->notes ?? '') ?: null,
             'custom_fields' => Whmcs::fieldValues($this->catalog->clientValues[(int) $row->id] ?? []),

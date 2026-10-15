@@ -54,7 +54,7 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Clients and services</legend>
-            <p class="text-ink-600">Add extra fields to clients and services under <a href="{{ route('admin.custom-fields.index') }}" class="text-brand-600">Custom fields</a>.</p>
+            <p class="text-ink-600">Add extra fields to clients and services under <a href="{{ route('admin.custom-fields.index') }}" class="text-brand-600">Custom fields</a>, and sort clients into <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">Client groups</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">

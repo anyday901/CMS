@@ -29,6 +29,16 @@
         </form>
     </div>
 
+    <form method="POST" action="{{ route('portal.account.marketing') }}" class="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+        @csrf
+        @method('PUT')
+        <h2 class="w-full font-semibold">Email preferences</h2>
+        <input type="hidden" name="marketing_emails" value="0">
+        <label class="flex grow items-start gap-2"><input type="checkbox" name="marketing_emails" value="1" class="mt-1" @checked($client->marketing_emails)>
+            <span>Email me news and special offers. Emails about your account, such as invoices and support replies, always come.</span></label>
+        <button class="rounded-full px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Save preference</button>
+    </form>
+
     <div class="mt-8 mb-3 flex items-center gap-3">
         <h2 class="text-lg font-semibold">Contacts</h2>
         <a href="{{ route('portal.contacts.create') }}" class="text-sm text-brand-600">Add contact</a>

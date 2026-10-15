@@ -158,20 +158,21 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Login history, failed login lockout and IP bans (automatic and by hand)
 - [x] CAPTCHA on public forms (Cloudflare Turnstile, hCaptcha, reCAPTCHA v2)
 - [x] GDPR tools: export a client's data, anonymise a closed account
-- [ ] Contacts who can sign in to several client accounts with one login (WHMCS 8 users)
-- [ ] Remember-me for contacts
-- [ ] Email clients when there's a login from a new device
-- [ ] Client notes and admin to-do list
+- [x] Contacts who can sign in to several client accounts with one login (WHMCS 8 users)
+- [x] Remember-me for contacts
+- [x] Email clients when there's a login from a new device
+- [x] Client notes and admin to-do list
 - [x] Advanced search on the admin clients list, hiding closed clients by default
-- [ ] Client groups (and a client group filter on the clients search)
-- [ ] Global search across clients, services, invoices, domains and tickets
-- [ ] Merge two client accounts
-- [ ] Marketing email opt-in and opt-out
+- [x] Client groups (and a client group filter on the clients search)
+- [x] Global search across clients, services, invoices, domains and tickets (domains are searched on services until domain registration exists)
+- [x] Merge two client accounts
+- [x] Marketing email opt-in and opt-out
+- [ ] An account holder reaching other accounts with their own login too (WHMCS 8 users who own one client and are users of another)
 
 ## Milestone 11: Reports, automation and integrations
 - [ ] Reports: income, sales by product, invoice aging, tax, client growth, ticket stats, with CSV export
 - [ ] Automation settings page (all billing run days in one place) and a cron status page
-- [ ] Mass mail to filtered clients
+- [ ] Mass mail to filtered clients (marketing ones only to clients who agreed, with their unsubscribe link and a List-Unsubscribe header)
 - [ ] Staff notifications to Slack, Discord or Teams
 - [ ] SMS notifications (pluggable provider)
 - [ ] REST API with keys and permissions

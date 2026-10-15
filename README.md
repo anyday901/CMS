@@ -6,7 +6,8 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 
 ## What it does (v1 goals)
 
-- Client accounts and a client portal
+- Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
+- Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, and client cancellation requests
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
@@ -15,7 +16,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Software licensing: license keys your own software checks, locked to where they are installed
 - Support tickets with email piping, a spam filter, tickets from people without an account (by email or a contact form), custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
 - A knowledge base with search, announcements (both translatable, knowledge base categories too), a network status page and a downloads area
-- Account security: two-factor authentication for clients and staff, contacts with their own logins and permissions, email verification, login history, failed login lockout, IP bans, CAPTCHA on public forms, and GDPR data export and anonymising
+- Account security: two-factor authentication for clients and staff, contacts with their own logins and permissions (one login can reach several accounts, with remember-me), emails about logins from new devices, email verification, login history, failed login lockout, IP bans, CAPTCHA on public forms, and GDPR data export and anonymising
 - An importer for existing WHMCS installs
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -63,7 +64,7 @@ Run the tests with `php artisan test`.
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies servers and server groups, clients and contacts, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, admins as staff accounts, ticket departments, custom fields, tags, tickets (including ones from people without a client account) and replies (and, with `--attachments`, ticket attachments), ticket feedback ratings, the knowledge base and announcements with their translations, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
+`php artisan whmcs:import` copies servers and server groups, client groups, clients and contacts (a WHMCS 8 user of several clients gets one login for all of them), staff notes on clients, marketing email consent, the to-do list, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, admins as staff accounts, ticket departments, custom fields, tags, tickets (including ones from people without a client account) and replies (and, with `--attachments`, ticket attachments), ticket feedback ratings, the knowledge base and announcements with their translations, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
 
 Or use the walkthrough in the admin area under **Settings > Import from WHMCS**: it checks the install is empty, connects to WHMCS (from `.env` or details you type in), runs the dry run and shows its report, then imports and lists the next steps. It runs the same importer; on very large installs the command line is more reliable than a browser request.
 
@@ -151,17 +152,39 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff, account security (login history, IP bans, CAPTCHA, GDPR export and anonymising) and the activity log.
+The admin area at `/admin` covers the dashboard, a search box for everything, a staff to-do list, clients with their contacts, groups and notes (and merging two accounts), the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff, account security (login history, IP bans, CAPTCHA, GDPR export and anonymising) and the activity log.
 
 ### Searching clients
 
-**Clients** searches by client or company name, email, phone and status; **Advanced** adds address, city, state, postcode, country, currency, credit balance, tax exempt and signup date. Closed clients are hidden from the list until you switch off **Hide closed clients** or pick **Closed** as the status. The search is kept in the web address, so a filtered list can be bookmarked or shared with other staff.
+**Clients** searches by client or company name, email, phone and status; **Advanced** adds address, city, state, postcode, country, currency, client group, credit balance, tax exempt, agreed to marketing emails and signup date. Closed clients are hidden from the list until you switch off **Hide closed clients** or pick **Closed** as the status. The search is kept in the web address, so a filtered list can be bookmarked or shared with other staff. **Export to CSV** downloads the clients found, with their group, marketing consent and a personal unsubscribe link, for a mailing list or a spreadsheet.
+
+The **Search** box in the admin menu looks through everything at once: clients (by name, company, email, phone or number, or a contact's name or email), services and domains (by domain or label, control panel username, product or number), invoices and orders (by number) and tickets (by number, subject or a guest's email). Staff only see tickets if they can work on them.
+
+### Client groups, notes and the to-do list
+
+**Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. Groups are labels only: discounts and exemptions from automatic suspension aren't tied to them.
+
+A client's page has **Notes**: dated notes by staff, which only staff see. Tick **Pin to the top of the page** to show one as a banner above the client's details. The older single notes field is still on the edit form as **Profile notes**.
+
+**To-do** in the admin menu is a to-do list for staff. Each item can be for one staff member or anyone, have a due date and details, and be about a client (add one from the client's page). The list shows your items by default, with tabs for everyone's, unassigned, overdue and done ones, and a tick box marks an item done. Your items, and unassigned ones, show on the dashboard, and the menu counts the ones still to do.
+
+### Merging clients
+
+For a client with two accounts, open the one to get rid of and use **Merge**. Find the account to keep, check what will move, and confirm. Its services, invoices, payments, orders, tickets, contacts, notes, to-dos, emails, login history and activity move to the account you keep, and its credit balance is added there with a line in the credit history. A contact with an email already on the kept account is combined with that contact. The merged account is deleted; its details go into a note on the kept account, and its account holder can be added as a contact. Accounts billed in different currencies can't be merged.
+
+### Marketing email consent
+
+Clients say whether they want news and offers by email with a box at sign-up (unticked unless they tick it) and under **Account > Email preferences** in the portal. Staff can change it on the client's edit form when a client asks. Every change is kept in the activity log, and the client's page shows when they last said yes or no. Each client has a signed unsubscribe link (in the CSV export) that works without logging in and supports mail apps' one-click unsubscribe. The WHMCS import brings over WHMCS's marketing opt-in.
 
 ### Contacts
 
 A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client.
 
-Tick **Can sign in to the portal** to give a contact their own login, and choose what they can do there: **invoices** (see and pay invoices, use credit), **orders** (place orders, upgrade and cancel services), **services** (see services, log in to control panels, change service passwords) and **support** (tickets). The contact gets an email with a link to choose a password, valid for a day; **Send invite again** on the contact, or **Forgot password** on the login page, sends a new one. A contact never sees the account's details or other contacts, and what they do is logged under their own name. Their login email can't be used by any client or other contact who signs in, though contacts without a login can share an address across accounts. Contacts don't get remember-me. The WHMCS import gives sub-account contacts, and WHMCS 8 users of a client, a login with the matching permissions.
+Tick **Can sign in to the portal** to give a contact their own login, and choose what they can do there: **invoices** (see and pay invoices, use credit), **orders** (place orders, upgrade and cancel services), **services** (see services, log in to control panels, change service passwords) and **support** (tickets). The contact gets an email with a link to choose a password, valid for a day; **Send invite again** on the contact, or **Forgot password** on the login page, sends a new one. A contact never sees the account's details or other contacts, and what they do is logged under their own name. A login email can't be a client's own email.
+
+One person can sign in to several client accounts with one login, like WHMCS 8 users: add them as a contact with portal access on each account, with the same email. Each account keeps its own contact for them, with its own permissions and email copies, while the password, two-factor authentication and remember-me are shared. A contact who already signs in elsewhere isn't invited again; they get a **Contact added to another account** email instead. After logging in they pick an account, and the account name in the portal menu switches between them; they land on the one they used last. Changing a contact's email gives them a new login, with a new invitation.
+
+Contacts can tick **Remember me** too. Their remember-me cookie signs them back in as the contact, never as the account holder, and ends when they log out or change their password. The WHMCS import gives sub-account contacts, and WHMCS 8 users of a client, a login with the matching permissions; a WHMCS 8 user of several clients gets one login for all of them.
 
 ### Configurable options
 
@@ -196,6 +219,7 @@ Admins add and edit staff under **Staff**. You can't delete your own account or 
 
 - **Failed logins**: after 5 failed logins from one IP address to one account in 15 minutes, that address is locked out of that account for a while; an address that fails 20 logins in an hour, to any accounts, is banned for 24 hours. Lockouts only block the address the failures came from, so the owner can still log in elsewhere.
 - **Staff two-factor authentication**: require it for everyone. Turn it on for your own login first, under **My account**.
+- **New device emails**: on by default, clients and contacts get the **New device sign-in** email when someone signs in to the portal with their email from a browser that hasn't signed in with it before, with the time, browser and IP address. The first browser an email signs in from is just noted, and browsers unused for a year are forgotten.
 - **CAPTCHA**: Cloudflare Turnstile, hCaptcha or Google reCAPTCHA v2 on the portal login, sign-up at checkout, forgot password, the contact form and (optionally) the staff login. Create a site with the provider for your domain and paste its site key and secret key.
 - **IP bans**: ban an address or a range such as `203.0.113.0/24`, for some days or for good. Banned addresses can't open any page, but payment and email webhooks still get through.
 - **Login history** for the portal and admin area, searchable by email or IP address. It keeps 90 days.
@@ -386,9 +410,10 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `SECURITY_BAN_HOURS` | `24` | How long an automatic ban lasts |
 | `SECURITY_LOGIN_HISTORY_DAYS` | `90` | Days to keep the login history |
 | `SECURITY_STAFF_TWO_FACTOR` | `false` | Require two-factor authentication for staff |
+| `SECURITY_NEW_DEVICE_EMAILS` | `true` | Email clients and contacts about portal logins from new devices |
 | `CAPTCHA_PROVIDER` | (off) | `turnstile`, `hcaptcha` or `recaptcha`, with `CAPTCHA_SITE_KEY` and `CAPTCHA_SECRET_KEY` |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set and IP bans that have ended. The security settings are on **Settings > Security**.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set, IP bans that have ended and devices unused for a year. The security settings are on **Settings > Security**.
 
 ## License
 
