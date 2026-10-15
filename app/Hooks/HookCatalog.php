@@ -11,6 +11,7 @@ use App\Events\ServiceChanged;
 use App\Events\ServiceSuspended;
 use App\Events\ServiceTerminated;
 use App\Events\ServiceUnsuspended;
+use App\Events\TicketAnswered;
 use App\Events\TicketOpened;
 use App\Events\TicketReplied;
 use App\Models\Service;
@@ -38,6 +39,7 @@ class HookCatalog
             'service.terminated' => 'Service terminated',
             'ticket.opened' => 'New ticket',
             'ticket.replied' => 'Client replied to a ticket',
+            'ticket.answered' => 'Staff replied to a ticket',
             self::STAFF_ALERT => 'Staff alert (failed provisioning, disputes, tasks)',
         ];
     }
@@ -93,6 +95,11 @@ class HookCatalog
         Event::listen(TicketReplied::class, function (TicketReplied $e) use ($fire) {
             $ticket = $e->ticket->loadMissing(['client', 'department']);
             $fire(new HookEvent('ticket.replied', Payload::ticket($ticket), "{$ticket->requesterName()} replied to ticket #{$ticket->id}: {$ticket->subject}", route('admin.tickets.show', $ticket), $ticket->client_id));
+        });
+
+        Event::listen(TicketAnswered::class, function (TicketAnswered $e) use ($fire) {
+            $ticket = $e->ticket->loadMissing(['client', 'department']);
+            $fire(new HookEvent('ticket.answered', Payload::ticket($ticket), "Staff replied to ticket #{$ticket->id}: {$ticket->subject}", route('admin.tickets.show', $ticket), $ticket->client_id));
         });
     }
 }

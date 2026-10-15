@@ -40,6 +40,12 @@
                     @if ($client->marketing_consent_at)<span class="block text-ink-500">{{ $client->marketing_emails ? 'Agreed' : 'Said no' }} on {{ $client->marketing_consent_at->format('M j, Y') }}. Only tick this if the client asked you to.</span>@else<span class="block text-ink-500">Only tick this if the client asked you to.</span>@endif
                 </span>
             </label>
+            <input type="hidden" name="sms_notifications" value="0">
+            <label class="flex items-start gap-2"><input type="checkbox" name="sms_notifications" value="1" class="mt-1" @checked(old('sms_notifications', $client->sms_notifications))>
+                <span>Agreed to account texts (invoices, payments, services and ticket replies) at the phone number above
+                    <span class="block text-ink-500">Which texts are sent is set under Settings › SMS.</span>
+                </span>
+            </label>
         </div>
         <label class="block md:col-span-2">Profile notes <span class="text-ink-500">(dated notes, and pinned ones, are on the client's page)</span>
             <textarea name="notes" rows="3" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('notes', $client->notes) }}</textarea>

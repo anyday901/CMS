@@ -7,8 +7,9 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Headers;
 
-/** A client email built from a template, with an optional invoice PDF. */
+/** A client email built from a template or a mass mail, with an optional invoice PDF. */
 class LoggedEmail extends Mailable
 {
     /** @param  array{data: string, name: string}|null  $pdf */
@@ -17,7 +18,17 @@ class LoggedEmail extends Mailable
         private string $bodyMarkdown,
         private ?string $replyToAddress = null,
         private ?array $pdf = null,
+        private ?string $unsubscribeUrl = null,
     ) {}
+
+    /** Marketing emails carry a one-click unsubscribe link for mail apps (RFC 8058). */
+    public function headers(): Headers
+    {
+        return new Headers(text: $this->unsubscribeUrl ? [
+            'List-Unsubscribe' => "<{$this->unsubscribeUrl}>",
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+        ] : []);
+    }
 
     public function envelope(): Envelope
     {

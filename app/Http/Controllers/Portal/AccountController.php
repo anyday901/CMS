@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Integrations\Sms\Sms;
 use App\Models\Activity;
 use App\Models\ClientContact;
 use App\Models\CustomField;
@@ -18,11 +19,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AccountController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request, Sms $sms): View
     {
         return view('portal.account', [
             'client' => $request->user('client'),
             'fields' => CustomField::forClients()->where('admin_only', false)->get(),
+            'offersTexts' => $sms->configured() && config('sms.client_events') !== [],
         ]);
     }
 
@@ -83,6 +85,12 @@ class AccountController extends Controller
         if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
             $client->save();
             Activity::record($client->marketing_emails ? 'Agreed to marketing emails' : 'Opted out of marketing emails', $client);
+        }
+
+        // Only offered when the business sends texts.
+        if ($request->has('sms_notifications') && $client->sms_notifications !== $request->boolean('sms_notifications')) {
+            $client->forceFill(['sms_notifications' => $request->boolean('sms_notifications')])->save();
+            Activity::record($client->sms_notifications ? 'Agreed to account texts' : 'Turned off account texts', $client);
         }
 
         return back()->with('status', $client->marketing_emails ? "Thanks, we'll email you news and offers." : "You won't get news and offers by email.");

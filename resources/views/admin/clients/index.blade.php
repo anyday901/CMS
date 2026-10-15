@@ -7,7 +7,8 @@
     <div class="mb-4 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Clients</h1>
         @can('manage-clients')
-            <a href="{{ route('admin.clients.create') }}" class="ml-auto rounded-full bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500">Add client</a>
+            <a href="{{ route('admin.mass-mail.index') }}" class="ml-auto text-sm text-brand-600">Mass mail</a>
+            <a href="{{ route('admin.clients.create') }}" class="ml-2 rounded-full bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500">Add client</a>
         @endcan
     </div>
 

@@ -36,7 +36,7 @@
                     'portal.account.edit' => $portalContact ? null : 'Account',
                     'portal.security.show' => 'Security',
                     'store.index' => App\Auth\PortalContact::allows('orders') ? 'Order' : null,
-                ]) as $route => $label)
+                ] + ($portalContact ? [] : app(App\Addons\AddonManager::class)->portalLinks())) as $route => $label)
                     <a href="{{ route($route) }}"
                        class="text-sm {{ request()->routeIs(preg_replace('/\.(index|edit)$/', '.*', $route)) || ($route === 'portal.tickets.index' && request()->routeIs(...App\Http\Controllers\Help\KnowledgebaseController::HELP_ROUTES)) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach

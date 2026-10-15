@@ -68,6 +68,7 @@ class ClientAnonymiser
                 'remember_token' => null,
                 'marketing_emails' => false,
                 'marketing_consent_at' => null,
+                'sms_notifications' => false,
                 'anonymised_at' => now(),
             ])->save();
             $client->disableTwoFactor();
@@ -76,6 +77,7 @@ class ClientAnonymiser
             $client->clientNotes()->delete();
             KnownDevice::whereIn('email', array_map('strtolower', $emails))->delete();
             $client->emailLogs()->delete();
+            $client->smsLogs()->delete();
             LoginAttempt::where('client_id', $client->id)->delete();
             foreach (['client_password_reset_tokens', 'contact_password_reset_tokens'] as $table) {
                 DB::table($table)->whereIn('email', $emails)->delete();

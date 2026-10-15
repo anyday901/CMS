@@ -176,6 +176,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
             Route::get('clients/export', [Admin\ClientController::class, 'export'])->name('clients.export');
+            Route::get('mass-mail', [Admin\MassMailController::class, 'index'])->name('mass-mail.index');
+            Route::get('mass-mail/create', [Admin\MassMailController::class, 'create'])->name('mass-mail.create');
+            Route::post('mass-mail/preview', [Admin\MassMailController::class, 'preview'])->name('mass-mail.preview');
+            Route::post('mass-mail', [Admin\MassMailController::class, 'store'])->middleware('throttle:10,1')->name('mass-mail.store');
+            Route::get('mass-mail/{massMail}', [Admin\MassMailController::class, 'show'])->name('mass-mail.show');
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
@@ -307,6 +312,24 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('settings/automation', [Admin\AutomationController::class, 'edit'])->name('automation.edit');
             Route::put('settings/automation', [Admin\AutomationController::class, 'update'])->name('automation.update');
             Route::get('settings/cron', Admin\CronController::class)->name('cron.show');
+            Route::prefix('settings/addons')->name('addons.')->controller(Admin\AddonController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{key}', 'edit')->name('edit');
+                Route::put('{key}', 'update')->name('update');
+                Route::delete('{key}', 'destroy')->name('destroy');
+                foreach (['install', 'enable', 'disable', 'upgrade'] as $action) {
+                    Route::post("{key}/{$action}", $action)->name($action);
+                }
+            });
+            Route::resource('settings/webhooks', Admin\WebhookController::class)->except(['show', 'create'])->names('webhooks');
+            Route::post('settings/webhooks/{webhook}/test', [Admin\WebhookController::class, 'test'])->name('webhooks.test');
+            Route::post('settings/webhooks/{webhook}/secret', [Admin\WebhookController::class, 'secret'])->name('webhooks.secret');
+            Route::post('webhook-deliveries/{delivery}/redeliver', [Admin\WebhookController::class, 'redeliver'])->name('webhook-deliveries.redeliver');
+            Route::resource('settings/chat', Admin\NotificationChannelController::class)->except(['show', 'create'])->names('chat-channels')->parameters(['chat' => 'chatChannel']);
+            Route::post('settings/chat/{chatChannel}/test', [Admin\NotificationChannelController::class, 'test'])->name('chat-channels.test');
+            Route::get('settings/sms', [Admin\SmsSettingsController::class, 'edit'])->name('sms.edit');
+            Route::put('settings/sms', [Admin\SmsSettingsController::class, 'update'])->name('sms.update');
+            Route::post('settings/sms/test', [Admin\SmsSettingsController::class, 'test'])->middleware('throttle:5,1')->name('sms.test');
             Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
                 Route::get('/', 'show')->name('show');
                 Route::post('connect', 'connect')->name('connect');

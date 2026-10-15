@@ -90,6 +90,7 @@ class ClientController extends Controller
         if ($request->boolean('marketing_emails')) {
             $client->setMarketingConsent(true);
         }
+        $client->sms_notifications = $request->boolean('sms_notifications');
         $client->save();
         Activity::record('Created client', $client);
         ClientCreated::dispatch($client);
@@ -136,6 +137,7 @@ class ClientController extends Controller
         if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
             Activity::record($client->marketing_emails ? 'Agreed to marketing emails (set by staff)' : 'Opted out of marketing emails (set by staff)', $client);
         }
+        $client->sms_notifications = $request->boolean('sms_notifications');
         // A new address hasn't been confirmed by the client yet.
         if ($client->isDirty('email')) {
             $client->email_verified_at = null;

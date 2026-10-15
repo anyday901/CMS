@@ -5,6 +5,7 @@ namespace App\Tickets;
 use App\Auth\PortalContact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Events\TicketAnswered;
 use App\Events\TicketOpened;
 use App\Events\TicketReplied;
 use App\Mail\ClientMailer;
@@ -189,6 +190,7 @@ class TicketDesk
                 'staff_name' => $user->name,
                 'reply' => $message->body,
             ]);
+            TicketAnswered::dispatch($ticket);
         }
 
         return $message;

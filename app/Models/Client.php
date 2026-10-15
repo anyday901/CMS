@@ -55,6 +55,7 @@ class Client extends Authenticatable
             'anonymised_at' => 'datetime',
             'marketing_emails' => 'boolean',
             'marketing_consent_at' => 'datetime',
+            'sms_notifications' => 'boolean',
         ];
     }
 
@@ -106,6 +107,11 @@ class Client extends Authenticatable
     public function emailLogs(): HasMany
     {
         return $this->hasMany(EmailLog::class);
+    }
+
+    public function smsLogs(): HasMany
+    {
+        return $this->hasMany(SmsLog::class);
     }
 
     public function transactions(): HasMany

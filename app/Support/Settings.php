@@ -58,6 +58,13 @@ class Settings
         'security.captcha.site_key',
         'security.captcha.secret_key',
         'security.captcha.forms',
+        'sms.provider',
+        'sms.from',
+        'sms.credentials',
+        'sms.default_country_code',
+        'sms.staff_numbers',
+        'sms.staff_events',
+        'sms.client_events',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
@@ -66,10 +73,11 @@ class Settings
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
         'billing.reminder_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
+        'sms.staff_numbers', 'sms.staff_events', 'sms.client_events',
     ];
 
     /** Saved encrypted, read back decrypted. */
-    private const SECRETS = ['security.captcha.secret_key'];
+    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

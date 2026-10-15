@@ -14,6 +14,7 @@ use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\Order;
 use App\Models\Service;
+use App\Models\SmsLog;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\Transaction;
@@ -45,7 +46,7 @@ class ClientDataExport
             'client' => $this->only($client, [
                 'id', 'first_name', 'last_name', 'company', 'email', 'email_verified_at', 'phone', 'address1', 'address2',
                 'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'status', 'credit_balance', 'custom_fields',
-                'marketing_emails', 'marketing_consent_at', 'created_at',
+                'marketing_emails', 'marketing_consent_at', 'sms_notifications', 'created_at',
             ]) + ['group' => $client->group?->name, 'two_factor_enabled' => $client->hasTwoFactor()],
             'contacts' => $client->contacts->map(fn (ClientContact $contact) => $this->only($contact, [
                 'first_name', 'last_name', 'email', 'phone', 'invoice_emails', 'support_emails', 'portal_access', 'permissions', 'last_login_at', 'created_at',
@@ -81,6 +82,7 @@ class ClientDataExport
                 ])->all(),
             ])->all(),
             'emails' => $client->emailLogs()->orderBy('id')->get()->map(fn (EmailLog $email) => $this->only($email, ['to', 'cc', 'subject', 'body', 'status', 'sent_at', 'created_at']))->all(),
+            'texts' => $client->smsLogs()->orderBy('id')->get()->map(fn (SmsLog $text) => $this->only($text, ['to', 'message', 'status', 'sent_at', 'created_at']))->all(),
             'devices' => KnownDevice::whereIn('email', $client->contacts->pluck('email')->push($client->email)->map(fn ($email) => strtolower((string) $email)))
                 ->orderBy('id')->get()->map(fn (KnownDevice $device) => $this->only($device, ['email', 'user_agent', 'ip_address', 'created_at', 'last_used_at']))->all(),
             'logins' => $client->loginAttempts()->orderBy('id')->get()->map(fn (LoginAttempt $login) => $this->only($login, ['email', 'ip_address', 'user_agent', 'outcome', 'created_at']))->all(),
