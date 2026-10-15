@@ -12,6 +12,11 @@ use Illuminate\Support\Str;
  * rather than added. Disabled admins are left out, since they couldn't log
  * in to WHMCS either; tickets they were assigned or answered keep their name.
  *
+ * Each admin's role comes from the permissions their WHMCS role ticks:
+ * what those add up to here is a built-in role when one matches, or the
+ * custom role with just those abilities. Without role permissions on
+ * record, the role's name picks the closest built-in role.
+ *
  * WHMCS keeps admin passwords as bcrypt hashes, which work here as they are,
  * so admins log in with the password they had. Older or unusual hashes can't
  * be reused; those admins get a random password until one is set for them.
@@ -19,6 +24,21 @@ use Illuminate\Support\Str;
 class StaffImporter
 {
     private const STAFF = 'Staff';
+
+    /**
+     * The WHMCS admin permissions, by their id in tbladminperms, that each
+     * ability here needs: a role gets the ability when it has all of them.
+     */
+    private const PERMISSIONS = [
+        'manage-staff' => [62 => 'Configure Administrators', 63 => 'Configure Admin Roles'],
+        'manage-settings' => [61 => 'Configure General Settings'],
+        'manage-clients' => [8 => 'Edit Clients Details', 11 => 'Edit Clients Products/Services'],
+        'manage-billing' => [28 => 'Add Transaction', 34 => 'Manage Invoice'],
+        'manage-tickets' => [104 => 'View Support Ticket'],
+    ];
+
+    /** WHMCS's Full Administrator role, which every new install has. */
+    private const FULL_ADMINISTRATOR = 1;
 
     /** @var array<int, int> WHMCS admin id => staff user id */
     private array $users = [];
@@ -36,6 +56,9 @@ class StaffImporter
 
         $roles = $this->run->hasTables('tbladminroles')
             ? $this->run->table('tbladminroles')->pluck('name', 'id')->mapWithKeys(fn ($name, $id) => [(int) $id => Whmcs::text($name)])->all()
+            : [];
+        $permissions = $this->run->hasTables('tbladminperms')
+            ? $this->run->table('tbladminperms')->get()->groupBy(fn ($row) => (int) $row->roleid)->map(fn ($rows) => $rows->map(fn ($row) => (int) $row->permid)->unique()->all())->all()
             : [];
         $existing = DB::table('users')->pluck('id', 'email')->mapWithKeys(fn ($id, $email) => [strtolower($email) => (int) $id])->all();
         $newPasswords = 0;
@@ -65,7 +88,8 @@ class StaffImporter
                 continue;
             }
 
-            $role = self::role((int) ($row->roleid ?? 0), $roles[(int) ($row->roleid ?? 0)] ?? '');
+            $roleId = (int) ($row->roleid ?? 0);
+            [$role, $abilities] = self::role($roleId, $roles[$roleId] ?? '', $permissions);
             $password = self::passwordHash((string) ($row->password ?? ''));
             $newPasswords += $password === null ? 1 : 0;
 
@@ -74,14 +98,15 @@ class StaffImporter
                 'email' => Str::limit($email, 250, ''),
                 'password' => $password ?? bcrypt(Str::random(40)),
                 'role' => $role->value,
+                'permissions' => $role === StaffRole::Custom ? json_encode($abilities) : null,
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]);
             $existing[$email] = $id;
             $this->remember((int) $row->id, $id, $name);
 
-            $roleName = $roles[(int) ($row->roleid ?? 0)] ?? 'no role';
-            $this->run->report->note(self::STAFF, "{$label} ({$roleName} in WHMCS) has the {$role->label()} role here.");
+            $roleName = $roles[$roleId] ?? 'no role';
+            $this->run->report->note(self::STAFF, "{$label} ({$roleName} in WHMCS) ".self::describe($role, $abilities));
             $this->run->report->imported(self::STAFF);
         }
 
@@ -116,18 +141,64 @@ class StaffImporter
     }
 
     /**
-     * The closest role here to a WHMCS admin role. Only Full Administrators
-     * get everything; roles this can't place get Support, the narrowest.
+     * The role here for a WHMCS admin role, and for the custom role the
+     * abilities it ticks. Full Administrators, and roles with every permission
+     * they have, get everything. Other roles get what their WHMCS permissions
+     * add up to, as the built-in role with exactly those abilities when there
+     * is one. When WHMCS has no role permissions on record at all, the role's
+     * name picks the closest built-in role, and one this can't place gets
+     * Support, the narrowest.
+     *
+     * @param  array<int, list<int>>  $permissions  WHMCS role id => its permission ids
+     * @return array{0: StaffRole, 1: list<string>}
      */
-    private static function role(int $roleId, string $name): StaffRole
+    private static function role(int $roleId, string $name, array $permissions): array
     {
         $name = strtolower($name);
+        $ticked = $permissions[$roleId] ?? [];
+        $everything = $permissions[self::FULL_ADMINISTRATOR] ?? [];
 
-        return match (true) {
-            $roleId === 1 || str_contains($name, 'full admin') => StaffRole::Admin,
-            str_contains($name, 'account') || str_contains($name, 'billing') || str_contains($name, 'sales') => StaffRole::Billing,
-            default => StaffRole::Support,
-        };
+        if ($roleId === self::FULL_ADMINISTRATOR || str_contains($name, 'full admin') || ($everything !== [] && array_diff($everything, $ticked) === [])) {
+            return [StaffRole::Admin, StaffRole::ABILITIES];
+        }
+
+        // Without permissions on record (an old WHMCS, or none read), go by the role's name.
+        if ($permissions === []) {
+            return [match (true) {
+                str_contains($name, 'account') || str_contains($name, 'billing') || str_contains($name, 'sales') => StaffRole::Billing,
+                default => StaffRole::Support,
+            }, []];
+        }
+
+        $abilities = array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => array_diff(array_keys(self::PERMISSIONS[$ability]), $ticked) === []));
+
+        foreach ([StaffRole::Admin, StaffRole::Billing, StaffRole::Support] as $builtIn) {
+            if ($abilities === array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => $builtIn->allows($ability)))) {
+                return [$builtIn, []];
+            }
+        }
+
+        return [StaffRole::Custom, $abilities];
+    }
+
+    /**
+     * What an imported admin can do here, for the report.
+     *
+     * @param  list<string>  $abilities
+     */
+    private static function describe(StaffRole $role, array $abilities): string
+    {
+        if ($role !== StaffRole::Custom) {
+            return "has the {$role->label()} role here.";
+        }
+
+        if ($abilities === []) {
+            return 'has a custom role here that can only look, since their WHMCS role has none of the permissions the abilities here need.';
+        }
+
+        $granted = collect($abilities)->map(fn (string $ability) => lcfirst(StaffRole::abilityLabel($ability)).' (from '.implode(' and ', self::PERMISSIONS[$ability]).')');
+
+        return 'has a custom role here that can '.$granted->join('; ', '; and ').'.';
     }
 
     /** A WHMCS password hash this app can check as it is (bcrypt), or null. */

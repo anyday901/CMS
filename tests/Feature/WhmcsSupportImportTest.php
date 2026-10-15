@@ -218,6 +218,53 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertStringContainsString('Jane Admin (Support Operator in WHMCS) has the Support role here.', $markdown);
     }
 
+    public function test_admin_roles_become_the_role_or_custom_permissions_their_whmcs_permissions_add_up_to(): void
+    {
+        $this->whmcs->table('tbladminroles')->insert([
+            ['id' => 1, 'name' => 'Full Administrator'], ['id' => 2, 'name' => 'Account Manager'], ['id' => 3, 'name' => 'Support Operator'],
+            ['id' => 4, 'name' => 'Sales Desk'], ['id' => 5, 'name' => 'Owners'], ['id' => 6, 'name' => 'Reports Only'],
+        ]);
+        $perms = fn (int $role, array $ids) => array_map(fn (int $id) => ['roleid' => $role, 'permid' => $id], $ids);
+        $this->whmcs->table('tbladminperms')->insert([
+            ...$perms(1, range(1, 135)),
+            ...$perms(2, [3, 8, 11, 28, 34, 41, 104]),
+            ...$perms(3, [41, 42, 104]),
+            ...$perms(4, [3, 8, 11, 104, 34]), // Manage Invoice without Add Transaction: no billing
+            ...$perms(5, range(1, 135)),
+            ...$perms(6, [44]),
+        ]);
+        $this->whmcs->table('tbladmins')->where('id', 1)->update(['roleid' => 3]);
+        $this->whmcs->table('tbladmins')->where('id', 2)->update(['roleid' => 2]);
+        $this->whmcs->table('tbladmins')->insert([
+            ['id' => 3, 'firstname' => 'Sam', 'lastname' => 'Sales', 'email' => 'sam@example.com', 'roleid' => 4, 'password' => '', 'disabled' => 0],
+            ['id' => 4, 'firstname' => 'Olive', 'lastname' => 'Owner', 'email' => 'olive@example.com', 'roleid' => 5, 'password' => '', 'disabled' => 0],
+            ['id' => 5, 'firstname' => 'Rita', 'lastname' => 'Reports', 'email' => 'rita@example.com', 'roleid' => 6, 'password' => '', 'disabled' => 0],
+            ['id' => 6, 'firstname' => 'Ned', 'lastname' => 'New', 'email' => 'ned@example.com', 'roleid' => 7, 'password' => '', 'disabled' => 0],
+        ]);
+
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+
+        $staff = User::orderBy('id')->get()->mapWithKeys(fn (User $user) => [$user->email => [$user->role, $user->permissions]])->all();
+        $this->assertSame([
+            'jane@example.com' => [StaffRole::Support, null],
+            'gone@example.com' => [StaffRole::Billing, null],
+            'sam@example.com' => [StaffRole::Custom, ['manage-clients', 'manage-tickets']],
+            'olive@example.com' => [StaffRole::Admin, null],
+            'rita@example.com' => [StaffRole::Custom, []],
+            // A role WHMCS has no permissions for ticks nothing.
+            'ned@example.com' => [StaffRole::Custom, []],
+        ], $staff);
+
+        $sam = User::where('email', 'sam@example.com')->sole();
+        $this->assertTrue($sam->allows('manage-tickets'));
+        $this->assertFalse($sam->allows('manage-billing'));
+
+        $markdown = $report->toMarkdown();
+        $this->assertStringContainsString('Sam Sales (Sales Desk in WHMCS) has a custom role here that can add and edit clients and services, and run provisioning (from Edit Clients Details and Edit Clients Products/Services); and answer, assign and close support tickets (from View Support Ticket).', $markdown);
+        $this->assertStringContainsString('Rita Reports (Reports Only in WHMCS) has a custom role here that can only look', $markdown);
+        $this->assertStringContainsString('Olive Owner (Owners in WHMCS) has the Admin role here.', $markdown);
+    }
+
     public function test_feedback_ratings_come_over_out_of_five(): void
     {
         $this->whmcs->table('tbltickets')->where('id', 60)->update(['status' => 'Closed']);
