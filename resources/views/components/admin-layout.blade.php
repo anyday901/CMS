@@ -36,7 +36,7 @@
                     // Pages that light up a menu item besides its own.
                     $alsoActive = [
                         'admin.clients.index' => ['admin.mass-mail.*'],
-                        'admin.settings.edit' => ['admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*'],
+                        'admin.settings.edit' => ['admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
                         'admin.kb.index' => ['admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*'],
                     ];
                 @endphp
