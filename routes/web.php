@@ -377,3 +377,33 @@ Route::prefix('admin/settings/api-keys')->name('admin.api-keys.')->middleware(['
         Route::post('{apiKey}/revoke', 'revoke')->name('revoke');
         Route::delete('{apiKey}', 'destroy')->name('destroy');
     });
+
+// Affiliates: referral links, the portal's affiliate page, and the admin area for affiliates, payouts and settings.
+Route::middleware(EnsureClientCanLogIn::class)->controller(Store\AffiliateLinkController::class)->group(function () {
+    Route::get('r/{code}', 'visit')->middleware('throttle:60,1')->name('affiliates.visit');
+    Route::get('aff.php', 'whmcs')->middleware('throttle:60,1')->name('affiliates.whmcs');
+});
+Route::prefix('portal/affiliates')->name('portal.affiliates.')->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:owner'])
+    ->controller(Portal\AffiliateController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+        Route::post('payouts', 'payout')->middleware('throttle:10,1')->name('payouts.store');
+    });
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class])->group(function () {
+    Route::middleware('can:manage-settings')->controller(Admin\AffiliateSettingsController::class)->group(function () {
+        Route::get('affiliates/settings', 'edit')->name('affiliates.settings');
+        Route::put('affiliates/settings', 'update')->name('affiliates.settings.update');
+    });
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('affiliates', [Admin\AffiliateController::class, 'index'])->name('affiliates.index');
+        Route::post('affiliates', [Admin\AffiliateController::class, 'store'])->name('affiliates.store');
+        Route::get('affiliates/payouts', [Admin\AffiliatePayoutController::class, 'index'])->name('affiliates.payouts');
+        Route::post('affiliates/payouts/{payout}/pay', [Admin\AffiliatePayoutController::class, 'pay'])->name('affiliates.payouts.pay');
+        Route::post('affiliates/payouts/{payout}/reject', [Admin\AffiliatePayoutController::class, 'reject'])->name('affiliates.payouts.reject');
+        Route::post('affiliates/commissions/{commission}/approve', [Admin\AffiliateCommissionController::class, 'approve'])->name('affiliates.commissions.approve');
+        Route::post('affiliates/commissions/{commission}/void', [Admin\AffiliateCommissionController::class, 'void'])->name('affiliates.commissions.void');
+        Route::put('clients/{client}/referrer', [Admin\AffiliateController::class, 'referrer'])->name('affiliates.referrer');
+        Route::get('affiliates/{affiliate}', [Admin\AffiliateController::class, 'show'])->whereNumber('affiliate')->name('affiliates.show');
+        Route::put('affiliates/{affiliate}', [Admin\AffiliateController::class, 'update'])->whereNumber('affiliate')->name('affiliates.update');
+    });
+});

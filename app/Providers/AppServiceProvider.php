@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Addons\AddonManager;
+use App\Affiliates\AffiliateHooks;
 use App\Billing\ServiceUpgrader;
 use App\Console\RecordsScheduledTasks;
 use App\Enums\InvoiceStatus;
@@ -56,6 +57,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Events reach plugins, webhooks, chat channels and SMS; then enabled add-ons boot.
         HookCatalog::wire();
+        AffiliateHooks::wire();
         $this->app->make(AddonManager::class)->boot();
 
         // Contacts' password links only find contacts who can sign in.

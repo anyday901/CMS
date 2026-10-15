@@ -24,6 +24,7 @@
                         'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
                         'admin.todos.index' => 'To-do'.(($myTodos = App\Models\Todo::unfinished()->where('user_id', auth()->id())->count()) ? " ({$myTodos})" : ''),
+                        'admin.affiliates.index' => auth()->user()->can('manage-billing') && (config('affiliates.enabled') || App\Models\Affiliate::exists()) ? 'Affiliates' : null,
                         'admin.reports.index' => auth()->user()->can('view-reports') ? 'Reports' : null,
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,

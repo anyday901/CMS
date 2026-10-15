@@ -35,6 +35,7 @@
                     'portal.tickets.index' => App\Auth\PortalContact::allows('support') ? 'Support' : null,
                     'portal.account.edit' => $portalContact ? null : 'Account',
                     'portal.security.show' => 'Security',
+                    'portal.affiliates.show' => ! $portalContact && (config('affiliates.enabled') || auth('client')->user()->affiliate) ? 'Affiliates' : null,
                     'store.index' => App\Auth\PortalContact::allows('orders') ? 'Order' : null,
                 ] + ($portalContact ? [] : app(App\Addons\AddonManager::class)->portalLinks())) as $route => $label)
                     <a href="{{ route($route) }}"

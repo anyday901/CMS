@@ -21,7 +21,8 @@ use Throwable;
  * groups, clients and their contacts, staff notes on clients, the to-do list, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
  * transactions, admins as staff, promotions, orders, the credit log,
- * cancellation requests, the activity log, ticket departments, custom fields, tags,
+ * cancellation requests, the activity log, affiliates with their referrals,
+ * commissions and payouts, ticket departments, custom fields, tags,
  * tickets (guest tickets too), replies and feedback ratings, and the
  * knowledge base and announcements with their translations, network
  * issues, downloads and escalation rules.
@@ -155,6 +156,7 @@ class WhmcsImporter
         $history->importActivity($staff);
         $this->extras->importNotes($this->clients, $staff);
         $this->extras->importTodos($staff);
+        (new AffiliateImporter($this->run, $this->clients, $this->invoices))->import();
         $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
         $this->tickets->import();
         $this->support = new SupportImporter($this->run, $this->servers, $staff, $this->tickets->departments(), $this->catalog->products, $this->downloadsPath);

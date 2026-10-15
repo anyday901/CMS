@@ -1,5 +1,6 @@
 <?php
 
+use App\Affiliates\Commissions;
 use App\Billing\InvoiceGenerator;
 use App\Billing\InvoiceReminders;
 use App\Billing\LateFeeProcessor;
@@ -101,5 +102,10 @@ Artisan::command('servers:check', function (ServerMonitor $monitor) {
         $this->line("{$server->name}: {$server->statusLabel()}".($server->status_detail ? " ({$server->status_detail})" : ''));
     }
 })->purpose('Check that each monitored server and its ports answer, and email staff when one goes down or comes back');
+
+Artisan::command('affiliates:clear', function (Commissions $commissions) {
+    $approved = $commissions->clear(now());
+    $this->info("Approved {$approved} affiliate commission(s) past their clearing days.");
+})->purpose('Approve pending affiliate commissions whose clearing days are up, so they count towards payouts');
 
 Scheduler::define(app(Schedule::class));

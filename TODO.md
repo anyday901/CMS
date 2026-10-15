@@ -186,10 +186,11 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] REST API with keys and permissions
 - [x] Outgoing webhooks and an event hook system for plugins
 - [x] Add-on module system (install, configure, enable from the admin area)
-- [ ] Affiliates: referral links, commissions and payouts
+- [x] Affiliates: referral links, commissions and payouts
 - [x] Project management add-on (projects, tasks, time linked to invoices)
 - [ ] Try the Twilio and Vonage SMS providers and the Slack, Discord and Teams channels with real accounts (built from their API docs and tested with mocked replies)
 - [ ] Ticket attachments and setting a client's currency through the REST API
+- [ ] Check the WHMCS affiliate import against a real WHMCS database (table and setting names written from WHMCS's schema without a live copy), and import per-product commissions
 
 ## Milestone 12: Platform and community
 - [ ] Translations (multi-language portal and emails)

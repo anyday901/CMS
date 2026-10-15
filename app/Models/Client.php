@@ -8,6 +8,7 @@ use App\Models\Concerns\HasTwoFactor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -117,6 +118,18 @@ class Client extends Authenticatable
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /** Their place in the affiliate program, if they joined. */
+    public function affiliate(): HasOne
+    {
+        return $this->hasOne(Affiliate::class);
+    }
+
+    /** Which affiliate referred them, if any. */
+    public function referral(): HasOne
+    {
+        return $this->hasOne(AffiliateReferral::class);
     }
 
     public function sendPasswordResetNotification($token): void
