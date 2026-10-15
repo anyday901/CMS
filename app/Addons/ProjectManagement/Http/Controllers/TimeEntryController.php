@@ -25,9 +25,9 @@ class TimeEntryController extends Controller
         $entry = $project->timeEntries()->make($this->validated($request, $project));
         $entry->user_id ??= $request->user()->id;
         $entry->save();
-        Activity::record('Logged '.Duration::format($entry->minutes)." on project \"{$project->title}\"", $project);
+        Activity::record(self::logged($entry->minutes)." on project \"{$project->title}\"", $project);
 
-        return redirect()->to(route('admin.projects.show', $project).'#time')->with('status', 'Logged '.Duration::format($entry->minutes).'.');
+        return $this->backToTime($project)->with('status', self::logged($entry->minutes).'.');
     }
 
     public function edit(TimeEntry $entry): View
@@ -46,7 +46,7 @@ class TimeEntryController extends Controller
         $entry->forceFill(['invoice_id' => null, 'invoice_item_id' => null])->update($data);
         Activity::record("Changed time logged on project \"{$entry->project->title}\"", $entry->project);
 
-        return redirect()->to(route('admin.projects.show', $entry->project_id).'#time')->with('status', 'Time saved.');
+        return $this->backToTime($entry->project_id)->with('status', 'Time saved.');
     }
 
     public function destroy(TimeEntry $entry): RedirectResponse
@@ -55,7 +55,7 @@ class TimeEntryController extends Controller
         $entry->delete();
         Activity::record('Deleted '.Duration::format($entry->minutes)." logged on project \"{$entry->project->title}\"", $entry->project);
 
-        return redirect()->to(route('admin.projects.show', $entry->project_id).'#time')->with('status', 'Time deleted.');
+        return $this->backToTime($entry->project_id)->with('status', 'Time deleted.');
     }
 
     /** Starts the signed-in staff member's timer on this project, logging any timer already running. */
@@ -82,7 +82,7 @@ class TimeEntryController extends Controller
         $entry = DB::transaction(fn () => $this->finish($request->user()));
 
         return $entry
-            ? redirect()->to(route('admin.projects.show', $entry->project_id).'#time')->with('status', 'Timer stopped. Logged '.Duration::format($entry->minutes).'.')
+            ? $this->backToTime($entry->project_id)->with('status', 'Timer stopped. '.self::logged($entry->minutes).'.')
             : back()->with('status', 'Your timer isn\'t running.');
     }
 
@@ -113,7 +113,7 @@ class TimeEntryController extends Controller
             'rate' => $timer->project->hourly_rate,
         ]);
         $timer->delete();
-        Activity::record('Logged '.Duration::format($entry->minutes)." on project \"{$timer->project->title}\" from the timer", $timer->project);
+        Activity::record(self::logged($entry->minutes)." on project \"{$timer->project->title}\" from the timer", $timer->project);
 
         return $entry;
     }
@@ -147,5 +147,16 @@ class TimeEntryController extends Controller
             'billable' => $request->boolean('billable'),
             'rate' => filled($data['rate'] ?? null) ? Money::parse($data['rate']) : $project->hourly_rate,
         ];
+    }
+
+    /** The project page, scrolled to its time. */
+    private function backToTime(Project|int $project): RedirectResponse
+    {
+        return redirect()->to(route('admin.projects.show', $project).'#time');
+    }
+
+    private static function logged(int $minutes): string
+    {
+        return 'Logged '.Duration::format($minutes);
     }
 }

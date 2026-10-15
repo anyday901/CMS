@@ -109,7 +109,7 @@ class AffiliateImporter
             // What WHMCS says is still theirs to withdraw.
             $balance = Whmcs::cents($row->balance ?? 0);
             if ($balance > 0) {
-                $this->commission($id, $balance, $this->clients[$clientId], AffiliateCommission::APPROVED, 'Balance brought over from WHMCS', $this->run->now);
+                $this->commission($id, $balance, AffiliateCommission::APPROVED, 'Balance brought over from WHMCS', $this->run->now);
             }
         }
 
@@ -170,7 +170,7 @@ class AffiliateImporter
             }
 
             $clearing = Whmcs::dateTime($row->clearingdate ?? null) ?? $this->run->now;
-            $this->commission($account['affiliate'], $amount, $this->currencies[$account['affiliate']], AffiliateCommission::PENDING, 'Pending in WHMCS', $clearing, $account['referral'], $row->invoice_id ?? null);
+            $this->commission($account['affiliate'], $amount, AffiliateCommission::PENDING, 'Pending in WHMCS', $clearing, $account['referral'], $row->invoice_id ?? null);
             $this->run->report->imported(self::COMMISSIONS);
         }
     }
@@ -190,7 +190,7 @@ class AffiliateImporter
 
             $date = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
             $description = Whmcs::short($row->description ?? '') ?? 'Commission in WHMCS';
-            $this->commission($affiliate['id'], $amount, $affiliate['currency'], AffiliateCommission::PAID, $description, $date, $this->accounts[(int) ($row->affaccid ?? 0)]['referral'] ?? null, $row->invoice_id ?? null);
+            $this->commission($affiliate['id'], $amount, AffiliateCommission::PAID, $description, $date, $this->accounts[(int) ($row->affaccid ?? 0)]['referral'] ?? null, $row->invoice_id ?? null);
             $this->run->report->imported(self::COMMISSIONS);
         }
 
@@ -254,7 +254,8 @@ class AffiliateImporter
         }
     }
 
-    private function commission(int $affiliateId, int $amount, string $currency, string $status, string $description, string $date, ?int $referralId = null, mixed $whmcsInvoiceId = null): void
+    /** A commission for an imported affiliate, in their currency. */
+    private function commission(int $affiliateId, int $amount, string $status, string $description, string $date, ?int $referralId = null, mixed $whmcsInvoiceId = null): void
     {
         $invoiceId = (int) $whmcsInvoiceId;
         $invoiceId = $invoiceId > 0 && isset($this->invoices[$invoiceId]) && ! isset($this->invoicesUsed[$invoiceId]) ? $invoiceId : null;
@@ -269,7 +270,7 @@ class AffiliateImporter
             'description' => $description,
             'amount' => $amount,
             'original_amount' => $amount,
-            'currency' => $currency,
+            'currency' => $this->currencies[$affiliateId],
             'status' => $status,
             'available_at' => $date,
             'approved_at' => $status === AffiliateCommission::PENDING ? null : $date,

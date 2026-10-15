@@ -11,6 +11,7 @@ use App\Models\Client;
 use App\Models\InboundEmail;
 use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
+use App\Models\SmsLog;
 use App\Models\TicketAttachment;
 use App\Models\TicketFeedback;
 use App\Models\TicketMessage;
@@ -80,7 +81,7 @@ class ClientAnonymiser
             Affiliate::where('client_id', $client->id)->update(['status' => Affiliate::DISABLED]);
             KnownDevice::whereIn('email', array_map('strtolower', $emails))->delete();
             $client->emailLogs()->delete();
-            $client->smsLogs()->delete();
+            SmsLog::where('client_id', $client->id)->delete();
             LoginAttempt::where('client_id', $client->id)->delete();
             foreach (['client_password_reset_tokens', 'contact_password_reset_tokens'] as $table) {
                 DB::table($table)->whereIn('email', $emails)->delete();

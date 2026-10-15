@@ -23,6 +23,8 @@ class MassMailTest extends TestCase
 
     private const FILTERS = ['statuses' => ['active']];
 
+    private const MASS_MAIL_URL = '/admin/mass-mail';
+
     private function client(bool $marketing, array $attributes = []): Client
     {
         $client = Client::factory()->create($attributes);
@@ -40,12 +42,12 @@ class MassMailTest extends TestCase
         $this->client(false);
         $this->client(true, ['status' => 'closed']);
 
-        $this->get('/admin/mass-mail')->assertOk()->assertSee('Nothing sent yet.');
+        $this->get(self::MASS_MAIL_URL)->assertOk()->assertSee('Nothing sent yet.');
         $this->get('/admin/mass-mail/create')->assertOk();
         $this->post('/admin/mass-mail/preview', ['subject' => 'News for {client_first_name}', 'body' => 'Hello {client_first_name}', 'marketing' => '1', 'filters' => self::FILTERS])
             ->assertOk()->assertSee('1 client</strong> who agreed to marketing emails', false)->assertSee('News for Ana');
 
-        $this->post('/admin/mass-mail', ['subject' => 'News for {client_first_name}', 'body' => 'Hello {client_first_name}', 'marketing' => '1', 'filters' => self::FILTERS])->assertRedirect();
+        $this->post(self::MASS_MAIL_URL, ['subject' => 'News for {client_first_name}', 'body' => 'Hello {client_first_name}', 'marketing' => '1', 'filters' => self::FILTERS])->assertRedirect();
 
         $mail = MassMail::sole();
         $this->assertSame(MassMail::SENT, $mail->status);
@@ -69,7 +71,7 @@ class MassMailTest extends TestCase
         $this->client(true);
         $this->client(false);
 
-        $this->post('/admin/mass-mail', ['subject' => 'Maintenance', 'body' => 'Tonight', 'marketing' => '0', 'filters' => self::FILTERS]);
+        $this->post(self::MASS_MAIL_URL, ['subject' => 'Maintenance', 'body' => 'Tonight', 'marketing' => '0', 'filters' => self::FILTERS]);
 
         $this->assertSame(2, EmailLog::where('status', EmailLog::SENT)->count());
         $this->assertNull(EmailLog::first()->list_unsubscribe);
@@ -90,10 +92,10 @@ class MassMailTest extends TestCase
 
         $filters = self::FILTERS + ['group' => (string) $group->id, 'country' => 'US', 'product_ids' => [$product->id]];
         $this->post('/admin/mass-mail/preview', ['subject' => 'S', 'body' => 'B', 'marketing' => '0', 'filters' => $filters])->assertSee('1 client</strong>', false);
-        $this->post('/admin/mass-mail', ['subject' => 'S', 'body' => 'B', 'marketing' => '0', 'filters' => $filters]);
+        $this->post(self::MASS_MAIL_URL, ['subject' => 'S', 'body' => 'B', 'marketing' => '0', 'filters' => $filters]);
         $this->assertSame([$match->id], EmailLog::pluck('client_id')->all());
 
-        $this->post('/admin/mass-mail', ['subject' => 'S', 'body' => 'B', 'marketing' => '0', 'filters' => self::FILTERS + ['country' => 'FR']])
+        $this->post(self::MASS_MAIL_URL, ['subject' => 'S', 'body' => 'B', 'marketing' => '0', 'filters' => self::FILTERS + ['country' => 'FR']])
             ->assertSessionHasErrors('filters');
     }
 
@@ -117,6 +119,6 @@ class MassMailTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => 'support']));
 
-        $this->get('/admin/mass-mail')->assertForbidden();
+        $this->get(self::MASS_MAIL_URL)->assertForbidden();
     }
 }

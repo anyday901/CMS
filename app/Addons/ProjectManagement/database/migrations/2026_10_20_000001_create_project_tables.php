@@ -33,7 +33,7 @@ return new class extends Migration
             // Staff only; clients never see these.
             $table->text('notes')->nullable();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            // todo, in_progress or done.
+            // One of Task::STATUSES.
             $table->string('status', 20)->default('todo');
             $table->date('due_on')->nullable();
             $table->unsignedInteger('position')->default(0);

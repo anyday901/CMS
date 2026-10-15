@@ -4,17 +4,17 @@ namespace App\Models;
 
 use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
+use App\Models\Concerns\HasAffiliateProgram;
 use App\Models\Concerns\HasTwoFactor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasFactory, HasTwoFactor, Notifiable;
+    use HasAffiliateProgram, HasFactory, HasTwoFactor, Notifiable;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -110,26 +110,9 @@ class Client extends Authenticatable
         return $this->hasMany(EmailLog::class);
     }
 
-    public function smsLogs(): HasMany
-    {
-        return $this->hasMany(SmsLog::class);
-    }
-
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
-    }
-
-    /** Their place in the affiliate program, if they joined. */
-    public function affiliate(): HasOne
-    {
-        return $this->hasOne(Affiliate::class);
-    }
-
-    /** Which affiliate referred them, if any. */
-    public function referral(): HasOne
-    {
-        return $this->hasOne(AffiliateReferral::class);
     }
 
     public function sendPasswordResetNotification($token): void

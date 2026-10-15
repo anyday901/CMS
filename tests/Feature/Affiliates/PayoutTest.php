@@ -20,6 +20,8 @@ class PayoutTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const REJECT_REASON = 'Please add your PayPal email';
+
     private Affiliate $affiliate;
 
     protected function setUp(): void
@@ -133,10 +135,10 @@ class PayoutTest extends TestCase
         $payout = app(Payouts::class)->request($this->affiliate, 'USD');
         $this->actingAs(User::factory()->create());
 
-        $this->post(route('admin.affiliates.payouts.reject', $payout), ['reason' => 'Please add your PayPal email'])->assertSessionHas('status');
+        $this->post(route('admin.affiliates.payouts.reject', $payout), ['reason' => self::REJECT_REASON])->assertSessionHas('status');
 
-        $this->assertSame([AffiliatePayout::REJECTED, 'Please add your PayPal email'], [$payout->fresh()->status, $payout->fresh()->notes]);
+        $this->assertSame([AffiliatePayout::REJECTED, self::REJECT_REASON], [$payout->fresh()->status, $payout->fresh()->notes]);
         $this->assertSame(['USD' => 3000], $this->affiliate->balances());
-        $this->portal()->get(route('portal.affiliates.show'))->assertSee('Please add your PayPal email');
+        $this->portal()->get(route('portal.affiliates.show'))->assertSee(self::REJECT_REASON);
     }
 }

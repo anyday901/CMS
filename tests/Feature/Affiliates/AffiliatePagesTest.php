@@ -24,6 +24,10 @@ class AffiliatePagesTest extends TestCase
 
     private const PAGE = '/portal/affiliates';
 
+    private const AFFILIATE_NAME = 'Ada Lovelace';
+
+    private const OTHER_CLIENT_NAME = 'Bob Builder';
+
     public function test_the_hook_events_are_listed_for_webhooks_and_chat_channels(): void
     {
         $this->assertSame(['New affiliate', 'Affiliate commission earned', 'Affiliate payout requested'], array_values(array_intersect_key(HookCatalog::events(), array_flip(['affiliate.signup', 'affiliate.commission', 'affiliate.payout_requested']))));
@@ -96,9 +100,9 @@ class AffiliatePagesTest extends TestCase
         app(Referrals::class)->join($bob);
         $affiliate = $ada->affiliate()->sole();
 
-        $this->get(route('admin.affiliates.index'))->assertOk()->assertSee('Ada Lovelace')->assertSee('Bob Builder');
-        $this->get(route('admin.affiliates.index', ['q' => 'ada love']))->assertOk()->assertSee('Ada Lovelace')->assertDontSee('Bob Builder');
-        $this->get(route('admin.affiliates.index', ['q' => $affiliate->code]))->assertOk()->assertSee('Ada Lovelace')->assertDontSee('Bob Builder');
+        $this->get(route('admin.affiliates.index'))->assertOk()->assertSee(self::AFFILIATE_NAME)->assertSee(self::OTHER_CLIENT_NAME);
+        $this->get(route('admin.affiliates.index', ['q' => 'ada love']))->assertOk()->assertSee(self::AFFILIATE_NAME)->assertDontSee(self::OTHER_CLIENT_NAME);
+        $this->get(route('admin.affiliates.index', ['q' => $affiliate->code]))->assertOk()->assertSee(self::AFFILIATE_NAME)->assertDontSee(self::OTHER_CLIENT_NAME);
 
         $this->get(route('admin.affiliates.show', $affiliate))->assertOk()->assertSee($affiliate->link())->assertSee('10%');
         $this->put(route('admin.affiliates.update', $affiliate), ['status' => 'disabled', 'commission_type' => 'percent', 'commission_amount' => '150'])->assertSessionHasErrors('commission_amount');

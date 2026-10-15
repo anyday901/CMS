@@ -27,11 +27,23 @@ class NotificationsTest extends TestCase
 
     private const TWILIO = 'api.twilio.com/*';
 
+    private const SMS_FROM = '+15550000000';
+
+    private const CHAT_URL = '/admin/settings/chat';
+
+    private const US_NUMBER = '+15551234567';
+
+    private const UK_NUMBER = '+447700900123';
+
+    private const STAFF_NUMBER = '+15559990000';
+
+    private const SMS_URL = '/admin/settings/sms';
+
     private function useTwilio(array $settings = []): void
     {
         Settings::save([
             'sms.provider' => 'twilio',
-            'sms.from' => '+15550000000',
+            'sms.from' => self::SMS_FROM,
             'sms.credentials' => json_encode(['account_sid' => 'AC123', 'auth_token' => 'secret']),
             'sms.default_country_code' => '1',
         ] + $settings);
@@ -73,9 +85,9 @@ class NotificationsTest extends TestCase
         Http::fake([self::SLACK => Http::sequence()->push('ok')->push('invalid_token', 403)]);
         $this->actingAs(User::factory()->create());
 
-        $this->get('/admin/settings/chat')->assertOk()->assertSee('No channels yet.');
-        $this->post('/admin/settings/chat', ['type' => 'slack', 'name' => '#ops', 'webhook_url' => 'http://insecure.test', 'events' => ['order.placed']])->assertSessionHasErrors('webhook_url');
-        $this->post('/admin/settings/chat', ['type' => 'slack', 'name' => '#ops', 'webhook_url' => self::SLACK, 'events' => ['order.placed'], 'active' => '1'])->assertRedirect();
+        $this->get(self::CHAT_URL)->assertOk()->assertSee('No channels yet.');
+        $this->post(self::CHAT_URL, ['type' => 'slack', 'name' => '#ops', 'webhook_url' => 'http://insecure.test', 'events' => ['order.placed']])->assertSessionHasErrors('webhook_url');
+        $this->post(self::CHAT_URL, ['type' => 'slack', 'name' => '#ops', 'webhook_url' => self::SLACK, 'events' => ['order.placed'], 'active' => '1'])->assertRedirect();
         $channel = NotificationChannel::sole();
         $this->assertSame(self::SLACK, $channel->webhook_url);
         $this->assertNotSame(self::SLACK, $channel->getRawOriginal('webhook_url'));
@@ -94,15 +106,15 @@ class NotificationsTest extends TestCase
     public function test_phone_numbers_are_put_in_international_form(): void
     {
         config(['sms.default_country_code' => '1']);
-        $this->assertSame('+15551234567', Sms::normalise('(555) 123-4567'));
-        $this->assertSame('+15551234567', Sms::normalise('1 555 123 4567'));
-        $this->assertSame('+447700900123', Sms::normalise('+44 7700 900123'));
-        $this->assertSame('+447700900123', Sms::normalise('0044 7700 900123'));
+        $this->assertSame(self::US_NUMBER, Sms::normalise('(555) 123-4567'));
+        $this->assertSame(self::US_NUMBER, Sms::normalise('1 555 123 4567'));
+        $this->assertSame(self::UK_NUMBER, Sms::normalise('+44 7700 900123'));
+        $this->assertSame(self::UK_NUMBER, Sms::normalise('0044 7700 900123'));
         $this->assertNull(Sms::normalise('call me'));
         $this->assertNull(Sms::normalise(''));
 
         config(['sms.default_country_code' => '44']);
-        $this->assertSame('+447700900123', Sms::normalise('07700 900123'));
+        $this->assertSame(self::UK_NUMBER, Sms::normalise('07700 900123'));
 
         // Digits alone are a national number, even when they start with the country code; international ones need + or 00.
         config(['sms.default_country_code' => '65']);
@@ -114,7 +126,7 @@ class NotificationsTest extends TestCase
     public function test_staff_are_texted_about_their_events_and_clients_only_when_they_agreed(): void
     {
         Http::fake([self::TWILIO => Http::response(['sid' => 'SM1'], 201)]);
-        $this->useTwilio(['sms.staff_numbers' => ['+15559990000'], 'sms.staff_events' => ['ticket.opened'], 'sms.client_events' => ['ticket.answered']]);
+        $this->useTwilio(['sms.staff_numbers' => [self::STAFF_NUMBER], 'sms.staff_events' => ['ticket.opened'], 'sms.client_events' => ['ticket.answered']]);
         $desk = app(TicketDesk::class);
         $department = Department::create(['name' => 'Support']);
 
@@ -127,11 +139,11 @@ class NotificationsTest extends TestCase
         $desk->staffReply($desk->open($notAgreed, $department, 'Other', 'Hi'), User::factory()->create(), 'Done');
 
         $texts = SmsLog::orderBy('id')->get();
-        $this->assertSame(['+15559990000', '+15551234567', '+15559990000'], $texts->pluck('to')->all());
+        $this->assertSame([self::STAFF_NUMBER, self::US_NUMBER, self::STAFF_NUMBER], $texts->pluck('to')->all());
         $this->assertTrue($texts->every(fn (SmsLog $text) => $text->status === SmsLog::SENT && $text->provider_reference === 'SM1'));
         $this->assertStringContainsString("we replied to your ticket #{$ticket->id} (Help)", $texts[1]->message);
         $this->assertSame($agreed->id, $texts[1]->client_id);
-        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/Accounts/AC123/Messages.json') && $r['To'] === '+15551234567' && $r['From'] === '+15550000000'
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), '/Accounts/AC123/Messages.json') && $r['To'] === self::US_NUMBER && $r['From'] === self::SMS_FROM
             && $r->hasHeader('Authorization', 'Basic '.base64_encode('AC123:secret')));
     }
 
@@ -140,7 +152,7 @@ class NotificationsTest extends TestCase
         Http::fake([self::TWILIO => Http::response(['message' => 'Invalid number'], 400)]);
         $this->useTwilio();
 
-        $log = app(Sms::class)->queue('+15551234567', 'Hello');
+        $log = app(Sms::class)->queue(self::US_NUMBER, 'Hello');
 
         $this->assertSame(SmsLog::FAILED, $log->fresh()->status);
         $this->assertSame('Twilio refused the message: Invalid number', $log->fresh()->error);
@@ -151,7 +163,7 @@ class NotificationsTest extends TestCase
         Http::fake(['rest.nexmo.com/*' => Http::response(['messages' => [['status' => '0', 'message-id' => 'V1']]])]);
         Settings::save(['sms.provider' => 'vonage', 'sms.from' => 'Acme', 'sms.credentials' => json_encode(['api_key' => 'k', 'api_secret' => 's'])]);
 
-        $log = app(Sms::class)->queue('+447700900123', 'Hi');
+        $log = app(Sms::class)->queue(self::UK_NUMBER, 'Hi');
 
         $this->assertSame('V1', $log->fresh()->provider_reference);
         Http::assertSent(fn (Request $r) => $r['to'] === '447700900123' && $r['from'] === 'Acme' && $r['api_secret'] === 's');
@@ -162,11 +174,11 @@ class NotificationsTest extends TestCase
         Http::fake([self::TWILIO => Http::response(['sid' => 'SM9'], 201)]);
         $this->actingAs(User::factory()->create());
 
-        $this->get('/admin/settings/sms')->assertOk()->assertSee('Twilio')->assertSee('None sent yet.');
-        $this->put('/admin/settings/sms', ['provider' => 'twilio', 'from' => '+15550000000', 'staff_numbers' => "+15559990000\nnot a number"])->assertSessionHasErrors('staff_numbers');
+        $this->get(self::SMS_URL)->assertOk()->assertSee('Twilio')->assertSee('None sent yet.');
+        $this->put(self::SMS_URL, ['provider' => 'twilio', 'from' => self::SMS_FROM, 'staff_numbers' => "+15559990000\nnot a number"])->assertSessionHasErrors('staff_numbers');
 
-        $this->put('/admin/settings/sms', [
-            'provider' => 'twilio', 'from' => '+15550000000', 'default_country_code' => '+1',
+        $this->put(self::SMS_URL, [
+            'provider' => 'twilio', 'from' => self::SMS_FROM, 'default_country_code' => '+1',
             'credentials' => ['account_sid' => 'AC1', 'auth_token' => 'tok-9f3a'],
             'staff_numbers' => "+15559990000\n(555) 222-3333", 'staff_events' => ['order.placed'], 'client_events' => ['invoice.paid'],
         ])->assertSessionHas('status');
@@ -175,8 +187,8 @@ class NotificationsTest extends TestCase
         $this->assertSame('1', config('sms.default_country_code'));
 
         // A blank secret keeps the saved token, and the page doesn't show it.
-        $this->get('/admin/settings/sms')->assertDontSee('tok-9f3a')->assertSee('Saved; leave blank to keep it');
-        $this->put('/admin/settings/sms', ['provider' => 'twilio', 'from' => '+15550000000', 'credentials' => ['account_sid' => 'AC2', 'auth_token' => '']]);
+        $this->get(self::SMS_URL)->assertDontSee('tok-9f3a')->assertSee('Saved; leave blank to keep it');
+        $this->put(self::SMS_URL, ['provider' => 'twilio', 'from' => self::SMS_FROM, 'credentials' => ['account_sid' => 'AC2', 'auth_token' => '']]);
         $this->assertSame(['account_sid' => 'AC2', 'auth_token' => 'tok-9f3a'], app(Sms::class)->credentials());
 
         $this->post('/admin/settings/sms/test', ['to' => 'nope'])->assertSessionHasErrors('to');

@@ -176,11 +176,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
             Route::get('clients/export', [Admin\ClientController::class, 'export'])->name('clients.export');
-            Route::get('mass-mail', [Admin\MassMailController::class, 'index'])->name('mass-mail.index');
-            Route::get('mass-mail/create', [Admin\MassMailController::class, 'create'])->name('mass-mail.create');
-            Route::post('mass-mail/preview', [Admin\MassMailController::class, 'preview'])->name('mass-mail.preview');
-            Route::post('mass-mail', [Admin\MassMailController::class, 'store'])->middleware('throttle:10,1')->name('mass-mail.store');
-            Route::get('mass-mail/{massMail}', [Admin\MassMailController::class, 'show'])->name('mass-mail.show');
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
@@ -302,42 +297,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');
-            Route::prefix('settings/security')->name('security.')->controller(Admin\SecurityController::class)->group(function () {
-                Route::get('/', 'show')->name('show');
-                Route::put('/', 'update')->name('update');
-                Route::post('bans', 'ban')->name('bans.store');
-                Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
-            });
             Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
             Route::get('settings/automation', [Admin\AutomationController::class, 'edit'])->name('automation.edit');
             Route::put('settings/automation', [Admin\AutomationController::class, 'update'])->name('automation.update');
             Route::get('settings/cron', Admin\CronController::class)->name('cron.show');
-            Route::prefix('settings/addons')->name('addons.')->controller(Admin\AddonController::class)->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::get('{key}', 'edit')->name('edit');
-                Route::put('{key}', 'update')->name('update');
-                Route::delete('{key}', 'destroy')->name('destroy');
-                foreach (['install', 'enable', 'disable', 'upgrade'] as $action) {
-                    Route::post("{key}/{$action}", $action)->name($action);
-                }
-            });
-            Route::resource('settings/webhooks', Admin\WebhookController::class)->except(['show', 'create'])->names('webhooks');
-            Route::post('settings/webhooks/{webhook}/test', [Admin\WebhookController::class, 'test'])->name('webhooks.test');
-            Route::post('settings/webhooks/{webhook}/secret', [Admin\WebhookController::class, 'secret'])->name('webhooks.secret');
-            Route::post('webhook-deliveries/{delivery}/redeliver', [Admin\WebhookController::class, 'redeliver'])->name('webhook-deliveries.redeliver');
-            Route::resource('settings/chat', Admin\NotificationChannelController::class)->except(['show', 'create'])->names('chat-channels')->parameters(['chat' => 'chatChannel']);
-            Route::post('settings/chat/{chatChannel}/test', [Admin\NotificationChannelController::class, 'test'])->name('chat-channels.test');
-            Route::get('settings/sms', [Admin\SmsSettingsController::class, 'edit'])->name('sms.edit');
-            Route::put('settings/sms', [Admin\SmsSettingsController::class, 'update'])->name('sms.update');
-            Route::post('settings/sms/test', [Admin\SmsSettingsController::class, 'test'])->middleware('throttle:5,1')->name('sms.test');
-            Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
-                Route::get('/', 'show')->name('show');
-                Route::post('connect', 'connect')->name('connect');
-                Route::post('dry-run', 'dryRun')->name('dry-run');
-                Route::post('import', 'import')->name('import');
-                Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
-                Route::delete('/', 'reset')->name('reset');
-            });
         });
     });
 });
@@ -377,6 +340,53 @@ Route::prefix('admin/settings/api-keys')->name('admin.api-keys.')->middleware(['
         Route::post('{apiKey}/revoke', 'revoke')->name('revoke');
         Route::delete('{apiKey}', 'destroy')->name('destroy');
     });
+
+// Mass mail, for staff who manage clients.
+Route::prefix('admin/mass-mail')->name('admin.mass-mail.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-clients'])->group(function () {
+    Route::get('/', [Admin\MassMailController::class, 'index'])->name('index');
+    Route::get('create', [Admin\MassMailController::class, 'create'])->name('create');
+    Route::post('preview', [Admin\MassMailController::class, 'preview'])->name('preview');
+    Route::post('/', [Admin\MassMailController::class, 'store'])->middleware('throttle:10,1')->name('store');
+    Route::get('{massMail}', [Admin\MassMailController::class, 'show'])->name('show');
+});
+
+// Add-ons, webhooks, chat and SMS, under Settings > Integrations.
+Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])->group(function () {
+    Route::get('addons', [Admin\AddonController::class, 'index'])->name('addons.index');
+    Route::prefix('addons/{key}')->name('addons.')->controller(Admin\AddonController::class)->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+        Route::delete('/', 'destroy')->name('destroy');
+        foreach (['install', 'enable', 'disable', 'upgrade'] as $action) {
+            Route::post($action, $action)->name($action);
+        }
+    });
+    Route::resource('webhooks', Admin\WebhookController::class)->except(['show', 'create']);
+    Route::post('webhook-deliveries/{delivery}/redeliver', [Admin\WebhookController::class, 'redeliver'])->name('webhook-deliveries.redeliver');
+    Route::post('webhooks/{webhook}/test', [Admin\WebhookController::class, 'test'])->name('webhooks.test');
+    Route::post('webhooks/{webhook}/secret', [Admin\WebhookController::class, 'secret'])->name('webhooks.secret');
+    Route::resource('chat', Admin\NotificationChannelController::class)->except(['show', 'create'])->names('chat-channels')->parameters(['chat' => 'chatChannel']);
+    Route::post('chat/{chatChannel}/test', [Admin\NotificationChannelController::class, 'test'])->name('chat-channels.test');
+    Route::controller(Admin\SmsSettingsController::class)->group(function () {
+        Route::get('sms', 'edit')->name('sms.edit');
+        Route::put('sms', 'update')->name('sms.update');
+        Route::post('sms/test', 'test')->middleware('throttle:5,1')->name('sms.test');
+    });
+    Route::prefix('security')->name('security.')->controller(Admin\SecurityController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::put('/', 'update')->name('update');
+        Route::post('bans', 'ban')->name('bans.store');
+        Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
+    });
+    Route::prefix('whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('connect', 'connect')->name('connect');
+        Route::post('dry-run', 'dryRun')->name('dry-run');
+        Route::post('import', 'import')->name('import');
+        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
+        Route::delete('/', 'reset')->name('reset');
+    });
+});
 
 // Affiliates: referral links, the portal's affiliate page, and the admin area for affiliates, payouts and settings.
 Route::middleware(EnsureClientCanLogIn::class)->controller(Store\AffiliateLinkController::class)->group(function () {

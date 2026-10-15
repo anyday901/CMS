@@ -29,6 +29,10 @@ class ApiEndpointsTest extends TestCase
 
     private const TICKETS = '/api/v1/tickets';
 
+    private const TICKET_SUBJECT = 'Site down';
+
+    private const TICKET_BODY = 'Help please';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -193,18 +197,18 @@ class ApiEndpointsTest extends TestCase
         $this->withApiKey(['tickets:read']);
         $client = Client::factory()->create();
         $department = Department::create(['name' => 'Support', 'active' => true]);
-        $ticket = app(TicketDesk::class)->open($client, $department, 'Site down', 'Help please');
+        $ticket = app(TicketDesk::class)->open($client, $department, self::TICKET_SUBJECT, self::TICKET_BODY);
         app(TicketDesk::class)->staffReply($ticket, User::factory()->create(), 'Only staff see this', internal: true);
         app(TicketDesk::class)->open(Client::factory()->create(), $department, 'Billing question', 'Hi');
 
         $this->getJson(self::TICKETS)->assertOk()->assertJsonCount(2, 'data');
-        $this->getJson(self::TICKETS."?client_id={$client->id}")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.subject', 'Site down');
+        $this->getJson(self::TICKETS."?client_id={$client->id}")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.subject', self::TICKET_SUBJECT);
         $this->getJson(self::TICKETS.'?status=closed')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson(self::TICKETS."/{$ticket->id}")->assertOk()
             ->assertJsonPath('data.department', 'Support')
             ->assertJsonCount(1, 'data.messages')
             ->assertJsonPath('data.messages.0.from', 'client')
-            ->assertJsonPath('data.messages.0.body', 'Help please')
+            ->assertJsonPath('data.messages.0.body', self::TICKET_BODY)
             ->assertDontSee('Only staff see this');
     }
 
@@ -218,11 +222,11 @@ class ApiEndpointsTest extends TestCase
         $this->postJson(self::TICKETS, ['client_id' => $client->id, 'department_id' => $closed->id, 'subject' => 'Hi', 'body' => 'Hello'])
             ->assertUnprocessable()->assertJsonValidationErrors('department_id');
 
-        $id = $this->postJson(self::TICKETS, ['client_id' => $client->id, 'department_id' => $department->id, 'subject' => 'Site down', 'body' => 'Help please', 'priority' => 'high'])
+        $id = $this->postJson(self::TICKETS, ['client_id' => $client->id, 'department_id' => $department->id, 'subject' => self::TICKET_SUBJECT, 'body' => self::TICKET_BODY, 'priority' => 'high'])
             ->assertCreated()
             ->assertJsonPath('data.status', 'open')
             ->assertJsonPath('data.priority', 'high')
-            ->assertJsonPath('data.messages.0.body', 'Help please')
+            ->assertJsonPath('data.messages.0.body', self::TICKET_BODY)
             ->json('data.id');
 
         $this->postJson(self::TICKETS."/{$id}/replies", ['body' => 'Looking into it'])->assertCreated()

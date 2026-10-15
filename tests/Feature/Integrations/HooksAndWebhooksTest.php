@@ -16,7 +16,7 @@ use App\Tickets\TicketDesk;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
+use Tests\Fakes\ListenerFailed;
 use Tests\TestCase;
 
 class HooksAndWebhooksTest extends TestCase
@@ -24,6 +24,8 @@ class HooksAndWebhooksTest extends TestCase
     use RefreshDatabase;
 
     private const URL = 'https://example.com/hooks';
+
+    private const WEBHOOKS_URL = '/admin/settings/webhooks';
 
     private function paidInvoice(?Client $client = null): Invoice
     {
@@ -40,7 +42,7 @@ class HooksAndWebhooksTest extends TestCase
     {
         $seen = [];
         $hooks = app(Hooks::class);
-        $hooks->listen('invoice.paid', fn () => throw new RuntimeException('Broken plugin'));
+        $hooks->listen('invoice.paid', fn () => throw new ListenerFailed('Broken plugin'));
         $hooks->listen('invoice.paid', function (HookEvent $event) use (&$seen) {
             $seen[] = $event;
         });
@@ -130,11 +132,11 @@ class HooksAndWebhooksTest extends TestCase
         Http::fake([self::URL => Http::sequence()->push('down', 503)->push('ok', 200)->push('ok', 200)]);
         $this->actingAs(User::factory()->create());
 
-        $this->get('/admin/settings/webhooks')->assertOk()->assertSee('No webhooks yet.');
-        $this->post('/admin/settings/webhooks', ['name' => 'Bad', 'url' => 'ftp://example.com', 'events' => ['nope']])
+        $this->get(self::WEBHOOKS_URL)->assertOk()->assertSee('No webhooks yet.');
+        $this->post(self::WEBHOOKS_URL, ['name' => 'Bad', 'url' => 'ftp://example.com', 'events' => ['nope']])
             ->assertSessionHasErrors(['url', 'events.0']);
 
-        $this->post('/admin/settings/webhooks', ['name' => 'Accounts', 'url' => self::URL, 'events' => ['invoice.paid', '*'], 'active' => '1'])->assertRedirect();
+        $this->post(self::WEBHOOKS_URL, ['name' => 'Accounts', 'url' => self::URL, 'events' => ['invoice.paid', '*'], 'active' => '1'])->assertRedirect();
         $webhook = Webhook::sole();
         $this->assertSame(['*'], $webhook->events);
         $this->assertStringStartsWith('whsec_', $webhook->secret);
@@ -145,7 +147,7 @@ class HooksAndWebhooksTest extends TestCase
         $this->assertSame('webhook.test', $delivery->event);
         $this->assertSame(WebhookDelivery::FAILED, $delivery->status);
 
-        $this->post("/admin/webhook-deliveries/{$delivery->id}/redeliver")->assertSessionHas('status');
+        $this->post("/admin/settings/webhook-deliveries/{$delivery->id}/redeliver")->assertSessionHas('status');
         $this->assertSame(WebhookDelivery::DELIVERED, $delivery->fresh()->status);
         $this->assertSame(2, $delivery->fresh()->attempts);
 
@@ -157,7 +159,7 @@ class HooksAndWebhooksTest extends TestCase
         $this->assertSame(['ticket.opened'], $webhook->fresh()->events);
         $this->assertFalse($webhook->fresh()->active);
 
-        $this->delete("/admin/settings/webhooks/{$webhook->id}")->assertRedirect('/admin/settings/webhooks');
+        $this->delete("/admin/settings/webhooks/{$webhook->id}")->assertRedirect(self::WEBHOOKS_URL);
         $this->assertSame(0, WebhookDelivery::count());
     }
 
@@ -165,7 +167,7 @@ class HooksAndWebhooksTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => 'support']));
 
-        $this->get('/admin/settings/webhooks')->assertForbidden();
+        $this->get(self::WEBHOOKS_URL)->assertForbidden();
         $this->get('/admin/settings/chat')->assertForbidden();
         $this->get('/admin/settings/sms')->assertForbidden();
         $this->get('/admin/settings/addons')->assertForbidden();

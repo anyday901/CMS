@@ -14,6 +14,14 @@ class AddonTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ADDONS_URL = '/admin/settings/addons';
+
+    private const FAKE_ADDON_URL = '/admin/settings/addons/fake';
+
+    private const FAKE_INSTALL_URL = '/admin/settings/addons/fake/install';
+
+    private const FAKE_PAGE_URL = '/admin/fake';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,31 +35,31 @@ class AddonTest extends TestCase
 
     public function test_staff_install_configure_enable_and_disable_an_addon(): void
     {
-        $this->get('/admin/settings/addons')->assertOk()->assertSee('Fake add-on')->assertSee('Not installed');
-        $this->get('/admin/fake')->assertNotFound();
+        $this->get(self::ADDONS_URL)->assertOk()->assertSee('Fake add-on')->assertSee('Not installed');
+        $this->get(self::FAKE_PAGE_URL)->assertNotFound();
 
-        $this->post('/admin/settings/addons/fake/install')->assertRedirect('/admin/settings/addons/fake');
+        $this->post(self::FAKE_INSTALL_URL)->assertRedirect(self::FAKE_ADDON_URL);
         $this->assertTrue(Schema::hasTable('fake_addon_rows'));
         $this->assertSame('1.2.0', InstalledAddon::sole()->version);
-        $this->get('/admin/fake')->assertNotFound();
+        $this->get(self::FAKE_PAGE_URL)->assertNotFound();
 
-        $this->get('/admin/settings/addons/fake')->assertOk()->assertSee('Greeting');
-        $this->put('/admin/settings/addons/fake', ['greeting' => str_repeat('x', 21)])->assertSessionHasErrors('greeting');
-        $this->put('/admin/settings/addons/fake', ['greeting' => 'Hi', 'api_key' => 'k-123', 'loud' => '1', 'colour' => 'blue'])->assertSessionHas('status');
+        $this->get(self::FAKE_ADDON_URL)->assertOk()->assertSee('Greeting');
+        $this->put(self::FAKE_ADDON_URL, ['greeting' => str_repeat('x', 21)])->assertSessionHasErrors('greeting');
+        $this->put(self::FAKE_ADDON_URL, ['greeting' => 'Hi', 'api_key' => 'k-123', 'loud' => '1', 'colour' => 'blue'])->assertSessionHas('status');
         $this->assertSame(['greeting' => 'Hi', 'api_key' => 'k-123', 'loud' => true, 'colour' => 'blue'], InstalledAddon::sole()->settings);
         $this->assertStringNotContainsString('k-123', InstalledAddon::sole()->getRawOriginal('settings'));
 
         // A blank secret keeps the saved one, which isn't shown.
-        $this->get('/admin/settings/addons/fake')->assertDontSee('k-123');
-        $this->put('/admin/settings/addons/fake', ['greeting' => 'Hey', 'api_key' => '', 'colour' => 'red']);
+        $this->get(self::FAKE_ADDON_URL)->assertDontSee('k-123');
+        $this->put(self::FAKE_ADDON_URL, ['greeting' => 'Hey', 'api_key' => '', 'colour' => 'red']);
         $this->assertSame('k-123', InstalledAddon::sole()->settings['api_key']);
 
         $this->post('/admin/settings/addons/fake/enable')->assertSessionHas('status');
-        $this->get('/admin/fake')->assertOk()->assertSee('Hey from the fake add-on');
+        $this->get(self::FAKE_PAGE_URL)->assertOk()->assertSee('Hey from the fake add-on');
         $this->get('/admin')->assertSee('Fake');
 
         $this->post('/admin/settings/addons/fake/disable');
-        $this->get('/admin/fake')->assertNotFound();
+        $this->get(self::FAKE_PAGE_URL)->assertNotFound();
     }
 
     public function test_enabled_addons_boot_and_hear_events(): void
@@ -72,13 +80,13 @@ class AddonTest extends TestCase
         $manager = app(AddonManager::class);
         $manager->install('fake');
 
-        $this->delete('/admin/settings/addons/fake')->assertRedirect('/admin/settings/addons');
+        $this->delete(self::FAKE_ADDON_URL)->assertRedirect(self::ADDONS_URL);
         $this->assertSame(0, InstalledAddon::count());
         $this->assertTrue(Schema::hasTable('fake_addon_rows'));
 
         // Installing again finds the tables already there.
-        $this->post('/admin/settings/addons/fake/install');
-        $this->delete('/admin/settings/addons/fake', ['remove_data' => '1']);
+        $this->post(self::FAKE_INSTALL_URL);
+        $this->delete(self::FAKE_ADDON_URL, ['remove_data' => '1']);
         $this->assertFalse(Schema::hasTable('fake_addon_rows'));
     }
 
@@ -86,7 +94,7 @@ class AddonTest extends TestCase
     {
         app(AddonManager::class)->install('fake');
 
-        $this->post('/admin/settings/addons/fake/install')->assertSessionHasErrors('addon');
+        $this->post(self::FAKE_INSTALL_URL)->assertSessionHasErrors('addon');
         $this->post('/admin/settings/addons/nope/install')->assertNotFound();
         $this->get('/admin/settings/addons/nope')->assertNotFound();
     }
@@ -96,7 +104,7 @@ class AddonTest extends TestCase
         app(AddonManager::class)->install('fake');
         InstalledAddon::where('key', 'fake')->update(['version' => '1.0.0']);
 
-        $this->get('/admin/settings/addons')->assertSee('Version 1.2.0 is available.');
+        $this->get(self::ADDONS_URL)->assertSee('Version 1.2.0 is available.');
         $this->post('/admin/settings/addons/fake/upgrade')->assertSessionHas('status');
         $this->assertSame('1.2.0', InstalledAddon::sole()->version);
     }

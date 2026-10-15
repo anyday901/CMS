@@ -30,19 +30,15 @@ class Commissions
      */
     public function invoicePaid(Invoice $invoice): ?AffiliateCommission
     {
-        if (! $this->program->enabled()) {
+        $referral = $this->program->enabled()
+            ? AffiliateReferral::with('affiliate.client')->where('client_id', $invoice->client_id)->first()
+            : null;
+
+        if ($referral === null || ! $this->earnsOn($referral, $invoice)) {
             return null;
         }
 
-        $referral = AffiliateReferral::with('affiliate.client')->where('client_id', $invoice->client_id)->first();
-        $affiliate = $referral?->affiliate;
-
-        if ($affiliate === null || ! $affiliate->isActive() || $affiliate->client_id === $invoice->client_id
-            || AffiliateCommission::where('invoice_id', $invoice->id)->exists()
-            || ! $this->withinLimits($referral, $invoice)) {
-            return null;
-        }
-
+        $affiliate = $referral->affiliate;
         $base = $invoice->subtotal - ($invoice->tax_inclusive ? $invoice->tax : 0);
         [$type, $value] = $affiliate->commissionRate();
         $amount = AffiliateProgram::commission($type, $value, $base);
@@ -70,6 +66,16 @@ class Commissions
         AffiliateHooks::commissionEarned($commission);
 
         return $commission;
+    }
+
+    /** Whether the referral's affiliate is active, isn't the client themselves, and hasn't earned on this invoice yet. */
+    private function earnsOn(AffiliateReferral $referral, Invoice $invoice): bool
+    {
+        $affiliate = $referral->affiliate;
+
+        return $affiliate !== null && $affiliate->isActive() && $affiliate->client_id !== $invoice->client_id
+            && ! AffiliateCommission::where('invoice_id', $invoice->id)->exists()
+            && $this->withinLimits($referral, $invoice);
     }
 
     private function withinLimits(AffiliateReferral $referral, Invoice $invoice): bool

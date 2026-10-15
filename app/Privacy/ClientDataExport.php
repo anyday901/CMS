@@ -85,7 +85,7 @@ class ClientDataExport
                 ])->all(),
             ])->all(),
             'emails' => $client->emailLogs()->orderBy('id')->get()->map(fn (EmailLog $email) => $this->only($email, ['to', 'cc', 'subject', 'body', 'status', 'sent_at', 'created_at']))->all(),
-            'texts' => $client->smsLogs()->orderBy('id')->get()->map(fn (SmsLog $text) => $this->only($text, ['to', 'message', 'status', 'sent_at', 'created_at']))->all(),
+            'texts' => SmsLog::where('client_id', $client->id)->orderBy('id')->get()->map(fn (SmsLog $text) => $this->only($text, ['to', 'message', 'status', 'sent_at', 'created_at']))->all(),
             'devices' => KnownDevice::whereIn('email', $client->contacts->pluck('email')->push($client->email)->map(fn ($email) => strtolower((string) $email)))
                 ->orderBy('id')->get()->map(fn (KnownDevice $device) => $this->only($device, ['email', 'user_agent', 'ip_address', 'created_at', 'last_used_at']))->all(),
             'logins' => $client->loginAttempts()->orderBy('id')->get()->map(fn (LoginAttempt $login) => $this->only($login, ['email', 'ip_address', 'user_agent', 'outcome', 'created_at']))->all(),

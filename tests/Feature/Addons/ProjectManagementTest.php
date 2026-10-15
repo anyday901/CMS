@@ -30,6 +30,24 @@ class ProjectManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PROJECTS_URL = '/admin/projects';
+
+    private const PROJECT_TITLE = 'Shop launch';
+
+    private const MY_ACTIVE_PROJECT = 'Mine and active';
+
+    private const OTHERS_PROJECT = 'Someone else';
+
+    private const COMPLETED_PROJECT = 'All done';
+
+    private const FIRST_DAY = '2026-10-01';
+
+    private const SECOND_DAY = '2026-10-02';
+
+    private const NINETY_MINUTES = '1h 30m';
+
+    private const KICKOFF_CALL = 'Kickoff call';
+
     private User $staff;
 
     private Client $client;
@@ -69,14 +87,14 @@ class ProjectManagementTest extends TestCase
     public function test_pages_answer_404_while_the_add_on_is_disabled_or_not_installed(): void
     {
         $project = $this->project();
-        $this->get('/admin/projects')->assertOk();
+        $this->get(self::PROJECTS_URL)->assertOk();
 
         app(AddonManager::class)->setEnabled('projects', false);
-        $this->get('/admin/projects')->assertNotFound();
+        $this->get(self::PROJECTS_URL)->assertNotFound();
         $this->get("/admin/projects/{$project->id}")->assertNotFound();
 
         app(AddonManager::class)->uninstall('projects', removeData: true);
-        $this->get('/admin/projects')->assertNotFound();
+        $this->get(self::PROJECTS_URL)->assertNotFound();
         $this->get("/admin/projects/{$project->id}")->assertNotFound();
     }
 
@@ -84,8 +102,8 @@ class ProjectManagementTest extends TestCase
     {
         $this->get("/admin/projects/create?client={$this->client->id}")->assertOk()->assertSee('75.00');
 
-        $this->post('/admin/projects', [
-            'title' => 'Shop launch',
+        $this->post(self::PROJECTS_URL, [
+            'title' => self::PROJECT_TITLE,
             'client_id' => $this->client->id,
             'user_id' => $this->staff->id,
             'status' => Project::PLANNED,
@@ -99,29 +117,29 @@ class ProjectManagementTest extends TestCase
         $this->assertSame(Project::PLANNED, $project->status);
         $this->assertContains('project.created', $this->firedKeys());
 
-        $this->get('/admin/projects')->assertOk()->assertSee('Shop launch')->assertSee('Ada Lovelace');
+        $this->get(self::PROJECTS_URL)->assertOk()->assertSee(self::PROJECT_TITLE)->assertSee('Ada Lovelace');
         $this->get("/admin/projects/{$project->id}")->assertOk()->assertSee('New online shop')->assertSee('$80.00');
 
-        $this->get("/admin/projects/{$project->id}/edit")->assertOk()->assertSee('Shop launch');
-        $this->put("/admin/projects/{$project->id}", ['title' => 'Shop launch', 'client_id' => $this->client->id, 'status' => Project::COMPLETED, 'hourly_rate' => '80'])->assertRedirect();
+        $this->get("/admin/projects/{$project->id}/edit")->assertOk()->assertSee(self::PROJECT_TITLE);
+        $this->put("/admin/projects/{$project->id}", ['title' => self::PROJECT_TITLE, 'client_id' => $this->client->id, 'status' => Project::COMPLETED, 'hourly_rate' => '80'])->assertRedirect();
         $this->assertNotNull($project->fresh()->completed_at);
         $this->assertContains('project.completed', $this->firedKeys());
 
-        $this->delete("/admin/projects/{$project->id}")->assertRedirect('/admin/projects');
+        $this->delete("/admin/projects/{$project->id}")->assertRedirect(self::PROJECTS_URL);
         $this->assertSame(0, Project::count());
     }
 
     public function test_the_list_filters_by_status_client_and_owner(): void
     {
         $other = User::factory()->create();
-        $this->project(['title' => 'Mine and active']);
-        $this->project(['title' => 'Someone else', 'user_id' => $other->id, 'client_id' => null]);
-        $this->project(['title' => 'All done', 'status' => Project::COMPLETED]);
+        $this->project(['title' => self::MY_ACTIVE_PROJECT]);
+        $this->project(['title' => self::OTHERS_PROJECT, 'user_id' => $other->id, 'client_id' => null]);
+        $this->project(['title' => self::COMPLETED_PROJECT, 'status' => Project::COMPLETED]);
 
-        $this->get('/admin/projects')->assertSee('Mine and active')->assertSee('Someone else')->assertDontSee('All done');
-        $this->get('/admin/projects?status=completed')->assertSee('All done')->assertDontSee('Mine and active');
-        $this->get('/admin/projects?mine=1')->assertSee('Mine and active')->assertDontSee('Someone else');
-        $this->get("/admin/projects?status=all&client={$this->client->id}")->assertSee('All done')->assertDontSee('Someone else');
+        $this->get(self::PROJECTS_URL)->assertSee(self::MY_ACTIVE_PROJECT)->assertSee(self::OTHERS_PROJECT)->assertDontSee(self::COMPLETED_PROJECT);
+        $this->get('/admin/projects?status=completed')->assertSee(self::COMPLETED_PROJECT)->assertDontSee(self::MY_ACTIVE_PROJECT);
+        $this->get('/admin/projects?mine=1')->assertSee(self::MY_ACTIVE_PROJECT)->assertDontSee(self::OTHERS_PROJECT);
+        $this->get("/admin/projects?status=all&client={$this->client->id}")->assertSee(self::COMPLETED_PROJECT)->assertDontSee(self::OTHERS_PROJECT);
     }
 
     public function test_only_staff_who_manage_clients_create_projects_but_anyone_logs_time(): void
@@ -130,7 +148,7 @@ class ProjectManagementTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
 
         $this->get('/admin/projects/create')->assertForbidden();
-        $this->post('/admin/projects', ['title' => 'Nope', 'status' => 'active'])->assertForbidden();
+        $this->post(self::PROJECTS_URL, ['title' => 'Nope', 'status' => 'active'])->assertForbidden();
         $this->post("/admin/projects/{$project->id}/invoice")->assertForbidden();
         $this->post("/admin/projects/{$project->id}/time", ['worked_on' => today()->toDateString(), 'time' => '30m', 'billable' => '1'])->assertRedirect();
         $this->assertSame(30, TimeEntry::sole()->minutes);
@@ -166,17 +184,17 @@ class ProjectManagementTest extends TestCase
         $project = $this->project();
         $task = $project->tasks()->create(['title' => 'Build']);
 
-        $this->post("/admin/projects/{$project->id}/time", ['worked_on' => '2026-10-01', 'time' => '1:30', 'task_id' => $task->id, 'description' => 'Header', 'billable' => '1'])->assertRedirect();
+        $this->post("/admin/projects/{$project->id}/time", ['worked_on' => self::FIRST_DAY, 'time' => '1:30', 'task_id' => $task->id, 'description' => 'Header', 'billable' => '1'])->assertRedirect();
         $entry = TimeEntry::sole();
         $this->assertSame(90, $entry->minutes);
         $this->assertSame(9000, $entry->rate);
         $this->assertSame($this->staff->id, $entry->user_id);
         $this->assertSame(13500, $entry->amount());
 
-        $this->get("/admin/projects/time/{$entry->id}/edit")->assertOk()->assertSee('1h 30m');
-        $this->post("/admin/projects/{$project->id}/time", ['worked_on' => '2026-10-01', 'time' => 'lots'])->assertSessionHasErrors('time');
+        $this->get("/admin/projects/time/{$entry->id}/edit")->assertOk()->assertSee(self::NINETY_MINUTES);
+        $this->post("/admin/projects/{$project->id}/time", ['worked_on' => self::FIRST_DAY, 'time' => 'lots'])->assertSessionHasErrors('time');
 
-        $this->put("/admin/projects/time/{$entry->id}", ['worked_on' => '2026-10-02', 'time' => '2h', 'rate' => '100', 'billable' => '0'])->assertRedirect();
+        $this->put("/admin/projects/time/{$entry->id}", ['worked_on' => self::SECOND_DAY, 'time' => '2h', 'rate' => '100', 'billable' => '0'])->assertRedirect();
         $entry->refresh();
         $this->assertSame(120, $entry->minutes);
         $this->assertSame(10000, $entry->rate);
@@ -203,7 +221,7 @@ class ProjectManagementTest extends TestCase
             }
         }
 
-        $this->assertSame('1h 30m', Duration::format(90));
+        $this->assertSame(self::NINETY_MINUTES, Duration::format(90));
         $this->assertSame('2h', Duration::format(120));
         $this->assertSame('45m', Duration::format(45));
         // 50 minutes at $90.00 an hour is $75.00; 1 minute at $1.00 an hour rounds to 2 cents.
@@ -217,7 +235,7 @@ class ProjectManagementTest extends TestCase
         $this->travelTo(now()->setTime(9, 0));
         $this->post("/admin/projects/{$project->id}/timer", ['description' => 'Bug fixing'])->assertRedirect();
         $this->assertSame(1, Timer::count());
-        $this->get('/admin/projects')->assertSee('Your timer is running');
+        $this->get(self::PROJECTS_URL)->assertSee('Your timer is running');
 
         $this->travel(47)->minutes();
         $this->post('/admin/projects/timer/stop')->assertRedirect();
@@ -242,9 +260,9 @@ class ProjectManagementTest extends TestCase
         TaxRule::create(['name' => 'Sales tax', 'rate' => 1000, 'country' => '', 'state' => '']);
         $project = $this->project();
         $task = $project->tasks()->create(['title' => 'Build']);
-        $first = $project->timeEntries()->create(['worked_on' => '2026-10-01', 'minutes' => 90, 'description' => 'Header', 'rate' => 9000, 'user_id' => $this->staff->id]);
-        $second = $project->timeEntries()->create(['worked_on' => '2026-10-02', 'minutes' => 20, 'task_id' => $task->id, 'rate' => 9000]);
-        $internal = $project->timeEntries()->create(['worked_on' => '2026-10-02', 'minutes' => 60, 'billable' => false, 'rate' => 9000]);
+        $first = $project->timeEntries()->create(['worked_on' => self::FIRST_DAY, 'minutes' => 90, 'description' => 'Header', 'rate' => 9000, 'user_id' => $this->staff->id]);
+        $second = $project->timeEntries()->create(['worked_on' => self::SECOND_DAY, 'minutes' => 20, 'task_id' => $task->id, 'rate' => 9000]);
+        $internal = $project->timeEntries()->create(['worked_on' => self::SECOND_DAY, 'minutes' => 60, 'billable' => false, 'rate' => 9000]);
 
         $this->get("/admin/projects/{$project->id}")->assertSee('Invoice unbilled time ($165.00)');
         $response = $this->post("/admin/projects/{$project->id}/invoice");
@@ -282,8 +300,8 @@ class ProjectManagementTest extends TestCase
     public function test_cancelling_the_invoice_or_removing_a_line_frees_the_time(): void
     {
         $project = $this->project();
-        $first = $project->timeEntries()->create(['worked_on' => '2026-10-01', 'minutes' => 60, 'rate' => 9000]);
-        $second = $project->timeEntries()->create(['worked_on' => '2026-10-02', 'minutes' => 30, 'rate' => 9000]);
+        $first = $project->timeEntries()->create(['worked_on' => self::FIRST_DAY, 'minutes' => 60, 'rate' => 9000]);
+        $second = $project->timeEntries()->create(['worked_on' => self::SECOND_DAY, 'minutes' => 30, 'rate' => 9000]);
         $this->post("/admin/projects/{$project->id}/invoice");
         $invoice = Invoice::sole();
 
@@ -341,7 +359,7 @@ class ProjectManagementTest extends TestCase
         $project->timeEntries()->create(['worked_on' => '2026-09-01', 'minutes' => 600, 'user_id' => $this->staff->id]);
 
         $this->get('/admin/projects/time?from=2026-10-01&to=2026-10-31')->assertOk()
-            ->assertSeeInOrder(['Total logged', '2h', 'Billable', '1h 30m', 'Not billable', '30m'])
+            ->assertSeeInOrder(['Total logged', '2h', 'Billable', self::NINETY_MINUTES, 'Not billable', '30m'])
             ->assertSee('$135.00')->assertSee('Sam Staff');
     }
 
@@ -349,7 +367,7 @@ class ProjectManagementTest extends TestCase
     {
         $project = $this->project(['description' => 'Your new website']);
         $project->tasks()->create(['title' => 'Wireframes', 'notes' => 'Client is slow to reply']);
-        $project->timeEntries()->create(['worked_on' => today(), 'minutes' => 75, 'description' => 'Kickoff call', 'rate' => 9000]);
+        $project->timeEntries()->create(['worked_on' => today(), 'minutes' => 75, 'description' => self::KICKOFF_CALL, 'rate' => 9000]);
         $theirs = Project::create(['title' => 'Someone else\'s project', 'client_id' => Client::factory()->create()->id]);
         $this->actingAs($this->client, 'client');
 
@@ -358,14 +376,14 @@ class ProjectManagementTest extends TestCase
 
         app(AddonManager::class)->saveSettings('projects', ['portal' => true, 'portal_time' => false]);
         $this->assertSame(['portal.projects.index' => 'Projects'], app(AddonManager::class)->portalLinks());
-        $this->get('/portal/projects')->assertOk()->assertSee('Website redesign')->assertDontSee('Someone else');
+        $this->get('/portal/projects')->assertOk()->assertSee('Website redesign')->assertDontSee(self::OTHERS_PROJECT);
         $this->get("/portal/projects/{$project->id}")->assertOk()
             ->assertSee('Your new website')->assertSee('Wireframes')
-            ->assertDontSee('Client is slow to reply')->assertDontSee('$90.00')->assertDontSee('Kickoff call');
+            ->assertDontSee('Client is slow to reply')->assertDontSee('$90.00')->assertDontSee(self::KICKOFF_CALL);
         $this->get("/portal/projects/{$theirs->id}")->assertNotFound();
 
         app(AddonManager::class)->saveSettings('projects', ['portal' => true, 'portal_time' => true]);
-        $this->get("/portal/projects/{$project->id}")->assertSee('Kickoff call')->assertSee('1h 15m')->assertDontSee('$90.00');
+        $this->get("/portal/projects/{$project->id}")->assertSee(self::KICKOFF_CALL)->assertSee('1h 15m')->assertDontSee('$90.00');
     }
 
     public function test_the_add_on_defines_its_events_for_webhooks_and_chat_channels(): void

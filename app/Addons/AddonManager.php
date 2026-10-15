@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use InvalidArgumentException;
 use PDOException;
-use RuntimeException;
 
 /**
  * Finds add-on modules, installs, enables and configures them, and boots
@@ -174,8 +173,8 @@ class AddonManager
     public function adminLinks(User $user): array
     {
         return $this->enabledAddons()->flatMap(fn (Addon $addon) => collect($addon->adminLinks())
-            ->map(fn ($link) => is_array($link) ? ($user->allows($link[1]) ? $link[0] : null) : $link)
-            ->filter())->all();
+            ->reject(fn ($link) => is_array($link) && ! $user->allows($link[1]))
+            ->map(fn ($link) => is_array($link) ? $link[0] : $link))->all();
     }
 
     /** @return array<string, string> route name => label */
@@ -211,7 +210,7 @@ class AddonManager
         $exit = Artisan::call($command, ['--path' => $path, '--realpath' => true, '--force' => true]);
 
         if ($exit !== 0) {
-            throw new RuntimeException("The {$addon->name()} add-on's database changes failed: ".trim(Artisan::output()));
+            throw new AddonMigrationFailed("The {$addon->name()} add-on's database changes failed: ".trim(Artisan::output()));
         }
     }
 }

@@ -80,22 +80,28 @@ class ProjectManagementAddon extends Addon
 
     public function routes(): void
     {
-        $this->adminRoutes('projects', fn () => Route::where(['project' => '[0-9]+', 'task' => '[0-9]+', 'entry' => '[0-9]+', 'invoice' => '[0-9]+'])->group(function () {
+        $ids = array_fill_keys(['project', 'task', 'entry', 'invoice'], '[0-9]+');
+
+        $this->adminRoutes('projects', fn () => Route::where($ids)->group(function () {
             Route::controller(ProjectController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('time', 'report')->name('report');
-                Route::get('{project}', 'show')->name('show');
                 Route::middleware('can:manage-clients')->group(function () {
                     Route::get('create', 'create')->name('create');
                     Route::post('/', 'store')->name('store');
-                    Route::get('{project}/edit', 'edit')->name('edit');
-                    Route::put('{project}', 'update')->name('update');
-                    Route::delete('{project}', 'destroy')->name('destroy');
                 });
-                Route::middleware('can:manage-billing')->group(function () {
-                    Route::post('{project}/invoice', 'invoice')->name('invoice');
-                    Route::post('{project}/invoices', 'link')->name('invoices.link');
-                    Route::delete('{project}/invoices/{invoice}', 'unlink')->name('invoices.unlink');
+                Route::prefix('{project}')->group(function () {
+                    Route::get('/', 'show')->name('show');
+                    Route::middleware('can:manage-clients')->group(function () {
+                        Route::get('edit', 'edit')->name('edit');
+                        Route::put('/', 'update')->name('update');
+                        Route::delete('/', 'destroy')->name('destroy');
+                    });
+                    Route::middleware('can:manage-billing')->group(function () {
+                        Route::post('invoice', 'invoice')->name('invoice');
+                        Route::post('invoices', 'link')->name('invoices.link');
+                        Route::delete('invoices/{invoice}', 'unlink')->name('invoices.unlink');
+                    });
                 });
             });
 

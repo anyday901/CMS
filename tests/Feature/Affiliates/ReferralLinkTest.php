@@ -20,6 +20,8 @@ class ReferralLinkTest extends TestCase
 
     private const PASSWORD = 'a-long-password';
 
+    private const CHECKOUT_URL = '/checkout';
+
     private Affiliate $affiliate;
 
     protected function setUp(): void
@@ -78,7 +80,7 @@ class ReferralLinkTest extends TestCase
         $this->cartWithAProduct();
 
         $this->withCookie(Referrals::COOKIE, $this->affiliate->code)
-            ->post('/checkout', $this->signUp('ada@example.com'))
+            ->post(self::CHECKOUT_URL, $this->signUp('ada@example.com'))
             ->assertCookieExpired(Referrals::COOKIE);
 
         $client = Client::where('email', 'ada@example.com')->sole();
@@ -89,13 +91,13 @@ class ReferralLinkTest extends TestCase
     public function test_sign_ups_without_a_valid_cookie_have_no_referrer(): void
     {
         $this->cartWithAProduct();
-        $this->post('/checkout', $this->signUp('bob@example.com'));
+        $this->post(self::CHECKOUT_URL, $this->signUp('bob@example.com'));
         $this->assertNull(Client::where('email', 'bob@example.com')->sole()->referral);
 
         $this->affiliate->update(['status' => Affiliate::DISABLED]);
         $this->post('/portal/logout');
         $this->cartWithAProduct();
-        $this->withCookie(Referrals::COOKIE, $this->affiliate->code)->post('/checkout', $this->signUp('cy@example.com'));
+        $this->withCookie(Referrals::COOKIE, $this->affiliate->code)->post(self::CHECKOUT_URL, $this->signUp('cy@example.com'));
         $this->assertNull(Client::where('email', 'cy@example.com')->sole()->referral);
     }
 

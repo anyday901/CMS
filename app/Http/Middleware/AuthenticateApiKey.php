@@ -24,28 +24,11 @@ class AuthenticateApiKey implements AuthenticatesRequests
     public function handle(Request $request, Closure $next): Response
     {
         $key = ApiKey::findByToken($request->bearerToken());
+        $limiter = "api-key:{$key?->id}";
 
-        if ($key === null) {
-            return self::refuse(401, 'Send a valid API key in the Authorization header, as "Bearer <key>".');
-        }
-
-        if ($key->isRevoked() || $key->isExpired()) {
-            return self::refuse(401, $key->isRevoked() ? 'This API key has been revoked.' : 'This API key has expired.');
-        }
-
-        if (! $key->allowsIp($request->ip())) {
-            return self::refuse(403, "This API key can't be used from {$request->ip()}.");
-        }
-
-        $limiter = "api-key:{$key->id}";
-        if (RateLimiter::tooManyAttempts($limiter, self::PER_MINUTE)) {
-            $retry = RateLimiter::availableIn($limiter);
-
-            return self::refuse(429, "Too many requests. Try again in {$retry} seconds.")->withHeaders([
-                'Retry-After' => $retry,
-                'X-RateLimit-Limit' => self::PER_MINUTE,
-                'X-RateLimit-Remaining' => 0,
-            ]);
+        $refusal = $this->refusal($request, $key, $limiter);
+        if ($refusal !== null) {
+            return $refusal;
         }
         RateLimiter::hit($limiter, 60);
 
@@ -59,6 +42,30 @@ class AuthenticateApiKey implements AuthenticatesRequests
         ]);
 
         return $response;
+    }
+
+    /** Why this request can't use the key, or null when it can. */
+    private function refusal(Request $request, ?ApiKey $key, string $limiter): ?JsonResponse
+    {
+        return match (true) {
+            $key === null => self::refuse(401, 'Send a valid API key in the Authorization header, as "Bearer <key>".'),
+            $key->isRevoked() => self::refuse(401, 'This API key has been revoked.'),
+            $key->isExpired() => self::refuse(401, 'This API key has expired.'),
+            ! $key->allowsIp($request->ip()) => self::refuse(403, "This API key can't be used from {$request->ip()}."),
+            RateLimiter::tooManyAttempts($limiter, self::PER_MINUTE) => self::tooManyRequests($limiter),
+            default => null,
+        };
+    }
+
+    private static function tooManyRequests(string $limiter): JsonResponse
+    {
+        $retry = RateLimiter::availableIn($limiter);
+
+        return self::refuse(429, "Too many requests. Try again in {$retry} seconds.")->withHeaders([
+            'Retry-After' => $retry,
+            'X-RateLimit-Limit' => self::PER_MINUTE,
+            'X-RateLimit-Remaining' => 0,
+        ]);
     }
 
     public static function refuse(int $status, string $message): JsonResponse

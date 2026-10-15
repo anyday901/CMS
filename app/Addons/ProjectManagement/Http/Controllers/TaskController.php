@@ -22,7 +22,7 @@ class TaskController extends Controller
         $task = $project->tasks()->create($this->validated($request));
         Activity::record("Added task \"{$task->title}\" to project \"{$project->title}\"", $project);
 
-        return redirect()->to(route('admin.projects.show', $project).'#tasks')->with('status', 'Task added.');
+        return $this->backToTasks($project)->with('status', 'Task added.');
     }
 
     public function edit(Task $task): View
@@ -34,7 +34,7 @@ class TaskController extends Controller
     {
         $this->change($task, $this->validated($request));
 
-        return redirect()->to(route('admin.projects.show', $task->project_id).'#tasks')->with('status', 'Task saved.');
+        return $this->backToTasks($task->project_id)->with('status', 'Task saved.');
     }
 
     /** The quick tick: done, or back to do. */
@@ -67,7 +67,7 @@ class TaskController extends Controller
             }
         });
 
-        return redirect()->to(route('admin.projects.show', $task->project_id).'#tasks');
+        return $this->backToTasks($task->project_id);
     }
 
     public function destroy(Task $task): RedirectResponse
@@ -75,7 +75,7 @@ class TaskController extends Controller
         $task->delete();
         Activity::record("Deleted task \"{$task->title}\" from project \"{$task->project->title}\"", $task->project);
 
-        return redirect()->to(route('admin.projects.show', $task->project_id).'#tasks')->with('status', 'Task deleted. Time logged on it stays on the project.');
+        return $this->backToTasks($task->project_id)->with('status', 'Task deleted. Time logged on it stays on the project.');
     }
 
     /** Saves the task, and tells subscribers when it has just been finished. */
@@ -103,5 +103,11 @@ class TaskController extends Controller
         ], [], ['user_id' => 'staff member', 'due_on' => 'due date']);
 
         return ['status' => $data['status'] ?? Task::TODO] + $data;
+    }
+
+    /** The project page, scrolled to its tasks. */
+    private function backToTasks(Project|int $project): RedirectResponse
+    {
+        return redirect()->to(route('admin.projects.show', $project).'#tasks');
     }
 }
