@@ -10,7 +10,6 @@ use App\Security\LoginSecurity;
 use App\Support\Impersonation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Portal logins: the account holder with the client's email, or a contact
@@ -31,12 +30,12 @@ class PortalLogin
                 return null;
             }
 
-            return Hash::check($password, (string) $client->password) || $this->checkLegacy($client, $password) ? $client : null;
+            return LoginSecurity::passwordMatches($client, $password) || $this->checkLegacy($client, $password) ? $client : null;
         }
 
         $contact = $this->contact($email);
 
-        return $contact !== null && $contact->client->canLogIn() && Hash::check($password, (string) $contact->password) ? $contact : null;
+        return $contact !== null && $contact->client->canLogIn() && LoginSecurity::passwordMatches($contact, $password) ? $contact : null;
     }
 
     /** Whether the account can still sign in, such as between the password and the two-factor code. */

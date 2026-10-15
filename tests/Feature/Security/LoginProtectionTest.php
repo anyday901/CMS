@@ -8,6 +8,7 @@ use App\Models\LoginAttempt;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class LoginProtectionTest extends TestCase
@@ -154,6 +155,26 @@ class LoginProtectionTest extends TestCase
             $this->failLogin($client->email);
         }
         $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertSessionHasErrors('email');
+    }
+
+    public function test_logging_in_moves_old_password_hashes_to_the_current_cost(): void
+    {
+        $weak = Hash::make(self::PASSWORD, ['rounds' => 4]);
+        $client = Client::factory()->create();
+        $client->forceFill(['password' => $weak])->saveQuietly();
+        $user = User::factory()->create();
+        $user->forceFill(['password' => $weak])->saveQuietly();
+        config(['hashing.bcrypt.rounds' => 5]);
+        Hash::forgetDrivers();
+
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect('/portal');
+        $this->post('/admin/login', ['email' => $user->email, 'password' => self::PASSWORD])->assertRedirect('/admin');
+
+        foreach ([$client->fresh(), $user->fresh()] as $account) {
+            $this->assertNotSame($weak, $account->password);
+            $this->assertFalse(Hash::needsRehash($account->password));
+            $this->assertTrue(Hash::check(self::PASSWORD, $account->password));
+        }
     }
 
     public function test_old_login_history_and_ended_bans_are_pruned(): void

@@ -27,6 +27,8 @@ class ClientAnonymiser
 {
     public const REMOVED = '(Removed when the account was anonymised.)';
 
+    public const TICKET_SUBJECT = 'Anonymised ticket';
+
     /** Why the client can't be anonymised yet, or null when they can. */
     public function problem(Client $client): ?string
     {
@@ -40,11 +42,12 @@ class ClientAnonymiser
 
     public function anonymise(Client $client): void
     {
-        $oldName = $client->fullName();
+        $personal = $this->personalText($client);
         $oldEmail = $client->email;
+        $emails = $client->contacts()->pluck('email')->push($oldEmail)->filter()->all();
         $files = [];
 
-        DB::transaction(function () use ($client, $oldEmail, &$files) {
+        DB::transaction(function () use ($client, $oldEmail, $emails, &$files) {
             $client->forceFill([
                 'first_name' => 'Anonymised',
                 'last_name' => "client {$client->id}",
@@ -69,6 +72,9 @@ class ClientAnonymiser
             $client->contacts()->delete();
             $client->emailLogs()->delete();
             LoginAttempt::where('client_id', $client->id)->delete();
+            foreach (['client_password_reset_tokens', 'contact_password_reset_tokens'] as $table) {
+                DB::table($table)->whereIn('email', $emails)->delete();
+            }
             $client->orders()->update(['ip_address' => null]);
             $client->services()->update(['custom_fields' => null, 'username' => null, 'password' => null, 'new_password' => null]);
             CancellationRequest::whereIn('service_id', $client->services()->select('id'))->update(['reason' => null]);
@@ -79,7 +85,7 @@ class ClientAnonymiser
             $files = $attachments->pluck('path')->all();
             $attachments->delete();
             $messages->update(['body' => self::REMOVED, 'author_name' => null, 'email_message_id' => null]);
-            $client->tickets()->update(['subject' => 'Anonymised ticket']);
+            $client->tickets()->update(['subject' => self::TICKET_SUBJECT]);
             TicketFeedback::whereIn('ticket_id', $tickets)->update(['comment' => null]);
 
             Activity::where('client_id', $client->id)->update(['ip_address' => null, 'properties' => null]);
@@ -87,24 +93,53 @@ class ClientAnonymiser
         });
 
         Storage::disk('local')->delete($files);
-        $this->scrubActivity($client, $oldName);
+        $this->scrubActivity($client, $personal);
         Activity::record("Anonymised client #{$client->id}", $client);
     }
 
-    /** Takes the client's old name out of their activity log entries. */
-    private function scrubActivity(Client $client, string $oldName): void
+    /**
+     * What the activity log may have picked up about the people on the
+     * account, longest first, mapped to what replaces it: names and emails of
+     * the client and their contacts, and ticket subjects.
+     *
+     * @return array<string, string>
+     */
+    private function personalText(Client $client): array
     {
-        if (trim($oldName) === '') {
-            return;
+        $new = "Anonymised client {$client->id}";
+        $text = [$client->fullName() => $new, (string) $client->email => $new];
+
+        foreach ($client->contacts as $contact) {
+            $text[trim($contact->first_name.' '.$contact->last_name)] = 'a contact';
+            $text[(string) $contact->email] = 'a contact';
+        }
+        foreach ($client->tickets()->pluck('subject') as $subject) {
+            $text[(string) $subject] = self::TICKET_SUBJECT;
         }
 
-        Activity::where('client_id', $client->id)
-            ->where(fn ($query) => $query->where('description', 'like', '%'.addcslashes($oldName, '%_\\').'%')->orWhere('actor_name', 'like', $oldName.'%'))
-            ->each(function (Activity $entry) use ($oldName, $client) {
-                $entry->forceFill([
-                    'description' => Str::limit(str_replace($oldName, $client->fullName(), $entry->description), 250, ''),
-                    'actor_name' => str_starts_with($entry->actor_name, $oldName) ? $client->fullName() : $entry->actor_name,
-                ])->save();
-            });
+        $text = array_filter($text, fn ($replacement, $find) => trim((string) $find) !== '', ARRAY_FILTER_USE_BOTH);
+        uksort($text, fn ($a, $b) => strlen((string) $b) <=> strlen((string) $a));
+
+        return $text;
+    }
+
+    /** Takes the people's names, emails and ticket subjects out of the client's activity log entries. */
+    private function scrubActivity(Client $client, array $personal): void
+    {
+        $find = array_map('strval', array_keys($personal));
+        // Who did something is only ever a person's name, never a ticket subject.
+        $people = array_map('strval', array_keys(array_filter($personal, fn ($replacement) => $replacement !== self::TICKET_SUBJECT)));
+
+        Activity::where('client_id', $client->id)->lazyById()->each(function (Activity $entry) use ($client, $find, $people, $personal) {
+            $description = str_ireplace($find, array_values($personal), (string) $entry->description);
+            $actor = $entry->actor_name;
+            if ($actor !== null && $actor !== '' && Str::contains($actor, $people, true)) {
+                $actor = $client->fullName();
+            }
+
+            if ($description !== $entry->description || $actor !== $entry->actor_name) {
+                $entry->forceFill(['description' => Str::limit($description, 250, ''), 'actor_name' => $actor])->save();
+            }
+        });
     }
 }

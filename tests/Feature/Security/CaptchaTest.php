@@ -96,5 +96,9 @@ class CaptchaTest extends TestCase
         $this->put('/admin/settings/security', $settings + ['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site2', 'captcha_forms' => ['login']])->assertSessionHasNoErrors();
         $this->assertSame('top-secret', config('security.captcha.secret_key'));
         $this->get('/admin/settings/security')->assertSee('Saved. Leave blank to keep it')->assertDontSee('top-secret');
+
+        // A new provider needs its own secret.
+        $this->put('/admin/settings/security', $settings + ['captcha_provider' => 'turnstile', 'captcha_site_key' => 'site3'])->assertSessionHasErrors('captcha_site_key');
+        $this->assertSame('hcaptcha', config('security.captcha.provider'));
     }
 }

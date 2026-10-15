@@ -10,6 +10,7 @@ use App\Models\LoginAttempt;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -20,6 +21,22 @@ use Illuminate\Validation\ValidationException;
  */
 class LoginSecurity
 {
+    /** Checks a password, moving the stored hash to the current algorithm and cost when it matches. */
+    public static function passwordMatches(Model $account, string $password): bool
+    {
+        $hash = (string) $account->getAuthPassword();
+
+        if ($hash === '' || ! Hash::check($password, $hash)) {
+            return false;
+        }
+
+        if (Hash::needsRehash($hash)) {
+            $account->forceFill(['password' => $password])->save();
+        }
+
+        return true;
+    }
+
     /**
      * @param  Model|null  $account  whose login the email is, for the history
      *

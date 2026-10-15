@@ -12,7 +12,6 @@ use App\Security\LoginSecurity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -36,7 +35,7 @@ class AuthController extends Controller
         $user = User::where('email', $credentials['email'])->first();
         $this->security->ensureNotLockedOut(LoginAttempt::ADMIN, $credentials['email'], $request, $user);
 
-        if ($user === null || ! Hash::check($credentials['password'], $user->password)) {
+        if ($user === null || ! LoginSecurity::passwordMatches($user, $credentials['password'])) {
             $this->security->failed(LoginAttempt::ADMIN, $credentials['email'], $user, $request);
 
             throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);

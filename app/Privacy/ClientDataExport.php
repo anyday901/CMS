@@ -34,7 +34,7 @@ class ClientDataExport
         $client->load([
             'contacts', 'services.product', 'orders', 'creditEntries',
             'invoices' => fn ($query) => $query->with(['items', 'transactions'])->orderBy('issue_date')->orderBy('id'),
-            'tickets' => fn ($query) => $query->with(['department', 'messages' => fn ($query) => $query->where('internal', false)->with(['attachments', 'user', 'client'])->orderBy('id')])->orderBy('id'),
+            'tickets' => fn ($query) => $query->with(['department', 'feedback', 'messages' => fn ($query) => $query->where('internal', false)->with(['attachments', 'user', 'client'])->orderBy('id')])->orderBy('id'),
         ]);
 
         return [
@@ -70,6 +70,7 @@ class ClientDataExport
                 'department' => $ticket->department?->name,
                 'status' => $ticket->status,
                 'created_at' => $this->date($ticket->created_at),
+                'feedback' => $ticket->feedback ? $this->only($ticket->feedback, ['rating', 'comment', 'created_at']) : null,
                 'messages' => $ticket->messages->map(fn (TicketMessage $message) => [
                     'from' => $message->authorName(),
                     'body' => $message->body,

@@ -13,11 +13,13 @@ use App\Models\LoginAttempt;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
+use App\Models\TicketFeedback;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Privacy\ClientAnonymiser;
 use App\Tickets\TicketDesk;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -54,9 +56,14 @@ class PrivacyTest extends TestCase
         $desk = app(TicketDesk::class);
         $ticket = $desk->open($client, $department, 'My card number is 4111', 'Please call me on 555-0100', files: [['name' => 'id.png', 'mime' => 'image/png', 'contents' => 'png']]);
         $desk->staffReply($ticket, User::factory()->create(), 'Internal: she sounds upset', internal: true);
+        TicketFeedback::create(['ticket_id' => $ticket->id, 'client_id' => $client->id, 'rating' => 5, 'comment' => 'Jane loved it']);
 
         LoginAttempt::create(['area' => 'portal', 'email' => self::JANE, 'client_id' => $client->id, 'ip_address' => '198.51.100.7', 'outcome' => 'success', 'created_at' => now()]);
         Activity::record('Logged in to the portal as Jane Doe', $client);
+        Activity::record('Verified their email address '.self::JANE, $client);
+        Activity::create(['actor_type' => 'client', 'actor_id' => $client->id, 'description' => 'Updated their phone number', 'actor_name' => 'Pat Lee (contact)', 'client_id' => $client->id]);
+        DB::table('client_password_reset_tokens')->insert(['email' => self::JANE, 'token' => 'x', 'created_at' => now()]);
+        DB::table('contact_password_reset_tokens')->insert(['email' => 'pat@example.com', 'token' => 'y', 'created_at' => now()]);
 
         return $client->fresh();
     }
@@ -75,6 +82,7 @@ class PrivacyTest extends TestCase
         $this->assertSame('jane.example', $data['services'][0]['label']);
         $this->assertSame('Hosting', $data['invoices'][0]['items'][0]['description']);
         $this->assertSame(['id.png'], $data['tickets'][0]['messages'][0]['attachments']);
+        $this->assertSame([5, 'Jane loved it'], [$data['tickets'][0]['feedback']['rating'], $data['tickets'][0]['feedback']['comment']]);
         $this->assertSame('198.51.100.7', $data['logins'][0]['ip_address']);
         $this->assertNotEmpty($data['emails']);
 
@@ -140,8 +148,11 @@ class PrivacyTest extends TestCase
         $this->assertSame('jane.example', Service::sole()->label);
         $this->assertNull(Service::sole()->custom_fields);
 
-        // The old name is gone from the activity log.
-        $this->assertSame(0, Activity::where('description', 'like', '%Jane Doe%')->orWhere('actor_name', 'Jane Doe')->count());
+        // Names, emails and ticket subjects are gone from the activity log.
+        foreach (['Jane Doe', self::JANE, 'Pat Lee', 'card number'] as $personal) {
+            $this->assertSame(0, Activity::where('description', 'like', "%{$personal}%")->orWhere('actor_name', 'like', "%{$personal}%")->count(), $personal);
+        }
+        $this->assertSame(0, DB::table('client_password_reset_tokens')->count() + DB::table('contact_password_reset_tokens')->count());
         $this->assertSame(0, Activity::where('client_id', $client->id)->whereNotNull('ip_address')->where('description', '!=', "Anonymised client #{$client->id}")->count());
 
         $this->get("/admin/clients/{$client->id}")->assertOk()->assertSee('anonymised')->assertDontSee('Anonymise this client');
