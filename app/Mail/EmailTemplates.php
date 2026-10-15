@@ -88,6 +88,22 @@ class EmailTemplates
                 'placeholders' => ['reset_url', 'expire_minutes'],
                 'sensitive' => true,
             ],
+            'email_verification' => [
+                'name' => 'Email verification',
+                'description' => 'Sent when a client signs up or changes their email address, with a link that confirms the address is theirs. The link is left out of the email log.',
+                'subject' => 'Confirm your email address for {company_name}',
+                'body' => "Hello {client_first_name},\n\nPlease confirm that this is your email address, so we know our invoices and updates reach you.\n\n[Confirm my email]({verify_url})\n\nThis link expires in {expire_days} days. If you didn't sign up with {company_name}, you can ignore this email.",
+                'placeholders' => ['verify_url', 'expire_days'],
+                'sensitive' => true,
+            ],
+            'contact_invite' => [
+                'name' => 'Contact portal invitation',
+                'description' => 'Sent to a contact when they are given a login to the portal, with a link to choose their password. {client_first_name} is the contact\'s first name here. The link is left out of the email log.',
+                'subject' => "You've been given access to {account_name} at {company_name}",
+                'body' => "Hello {client_first_name},\n\n{account_name} has given you a login to their account at {company_name}, so you can {contact_permissions}.\n\n[Choose your password]({reset_url})\n\nThis link expires in {expire_hours} hours. After that, use Forgot password on the login page to get a new one.",
+                'placeholders' => ['account_name', 'contact_permissions', 'reset_url', 'expire_hours'],
+                'sensitive' => true,
+            ],
             'ticket_opened' => [
                 'name' => 'Ticket received',
                 'description' => 'Sent when a client opens a ticket, in the portal or by email, and when someone without an account does (with their private link to the ticket).',

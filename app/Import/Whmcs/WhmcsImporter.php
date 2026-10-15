@@ -77,6 +77,8 @@ class WhmcsImporter
     /** @var array<string, int> "gateway|reference" => times seen */
     private array $references = [];
 
+    private ContactLoginImporter $logins;
+
     private ServerImporter $servers;
 
     /** @param  string|null  $encryptionHash  WHMCS's cc_encryption_hash, to bring stored passwords over */
@@ -123,12 +125,14 @@ class WhmcsImporter
 
     private function import(): void
     {
+        $this->logins = new ContactLoginImporter($this->run, self::CONTACTS);
         $this->servers = new ServerImporter($this->run, filled($this->encryptionHash) ? new WhmcsCrypt($this->encryptionHash) : null);
         $this->servers->import();
         $this->catalog = new CatalogImporter($this->run, $this->servers);
         $this->catalog->import();
         $this->importClients();
         $this->importContacts();
+        $this->logins->importUsers($this->clients);
         $this->importServices();
         $this->importServiceOptions();
         $this->importInvoices();
@@ -192,6 +196,7 @@ class WhmcsImporter
             }
 
             $emails[$email] = (int) $row->id;
+            $this->logins->claim($email);
             $client = $this->clientRow($row, $email, $passwords[(int) $row->id] ?? null);
             DB::table('clients')->insert($client);
 
@@ -221,6 +226,8 @@ class WhmcsImporter
             'last_name' => Whmcs::short($row->lastname) ?? '',
             'company' => Whmcs::short($row->companyname ?? ''),
             'email' => $email,
+            // Clients who got WHMCS's emails count as having a working address.
+            'email_verified_at' => $this->run->now,
             'password' => null,
             'legacy_password' => $this->passwordHash($row, $ownerHash),
             'phone' => Whmcs::short($row->phonenumber ?? ''),
@@ -299,9 +306,7 @@ class WhmcsImporter
                 continue;
             }
 
-            if (Whmcs::on($row->subaccount ?? '')) {
-                $this->run->report->note(self::CONTACTS, "Contact {$email} of client {$row->userid} could log in to WHMCS. Contacts can't log in here yet, so they won't be able to.");
-            }
+            $access = $this->logins->access($row, $email);
 
             $this->run->queue('client_contacts', [
                 'client_id' => (int) $row->userid,
@@ -311,6 +316,8 @@ class WhmcsImporter
                 'phone' => Whmcs::short($row->phonenumber ?? '', 50),
                 'invoice_emails' => Whmcs::on($row->invoiceemails ?? ''),
                 'support_emails' => Whmcs::on($row->supportemails ?? ''),
+                'portal_access' => $access !== null,
+                'permissions' => $access === null ? null : json_encode($access),
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]);

@@ -45,4 +45,15 @@
         </label>
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button>
     </form>
+
+    @if ($user->exists)
+        <div class="mt-6 flex max-w-2xl flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+            <span class="grow">Two-factor authentication is <strong>{{ $user->hasTwoFactor() ? 'on' : 'off' }}</strong>.@if ($user->is(auth()->user())) Manage it under <a href="{{ route('admin.account.show') }}" class="text-brand-600">My account</a>.@endif</span>
+            @if ($user->hasTwoFactor() && ! $user->is(auth()->user()))
+                <form method="POST" action="{{ route('admin.staff.two-factor.reset', $user) }}" onsubmit="return confirm('Turn off two-factor authentication for {{ $user->name }}?')">@csrf @method('DELETE')
+                    <button class="rounded-full px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Turn off two-factor</button>
+                </form>
+            @endif
+        </div>
+    @endif
 </x-admin-layout>

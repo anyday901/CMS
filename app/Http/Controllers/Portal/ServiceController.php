@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Auth\PortalContact;
 use App\Billing\ServiceCanceller;
 use App\Billing\ServiceUpgrader;
 use App\Enums\ServiceStatus;
@@ -40,8 +41,9 @@ class ServiceController extends Controller
                 ? $service->product->addons()->where('active', true)->with('prices')->get()
                     ->reject(fn (Product $addon) => $owned->contains($addon->id) || $addon->addonCycleFor($service->billing_cycle, $currency) === null)
                 : collect(),
-            'canUpgrade' => $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
-            'canCancel' => $canceller->problem($service) === null,
+            'canUpgrade' => PortalContact::allows('orders') && $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
+            'canCancel' => PortalContact::allows('orders') && $canceller->problem($service) === null,
+            'canOrder' => PortalContact::allows('orders'),
             'login' => $this->login($service, $modules),
             ...ServiceAccountController::abilities($service, $modules),
         ]);

@@ -1,4 +1,4 @@
-{{-- $contacts, $editRoute (route name), $destroyRoute (route name) --}}
+{{-- $contacts, $editRoute (route name), $destroyRoute (route name), $inviteRoute (route name, optional), $twoFactorRoute (route name, admin only) --}}
 @if ($contacts->isEmpty())
     <p class="text-sm text-ink-500">No contacts yet.</p>
 @else
@@ -8,8 +8,19 @@
                 <div class="min-w-0 flex-1">
                     <div class="font-medium">{{ $item->fullName() }}</div>
                     <div class="text-ink-500">{{ $item->email }}@if ($item->phone) · {{ $item->phone }}@endif · {{ $item->receives() }}</div>
+                    <div class="text-ink-500">{{ $item->access() }}@if ($item->portal_access && $item->hasTwoFactor()) · two-factor on @endif @if ($item->last_login_at) · last signed in {{ $item->last_login_at->format('M j, Y') }}@endif</div>
                 </div>
                 @if ($editRoute)
+                    @if (($inviteRoute ?? null) && $item->portal_access && ! $item->password)
+                        <form method="POST" action="{{ route($inviteRoute, $item) }}">@csrf
+                            <button class="rounded-full px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Send invite again</button>
+                        </form>
+                    @endif
+                    @if (($twoFactorRoute ?? null) && $item->hasTwoFactor())
+                        <form method="POST" action="{{ route($twoFactorRoute, $item) }}" onsubmit="return confirm('Turn off two-factor authentication for this contact?')">@csrf @method('DELETE')
+                            <button class="rounded-full px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Turn off two-factor</button>
+                        </form>
+                    @endif
                     <a href="{{ route($editRoute, $item) }}" class="rounded-full px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Edit</a>
                     <form method="POST" action="{{ route($destroyRoute, $item) }}" onsubmit="return confirm('Remove this contact?')">
                         @csrf @method('DELETE')

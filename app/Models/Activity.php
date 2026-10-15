@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Auth\PortalContact;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -26,13 +27,14 @@ class Activity extends Model
 
     /**
      * Records an action by whoever is signed in: staff first, then a portal
-     * client, otherwise the system (scheduler, webhooks, console).
+     * client (or their contact, by name), otherwise the system (scheduler,
+     * webhooks, console).
      */
     public static function record(string $description, ?Model $subject = null, array $properties = [], ?Client $client = null): self
     {
         [$type, $id, $name] = match (true) {
             Auth::guard('web')->check() => ['staff', Auth::guard('web')->id(), Auth::guard('web')->user()->name],
-            Auth::guard('client')->check() => ['client', Auth::guard('client')->id(), Auth::guard('client')->user()->fullName()],
+            Auth::guard('client')->check() => ['client', Auth::guard('client')->id(), PortalContact::name()],
             default => ['system', null, 'System'],
         };
 

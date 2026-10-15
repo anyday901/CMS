@@ -56,6 +56,7 @@
             </label>
             @include('tickets._attachments')
             <p class="text-ink-600">We'll email you a link to follow the ticket.</p>
+            <x-captcha form="contact" />
             <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Send</button>
         </form>
         @include('tickets._kb-suggest', ['suggestUrl' => route('tickets.guest.suggest')])

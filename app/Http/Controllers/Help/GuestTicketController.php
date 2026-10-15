@@ -11,6 +11,7 @@ use App\Models\InboundEmail;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
 use App\Models\TicketFeedback;
+use App\Security\Captcha;
 use App\Tickets\Sender;
 use App\Tickets\SpamFilter;
 use App\Tickets\TicketDesk;
@@ -57,6 +58,7 @@ class GuestTicketController extends Controller
             return redirect()->route('portal.tickets.create');
         }
 
+        Captcha::check($request, 'contact');
         $fields = CustomField::forTicket($request->integer('department_id'))->where('admin_only', false)->get();
         $data = $request->validate([
             'name' => ['required', 'string', 'max:250'],

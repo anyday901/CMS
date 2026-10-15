@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Auth\PortalContact;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
+use App\Models\ClientContact;
 use App\Models\NetworkIssue;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,6 +20,8 @@ class DashboardController extends Controller
 
         return view('portal.dashboard', [
             'client' => $client,
+            'contact' => PortalContact::current(),
+            'can' => collect(array_keys(ClientContact::PERMISSIONS))->mapWithKeys(fn (string $permission) => [$permission => PortalContact::allows($permission)])->all(),
             'unpaid' => $client->invoices()->where('status', InvoiceStatus::Unpaid)->orderBy('due_date')->get(),
             'services' => $client->services()->with('product')
                 ->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])

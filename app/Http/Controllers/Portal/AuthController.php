@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers\Portal;
 
-use App\Auth\LegacyPassword;
+use App\Auth\PortalLogin;
+use App\Auth\TwoFactorChallenge;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
-use App\Models\Client;
+use App\Models\LoginAttempt;
+use App\Security\Captcha;
+use App\Security\LoginSecurity;
 use App\Support\Impersonation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthController extends Controller
 {
+    public function __construct(private PortalLogin $login, private LoginSecurity $security) {}
+
     public function create(): View
     {
         return view('portal.auth.login');
@@ -27,42 +31,27 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        $ok = Auth::guard('client')->attemptWhen(
-            $credentials,
-            fn (Client $client) => $client->canLogIn(),
-            $request->boolean('remember'),
-        );
+        Captcha::check($request, 'login');
+        $owner = $this->login->owner($credentials['email']);
+        $this->security->ensureNotLockedOut(LoginAttempt::PORTAL, $credentials['email'], $request, $owner);
 
-        $ok = $ok || $this->attemptLegacy($credentials['email'], $credentials['password'], $request->boolean('remember'));
+        $account = $this->login->find($credentials['email'], $credentials['password']);
 
-        if (! $ok) {
+        if ($account === null) {
+            $this->security->failed(LoginAttempt::PORTAL, $credentials['email'], $owner, $request);
+
             throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);
         }
 
-        $request->session()->regenerate();
-        Impersonation::forget();
-        Activity::record('Logged in to the portal', $request->user('client'));
+        if ($account->hasTwoFactor()) {
+            TwoFactorChallenge::start(LoginAttempt::PORTAL, $account, $request->boolean('remember'));
 
-        return redirect()->intended(route('portal.dashboard'));
-    }
-
-    /**
-     * Clients imported from WHMCS keep their old password: the first time it
-     * matches, it is saved as a new hash and the old one is dropped.
-     */
-    private function attemptLegacy(string $email, string $password, bool $remember): bool
-    {
-        $client = Client::where('email', $email)->whereNotNull('legacy_password')->first();
-
-        if ($client === null || ! $client->canLogIn() || ! LegacyPassword::verify($password, $client->legacy_password)) {
-            return false;
+            return redirect()->route('portal.two-factor.challenge');
         }
 
-        $client->forceFill(['password' => $password])->save();
-        Auth::guard('client')->login($client, $remember);
-        Activity::record('Moved their WHMCS password to a new hash', $client);
+        $this->login->complete($request, $account, $request->boolean('remember'));
 
-        return true;
+        return redirect()->intended(route('portal.dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -75,9 +64,7 @@ class AuthController extends Controller
         }
 
         Activity::record('Logged out of the portal', $request->user('client'));
-        Auth::guard('client')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        PortalLogin::logout($request);
 
         return redirect()->route('portal.login');
     }

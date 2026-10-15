@@ -242,6 +242,35 @@ class WhmcsImportTest extends TestCase
         $this->assertStringContainsString('Forgot password', $report->toMarkdown());
     }
 
+    public function test_whmcs_sub_accounts_and_users_keep_their_portal_login(): void
+    {
+        $this->whmcs->table('tblcontacts')->insert([
+            ['userid' => 7, 'firstname' => 'Dee', 'lastname' => 'Dev', 'email' => 'dev@example.com', 'subaccount' => '1', 'permissions' => 'profile,products,productsso,tickets', 'invoiceemails' => '0', 'supportemails' => '1'],
+            ['userid' => 7, 'firstname' => 'Same', 'lastname' => 'Owner', 'email' => self::EMAIL, 'subaccount' => '1', 'permissions' => 'invoices', 'invoiceemails' => '0', 'supportemails' => '0'],
+        ]);
+        // WHMCS 8 keeps other people's logins as users of the client.
+        $this->whmcs->table('tblusers')->insert([
+            ['id' => 2, 'first_name' => 'Fin', 'last_name' => 'Ance', 'email' => 'Fin@Example.com', 'password' => 'x'],
+            ['id' => 3, 'first_name' => 'Bob', 'last_name' => 'Books', 'email' => 'bob@example.com', 'password' => 'x'],
+        ]);
+        $this->whmcs->table('tblusers_clients')->insert([
+            ['auth_user_id' => 2, 'client_id' => 7, 'owner' => 0, 'permissions' => 'invoices,orders'],
+            ['auth_user_id' => 3, 'client_id' => 7, 'owner' => 0, 'permissions' => 'invoices'],
+        ]);
+
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        $contacts = Client::sole()->contacts->keyBy('email');
+
+        $this->assertSame([true, ['services', 'support']], [$contacts['dev@example.com']->portal_access, $contacts['dev@example.com']->permissions]);
+        $this->assertSame([true, ['billing', 'orders']], [$contacts['fin@example.com']->portal_access, $contacts['fin@example.com']->permissions]);
+        // An existing contact who is also a WHMCS user gets the login.
+        $this->assertSame([true, ['billing']], [$contacts['bob@example.com']->portal_access, $contacts['bob@example.com']->permissions]);
+        // A contact with the owner's email can't sign in as well.
+        $this->assertFalse($contacts[self::EMAIL]->portal_access);
+        $this->assertStringContainsString('another client or contact signs in with that email', $report->toMarkdown());
+        $this->assertTrue(Client::sole()->hasVerifiedEmail());
+    }
+
     public function test_replies_to_old_whmcs_ticket_emails_find_the_ticket(): void
     {
         Mail::fake();

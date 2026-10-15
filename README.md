@@ -15,6 +15,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Software licensing: license keys your own software checks, locked to where they are installed
 - Support tickets with email piping, a spam filter, tickets from people without an account (by email or a contact form), custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
 - A knowledge base with search, announcements (both translatable, knowledge base categories too), a network status page and a downloads area
+- Account security: two-factor authentication for clients and staff, contacts with their own logins and permissions, email verification, login history, failed login lockout, IP bans, CAPTCHA on public forms, and GDPR data export and anonymising
 - An importer for existing WHMCS installs
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -80,6 +81,8 @@ The full steps, and what changes for clients, are in [docs/install.md](docs/inst
 ## Client portal
 
 Clients log in at `/portal` to see their services and invoices, update their details and add contacts. Clients you add in the admin area start without a password: use **Email portal password link** on their page, or have them use **Forgot or never set your password?** on the login page. Set the `MAIL_*` settings in `.env` so these emails are delivered; with the default `MAIL_MAILER=log` they are written to `storage/logs/laravel.log` instead. Client emails are sent from the queue, so run a queue worker too (see [Client emails](#client-emails)).
+
+Under **Security**, clients turn on two-factor authentication and see recent logins to their account, and they can download a copy of their data under **Account**. Contacts the client gave a login sign in here too, with their own email and password, and see only what they were allowed (see [Contacts](#contacts)).
 
 Clients open and follow support tickets under **Support**, which also links the knowledge base, announcements, downloads and network status. Those four pages are public, so visitors who aren't logged in can read them from **Help** in the store menu.
 
@@ -148,7 +151,7 @@ The admin area and client portal share one theme, Harbor, defined in `resources/
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, clients and their contacts, the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff and the activity log.
+The admin area at `/admin` covers the dashboard, clients and their contacts, the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff, account security (login history, IP bans, CAPTCHA, GDPR export and anonymising) and the activity log.
 
 ### Searching clients
 
@@ -156,7 +159,9 @@ The admin area at `/admin` covers the dashboard, clients and their contacts, the
 
 ### Contacts
 
-A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client. Contacts can't sign in to the portal.
+A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client.
+
+Tick **Can sign in to the portal** to give a contact their own login, and choose what they can do there: **invoices** (see and pay invoices, use credit), **orders** (place orders, upgrade and cancel services), **services** (see services, log in to control panels, change service passwords) and **support** (tickets). The contact gets an email with a link to choose a password, valid for a day; **Send invite again** on the contact, or **Forgot password** on the login page, sends a new one. A contact never sees the account's details or other contacts, and what they do is logged under their own name. Their login email can't be used by any client or other contact who signs in, though contacts without a login can share an address across accounts. Contacts don't get remember-me. The WHMCS import gives sub-account contacts, and WHMCS 8 users of a client, a login with the matching permissions.
 
 ### Configurable options
 
@@ -184,6 +189,22 @@ Each staff account has one role:
 Every role can look at clients, services, invoices and tasks. A custom staff member with nothing ticked can only look.
 
 Admins add and edit staff under **Staff**. You can't delete your own account or remove your own admin role, so there is always at least one admin. From the command line, `php artisan admin:create --role=billing` creates a staff account with a role (the default is `admin`). Staff accounts that existed before roles were added are admins.
+
+### Account security
+
+**Settings > Security** (admins) holds:
+
+- **Failed logins**: after 5 failed logins from one IP address to one account in 15 minutes, that address is locked out of that account for a while; an address that fails 20 logins in an hour, to any accounts, is banned for 24 hours. Lockouts only block the address the failures came from, so the owner can still log in elsewhere.
+- **Staff two-factor authentication**: require it for everyone. Turn it on for your own login first, under **My account**.
+- **CAPTCHA**: Cloudflare Turnstile, hCaptcha or Google reCAPTCHA v2 on the portal login, sign-up at checkout, forgot password, the contact form and (optionally) the staff login. Create a site with the provider for your domain and paste its site key and secret key.
+- **IP bans**: ban an address or a range such as `203.0.113.0/24`, for some days or for good. Banned addresses can't open any page, but payment and email webhooks still get through.
+- **Login history** for the portal and admin area, searchable by email or IP address. It keeps 90 days.
+
+Everyone turns on two-factor authentication for their own login: clients and contacts under **Security** in the portal, staff under **My account** (their name in the admin menu). It works with any authenticator app and gives eight one-time recovery codes. Staff can turn it off for a client or contact (on the client's page) and admins for another staff member (on their staff page), for someone who lost their phone.
+
+Clients who sign up at checkout or change their email are asked to confirm the address with a link. A client's page shows whether their email is verified, with buttons to send the link or mark it verified.
+
+For GDPR requests, a client's page has **Export personal data** (a JSON file of everything kept about them, which clients can also download under **Account** in the portal) and, on a closed account with no running services, **Anonymise this client**. Anonymising removes the client's personal details, contacts, emails and login history and blanks their tickets, but keeps invoices, payments and services for your records. It can't be undone.
 
 ### Settings
 
@@ -359,8 +380,15 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `TICKETS_TIMEZONE` | `UTC` | Timezone of the business hours that SLA targets can count in |
 | `TICKETS_GUEST_TICKETS` | `false` | Accept tickets from people without a client account |
 | `HELP_MAIN_LANGUAGE` | `en` | Language knowledge base articles and announcements are written in |
+| `SECURITY_LOCKOUT_ATTEMPTS` | `5` | Failed logins from one address to one account before a lockout |
+| `SECURITY_LOCKOUT_MINUTES` | `15` | How long those failures count, and so the lockout lasts |
+| `SECURITY_BAN_AFTER_FAILURES` | `20` | Failed logins from one address in an hour before it is banned; blank for no automatic bans |
+| `SECURITY_BAN_HOURS` | `24` | How long an automatic ban lasts |
+| `SECURITY_LOGIN_HISTORY_DAYS` | `90` | Days to keep the login history |
+| `SECURITY_STAFF_TWO_FACTOR` | `false` | Require two-factor authentication for staff |
+| `CAPTCHA_PROVIDER` | (off) | `turnstile`, `hcaptcha` or `recaptcha`, with `CAPTCHA_SITE_KEY` and `CAPTCHA_SECRET_KEY` |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set and IP bans that have ended. The security settings are on **Settings > Security**.
 
 ## License
 
