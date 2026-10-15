@@ -28,7 +28,7 @@ class ChatMessage
                 'attachments' => [[
                     'contentType' => 'application/vnd.microsoft.card.adaptive',
                     'content' => [
-                        '$schema' => 'http://adaptivecards.io/schemas/adaptive-card.json',
+                        '$schema' => 'https://adaptivecards.io/schemas/adaptive-card.json',
                         'type' => 'AdaptiveCard',
                         'version' => '1.4',
                         'body' => [['type' => 'TextBlock', 'text' => $text, 'wrap' => true]],
