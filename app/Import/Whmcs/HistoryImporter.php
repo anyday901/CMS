@@ -110,7 +110,7 @@ class HistoryImporter
         }
     }
 
-    /** Orders keep their WHMCS numbers, and their services and promotion are linked. */
+    /** Orders keep their WHMCS ids and order numbers, and their services and promotion are linked. */
     public function importOrders(): void
     {
         if (! $this->run->hasTables('tblorders')) {
@@ -126,28 +126,36 @@ class HistoryImporter
                 continue;
             }
 
-            $code = Str::limit(trim(Whmcs::text($row->promocode ?? '')), 250, '') ?: null;
-            $placed = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
-            $status = self::orderStatus((string) ($row->status ?? ''));
-
-            $this->run->queue('orders', [
-                'id' => (int) $row->id,
-                'whmcs_number' => (int) ($row->ordernum ?? 0) > 0 ? (string) (int) $row->ordernum : null,
-                'client_id' => (int) $row->userid,
-                'invoice_id' => isset($this->invoices[(int) ($row->invoiceid ?? 0)]) ? (int) $row->invoiceid : null,
-                'status' => $status->value,
-                'promotion_id' => $code !== null ? ($this->promotions[strtolower($code)] ?? null) : null,
-                'promotion_code' => $code,
-                'ip_address' => Str::limit(trim((string) ($row->ipaddress ?? '')), 45, '') ?: null,
-                'reviewed_at' => $status === OrderStatus::Pending ? null : $placed,
-                'created_at' => $placed,
-                'updated_at' => $this->run->now,
-            ]);
+            $this->run->queue('orders', $this->order($row));
             $this->run->report->imported(self::ORDERS);
         }
 
         $this->run->flush('orders');
         $this->linkServices();
+    }
+
+    /** @return array<string, mixed> */
+    private function order(object $row): array
+    {
+        $code = Str::limit(trim(Whmcs::text($row->promocode ?? '')), 250, '') ?: null;
+        $placed = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
+        $status = self::orderStatus((string) ($row->status ?? ''));
+        $number = (int) ($row->ordernum ?? 0);
+        $invoice = (int) ($row->invoiceid ?? 0);
+
+        return [
+            'id' => (int) $row->id,
+            'whmcs_number' => $number > 0 ? (string) $number : null,
+            'client_id' => (int) $row->userid,
+            'invoice_id' => isset($this->invoices[$invoice]) ? $invoice : null,
+            'status' => $status->value,
+            'promotion_id' => $code !== null ? ($this->promotions[strtolower($code)] ?? null) : null,
+            'promotion_code' => $code,
+            'ip_address' => Str::limit(trim((string) ($row->ipaddress ?? '')), 45, '') ?: null,
+            'reviewed_at' => $status === OrderStatus::Pending ? null : $placed,
+            'created_at' => $placed,
+            'updated_at' => $this->run->now,
+        ];
     }
 
     /** WHMCS's own order statuses; custom ones count as accepted. */
