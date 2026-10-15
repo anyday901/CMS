@@ -33,6 +33,10 @@ class WhmcsImportTest extends TestCase
 
     private const EMAIL = 'ada@example.com';
 
+    private const JANE = 'jane@example.com';
+
+    private const NOTE_TIME = '2024-03-01 10:00:00';
+
     private const LOGIN = '/portal/login';
 
     private ConnectionInterface $whmcs;
@@ -302,10 +306,10 @@ class WhmcsImportTest extends TestCase
             ['id' => 3, 'groupname' => 'Resellers', 'groupcolour' => '#AA00FF', 'discountpercent' => 10, 'susptermexempt' => 'on', 'separateinvoices' => ''],
         ]);
         $this->whmcs->table('tblclients')->where('id', 7)->update(['groupid' => 3, 'marketing_emails_opt_in' => 1]);
-        $this->whmcs->table('tbladmins')->insert(['id' => 1, 'email' => 'jane@example.com', 'firstname' => 'Jane', 'lastname' => 'Admin']);
+        $this->whmcs->table('tbladmins')->insert(['id' => 1, 'email' => self::JANE, 'firstname' => 'Jane', 'lastname' => 'Admin']);
         $this->whmcs->table('tblnotes')->insert([
-            ['userid' => 7, 'adminid' => 1, 'created' => '2024-03-01 10:00:00', 'modified' => '2024-03-02 10:00:00', 'note' => 'Prefers &quot;email&quot;', 'sticky' => 1],
-            ['userid' => 99, 'adminid' => 1, 'created' => '2024-03-01 10:00:00', 'modified' => '2024-03-01 10:00:00', 'note' => 'Orphan', 'sticky' => 0],
+            ['userid' => 7, 'adminid' => 1, 'created' => self::NOTE_TIME, 'modified' => '2024-03-02 10:00:00', 'note' => 'Prefers &quot;email&quot;', 'sticky' => 1],
+            ['userid' => 99, 'adminid' => 1, 'created' => self::NOTE_TIME, 'modified' => self::NOTE_TIME, 'note' => 'Orphan', 'sticky' => 0],
         ]);
         $this->whmcs->table('tbltodolist')->insert([
             ['date' => '2024-04-01', 'title' => 'Renew certificate', 'description' => 'Wildcard', 'admin' => 1, 'status' => 'In Progress', 'duedate' => '2024-05-01'],
@@ -320,11 +324,11 @@ class WhmcsImportTest extends TestCase
         $this->assertTrue($client->marketing_emails);
 
         $note = $client->clientNotes()->sole();
-        $this->assertSame(['Prefers "email"', true, 'jane@example.com'], [$note->body, $note->pinned, $note->user->email]);
+        $this->assertSame(['Prefers "email"', true, self::JANE], [$note->body, $note->pinned, $note->user->email]);
         $this->assertSame(['found' => 2, 'imported' => 1, 'skipped' => 1], $report->counts()['Client notes']);
 
         $todos = Todo::orderBy('id')->get();
-        $this->assertSame([Todo::IN_PROGRESS, '2024-05-01', 'jane@example.com'], [$todos[0]->status, $todos[0]->due_on->toDateString(), $todos[0]->user->email]);
+        $this->assertSame([Todo::IN_PROGRESS, '2024-05-01', self::JANE], [$todos[0]->status, $todos[0]->due_on->toDateString(), $todos[0]->user->email]);
         $this->assertSame([Todo::DONE, null, null], [$todos[1]->status, $todos[1]->due_on, $todos[1]->user]);
     }
 

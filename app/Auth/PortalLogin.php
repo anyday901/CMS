@@ -30,21 +30,15 @@ class PortalLogin
         $client = Client::where('email', $email)->first();
 
         if ($client !== null) {
-            if (! $client->canLogIn()) {
-                return null;
-            }
+            $matches = $client->canLogIn() && (LoginSecurity::passwordMatches($client, $password) || $this->checkLegacy($client, $password));
 
-            return LoginSecurity::passwordMatches($client, $password) || $this->checkLegacy($client, $password) ? $client : null;
+            return $matches ? $client : null;
         }
 
         // The login is the same on every account, so the first account that can sign in decides.
-        foreach ($this->contacts($email) as $contact) {
-            if ($contact->client->canLogIn()) {
-                return LoginSecurity::passwordMatches($contact, $password) ? $contact : null;
-            }
-        }
+        $contact = $this->contacts($email)->first(fn (ClientContact $contact) => $contact->client->canLogIn());
 
-        return null;
+        return $contact !== null && LoginSecurity::passwordMatches($contact, $password) ? $contact : null;
     }
 
     /** Whether the account can still sign in, such as between the password and the two-factor code. */

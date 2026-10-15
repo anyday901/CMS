@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
@@ -58,10 +59,10 @@ class ClientController extends Controller
             fputcsv($out, ['id', 'first_name', 'last_name', 'company', 'email', 'phone', 'country', 'status', 'group', 'marketing_emails', 'marketing_consent_at', 'unsubscribe_url', 'created_at'], escape: '');
             $query->chunk(500, function ($clients) use ($out) {
                 foreach ($clients as $client) {
-                    fputcsv($out, array_map(self::csvCell(...), [
+                    fputcsv($out, array_map(fn (mixed $value) => self::csvCell($value), [
                         $client->id, $client->first_name, $client->last_name, $client->company, $client->email, $client->phone,
                         $client->country, $client->status->value, $client->group?->name, $client->marketing_emails ? 'yes' : 'no',
-                        $client->marketing_consent_at?->toIso8601String(), $client->unsubscribeUrl(), $client->created_at?->toIso8601String(),
+                        $client->marketing_consent_at?->toIso8601String(), MarketingUnsubscribeController::url($client), $client->created_at?->toIso8601String(),
                     ]), escape: '');
                 }
             });

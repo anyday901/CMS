@@ -29,6 +29,22 @@ class ClientToolsTest extends TestCase
 
     private const RESELLERS = 'Resellers';
 
+    private const ADA = 'Ada Lovelace';
+
+    private const GRACE = 'Grace Hopper';
+
+    private const PHONE_NOTE = 'Prefers phone calls';
+
+    private const DISCOUNT_NOTE = 'Asked about a discount';
+
+    private const SSL_TODO = 'Renew SSL certificate';
+
+    private const CALL_TODO = 'Call Ada back';
+
+    private const OLIVE_TODO = 'Olive\'s job';
+
+    private const TICKET = 'Compiler is down';
+
     private User $staff;
 
     protected function setUp(): void
@@ -54,8 +70,8 @@ class ClientToolsTest extends TestCase
         $this->assertSame($group->id, $ada->fresh()->client_group_id);
 
         $this->get(self::CLIENTS."/{$ada->id}")->assertSee(self::RESELLERS);
-        $this->get(self::CLIENTS.'?group='.$group->id)->assertSee('Ada Lovelace')->assertDontSee('Grace Hopper')->assertSee('1 client found');
-        $this->get(self::CLIENTS.'?group=none')->assertSee('Grace Hopper')->assertDontSee('Ada Lovelace');
+        $this->get(self::CLIENTS.'?group='.$group->id)->assertSee(self::ADA)->assertDontSee(self::GRACE)->assertSee('1 client found');
+        $this->get(self::CLIENTS.'?group=none')->assertSee(self::GRACE)->assertDontSee(self::ADA);
         $this->get(self::GROUPS)->assertSee(self::RESELLERS)->assertSee('Sell our hosting on');
 
         // Deleting a group keeps its clients.
@@ -73,13 +89,13 @@ class ClientToolsTest extends TestCase
     {
         $client = Client::factory()->create();
 
-        $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => 'Prefers phone calls', 'pinned' => '1'])->assertRedirect();
-        $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => 'Asked about a discount'])->assertRedirect();
+        $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => self::PHONE_NOTE, 'pinned' => '1'])->assertRedirect();
+        $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => self::DISCOUNT_NOTE])->assertRedirect();
         $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => ''])->assertSessionHasErrors('body');
 
         $pinned = ClientNote::where('pinned', true)->sole();
         $this->assertSame($this->staff->id, $pinned->user_id);
-        $this->get(self::CLIENTS."/{$client->id}")->assertSeeInOrder(['Prefers phone calls', 'Notes', 'Prefers phone calls', 'Asked about a discount'])->assertSee('Sam Staff');
+        $this->get(self::CLIENTS."/{$client->id}")->assertSeeInOrder([self::PHONE_NOTE, 'Notes', self::PHONE_NOTE, self::DISCOUNT_NOTE])->assertSee('Sam Staff');
 
         $this->put("/admin/client-notes/{$pinned->id}", ['body' => 'Prefers email now'])->assertRedirect();
         $this->assertFalse($pinned->fresh()->pinned);
@@ -88,7 +104,7 @@ class ClientToolsTest extends TestCase
 
         // Staff who can only look see notes but can't change them.
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]));
-        $this->get(self::CLIENTS."/{$client->id}")->assertSee('Asked about a discount')->assertDontSee('Add a note');
+        $this->get(self::CLIENTS."/{$client->id}")->assertSee(self::DISCOUNT_NOTE)->assertDontSee('Add a note');
         $this->post(self::CLIENTS."/{$client->id}/notes", ['body' => 'x'])->assertForbidden();
     }
 
@@ -97,26 +113,26 @@ class ClientToolsTest extends TestCase
         $other = User::factory()->create(['name' => 'Olive Other']);
         $client = Client::factory()->create(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
 
-        $this->post(self::TODOS, ['title' => 'Renew SSL certificate', 'user_id' => $this->staff->id, 'due_on' => today()->subDay()->toDateString()])->assertRedirect(self::TODOS);
-        $this->post(self::TODOS, ['title' => 'Call Ada back', 'client_id' => $client->id, 'from' => 'client'])->assertRedirect(self::CLIENTS."/{$client->id}#todos");
-        $this->post(self::TODOS, ['title' => 'Olive\'s job', 'user_id' => $other->id])->assertRedirect();
+        $this->post(self::TODOS, ['title' => self::SSL_TODO, 'user_id' => $this->staff->id, 'due_on' => today()->subDay()->toDateString()])->assertRedirect(self::TODOS);
+        $this->post(self::TODOS, ['title' => self::CALL_TODO, 'client_id' => $client->id, 'from' => 'client'])->assertRedirect(self::CLIENTS."/{$client->id}#todos");
+        $this->post(self::TODOS, ['title' => self::OLIVE_TODO, 'user_id' => $other->id])->assertRedirect();
         $this->post(self::TODOS, ['title' => ''])->assertSessionHasErrors('title');
 
         // Mine by default; everyone's and unassigned on tabs.
-        $this->get(self::TODOS)->assertSee('Renew SSL certificate')->assertSee('overdue')->assertDontSee('Call Ada back')->assertDontSee('Olive\'s job');
-        $this->get(self::TODOS.'?who=all')->assertSee('Call Ada back')->assertSee('Olive\'s job');
-        $this->get(self::TODOS.'?who=unassigned')->assertSee('Call Ada back')->assertDontSee('Olive\'s job');
-        $this->get(self::TODOS.'?who=all&show=overdue')->assertSee('Renew SSL certificate')->assertDontSee('Call Ada back');
+        $this->get(self::TODOS)->assertSee(self::SSL_TODO)->assertSee('overdue')->assertDontSee(self::CALL_TODO)->assertDontSee(self::OLIVE_TODO);
+        $this->get(self::TODOS.'?who=all')->assertSee(self::CALL_TODO)->assertSee(self::OLIVE_TODO);
+        $this->get(self::TODOS.'?who=unassigned')->assertSee(self::CALL_TODO)->assertDontSee(self::OLIVE_TODO);
+        $this->get(self::TODOS.'?who=all&show=overdue')->assertSee(self::SSL_TODO)->assertDontSee(self::CALL_TODO);
 
         // The menu counts mine; the dashboard and the client's page list them.
-        $this->get('/admin')->assertSee('To-do (1)')->assertSee('Your to-do list')->assertSee('Renew SSL certificate')->assertSee('Call Ada back')->assertDontSee('Olive\'s job');
-        $this->get(self::CLIENTS."/{$client->id}")->assertSee('Call Ada back');
+        $this->get('/admin')->assertSee('To-do (1)')->assertSee('Your to-do list')->assertSee(self::SSL_TODO)->assertSee(self::CALL_TODO)->assertDontSee(self::OLIVE_TODO);
+        $this->get(self::CLIENTS."/{$client->id}")->assertSee(self::CALL_TODO);
 
-        $todo = Todo::where('title', 'Renew SSL certificate')->sole();
+        $todo = Todo::where('title', self::SSL_TODO)->sole();
         $this->put(self::TODOS."/{$todo->id}/status", ['status' => 'done'])->assertSessionHas('status');
         $this->assertNotNull($todo->fresh()->completed_at);
-        $this->get(self::TODOS)->assertDontSee('Renew SSL certificate');
-        $this->get(self::TODOS.'?show=done')->assertSee('Renew SSL certificate');
+        $this->get(self::TODOS)->assertDontSee(self::SSL_TODO);
+        $this->get(self::TODOS.'?show=done')->assertSee(self::SSL_TODO);
 
         $this->put(self::TODOS."/{$todo->id}", ['title' => 'Renew SSL certificates', 'status' => 'in_progress'])->assertRedirect(self::TODOS);
         $this->assertSame([Todo::IN_PROGRESS, null], [$todo->fresh()->status, $todo->fresh()->completed_at]);
@@ -132,14 +148,14 @@ class ClientToolsTest extends TestCase
         $grace->contacts()->create(['first_name' => 'Bob', 'last_name' => 'Books', 'email' => 'bob@ledger.example']);
         $service = Service::factory()->for($ada)->create(['label' => 'engines.example']);
         $invoice = Invoice::create(['client_id' => $ada->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
-        $ticket = app(TicketDesk::class)->open($grace, Department::create(['name' => 'Support']), 'Compiler is down', 'Help');
+        $ticket = app(TicketDesk::class)->open($grace, Department::create(['name' => 'Support']), self::TICKET, 'Help');
 
-        $this->get('/admin/search?q=ada+lovelace')->assertOk()->assertSee('Ada Lovelace')->assertDontSee('Grace Hopper');
-        $this->get('/admin/search?q=engines.example')->assertSee('Ada Lovelace')->assertSee('Services and domains')->assertSee(route('admin.services.show', $service));
-        $this->get('/admin/search?q=ledger')->assertSee('Grace Hopper');
-        $this->get('/admin/search?q=compiler')->assertSee('Compiler is down')->assertSee('1 result');
+        $this->get('/admin/search?q=ada+lovelace')->assertOk()->assertSee(self::ADA)->assertDontSee(self::GRACE);
+        $this->get('/admin/search?q=engines.example')->assertSee(self::ADA)->assertSee('Services and domains')->assertSee(route('admin.services.show', $service));
+        $this->get('/admin/search?q=ledger')->assertSee(self::GRACE);
+        $this->get('/admin/search?q=compiler')->assertSee(self::TICKET)->assertSee('1 result');
         $this->get('/admin/search?q='.$invoice->number)->assertSee(route('admin.invoices.show', $invoice));
-        $this->get("/admin/search?q=%23{$ticket->id}")->assertSee('Compiler is down');
+        $this->get("/admin/search?q=%23{$ticket->id}")->assertSee(self::TICKET);
         $this->get('/admin/search?q=zzzz')->assertSee('Nothing matched');
         $this->get('/admin/search?q=a')->assertSee('Type at least two letters');
         // Wildcards are searched for, not used.
@@ -147,6 +163,6 @@ class ClientToolsTest extends TestCase
 
         // Tickets only for staff who can open them.
         $this->actingAs(User::factory()->create(['role' => StaffRole::Custom, 'permissions' => ['manage-billing']]));
-        $this->get('/admin/search?q=compiler')->assertDontSee('Compiler is down');
+        $this->get('/admin/search?q=compiler')->assertDontSee(self::TICKET);
     }
 }

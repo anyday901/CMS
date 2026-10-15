@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\URL;
 
 class Client extends Authenticatable
 {
@@ -155,12 +154,6 @@ class Client extends Authenticatable
         $this->forceFill(['marketing_emails' => $yes, 'marketing_consent_at' => now()]);
 
         return true;
-    }
-
-    /** A link that unsubscribes the client from marketing emails, without logging in. */
-    public function unsubscribeUrl(): string
-    {
-        return URL::signedRoute('marketing.unsubscribe', ['client' => $this->id]);
     }
 
     public function fullName(): string

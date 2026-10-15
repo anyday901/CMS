@@ -32,6 +32,12 @@ class MultiAccountContactTest extends TestCase
 
     private const HOME = '/portal';
 
+    private const BOLT = 'Bolt Inc';
+
+    private const INVOICES = '/portal/invoices';
+
+    private const LOGOUT = '/portal/logout';
+
     private function contact(Client $client, array $permissions = ['billing'], ?string $password = self::PASSWORD): ClientContact
     {
         $contact = $client->contacts()->create([
@@ -56,7 +62,7 @@ class MultiAccountContactTest extends TestCase
     public function test_one_login_reaches_several_accounts_and_switches_between_them(): void
     {
         $acme = Client::factory()->create(['company' => 'Acme Ltd']);
-        $bolt = Client::factory()->create(['company' => 'Bolt Inc']);
+        $bolt = Client::factory()->create(['company' => self::BOLT]);
         $first = $this->contact($acme, ['billing']);
         $second = $this->contact($bolt, ['support']);
 
@@ -64,24 +70,24 @@ class MultiAccountContactTest extends TestCase
         $this->assertSame($first->password, $second->fresh()->password);
 
         $this->post(self::LOGIN, ['email' => self::EMAIL, 'password' => self::PASSWORD])->assertRedirect(self::ACCOUNTS);
-        $this->get(self::ACCOUNTS)->assertOk()->assertSee('Acme Ltd')->assertSee('Bolt Inc')->assertSee('invoices')->assertSee('support');
+        $this->get(self::ACCOUNTS)->assertOk()->assertSee('Acme Ltd')->assertSee(self::BOLT)->assertSee('invoices')->assertSee('support');
 
         $this->post("/portal/accounts/{$second->id}")->assertRedirect(self::HOME);
         $this->assertSame($bolt->id, Auth::guard('client')->id());
-        $this->get(self::HOME)->assertOk()->assertSee('Bolt Inc')->assertSee('Switch account', false);
+        $this->get(self::HOME)->assertOk()->assertSee(self::BOLT)->assertSee('Switch account', false);
         $this->get('/portal/support')->assertOk();
-        $this->get('/portal/invoices')->assertRedirect(self::HOME);
+        $this->get(self::INVOICES)->assertRedirect(self::HOME);
 
         $this->post("/portal/accounts/{$first->id}")->assertRedirect(self::HOME);
         $this->assertSame($acme->id, Auth::guard('client')->id());
-        $this->get('/portal/invoices')->assertOk();
+        $this->get(self::INVOICES)->assertOk();
 
         // Someone else's contact isn't one of this login's accounts.
         $stranger = Client::factory()->create()->contacts()->create(['first_name' => 'S', 'last_name' => 'T', 'email' => 'other@example.com', 'portal_access' => true]);
         $this->post("/portal/accounts/{$stranger->id}")->assertNotFound();
 
         // The account used last is where the next login lands.
-        $this->post('/portal/logout');
+        $this->post(self::LOGOUT);
         $this->post(self::LOGIN, ['email' => self::EMAIL, 'password' => self::PASSWORD]);
         $this->assertSame($acme->id, Auth::guard('client')->id());
     }
@@ -112,7 +118,7 @@ class MultiAccountContactTest extends TestCase
     {
         Mail::fake();
         $this->contact(Client::factory()->create());
-        $bolt = Client::factory()->create(['company' => 'Bolt Inc']);
+        $bolt = Client::factory()->create(['company' => self::BOLT]);
         $this->actingAs($bolt, 'client');
 
         $this->post('/portal/account/contacts', [
@@ -185,7 +191,7 @@ class MultiAccountContactTest extends TestCase
 
         // The session ends; the cookie signs the contact back in, as the contact.
         $this->endSession();
-        $this->withCookie(ContactRememberCookie::NAME, $cookie)->get('/portal/invoices')->assertOk()->assertSee('Log out Pat');
+        $this->withCookie(ContactRememberCookie::NAME, $cookie)->get(self::INVOICES)->assertOk()->assertSee('Log out Pat');
 
         // A forged or old cookie does nothing.
         $this->endSession();
@@ -203,7 +209,7 @@ class MultiAccountContactTest extends TestCase
         $cookie = $this->post(self::LOGIN, ['email' => self::EMAIL, 'password' => self::PASSWORD, 'remember' => '1'])
             ->getCookie(ContactRememberCookie::NAME)->getValue();
 
-        $this->withCookie(ContactRememberCookie::NAME, $cookie)->post('/portal/logout');
+        $this->withCookie(ContactRememberCookie::NAME, $cookie)->post(self::LOGOUT);
         $this->endSession();
         $this->withCookie(ContactRememberCookie::NAME, $cookie)->get(self::HOME)->assertRedirect(self::LOGIN);
         $this->assertGuest('client');
@@ -223,12 +229,12 @@ class MultiAccountContactTest extends TestCase
         Mail::assertNothingSent();
 
         // The same browser again: nothing.
-        $this->post('/portal/logout');
+        $this->post(self::LOGOUT);
         $this->withCookie(NewDeviceAlert::COOKIE, $device)->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
         Mail::assertNothingSent();
 
         // Another browser: an email with when, what and where.
-        $this->post('/portal/logout');
+        $this->post(self::LOGOUT);
         $this->defaultCookies = [];
         $this->withHeader('User-Agent', $browser)->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])
             ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
@@ -240,7 +246,7 @@ class MultiAccountContactTest extends TestCase
 
         // Turned off under Security, a new device is still noted but not emailed.
         Settings::save(['security.new_device_emails' => false]);
-        $this->post('/portal/logout');
+        $this->post(self::LOGOUT);
         $this->defaultCookies = [];
         $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
         $this->assertSame(1, EmailLog::count());

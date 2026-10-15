@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientGroup;
@@ -44,7 +45,7 @@ class MarketingConsentTest extends TestCase
         $client = Client::factory()->create();
         $client->setMarketingConsent(true);
         $client->save();
-        $url = $client->unsubscribeUrl();
+        $url = MarketingUnsubscribeController::url($client);
 
         $this->get($url)->assertOk()->assertSee('Unsubscribe from news and offers?');
         $this->assertTrue($client->fresh()->marketing_emails);

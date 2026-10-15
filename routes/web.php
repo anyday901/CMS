@@ -172,17 +172,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
-        // Every staff member's own login.
-        Route::prefix('account')->name('account.')->controller(Admin\AccountController::class)->group(function () {
-            Route::get('/', 'show')->name('show');
-            Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
-            Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
-            Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
-            Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
-            Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
-            Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
-        });
-
         // Creating and editing come first so "create" isn't read as a client id.
         Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
@@ -199,8 +188,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('contacts/{contact}/invite', [Admin\ClientContactController::class, 'resendInvite'])->name('contacts.invite');
             Route::delete('contacts/{contact}/two-factor', [Admin\ClientPrivacyController::class, 'resetContactTwoFactor'])->name('contacts.two-factor.reset');
             Route::post('clients/{client}/notes', [Admin\ClientNoteController::class, 'store'])->name('client-notes.store');
-            Route::put('client-notes/{note}', [Admin\ClientNoteController::class, 'update'])->name('client-notes.update');
-            Route::delete('client-notes/{note}', [Admin\ClientNoteController::class, 'destroy'])->name('client-notes.destroy');
+            Route::resource('client-notes', Admin\ClientNoteController::class)->only(['update', 'destroy'])->parameters(['client-notes' => 'note']);
             Route::get('clients/{client}/merge', [Admin\ClientMergeController::class, 'show'])->name('clients.merge');
             Route::post('clients/{client}/merge', [Admin\ClientMergeController::class, 'store'])->name('clients.merge.store');
             Route::name('clients.')->controller(Admin\ClientPrivacyController::class)->group(function () {
@@ -325,10 +313,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/', 'reset')->name('reset');
             });
         });
-
-        Route::middleware('can:manage-staff')->group(function () {
-            Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
-            Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
-        });
     });
+});
+
+// Every staff member's own login.
+Route::prefix('admin/account')->name('admin.account.')->middleware(['auth:web', RequireStaffTwoFactor::class])
+    ->controller(Admin\AccountController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
+        Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
+        Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
+        Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
+        Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
+        Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
+    });
+
+// Managing staff logins.
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-staff'])->group(function () {
+    Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
+    Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
 });

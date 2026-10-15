@@ -29,6 +29,8 @@ class ClientMergeTest extends TestCase
 
     private const DUPLICATE = 'ada.old@example.com';
 
+    private const PAT = 'pat@example.com';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -116,16 +118,16 @@ class ClientMergeTest extends TestCase
     {
         $keep = Client::factory()->create();
         $old = Client::factory()->create(['email' => self::DUPLICATE, 'password' => 'old-password-1']);
-        $contact = $old->contacts()->create(['first_name' => 'Pat', 'last_name' => 'Lee', 'email' => 'pat@example.com', 'portal_access' => true, 'permissions' => ['billing']]);
+        $contact = $old->contacts()->create(['first_name' => 'Pat', 'last_name' => 'Lee', 'email' => self::PAT, 'portal_access' => true, 'permissions' => ['billing']]);
         $contact->forceFill(['password' => 'pat-password-1'])->save();
 
         app(ClientMerger::class)->merge($old, $keep);
         auth()->guard('web')->logout();
 
         $this->post('/portal/login', ['email' => self::DUPLICATE, 'password' => 'old-password-1'])->assertSessionHasErrors('email');
-        $this->post('/portal/login', ['email' => 'pat@example.com', 'password' => 'pat-password-1'])->assertRedirect('/portal');
+        $this->post('/portal/login', ['email' => self::PAT, 'password' => 'pat-password-1'])->assertRedirect('/portal');
         $this->assertSame($keep->id, auth()->guard('client')->id());
         $this->assertSame(0, DB::table('client_contacts')->where('client_id', $old->id)->count());
-        $this->assertTrue(ClientContact::where('email', 'pat@example.com')->sole()->client->is($keep));
+        $this->assertTrue(ClientContact::where('email', self::PAT)->sole()->client->is($keep));
     }
 }

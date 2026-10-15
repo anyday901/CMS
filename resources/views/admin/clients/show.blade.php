@@ -70,10 +70,10 @@
                 <div>{!! nl2br(e($note->body)) !!}</div>
                 @can('manage-clients')
                     <details class="mt-2">
-                        <summary class="cursor-pointer text-brand-600">Edit</summary>
+                        <summary id="note-edit-{{ $note->id }}" class="cursor-pointer text-brand-600">Edit note</summary>
                         <form method="POST" action="{{ route('admin.client-notes.update', $note) }}" class="mt-2 space-y-2">
                             @csrf @method('PUT')
-                            <textarea name="body" rows="3" required aria-label="Note" class="w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $note->body }}</textarea>
+                            <textarea name="body" rows="3" required aria-labelledby="note-edit-{{ $note->id }}" class="w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $note->body }}</textarea>
                             <div class="flex flex-wrap items-center gap-3">
                                 <label for="note-pinned-{{ $note->id }}" class="flex items-center gap-2"><input id="note-pinned-{{ $note->id }}" type="checkbox" name="pinned" value="1" @checked($note->pinned)> Pin to the top of the page</label>
                                 <button class="rounded-md px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Save</button>

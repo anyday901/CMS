@@ -35,26 +35,20 @@ class ContactInvitation
      */
     public function sendIfNew(ClientContact $contact, bool $accessJustGiven): ?string
     {
-        if (! $contact->portal_access || ! ($accessJustGiven || $contact->joinedLogin)) {
-            return null;
-        }
+        $sent = null;
 
-        if ($contact->joinedLogin) {
+        if ($contact->portal_access && $contact->joinedLogin) {
             $this->mailer->sendToContact($contact, 'contact_account_added', [
                 'contact_permissions' => $this->permissions($contact),
                 'login_url' => route('portal.login'),
             ]);
-
-            return self::ADDED;
+            $sent = self::ADDED;
+        } elseif ($contact->portal_access && $accessJustGiven && $contact->password === null) {
+            $this->send($contact);
+            $sent = self::INVITED;
         }
 
-        if ($contact->password !== null) {
-            return null;
-        }
-
-        $this->send($contact);
-
-        return self::INVITED;
+        return $sent;
     }
 
     /** The status message for staff or the account holder after saving a contact. */

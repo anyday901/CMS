@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Client;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
 /**
@@ -14,12 +14,18 @@ use Illuminate\View\View;
  */
 class MarketingUnsubscribeController extends Controller
 {
+    /** A link that unsubscribes the client from marketing emails, without logging in. */
+    public static function url(Client $client): string
+    {
+        return URL::signedRoute('marketing.unsubscribe', ['client' => $client->id]);
+    }
+
     public function show(Client $client): View
     {
         return view('marketing.unsubscribe', ['client' => $client, 'done' => ! $client->marketing_emails]);
     }
 
-    public function store(Request $request, Client $client): View
+    public function store(Client $client): View
     {
         if ($client->setMarketingConsent(false)) {
             $client->save();

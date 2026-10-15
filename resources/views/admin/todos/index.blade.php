@@ -4,12 +4,20 @@
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="lg:col-span-2">
             <div class="mb-4 flex flex-wrap items-center gap-2 text-sm">
-                @foreach (['mine' => 'Mine', 'all' => 'Everyone\'s', 'unassigned' => 'For anyone'] as $value => $label)
-                    <a href="{{ route('admin.todos.index', ['who' => $value, 'show' => $show]) }}" class="rounded-full px-3 py-1 {{ $who === $value ? 'bg-brand-100 font-semibold text-brand-700' : 'ring-1 ring-ink-300 hover:bg-ink-100' }}">{{ $label }}</a>
-                @endforeach
-                <span class="mx-1 h-5 w-px bg-ink-200" aria-hidden="true"></span>
-                @foreach (['unfinished' => 'Not done', 'overdue' => 'Overdue', 'done' => 'Done', 'all' => 'All'] as $value => $label)
-                    <a href="{{ route('admin.todos.index', ['who' => $who, 'show' => $value]) }}" class="rounded-full px-3 py-1 {{ $show === $value ? 'bg-brand-100 font-semibold text-brand-700' : 'ring-1 ring-ink-300 hover:bg-ink-100' }}">{{ $label }}</a>
+                @php
+                    // Whose to-dos, then which ones; null is the divider between the two.
+                    $tabs = [
+                        ['who', 'mine', 'Mine'], ['who', 'all', 'Everyone\'s'], ['who', 'unassigned', 'For anyone'], null,
+                        ['show', 'unfinished', 'Not done'], ['show', 'overdue', 'Overdue'], ['show', 'done', 'Done'], ['show', 'all', 'All'],
+                    ];
+                @endphp
+                @foreach ($tabs as $tab)
+                    @if ($tab === null)
+                        <span class="mx-1 h-5 w-px bg-ink-200" aria-hidden="true"></span>
+                    @else
+                        @php [$key, $value, $label] = $tab; $active = ($key === 'who' ? $who : $show) === $value; @endphp
+                        <a href="{{ route('admin.todos.index', array_merge(['who' => $who, 'show' => $show], [$key => $value])) }}" class="rounded-full px-3 py-1 {{ $active ? 'bg-brand-100 font-semibold text-brand-700' : 'ring-1 ring-ink-300 hover:bg-ink-100' }}">{{ $label }}</a>
+                    @endif
                 @endforeach
             </div>
             @if ($todos->isEmpty())

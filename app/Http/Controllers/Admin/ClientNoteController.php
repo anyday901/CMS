@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 /** Staff notes on a client's page. Pinned ones show at the top. */
 class ClientNoteController extends Controller
 {
+    private const SECTION = '#notes';
+
     public function store(Request $request, Client $client): RedirectResponse
     {
         $note = $client->clientNotes()->make($this->validated($request));
@@ -19,7 +21,7 @@ class ClientNoteController extends Controller
         $note->save();
         Activity::record('Added a note', $client);
 
-        return redirect()->to(route('admin.clients.show', $client).'#notes')->with('status', 'Note added.');
+        return redirect()->to(route('admin.clients.show', $client).self::SECTION)->with('status', 'Note added.');
     }
 
     public function update(Request $request, ClientNote $note): RedirectResponse
@@ -27,7 +29,7 @@ class ClientNoteController extends Controller
         $note->update($this->validated($request));
         Activity::record('Edited a note', $note->client);
 
-        return redirect()->to(route('admin.clients.show', $note->client).'#notes')->with('status', 'Note saved.');
+        return redirect()->to(route('admin.clients.show', $note->client).self::SECTION)->with('status', 'Note saved.');
     }
 
     public function destroy(ClientNote $note): RedirectResponse
@@ -35,7 +37,7 @@ class ClientNoteController extends Controller
         $note->delete();
         Activity::record('Deleted a note', $note->client);
 
-        return redirect()->to(route('admin.clients.show', $note->client).'#notes')->with('status', 'Note deleted.');
+        return redirect()->to(route('admin.clients.show', $note->client).self::SECTION)->with('status', 'Note deleted.');
     }
 
     private function validated(Request $request): array
