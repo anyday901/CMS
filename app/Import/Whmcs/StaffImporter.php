@@ -56,20 +56,15 @@ class StaffImporter
             return;
         }
 
-        $roles = $this->run->hasTables('tbladminroles')
-            ? $this->run->table('tbladminroles')->pluck('name', 'id')->mapWithKeys(fn ($name, $id) => [(int) $id => Whmcs::text($name)])->all()
-            : [];
-        $permissions = $this->run->hasTables('tbladminperms')
-            ? $this->run->table('tbladminperms')->get()->groupBy(fn ($row) => (int) $row->roleid)->map(fn ($rows) => $rows->map(fn ($row) => (int) $row->permid)->unique()->all())->all()
-            : [];
+        $roles = $this->roleNames();
+        $permissions = $this->rolePermissions();
         $existing = DB::table('users')->pluck('id', 'email')->mapWithKeys(fn ($id, $email) => [strtolower($email) => (int) $id])->all();
         $newPasswords = 0;
 
         foreach ($this->run->table('tbladmins')->orderBy('id')->cursor() as $row) {
             $this->run->report->found(self::STAFF);
             $email = strtolower(trim((string) ($row->email ?? '')));
-            $name = trim(Whmcs::text($row->firstname ?? '').' '.Whmcs::text($row->lastname ?? '')) ?: (Whmcs::short($row->username ?? '') ?? $email);
-            $label = $name !== '' ? $name : "Admin {$row->id}";
+            [$name, $label] = self::names($row, $email);
 
             $problem = match (true) {
                 Whmcs::on($row->disabled ?? '') => "{$label} is disabled in WHMCS, so has no account here.",
@@ -115,6 +110,41 @@ class StaffImporter
         if ($newPasswords > 0) {
             $this->run->report->note(self::STAFF, "{$newPasswords} admin(s) had a password WHMCS kept in an older form that can't be reused. Set a new password for them under Staff before they log in.");
         }
+    }
+
+    /** @return array<int, string> WHMCS role id => name */
+    private function roleNames(): array
+    {
+        if (! $this->run->hasTables('tbladminroles')) {
+            return [];
+        }
+
+        return $this->run->table('tbladminroles')->pluck('name', 'id')->mapWithKeys(fn ($name, $id) => [(int) $id => Whmcs::text($name)])->all();
+    }
+
+    /** @return array<int, list<int>> WHMCS role id => its permission ids */
+    private function rolePermissions(): array
+    {
+        if (! $this->run->hasTables('tbladminperms')) {
+            return [];
+        }
+
+        return $this->run->table('tbladminperms')->get()
+            ->groupBy(fn ($row) => (int) $row->roleid)
+            ->map(fn ($rows) => $rows->map(fn ($row) => (int) $row->permid)->unique()->values()->all())
+            ->all();
+    }
+
+    /**
+     * An admin's full name (else their username or email), and how the report names them.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function names(object $row, string $email): array
+    {
+        $name = trim(Whmcs::text($row->firstname ?? '').' '.Whmcs::text($row->lastname ?? '')) ?: (Whmcs::short($row->username ?? '') ?? $email);
+
+        return [$name, $name !== '' ? $name : "Admin {$row->id}"];
     }
 
     /** The staff account of a WHMCS admin id, or null. */
@@ -166,21 +196,26 @@ class StaffImporter
 
         // Without permissions on record (an old WHMCS, or none read), go by the role's name.
         if ($permissions === []) {
-            return [match (true) {
-                str_contains($name, 'account') || str_contains($name, 'billing') || str_contains($name, 'sales') => StaffRole::Billing,
-                default => StaffRole::Support,
-            }, []];
+            $billing = str_contains($name, 'account') || str_contains($name, 'billing') || str_contains($name, 'sales');
+
+            return [$billing ? StaffRole::Billing : StaffRole::Support, []];
         }
 
         $abilities = array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => array_diff(array_keys(self::PERMISSIONS[$ability]), $ticked) === []));
+        $builtIn = self::builtInRole($abilities);
 
-        foreach ([StaffRole::Admin, StaffRole::Billing, StaffRole::Support] as $builtIn) {
-            if ($abilities === array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => $builtIn->allows($ability)))) {
-                return [$builtIn, []];
-            }
-        }
+        return $builtIn === null ? [StaffRole::Custom, $abilities] : [$builtIn, []];
+    }
 
-        return [StaffRole::Custom, $abilities];
+    /**
+     * The built-in role with exactly these abilities, or null.
+     *
+     * @param  list<string>  $abilities
+     */
+    private static function builtInRole(array $abilities): ?StaffRole
+    {
+        return collect([StaffRole::Admin, StaffRole::Billing, StaffRole::Support])
+            ->first(fn (StaffRole $role) => $abilities === array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => $role->allows($ability))));
     }
 
     /**

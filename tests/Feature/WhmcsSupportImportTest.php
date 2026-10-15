@@ -34,6 +34,8 @@ class WhmcsSupportImportTest extends TestCase
 
     private const ANNOUNCEMENT = 'New data centre';
 
+    private const KB_CATEGORY = 'Getting started';
+
     private const FEEDBACK_DATE = '2026-10-02 09:00:00';
 
     private const GUEST_NAME = 'Sam Visitor';
@@ -67,8 +69,8 @@ class WhmcsSupportImportTest extends TestCase
     {
         (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
-        $this->assertSame(['Email', 'Getting started', 'Webmail'], KbCategory::orderBy('name')->pluck('name')->all());
-        $top = KbCategory::where('name', 'Getting started')->first();
+        $this->assertSame(['Email', self::KB_CATEGORY, 'Webmail'], KbCategory::orderBy('name')->pluck('name')->all());
+        $top = KbCategory::where('name', self::KB_CATEGORY)->first();
         // Webmail was nested two deep, so it moved up under the top-level category.
         $this->assertSame($top->id, KbCategory::where('name', 'Webmail')->value('parent_id'));
         $this->assertSame($top->id, KbCategory::where('name', 'Email')->value('parent_id'));
@@ -325,7 +327,7 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertSame(['en', ['de', 'fr']], [config('help.main_language'), config('help.languages')]);
         $this->assertSame(['found' => 7, 'imported' => 5, 'skipped' => 2], $report->counts()['Translations']);
         $this->assertSame(3, KbCategory::count(), 'Translated categories are translations, not categories of their own.');
-        $category = KbCategory::where('name', 'Getting started')->sole();
+        $category = KbCategory::where('name', self::KB_CATEGORY)->sole();
         $this->assertSame([['de', 'Erste Schritte', null], ['fr', 'Premiers pas', 'Les étapes']], $category->translations->map(fn ($t) => [$t->locale, $t->title, $t->body])->all());
         $this->assertStringContainsString('"Courriel" (french) was left out: the category it translates wasn\'t imported.', $report->toMarkdown());
 
