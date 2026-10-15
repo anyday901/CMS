@@ -92,9 +92,10 @@ class TicketDesk
      *
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
      */
-    public function openForGuest(string $name, string $email, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], ?EmailOrigin $origin = null): Ticket
+    public function openForGuest(Sender $guest, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], ?EmailOrigin $origin = null): Ticket
     {
-        $name = Str::limit(trim($name), 250, '') ?: Str::before($email, '@');
+        $email = $guest->email;
+        $name = Str::limit(trim($guest->name), 250, '') ?: Str::before($email, '@');
 
         $ticket = DB::transaction(function () use ($name, $email, $department, $subject, $body, $priority, $files, $origin) {
             $ticket = Ticket::create([

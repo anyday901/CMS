@@ -11,6 +11,7 @@ use App\Models\InboundEmail;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
 use App\Models\TicketFeedback;
+use App\Tickets\Sender;
 use App\Tickets\SpamFilter;
 use App\Tickets\TicketDesk;
 use Illuminate\Http\RedirectResponse;
@@ -83,8 +84,7 @@ class GuestTicketController extends Controller
         }
 
         $ticket = $desk->openForGuest(
-            $data['name'],
-            $email,
+            new Sender($email, $data['name']),
             Department::findOrFail($data['department_id']),
             $data['subject'],
             $data['body'],

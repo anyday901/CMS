@@ -43,6 +43,9 @@ class InboundMail
     /** Subjects of emails sent by WHMCS before the switch, such as "[Ticket ID: 482913]". */
     private const WHMCS_TICKET_PATTERN = '/\[Ticket ID: ([A-Z0-9-]+)\]/i';
 
+    /** Matches an email column to an address that's already lower case. */
+    private const SAME_EMAIL = 'lower(email) = ?';
+
     public function __construct(private TicketDesk $desk, private SpamFilter $spam) {}
 
     /** @return array{0: string, 1: string} The outcome and a short reason, for logs and command output. */
@@ -74,13 +77,14 @@ class InboundMail
             default => null,
         };
 
-        if ($rejected !== null) {
-            return $this->finish(self::IGNORED, $rejected, $log);
-        }
+        $blocked = match (true) {
+            $rejected !== null => [self::IGNORED, $rejected],
+            ($spam = $this->spam->check($from, $subject, $body, $message)) !== null => [self::SPAM, "dropped the email from {$from}: {$spam}"],
+            default => null,
+        };
 
-        $spam = $this->spam->check($from, $subject, $body, $message);
-        if ($spam !== null) {
-            return $this->finish(self::SPAM, "dropped the email from {$from}: {$spam}", $log);
+        if ($blocked !== null) {
+            return $this->finish($blocked[0], $blocked[1], $log);
         }
 
         $sender = new Sender($from, trim((string) $message->getHeader('From')?->getPersonName()), $client, $replyTo);
@@ -110,20 +114,21 @@ class InboundMail
         }
 
         $department ??= $this->departmentFor($message);
-
-        if ($department === null) {
-            return $this->finish(self::IGNORED, "no department uses any address the email from {$sender->email} was sent to", $log);
-        }
-
         $limit = (int) config('tickets.spam.new_tickets_per_hour');
-        if ($limit > 0 && $this->openedLastHour($sender) >= $limit) {
-            return $this->finish(self::SPAM, "{$sender->email} already opened {$limit} tickets in the last hour", $log);
+        $blocked = match (true) {
+            $department === null => [self::IGNORED, "no department uses any address the email from {$sender->email} was sent to"],
+            $limit > 0 && $this->openedLastHour($sender) >= $limit => [self::SPAM, "{$sender->email} already opened {$limit} tickets in the last hour"],
+            default => null,
+        };
+
+        if ($blocked !== null) {
+            return $this->finish($blocked[0], $blocked[1], $log);
         }
 
         $subject = $subject !== '' ? $subject : '(No subject)';
         $ticket = $sender->client !== null
             ? $this->desk->open($sender->client, $department, $subject, $body, files: $files, email: $origin)
-            : $this->desk->openForGuest($sender->name, $sender->email, $department, $subject, $body, files: $files, origin: $origin);
+            : $this->desk->openForGuest($sender, $department, $subject, $body, files: $files, origin: $origin);
 
         return $this->finish(self::OPENED, "ticket #{$ticket->id} from ".($sender->client !== null ? $sender->email : "guest {$sender->email}"), $log, $ticket);
     }
@@ -150,12 +155,12 @@ class InboundMail
      */
     private function clientFor(string $from, ?Ticket $named): ?Client
     {
-        $client = Client::whereRaw('lower(email) = ?', [$from])->first();
+        $client = Client::whereRaw(self::SAME_EMAIL, [$from])->first();
         if ($client !== null) {
             return $client;
         }
 
-        $clientIds = ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->distinct()->pluck('client_id');
+        $clientIds = ClientContact::where('support_emails', true)->whereRaw(self::SAME_EMAIL, [$from])->distinct()->pluck('client_id');
         $ticketClient = $named?->client_id;
 
         return match (true) {
@@ -216,7 +221,7 @@ class InboundMail
     private function isOwnAddress(string $from): bool
     {
         return strcasecmp($from, (string) config('mail.from.address')) === 0
-            || Department::whereNotNull('email')->whereRaw('lower(email) = ?', [$from])->exists();
+            || Department::whereNotNull('email')->whereRaw(self::SAME_EMAIL, [$from])->exists();
     }
 
     private function departmentFor(IMessage $message): ?Department

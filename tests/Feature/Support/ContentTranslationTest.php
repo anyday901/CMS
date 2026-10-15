@@ -19,6 +19,10 @@ class ContentTranslationTest extends TestCase
 
     private const FRENCH_TITLE = 'Réinitialiser votre mot de passe';
 
+    private const TITLE = 'Reset your password';
+
+    private const GERMAN_TITLE = 'Neues Rechenzentrum';
+
     private KbArticle $article;
 
     protected function setUp(): void
@@ -26,7 +30,7 @@ class ContentTranslationTest extends TestCase
         parent::setUp();
         config(['help.main_language' => 'en', 'help.languages' => ['fr', 'de']]);
         $category = KbCategory::create(['name' => 'Accounts', 'visible' => true]);
-        $this->article = KbArticle::create(['kb_category_id' => $category->id, 'title' => 'Reset your password', 'body' => 'Click **Forgot password**.', 'tags' => 'login', 'published' => true]);
+        $this->article = KbArticle::create(['kb_category_id' => $category->id, 'title' => self::TITLE, 'body' => 'Click **Forgot password**.', 'tags' => 'login', 'published' => true]);
     }
 
     private function translate(): void
@@ -47,7 +51,7 @@ class ContentTranslationTest extends TestCase
         $translation = ContentTranslation::sole();
         $this->assertSame(['fr', 'Nouveau texte', null], [$translation->locale, $translation->body, $translation->tags]);
         // The article itself, as staff edit it, stays in the main language.
-        $this->assertSame('Reset your password', $this->article->fresh()->title);
+        $this->assertSame(self::TITLE, $this->article->fresh()->title);
 
         // Only languages offered under Settings, and only articles and announcements.
         $this->put(route('admin.translations.update', ['kb-articles', $this->article->id, 'es']), ['title' => 'x', 'body' => 'y'])->assertNotFound();
@@ -63,11 +67,11 @@ class ContentTranslationTest extends TestCase
 
         $this->get(route('kb.article', $this->article), ['Accept-Language' => self::FRENCH])
             ->assertOk()->assertSee(self::FRENCH_TITLE)->assertSee('lang="fr"', false)->assertSee('Mot de passe oublié');
-        $this->get(route('kb.article', $this->article), ['Accept-Language' => 'en-US'])->assertOk()->assertSee('Reset your password')->assertDontSee(self::FRENCH_TITLE);
+        $this->get(route('kb.article', $this->article), ['Accept-Language' => 'en-US'])->assertOk()->assertSee(self::TITLE)->assertDontSee(self::FRENCH_TITLE);
 
         // German is offered but this article isn't translated, so it shows in English.
         $this->post(route('help.language'), ['language' => 'de'])->assertRedirect();
-        $this->get(route('kb.article', $this->article), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee('Reset your password')->assertSee('lang="en"', false);
+        $this->get(route('kb.article', $this->article), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee(self::TITLE)->assertSee('lang="en"', false);
 
         $this->post(route('help.language'), ['language' => 'fr']);
         $this->get(route('kb.index'))->assertOk()->assertSee(self::FRENCH_TITLE)->assertSee('<option value="fr" lang="fr" selected>French</option>', false);
@@ -87,11 +91,11 @@ class ContentTranslationTest extends TestCase
     public function test_announcements_are_translated_and_deleting_content_removes_its_translations(): void
     {
         $announcement = Announcement::create(['title' => 'New data centre', 'body' => 'We moved.', 'published' => true, 'published_at' => now()->subDay()]);
-        $announcement->translations()->create(['locale' => 'de', 'title' => 'Neues Rechenzentrum', 'body' => 'Wir sind umgezogen.']);
+        $announcement->translations()->create(['locale' => 'de', 'title' => self::GERMAN_TITLE, 'body' => 'Wir sind umgezogen.']);
 
-        $this->get(route('announcements.index'), ['Accept-Language' => 'de-DE'])->assertOk()->assertSee('Neues Rechenzentrum');
+        $this->get(route('announcements.index'), ['Accept-Language' => 'de-DE'])->assertOk()->assertSee(self::GERMAN_TITLE);
         $this->get(route('announcements.show', $announcement), ['Accept-Language' => 'de'])->assertOk()->assertSee('Wir sind umgezogen.');
-        $this->get(route('announcements.rss'), ['Accept-Language' => 'de'])->assertOk()->assertSee('Neues Rechenzentrum');
+        $this->get(route('announcements.rss'), ['Accept-Language' => 'de'])->assertOk()->assertSee(self::GERMAN_TITLE);
 
         $announcement->delete();
         $this->assertSame(0, ContentTranslation::count());

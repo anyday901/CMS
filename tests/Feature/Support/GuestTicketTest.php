@@ -12,6 +12,7 @@ use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Tickets\InboundMail;
+use App\Tickets\Sender;
 use App\Tickets\TicketDesk;
 use App\Tickets\TicketMerger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,6 +30,8 @@ class GuestTicketTest extends TestCase
 
     private const SUBJECT = 'Do you offer Windows VPS?';
 
+    private const NAME = 'Sam Visitor';
+
     private Department $department;
 
     protected function setUp(): void
@@ -45,7 +48,7 @@ class GuestTicketTest extends TestCase
     private function submit(array $overrides = []): TestResponse
     {
         return $this->post(route('tickets.guest.store'), $overrides + [
-            'name' => 'Sam Visitor',
+            'name' => self::NAME,
             'email' => 'Sam@Visitor.example',
             'department_id' => $this->department->id,
             'priority' => 'medium',
@@ -67,7 +70,7 @@ class GuestTicketTest extends TestCase
 
         $ticket = Ticket::sole();
         $this->assertTrue($ticket->isGuest());
-        $this->assertSame(['Sam Visitor', self::GUEST], [$ticket->guest_name, $ticket->guest_email]);
+        $this->assertSame([self::NAME, self::GUEST], [$ticket->guest_name, $ticket->guest_email]);
         $this->assertSame(40, strlen($ticket->access_key));
         // Only the inbox gets the link, so whoever typed the address can't read the ticket without it.
         $response->assertDontSee($ticket->access_key);
@@ -75,7 +78,7 @@ class GuestTicketTest extends TestCase
         $message = TicketMessage::sole();
         $this->assertTrue($message->guest);
         $this->assertFalse($message->fromStaff());
-        $this->assertSame('Sam Visitor', $message->authorName());
+        $this->assertSame(self::NAME, $message->authorName());
 
         $email = EmailLog::where('template', 'ticket_opened')->sole();
         $this->assertSame([self::GUEST, null], [$email->to, $email->client_id]);
@@ -133,7 +136,7 @@ class GuestTicketTest extends TestCase
         $this->assertSame(InboundMail::OPENED, $outcome);
 
         $ticket = Ticket::sole();
-        $this->assertSame(['Sam Visitor', self::GUEST], [$ticket->guest_name, $ticket->guest_email]);
+        $this->assertSame([self::NAME, self::GUEST], [$ticket->guest_name, $ticket->guest_email]);
 
         [$outcome] = app(InboundMail::class)->handle($this->email("Re: [Ticket #{$ticket->id}] Windows"));
         $this->assertSame(InboundMail::REPLIED, $outcome);
@@ -210,9 +213,9 @@ class GuestTicketTest extends TestCase
     public function test_only_tickets_from_the_same_guest_address_can_be_merged(): void
     {
         $desk = app(TicketDesk::class);
-        $first = $desk->openForGuest('Sam', self::GUEST, $this->department, 'One', 'First');
-        $second = $desk->openForGuest('Sam', 'SAM@visitor.example', $this->department, 'Two', 'Second');
-        $other = $desk->openForGuest('Eve', 'eve@elsewhere.example', $this->department, 'Three', 'Third');
+        $first = $desk->openForGuest(new Sender(self::GUEST, 'Sam'), $this->department, 'One', 'First');
+        $second = $desk->openForGuest(new Sender('SAM@visitor.example', 'Sam'), $this->department, 'Two', 'Second');
+        $other = $desk->openForGuest(new Sender('eve@elsewhere.example', 'Eve'), $this->department, 'Three', 'Third');
         $this->actingAs(User::factory()->create(), 'web');
 
         $this->get(route('admin.tickets.show', $first))->assertSee('#'.$second->id.' Two')->assertDontSee('#'.$other->id.' Three');

@@ -32,6 +32,12 @@ class WhmcsSupportImportTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ANNOUNCEMENT = 'New data centre';
+
+    private const FEEDBACK_DATE = '2026-10-02 09:00:00';
+
+    private const GUEST_NAME = 'Sam Visitor';
+
     private ConnectionInterface $whmcs;
 
     private string $downloads;
@@ -82,8 +88,8 @@ class WhmcsSupportImportTest extends TestCase
     {
         (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
-        $this->assertSame(['Draft news', 'New data centre'], Announcement::orderBy('title')->pluck('title')->all());
-        $news = Announcement::where('title', 'New data centre')->first();
+        $this->assertSame(['Draft news', self::ANNOUNCEMENT], Announcement::orderBy('title')->pluck('title')->all());
+        $news = Announcement::where('title', self::ANNOUNCEMENT)->first();
         $this->assertTrue($news->published);
         $this->assertSame('We moved to [a new data centre](https://example.com/dc).', $news->body);
         $this->assertSame('2026-09-01 12:00', $news->published_at->format('Y-m-d H:i'));
@@ -216,9 +222,9 @@ class WhmcsSupportImportTest extends TestCase
     {
         $this->whmcs->table('tbltickets')->where('id', 60)->update(['status' => 'Closed']);
         $this->whmcs->table('tblticketfeedback')->insert([
-            ['ticketid' => 60, 'adminid' => 1, 'rating' => 9, 'comments' => 'Fast', 'datetime' => '2026-10-02 09:00:00'],
-            ['ticketid' => 60, 'adminid' => 2, 'rating' => 6, 'comments' => '', 'datetime' => '2026-10-02 09:00:00'],
-            ['ticketid' => 999, 'adminid' => 1, 'rating' => 10, 'comments' => '', 'datetime' => '2026-10-02 09:00:00'],
+            ['ticketid' => 60, 'adminid' => 1, 'rating' => 9, 'comments' => 'Fast', 'datetime' => self::FEEDBACK_DATE],
+            ['ticketid' => 60, 'adminid' => 2, 'rating' => 6, 'comments' => '', 'datetime' => self::FEEDBACK_DATE],
+            ['ticketid' => 999, 'adminid' => 1, 'rating' => 10, 'comments' => '', 'datetime' => self::FEEDBACK_DATE],
         ]);
 
         $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
@@ -234,16 +240,16 @@ class WhmcsSupportImportTest extends TestCase
     public function test_tickets_from_people_without_an_account_come_over_as_guest_tickets(): void
     {
         $this->whmcs->table('tbltickets')->insert([
-            ['id' => 62, 'tid' => '990001', 'did' => 2, 'userid' => 0, 'name' => 'Sam Visitor', 'email' => 'Sam@Visitor.example', 'date' => '2026-10-03 10:00:00', 'title' => 'Pre-sales', 'message' => 'Do you do VPS?', 'status' => 'Answered', 'urgency' => 'Low', 'admin' => '', 'lastreply' => '2026-10-03 11:00:00', 'merged_ticket_id' => 0],
+            ['id' => 62, 'tid' => '990001', 'did' => 2, 'userid' => 0, 'name' => self::GUEST_NAME, 'email' => 'Sam@Visitor.example', 'date' => '2026-10-03 10:00:00', 'title' => 'Pre-sales', 'message' => 'Do you do VPS?', 'status' => 'Answered', 'urgency' => 'Low', 'admin' => '', 'lastreply' => '2026-10-03 11:00:00', 'merged_ticket_id' => 0],
             ['id' => 63, 'tid' => '990002', 'did' => 2, 'userid' => 0, 'name' => 'Nobody', 'email' => '', 'date' => '2026-10-03 10:00:00', 'title' => 'No address', 'message' => '?', 'status' => 'Open', 'urgency' => 'Low', 'admin' => '', 'lastreply' => null, 'merged_ticket_id' => 0],
         ]);
-        $this->whmcs->table('tblticketreplies')->insert(['tid' => 62, 'userid' => 0, 'name' => 'Sam Visitor', 'date' => '2026-10-03 12:00:00', 'message' => 'Thanks!', 'admin' => '']);
+        $this->whmcs->table('tblticketreplies')->insert(['tid' => 62, 'userid' => 0, 'name' => self::GUEST_NAME, 'date' => '2026-10-03 12:00:00', 'message' => 'Thanks!', 'admin' => '']);
 
         $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
         $ticket = Ticket::find(62);
         $this->assertTrue($ticket->isGuest());
-        $this->assertSame(['Sam Visitor', 'sam@visitor.example'], [$ticket->guest_name, $ticket->guest_email]);
+        $this->assertSame([self::GUEST_NAME, 'sam@visitor.example'], [$ticket->guest_name, $ticket->guest_email]);
         $this->assertNotNull($ticket->access_key);
         $this->assertSame([true, true], $ticket->messages->pluck('guest')->all());
         $this->assertNull(Ticket::find(63));
@@ -264,7 +270,7 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertSame(['de', 'fr'], $article->translations->pluck('locale')->all());
         $french = $article->translations->firstWhere('locale', 'fr');
         $this->assertSame(['Mot de passe cPanel', 'En français', 'mot de passe'], [$french->title, $french->body, $french->tags]);
-        $this->assertSame('Neues Rechenzentrum', Announcement::where('title', 'New data centre')->sole()->translations->sole()->title);
+        $this->assertSame('Neues Rechenzentrum', Announcement::where('title', self::ANNOUNCEMENT)->sole()->translations->sole()->title);
         $this->assertSame(['en', ['de', 'fr']], [config('help.main_language'), config('help.languages')]);
         $this->assertSame(['found' => 4, 'imported' => 3, 'skipped' => 1], $report->counts()['Translations']);
 

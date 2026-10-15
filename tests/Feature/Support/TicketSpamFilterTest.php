@@ -20,6 +20,8 @@ class TicketSpamFilterTest extends TestCase
 
     private const FROM = 'Jane <jane@example.com>';
 
+    private const SPAMMY = 'Win now';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,13 +40,13 @@ class TicketSpamFilterTest extends TestCase
 
     public function test_email_the_mail_server_marked_as_spam_is_dropped_unless_that_check_is_off(): void
     {
-        [$outcome, $reason] = $this->handle('Win now', headers: "X-Spam-Flag: YES\r\n");
+        [$outcome, $reason] = $this->handle(self::SPAMMY, headers: "X-Spam-Flag: YES\r\n");
         $this->assertSame(InboundMail::SPAM, $outcome);
         $this->assertStringContainsString('mail server marked it as spam', $reason);
-        $this->assertSame(InboundMail::SPAM, $this->handle('Win now', headers: "X-Spam-Status: Yes, score=9.1\r\n")[0]);
+        $this->assertSame(InboundMail::SPAM, $this->handle(self::SPAMMY, headers: "X-Spam-Status: Yes, score=9.1\r\n")[0]);
 
         config(['tickets.spam.use_spam_headers' => false]);
-        $this->assertSame(InboundMail::OPENED, $this->handle('Win now', headers: "X-Spam-Flag: YES\r\n")[0]);
+        $this->assertSame(InboundMail::OPENED, $this->handle(self::SPAMMY, headers: "X-Spam-Flag: YES\r\n")[0]);
         $this->assertSame(1, Ticket::count());
     }
 
