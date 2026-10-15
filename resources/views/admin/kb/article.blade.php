@@ -13,7 +13,7 @@
             @csrf
             @if ($article->exists) @method('PUT') @endif
             <label class="block">Title
-                <input name="title" value="{{ old('title', $article->title) }}" required maxlength="255" placeholder="How do I point my domain at my hosting?" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <input name="title" value="{{ old('locale') ? $article->title : old('title', $article->title) }}" required maxlength="255" placeholder="How do I point my domain at my hosting?" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
             <div class="grid gap-3 sm:grid-cols-3">
                 <label class="block sm:col-span-2">Category
@@ -31,11 +31,11 @@
                 </label>
             </div>
             <label class="block">Article (Markdown)
-                <textarea name="body" rows="16" required class="mt-1 w-full rounded-md px-3 py-2 font-mono text-xs ring-1 ring-ink-300">{{ old('body', $article->body) }}</textarea>
+                <textarea name="body" rows="16" required class="mt-1 w-full rounded-md px-3 py-2 font-mono text-xs ring-1 ring-ink-300">{{ old('locale') ? $article->body : old('body', $article->body) }}</textarea>
                 <span class="text-ink-500"># Heading, **bold**, *italic*, [link](https://example.com), - list items, `code` and ``` code blocks.</span>
             </label>
             <label class="block">Tags (optional)
-                <input name="tags" value="{{ old('tags', $article->tags) }}" maxlength="255" placeholder="dns, nameservers" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <input name="tags" value="{{ old('locale') ? $article->tags : old('tags', $article->tags) }}" maxlength="255" placeholder="dns, nameservers" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 <span class="text-ink-500">Comma separated. Searches match them too.</span>
             </label>
             <label class="flex items-center gap-2"><input type="checkbox" name="published" value="1" @checked(old('published', $article->published))> Published: clients can see it</label>
@@ -47,6 +47,7 @@
                 @csrf @method('DELETE')
                 <button class="rounded-full px-4 py-2 text-sm text-red-700 ring-1 ring-red-200 hover:bg-red-50">Delete article</button>
             </form>
+            @include('admin.support._translations', ['model' => $article, 'type' => 'kb-articles', 'withTags' => true])
         @endif
     @endif
 </x-admin-layout>

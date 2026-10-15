@@ -7,6 +7,7 @@ use App\Enums\TicketStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\CannedReply;
+use App\Models\Client;
 use App\Models\CustomField;
 use App\Models\Department;
 use App\Models\Ticket;
@@ -75,8 +76,9 @@ class TicketController extends Controller
             'staff' => User::orderBy('name')->get()->filter(fn (User $user) => $user->allows('manage-tickets')),
             'customFields' => $ticket->customFieldDefinitions(),
             'allTags' => TicketTag::orderBy('name')->pluck('name'),
-            // Other tickets of the client, to merge into this one.
-            'otherTickets' => $ticket->client->tickets()->listed()->whereKeyNot($ticket->id)->latest('last_reply_at')->limit(30)->get(),
+            // Other tickets of the client or guest, to merge into this one.
+            'matchingClient' => $ticket->isGuest() ? Client::whereRaw('lower(email) = ?', [strtolower((string) $ticket->guest_email)])->first() : null,
+            'otherTickets' => Ticket::fromRequesterOf($ticket)->listed()->whereKeyNot($ticket->id)->latest('last_reply_at')->limit(30)->get(),
         ]);
     }
 
@@ -118,7 +120,25 @@ class TicketController extends Controller
         return back()->with('status', 'Ticket updated.');
     }
 
-    /** Merges other tickets of the same client into this one. */
+    /** Moves a guest's ticket to a client account. */
+    public function linkClient(Request $request, Ticket $ticket): RedirectResponse
+    {
+        abort_unless($ticket->isGuest() && $ticket->merged_into_id === null, 404);
+        $data = $request->validate(['client_email' => ['required', 'email']]);
+        $client = Client::whereRaw('lower(email) = ?', [strtolower(trim($data['client_email']))])->first();
+
+        if ($client === null) {
+            return back()->withErrors(['client_email' => 'No client has that email address.'])->withInput();
+        }
+
+        $guest = $ticket->guest_email;
+        $ticket->linkToClient($client);
+        Activity::record("Moved ticket #{$ticket->id} from guest {$guest} to {$client->fullName()}", $ticket);
+
+        return redirect()->route('admin.tickets.show', $ticket)->with('status', "Ticket moved to {$client->fullName()}.");
+    }
+
+    /** Merges other tickets of the same client or guest into this one. */
     public function merge(Request $request, Ticket $ticket, TicketMerger $merger): RedirectResponse
     {
         $data = $request->validate(['tickets' => ['required', 'array', 'max:30'], 'tickets.*' => ['integer']], ['tickets.required' => 'Pick the tickets to merge into this one.']);

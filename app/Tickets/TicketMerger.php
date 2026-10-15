@@ -19,7 +19,8 @@ use InvalidArgumentException;
  * Merging moves every message of the other tickets onto one ticket and
  * closes the others, which then point at it: links, portal pages and email
  * replies to their numbers land on the merged ticket. Only tickets of the
- * same client can be merged, so nobody sees another client's messages.
+ * same client, or the same guest email address, can be merged, so nobody
+ * sees someone else's messages.
  */
 class TicketMerger
 {
@@ -36,7 +37,7 @@ class TicketMerger
 
         foreach ($others as $ticket) {
             $problem = match (true) {
-                $ticket->client_id !== $into->client_id => "#{$ticket->id} belongs to another client.",
+                ! $ticket->sameRequester($into) => "#{$ticket->id} belongs to another ".($into->isGuest() ? 'person.' : 'client.'),
                 $ticket->merged_into_id !== null => "#{$ticket->id} was already merged into #{$ticket->merged_into_id}.",
                 default => null,
             };
@@ -89,7 +90,7 @@ class TicketMerger
 
         return match (true) {
             $latest === null || $staysClosed || $ticket->status === TicketStatus::OnHold => $ticket->status,
-            ! $latest->fromStaff() => (clone $public)->whereNull('client_id')->exists() ? TicketStatus::CustomerReply : TicketStatus::Open,
+            ! $latest->fromStaff() => (clone $public)->whereNull('client_id')->where('guest', false)->exists() ? TicketStatus::CustomerReply : TicketStatus::Open,
             default => TicketStatus::Answered,
         };
     }
@@ -124,6 +125,8 @@ class TicketMerger
 
             $ticket = Ticket::create([
                 'client_id' => $from->client_id,
+                'guest_name' => $from->guest_name,
+                'guest_email' => $from->guest_email,
                 'department_id' => $attributes['department_id'],
                 'subject' => Str::limit(trim($attributes['subject']), 250, ''),
                 'priority' => $attributes['priority'],

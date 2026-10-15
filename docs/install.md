@@ -245,7 +245,7 @@ Keep `.env` somewhere safe too: without `APP_KEY` you can't read encrypted data 
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies clients and their contacts, products with prices and configurable options, custom fields, services, invoices, payments and refunds, credit balances, ticket departments, custom fields, tags, tickets and replies, the knowledge base, announcements, network issues, downloads and escalation rules from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers don't change. Staff accounts are not copied: create them with `php artisan admin:create`.
+`php artisan whmcs:import` copies clients and their contacts, products with prices and configurable options, custom fields, services, invoices, payments and refunds, credit balances, admins as staff accounts, ticket departments, custom fields, tags, tickets (guest tickets too), replies and feedback ratings, the knowledge base and announcements with their translations, network issues, downloads and escalation rules from a WHMCS database. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers don't change. WHMCS admins become staff accounts with their WHMCS passwords, except disabled admins and any whose email already has a staff account here; check their roles under **Staff** afterwards.
 
 Steps 2 to 4 can also be done in the admin area under **Settings > Import from WHMCS**, a walkthrough that connects to the WHMCS database (from `.env` or details you type in), runs the dry run, shows the report and then imports. The command line is more reliable for very large installs, since a browser request can time out behind a proxy.
 

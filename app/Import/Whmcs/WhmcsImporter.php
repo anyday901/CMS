@@ -20,9 +20,10 @@ use Throwable;
  * Copies a WHMCS database into this app: servers and server groups, clients
  * and their contacts, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
- * transactions, ticket departments, custom fields, tags, tickets and
- * replies, and the knowledge base, announcements, network issues, downloads
- * and escalation rules.
+ * transactions, admins as staff, ticket departments, custom fields, tags,
+ * tickets (guest tickets too), replies and feedback ratings, and the
+ * knowledge base and announcements with their translations, network
+ * issues, downloads and escalation rules.
  *
  * Clients, services, invoices and tickets keep their WHMCS ids, so invoice and
  * ticket numbers stay the same. That is why the import needs an empty install.
@@ -132,9 +133,11 @@ class WhmcsImporter
         $this->importServiceOptions();
         $this->importInvoices();
         $this->importTransactions();
-        $this->tickets = new TicketImporter($this->run, $this->clients, $this->attachmentsPath);
+        $staff = new StaffImporter($this->run);
+        $staff->import();
+        $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
         $this->tickets->import();
-        $this->support = new SupportImporter($this->run, $this->servers, $this->tickets->departments(), $this->catalog->products, $this->downloadsPath);
+        $this->support = new SupportImporter($this->run, $this->servers, $staff, $this->tickets->departments(), $this->catalog->products, $this->downloadsPath);
         $this->support->import();
         $this->reportNotImported();
     }

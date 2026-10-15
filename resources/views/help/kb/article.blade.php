@@ -6,7 +6,7 @@
         › <a href="{{ route('kb.category', $article->category) }}" class="text-brand-600">{{ $article->category->name }}</a>
     </p>
     <div class="grid gap-6 lg:grid-cols-3">
-        <article class="rounded-lg border border-ink-200 bg-white p-6 lg:col-span-2">
+        <article lang="{{ $article->shownLanguage() }}" class="rounded-lg border border-ink-200 bg-white p-6 lg:col-span-2">
             <h1 class="mb-1 text-2xl font-semibold">{{ $article->title }}</h1>
             <p class="mb-5 text-sm text-ink-500">Updated {{ $article->updated_at->format('M j, Y') }}</p>
             <div class="prose-content text-sm">{!! App\Support\Markdown::html($article->body) !!}</div>
@@ -43,7 +43,7 @@
             @endif
             <div class="rounded-lg border border-ink-200 bg-white p-4">
                 <h2 class="mb-1 font-semibold">Still need help?</h2>
-                <p class="text-ink-600"><a href="{{ route('portal.tickets.create') }}" class="text-brand-600">Open a ticket</a> and our team will get back to you.</p>
+                <p class="text-ink-600"><a href="{{ route('tickets.guest.create') }}" class="text-brand-600">Open a ticket</a> and our team will get back to you.</p>
             </div>
         </aside>
     </div>

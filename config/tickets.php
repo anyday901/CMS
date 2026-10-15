@@ -25,4 +25,27 @@ return [
     'holidays' => [],
 
     'timezone' => env('TICKETS_TIMEZONE', 'UTC'),
+
+    /*
+     * Let people without a client account open tickets, by emailing a
+     * department or with the contact form. They follow their ticket through
+     * a private link they're emailed. Can be changed under Settings.
+     */
+    'guest_tickets' => (bool) env('TICKETS_GUEST_TICKETS', false),
+
+    /*
+     * The spam filter for piped ticket email (and the contact form). All of
+     * it can be changed under Settings.
+     */
+    'spam' => [
+        // Drop email a spam checker on the mail server (SpamAssassin, Rspamd) marked as spam.
+        'use_spam_headers' => true,
+        // Addresses (jane@example.com) or whole domains (@example.com) whose email is dropped.
+        'blocked_senders' => [],
+        // Words or phrases that drop an email when they're in its subject, or in its message.
+        'blocked_subjects' => [],
+        'blocked_phrases' => [],
+        // New tickets one address can open by email in an hour; blank for no limit.
+        'new_tickets_per_hour' => 10,
+    ],
 ];

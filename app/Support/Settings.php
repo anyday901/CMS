@@ -30,13 +30,23 @@ class Settings
         'tickets.business_hours',
         'tickets.holidays',
         'tickets.timezone',
+        'tickets.guest_tickets',
+        'tickets.spam.use_spam_headers',
+        'tickets.spam.blocked_senders',
+        'tickets.spam.blocked_subjects',
+        'tickets.spam.blocked_phrases',
+        'tickets.spam.new_tickets_per_hour',
+        'help.main_language',
+        'help.languages',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders'];
+    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers'];
 
     /** Saved as JSON, read back as arrays. */
-    private const ARRAYS = ['tickets.business_hours', 'tickets.holidays'];
+    private const ARRAYS = [
+        'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages',
+    ];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

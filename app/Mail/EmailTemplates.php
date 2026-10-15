@@ -90,7 +90,7 @@ class EmailTemplates
             ],
             'ticket_opened' => [
                 'name' => 'Ticket received',
-                'description' => 'Sent when a client opens a ticket, in the portal or by email.',
+                'description' => 'Sent when a client opens a ticket, in the portal or by email, and when someone without an account does (with their private link to the ticket).',
                 'subject' => self::TICKET_SUBJECT,
                 'body' => "Hello {client_first_name},\n\nWe've received your request and will get back to you soon. You can reply to this email to add to it.\n\n[View the ticket]({ticket_url})\n\n{company_name}",
                 'contacts' => 'support_emails',

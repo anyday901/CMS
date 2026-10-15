@@ -144,10 +144,12 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Auto-close inactive answered tickets
 - [x] Merge and split tickets, and ticket tags
 - [x] Ticket feedback ratings
-- [ ] Tickets from non-clients (guest tickets by email or form)
-- [ ] Spam filtering for inbound ticket email
-- [ ] Import WHMCS ticket feedback ratings and staff (admins), so imported escalation rules can be matched to everyone
-- [ ] Translations of knowledge base articles and announcements (the WHMCS import brings the main language only)
+- [x] Tickets from non-clients (guest tickets by email or form)
+- [x] Spam filtering for inbound ticket email
+- [x] Import WHMCS ticket feedback ratings and staff (admins), so imported escalation rules can be matched to everyone
+- [x] Translations of knowledge base articles and announcements (the WHMCS import brings the main language only)
+- [ ] Translations of knowledge base category names (the WHMCS import keeps the main language's)
+- [ ] Map WHMCS admin role permissions to custom staff permissions (the import picks the closest built-in role)
 
 ## Milestone 10: Clients, security and staff
 - [ ] Two-factor authentication (TOTP) for clients and staff

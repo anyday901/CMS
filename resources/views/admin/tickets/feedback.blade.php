@@ -60,7 +60,7 @@
                         <tr class="align-top">
                             <td class="px-4 py-2"><x-rating :value="$item->rating" /></td>
                             <td class="px-4 py-2"><a href="{{ route('admin.tickets.show', $item->ticket) }}" class="text-brand-600">#{{ $item->ticket_id }} {{ $item->ticket->subject }}</a><div class="text-ink-500">{{ $item->ticket->department->name }}</div></td>
-                            <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $item->client) }}" class="text-brand-600">{{ $item->client->fullName() }}</a></td>
+                            <td class="px-4 py-2">@include('admin.tickets._requester', ['ticket' => $item->ticket])</td>
                             <td class="max-w-md whitespace-pre-line px-4 py-2">{{ $item->comment ?? '—' }}</td>
                             <td class="whitespace-nowrap px-4 py-2">{{ $item->created_at->format('M j, Y') }}</td>
                         </tr>

@@ -3,17 +3,21 @@
 namespace App\Import\Whmcs;
 
 use App\Enums\TicketPriority;
+use App\Models\Announcement;
+use App\Models\KbArticle;
 use App\Models\NetworkIssue;
+use App\Support\Language;
+use App\Support\Settings;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * The support content around tickets: the knowledge base, announcements,
- * network issues, downloads (with their files, from a copy of WHMCS's
- * downloads folder) and ticket escalation rules. Translations are left out;
- * articles and announcements come over in WHMCS's main language.
+ * The support content around tickets: the knowledge base, announcements
+ * (both with their translations), network issues, downloads (with their
+ * files, from a copy of WHMCS's downloads folder) and ticket escalation
+ * rules.
  */
 class SupportImporter
 {
@@ -31,8 +35,19 @@ class SupportImporter
 
     private const ESCALATIONS = 'Escalation rules';
 
+    private const TRANSLATIONS = 'Translations';
+
     /** @var list<string> download files copied in, removed again if the import fails */
     private array $copied = [];
+
+    /** @var array<string, true> languages translations were imported in */
+    private array $languages = [];
+
+    /** The language articles are written in: WHMCS's default, unless one was already picked here. */
+    private string $main;
+
+    /** @var array<string, true> "type|id|locale" of the translations imported */
+    private array $translated = [];
 
     /**
      * @param  array<int, int>  $departments  WHMCS department id => local department id
@@ -41,6 +56,7 @@ class SupportImporter
     public function __construct(
         private ImportRun $run,
         private ServerImporter $servers,
+        private StaffImporter $staff,
         private array $departments,
         private array $products,
         private ?string $downloadsPath = null,
@@ -48,11 +64,13 @@ class SupportImporter
 
     public function import(): void
     {
+        $this->main = $this->mainLanguage();
         $this->importKnowledgebase();
         $this->importAnnouncements();
         $this->importNetworkIssues();
         $this->importDownloads();
         $this->importEscalations();
+        $this->offerLanguages();
     }
 
     public function removeCopiedFiles(): void
@@ -74,11 +92,26 @@ class SupportImporter
             ? $this->run->table('tblknowledgebasetags')->orderBy('id')->get()->groupBy(fn ($tag) => (int) $tag->articleid)
             : collect();
 
+        $articles = [];
+        $translations = [];
+
         foreach ($this->run->table('tblknowledgebase')->orderBy('id')->cursor() as $row) {
-            if ($this->original($row, 'parentid')) {
-                $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
-                $this->importKbArticle($row, $categoryIds, $tags->get((int) $row->id, collect()));
+            if (! $this->original($row, 'parentid')) {
+                $translations[] = $row;
+
+                continue;
             }
+
+            $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
+            $id = $this->importKbArticle($row, $categoryIds, $tags->get((int) $row->id, collect()));
+
+            if ($id !== null) {
+                $articles[(int) $row->id] = $id;
+            }
+        }
+
+        foreach ($translations as $row) {
+            $this->importTranslation(KbArticle::class, $articles, $row, 'title', 'article', $tags->get((int) $row->id, collect()));
         }
     }
 
@@ -121,7 +154,7 @@ class SupportImporter
      * @param  Collection<int, int>  $categoryIds
      * @param  Collection<int, object>  $tags
      */
-    private function importKbArticle(object $row, Collection $categoryIds, Collection $tags): void
+    private function importKbArticle(object $row, Collection $categoryIds, Collection $tags): ?int
     {
         $this->run->report->found(self::KB_ARTICLES);
         $title = Whmcs::text($row->title);
@@ -129,7 +162,7 @@ class SupportImporter
         if ($categoryIds->isEmpty()) {
             $this->run->report->skipped(self::KB_ARTICLES, "\"{$title}\" isn't in a category that was imported.");
 
-            return;
+            return null;
         }
 
         if ($categoryIds->count() > 1) {
@@ -144,7 +177,7 @@ class SupportImporter
         $votes = (int) ($row->votes ?? 0);
         $useful = min((int) ($row->useful ?? 0), $votes);
 
-        DB::table('kb_articles')->insert([
+        $id = DB::table('kb_articles')->insertGetId([
             'kb_category_id' => $categoryIds->first(),
             'title' => Str::limit($title, 250, '') ?: 'Untitled',
             'body' => HtmlToMarkdown::convert($row->article ?? '') ?: '(No text.)',
@@ -158,6 +191,8 @@ class SupportImporter
             'updated_at' => $this->run->now,
         ]);
         $this->run->report->imported(self::KB_ARTICLES);
+
+        return $id;
     }
 
     private function importAnnouncements(): void
@@ -166,15 +201,20 @@ class SupportImporter
             return;
         }
 
+        $announcements = [];
+        $translations = [];
+
         foreach ($this->run->table('tblannouncements')->orderBy('id')->cursor() as $row) {
             if (! $this->original($row, 'parentid')) {
+                $translations[] = $row;
+
                 continue;
             }
 
             $this->run->report->found(self::ANNOUNCEMENTS);
             $date = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
 
-            DB::table('announcements')->insert([
+            $announcements[(int) $row->id] = DB::table('announcements')->insertGetId([
                 'title' => Whmcs::short($row->title) ?? 'Untitled',
                 'body' => HtmlToMarkdown::convert($row->announcement ?? '') ?: '(No text.)',
                 'published' => Whmcs::on($row->published ?? ''),
@@ -183,6 +223,95 @@ class SupportImporter
                 'updated_at' => $this->run->now,
             ]);
             $this->run->report->imported(self::ANNOUNCEMENTS);
+        }
+
+        foreach ($translations as $row) {
+            $this->importTranslation(Announcement::class, $announcements, $row, 'title', 'announcement');
+        }
+    }
+
+    /**
+     * A WHMCS translation of an article or announcement: a row of its own
+     * that names the original as its parent, in a language WHMCS names after
+     * its language files ("french").
+     *
+     * @param  class-string<KbArticle|Announcement>  $class
+     * @param  array<int, int>  $originals  WHMCS id => imported id
+     * @param  Collection<int, object>|null  $tags
+     */
+    private function importTranslation(string $class, array $originals, object $row, string $titleColumn, string $bodyColumn, ?Collection $tags = null): void
+    {
+        $this->run->report->found(self::TRANSLATIONS);
+        $title = Whmcs::text($row->{$titleColumn});
+        $language = trim((string) ($row->language ?? ''));
+        $locale = Language::fromWhmcs($language);
+        $noun = $class === KbArticle::class ? 'article' : 'announcement';
+
+        $problem = match (true) {
+            ! isset($originals[(int) $row->parentid]) => "the {$noun} it translates wasn't imported",
+            $locale === null => "WHMCS's language \"{$language}\" has no language code here",
+            $locale === $this->main => "it's in the main language, ".Language::name($locale),
+            default => null,
+        };
+
+        if ($problem !== null) {
+            $this->run->report->skipped(self::TRANSLATIONS, "\"{$title}\" ({$language}) was left out: {$problem}.");
+
+            return;
+        }
+
+        $model = new $class;
+        $key = [$model->getMorphClass(), $originals[(int) $row->parentid], $locale];
+
+        // WHMCS can hold two translations into one language; the first wins.
+        if (isset($this->translated[implode('|', $key)])) {
+            $this->run->report->skipped(self::TRANSLATIONS, "\"{$title}\" is a second ".Language::name($locale)." translation of one {$noun}, so it was left out.");
+
+            return;
+        }
+
+        DB::table('content_translations')->insert([
+            'translatable_type' => $key[0],
+            'translatable_id' => $key[1],
+            'locale' => $locale,
+            'title' => Str::limit($title, 250, '') ?: 'Untitled',
+            'body' => HtmlToMarkdown::convert($row->{$bodyColumn} ?? '') ?: '(No text.)',
+            'tags' => $tags === null ? null : (Str::limit($tags->map(fn ($tag) => Whmcs::text($tag->tag))->filter()->unique()->join(', '), 250, '') ?: null),
+            'created_at' => $this->run->now,
+            'updated_at' => $this->run->now,
+        ]);
+        $this->translated[implode('|', $key)] = true;
+        $this->languages[$locale] = true;
+        $this->run->report->imported(self::TRANSLATIONS);
+    }
+
+    /** WHMCS's default language, unless this install already has a main language under Settings. */
+    private function mainLanguage(): string
+    {
+        $whmcs = Language::fromWhmcs((string) $this->run->setting('Language'));
+        $picked = DB::table('settings')->where('key', 'help.main_language')->exists();
+
+        return $whmcs !== null && ! $picked ? $whmcs : Language::main();
+    }
+
+    /** Saves the main language and the languages translations came in under Settings, so visitors see them. */
+    private function offerLanguages(): void
+    {
+        $changed = $this->main !== Language::main();
+
+        if ($changed) {
+            $this->run->report->note(self::TRANSLATIONS, 'The main language is now '.Language::name($this->main).', WHMCS\'s default language. Change it under Settings if articles are written in another one.');
+        }
+
+        if ($this->languages !== []) {
+            $this->run->report->note(self::TRANSLATIONS, 'Translations came over in '.collect(array_keys($this->languages))->map(fn (string $code) => Language::name($code))->join(', ', ' and ').', and visitors can now pick those languages. Knowledge base categories keep their main language names.');
+        }
+
+        if (! $this->run->report->dryRun && ($changed || $this->languages !== [])) {
+            Settings::save([
+                'help.main_language' => $this->main,
+                'help.languages' => array_values(array_diff(Language::list([...Language::others(), ...array_keys($this->languages)]), [$this->main])),
+            ]);
         }
     }
 
@@ -353,13 +482,7 @@ class SupportImporter
             return;
         }
 
-        $admins = $this->run->hasTables('tbladmins') ? $this->run->table('tbladmins')->get()->keyBy(fn ($admin) => (int) $admin->id) : collect();
-        $users = DB::table('users')->pluck('id', 'email')->mapWithKeys(fn ($id, $email) => [strtolower($email) => $id]);
-        $staff = function (mixed $adminId) use ($admins, $users): ?int {
-            $email = strtolower(trim((string) ($admins->get((int) $adminId)->email ?? '')));
-
-            return $email === '' ? null : ($users[$email] ?? null);
-        };
+        $staff = fn (mixed $adminId): ?int => $this->staff->userId($adminId);
 
         foreach ($this->run->table('tblticketescalations')->orderBy('id')->cursor() as $row) {
             $this->run->report->found(self::ESCALATIONS);
@@ -424,7 +547,7 @@ class SupportImporter
         $flagTo = (int) ($row->flagto ?? 0);
         $assignTo = $flagTo > 0 ? $staff($flagTo) : null;
         if ($flagTo > 0 && $assignTo === null) {
-            $notes[] = "it assigned tickets to WHMCS admin {$flagTo}, who has no staff account here with the same email";
+            $notes[] = "it assigned tickets to WHMCS admin {$flagTo}, who wasn't imported (disabled, or no email address)";
         }
 
         $notify = self::list($row->notify ?? '');

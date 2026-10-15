@@ -13,7 +13,7 @@ use Illuminate\View\View;
 class KnowledgebaseController extends Controller
 {
     /** The public help pages, which the portal's Support menu item covers. */
-    public const HELP_ROUTES = ['kb.*', 'announcements.*', 'network.*', 'downloads.*'];
+    public const HELP_ROUTES = ['kb.*', 'announcements.*', 'network.*', 'downloads.*', 'tickets.guest.*'];
 
     public function index(Request $request): View
     {
@@ -21,12 +21,12 @@ class KnowledgebaseController extends Controller
 
         return view('help.kb.index', [
             'search' => $search,
-            'results' => $search === '' ? null : KbArticle::visible()->search($search)->with('category')->ordered()->paginate(20)->withQueryString(),
+            'results' => $search === '' ? null : KbArticle::visible()->search($search)->with('category')->translated()->ordered()->paginate(20)->withQueryString(),
             'categories' => KbCategory::visible()->whereNull('parent_id')->ordered()
                 ->withCount(['articles' => fn ($query) => $query->where('published', true)])
                 ->with(['children' => fn ($query) => $query->where('visible', true)])
                 ->get(),
-            'popular' => KbArticle::visible()->orderByDesc('views')->orderBy('title')->limit(5)->get(),
+            'popular' => KbArticle::visible()->translated()->orderByDesc('views')->orderBy('title')->limit(5)->get(),
         ]);
     }
 
@@ -37,7 +37,7 @@ class KnowledgebaseController extends Controller
         return view('help.kb.category', [
             'category' => $category,
             'children' => $category->children()->where('visible', true)->withCount(['articles' => fn ($query) => $query->where('published', true)])->get(),
-            'articles' => $category->articles()->where('published', true)->get(),
+            'articles' => $category->articles()->where('published', true)->translated()->get(),
         ]);
     }
 
@@ -52,9 +52,9 @@ class KnowledgebaseController extends Controller
         }
 
         return view('help.kb.article', [
-            'article' => $article,
+            'article' => $article->loadTranslation(),
             'voted' => $request->session()->has("kb_voted.{$article->id}"),
-            'related' => KbArticle::visible()->where('kb_category_id', $article->kb_category_id)->whereKeyNot($article->id)->ordered()->limit(5)->get(),
+            'related' => KbArticle::visible()->where('kb_category_id', $article->kb_category_id)->whereKeyNot($article->id)->translated()->ordered()->limit(5)->get(),
         ]);
     }
 
