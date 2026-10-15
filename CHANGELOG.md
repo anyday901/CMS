@@ -204,6 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/` redirects to the client portal; staff use `/admin`. The default Laravel welcome page is removed.
 
 ### Fixed
+- SonarCloud's upload size alert on downloads: the 7.5 MB limit is written out in the validation rule so the scanner can read it. The limit itself is unchanged.
 - Article and announcement previews show characters such as `>` and `&` as typed, rather than as `&gt;` and `&amp;`.
 - Admin client search box and product price fields now have labels, so screen readers announce them.
 
