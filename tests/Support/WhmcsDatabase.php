@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WhmcsDatabase
 {
+    private const OPENED_AT = '2026-10-10 09:00:00';
+
     public const CONNECTION = 'whmcs';
 
     /** WHMCS's cc_encryption_hash, which stored passwords are encrypted with. */
@@ -426,7 +428,7 @@ class WhmcsDatabase
         ]);
 
         $db->table('tblnetworkissues')->insert([
-            ['title' => 'cp1 reboot', 'description' => 'Kernel update', 'type' => 'Server', 'affecting' => '', 'server' => 1, 'priority' => 'High', 'startdate' => '2026-10-20 02:00:00', 'enddate' => null, 'status' => 'Scheduled', 'lastupdate' => '2026-10-10 09:00:00'],
+            ['title' => 'cp1 reboot', 'description' => 'Kernel update', 'type' => 'Server', 'affecting' => '', 'server' => 1, 'priority' => 'High', 'startdate' => '2026-10-20 02:00:00', 'enddate' => null, 'status' => 'Scheduled', 'lastupdate' => self::OPENED_AT],
             ['title' => 'Email delays', 'description' => 'Queue backed up', 'type' => 'System', 'affecting' => 'Email', 'server' => 0, 'priority' => 'Critical', 'startdate' => '2026-09-10 08:00:00', 'enddate' => null, 'status' => 'Resolved', 'lastupdate' => '2026-09-10 10:00:00'],
         ]);
 
@@ -490,11 +492,11 @@ class WhmcsDatabase
 
         // Paid last month, with a PayPal payment.
         $db->table('tblinvoices')->insert([
-            'id' => 100, 'userid' => 7, 'date' => '2026-10-08', 'duedate' => '2026-10-15', 'datepaid' => '2026-10-10 09:00:00',
+            'id' => 100, 'userid' => 7, 'date' => '2026-10-08', 'duedate' => '2026-10-15', 'datepaid' => self::OPENED_AT,
             'subtotal' => self::PRICE, 'total' => self::PRICE, 'status' => 'Paid',
         ]);
         $db->table('tblinvoiceitems')->insert(['invoiceid' => 100, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/10/2026 - 14/11/2026)', 'amount' => self::PRICE, 'taxed' => 1, 'duedate' => '2026-10-15']);
-        $db->table('tblaccounts')->insert(['id' => 500, 'userid' => 7, 'currency' => 0, 'gateway' => 'paypalcheckout', 'date' => '2026-10-10 09:00:00', 'amountin' => self::PRICE, 'fees' => '0.68', 'transid' => 'PAY-1', 'invoiceid' => 100]);
+        $db->table('tblaccounts')->insert(['id' => 500, 'userid' => 7, 'currency' => 0, 'gateway' => 'paypalcheckout', 'date' => self::OPENED_AT, 'amountin' => self::PRICE, 'fees' => '0.68', 'transid' => 'PAY-1', 'invoiceid' => 100]);
 
         // This month's renewal, unpaid, with part paid from credit.
         $db->table('tblinvoices')->insert([

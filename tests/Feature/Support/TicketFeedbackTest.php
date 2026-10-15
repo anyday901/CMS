@@ -19,6 +19,10 @@ class TicketFeedbackTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const FEEDBACK_PROMPT = 'How did we do?';
+
+    private const COMMENT = 'Quick fix, thanks';
+
     private Department $department;
 
     private Client $client;
@@ -60,18 +64,18 @@ class TicketFeedbackTest extends TestCase
         $this->assertSame("How did we do with ticket #{$ticket->id}?", $log->subject);
         $this->assertStringContainsString(route('portal.tickets.show', $ticket).'#feedback', $log->body);
 
-        $this->actingAs($this->client, 'client')->get(route('portal.tickets.show', $ticket))->assertOk()->assertSee('How did we do?');
-        $this->post(route('portal.tickets.feedback', $ticket), ['rating' => 4, 'comment' => 'Quick fix, thanks'])->assertRedirect(route('portal.tickets.show', $ticket));
+        $this->actingAs($this->client, 'client')->get(route('portal.tickets.show', $ticket))->assertOk()->assertSee(self::FEEDBACK_PROMPT);
+        $this->post(route('portal.tickets.feedback', $ticket), ['rating' => 4, 'comment' => self::COMMENT])->assertRedirect(route('portal.tickets.show', $ticket));
 
         $feedback = TicketFeedback::sole();
-        $this->assertSame([4, 'Quick fix, thanks', $this->client->id], [$feedback->rating, $feedback->comment, $feedback->client_id]);
-        $this->get(route('portal.tickets.show', $ticket))->assertSee('Your feedback')->assertDontSee('How did we do?');
+        $this->assertSame([4, self::COMMENT, $this->client->id], [$feedback->rating, $feedback->comment, $feedback->client_id]);
+        $this->get(route('portal.tickets.show', $ticket))->assertSee('Your feedback')->assertDontSee(self::FEEDBACK_PROMPT);
 
         // Once per ticket.
         $this->post(route('portal.tickets.feedback', $ticket), ['rating' => 1])->assertForbidden();
         $this->assertSame(1, TicketFeedback::count());
 
-        $this->actingAs($this->staff, 'web')->get(route('admin.tickets.show', $ticket))->assertSee('Client feedback')->assertSee('Quick fix, thanks');
+        $this->actingAs($this->staff, 'web')->get(route('admin.tickets.show', $ticket))->assertSee('Client feedback')->assertSee(self::COMMENT);
     }
 
     public function test_only_closed_tickets_in_departments_that_ask_can_be_rated(): void
@@ -82,7 +86,7 @@ class TicketFeedbackTest extends TestCase
         $this->department->update(['feedback_requests' => false]);
         $this->close($ticket);
         $this->assertSame(0, EmailLog::where('template', 'ticket_feedback')->count());
-        $this->actingAs($this->client, 'client')->get(route('portal.tickets.show', $ticket))->assertDontSee('How did we do?');
+        $this->actingAs($this->client, 'client')->get(route('portal.tickets.show', $ticket))->assertDontSee(self::FEEDBACK_PROMPT);
         $this->post(route('portal.tickets.feedback', $ticket), ['rating' => 5])->assertForbidden();
     }
 
@@ -93,7 +97,7 @@ class TicketFeedbackTest extends TestCase
         $this->actingAs($this->client, 'client')->post(route('portal.tickets.close', $ticket))->assertRedirect();
         $this->assertSame(TicketStatus::Closed, $ticket->fresh()->status);
         $this->assertSame(0, EmailLog::where('template', 'ticket_feedback')->count());
-        $this->get(route('portal.tickets.show', $ticket))->assertSee('How did we do?');
+        $this->get(route('portal.tickets.show', $ticket))->assertSee(self::FEEDBACK_PROMPT);
         $this->post(route('portal.tickets.feedback', $ticket), ['rating' => 6])->assertSessionHasErrors('rating');
     }
 

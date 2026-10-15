@@ -68,14 +68,33 @@ class SupportImporter
             return;
         }
 
+        $categories = $this->importKbCategories();
+        $links = $this->run->table('tblknowledgebaselinks')->orderBy('id')->get()->groupBy(fn ($link) => (int) $link->articleid);
+        $tags = $this->run->hasTables('tblknowledgebasetags')
+            ? $this->run->table('tblknowledgebasetags')->orderBy('id')->get()->groupBy(fn ($tag) => (int) $tag->articleid)
+            : collect();
+
+        foreach ($this->run->table('tblknowledgebase')->orderBy('id')->cursor() as $row) {
+            if ($this->original($row, 'parentid')) {
+                $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
+                $this->importKbArticle($row, $categoryIds, $tags->get((int) $row->id, collect()));
+            }
+        }
+    }
+
+    /**
+     * Categories go one level deep here, so deeper ones move up under their top-level category.
+     *
+     * @return array<int, int> new category ids by WHMCS id
+     */
+    private function importKbCategories(): array
+    {
         $rows = $this->run->table('tblknowledgebasecats')->orderBy('id')->get()->filter(fn ($row) => $this->original($row, 'catid'));
         $byId = $rows->keyBy(fn ($row) => (int) $row->id);
         $categories = [];
 
-        // Parents before children. Categories here go one level deep, so deeper ones move up under their top-level category.
-        $depth = fn ($row) => (int) $row->parentid > 0 && $byId->has((int) $row->parentid) ? 1 + ((int) $byId[(int) $row->parentid]->parentid > 0 ? 1 : 0) : 0;
-
-        foreach ($rows->sortBy(fn ($row) => [$depth($row), (int) $row->id]) as $row) {
+        // Parents before children.
+        foreach ($rows->sortBy(fn ($row) => [$this->topParent($byId, (int) $row->parentid) === null ? 0 : 1, (int) $row->id]) as $row) {
             $this->run->report->found(self::KB_CATEGORIES);
             $parent = $this->topParent($byId, (int) $row->parentid);
 
@@ -84,7 +103,7 @@ class SupportImporter
             }
 
             $categories[(int) $row->id] = DB::table('kb_categories')->insertGetId([
-                'parent_id' => $parent !== null ? ($categories[$parent] ?? null) : null,
+                'parent_id' => $parent === null ? null : ($categories[$parent] ?? null),
                 'name' => Whmcs::short($row->name) ?? 'Untitled',
                 'description' => Whmcs::text($row->description ?? '') ?: null,
                 'visible' => ! Whmcs::on($row->hidden ?? ''),
@@ -95,52 +114,50 @@ class SupportImporter
             $this->run->report->imported(self::KB_CATEGORIES);
         }
 
-        $links = $this->run->table('tblknowledgebaselinks')->orderBy('id')->get()->groupBy(fn ($link) => (int) $link->articleid);
-        $tags = $this->run->hasTables('tblknowledgebasetags')
-            ? $this->run->table('tblknowledgebasetags')->orderBy('id')->get()->groupBy(fn ($tag) => (int) $tag->articleid)
-            : collect();
+        return $categories;
+    }
 
-        foreach ($this->run->table('tblknowledgebase')->orderBy('id')->cursor() as $row) {
-            if (! $this->original($row, 'parentid')) {
-                continue;
-            }
+    /**
+     * @param  Collection<int, int>  $categoryIds
+     * @param  Collection<int, object>  $tags
+     */
+    private function importKbArticle(object $row, Collection $categoryIds, Collection $tags): void
+    {
+        $this->run->report->found(self::KB_ARTICLES);
+        $title = Whmcs::text($row->title);
 
-            $this->run->report->found(self::KB_ARTICLES);
-            $title = Whmcs::text($row->title);
-            $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
+        if ($categoryIds->isEmpty()) {
+            $this->run->report->skipped(self::KB_ARTICLES, "\"{$title}\" isn't in a category that was imported.");
 
-            if ($categoryIds->isEmpty()) {
-                $this->run->report->skipped(self::KB_ARTICLES, "\"{$title}\" isn't in a category that was imported.");
-
-                continue;
-            }
-
-            if ($categoryIds->count() > 1) {
-                $this->run->report->note(self::KB_ARTICLES, "\"{$title}\" was in {$categoryIds->count()} categories; here it's in the first one.");
-            }
-
-            if (Whmcs::on($row->private ?? '')) {
-                $this->run->report->note(self::KB_ARTICLES, "\"{$title}\" was only for logged-in clients in WHMCS. Articles here are public, so it was imported unpublished; check it before publishing.");
-            }
-
-            $votes = (int) ($row->votes ?? 0);
-            $useful = min((int) ($row->useful ?? 0), $votes);
-
-            DB::table('kb_articles')->insert([
-                'kb_category_id' => $categoryIds->first(),
-                'title' => Str::limit($title, 250, '') ?: 'Untitled',
-                'body' => self::markdown($row->article ?? '') ?: '(No text.)',
-                'tags' => Str::limit($tags->get((int) $row->id, collect())->map(fn ($tag) => Whmcs::text($tag->tag))->filter()->unique()->join(', '), 250, '') ?: null,
-                'published' => ! Whmcs::on($row->private ?? ''),
-                'sort_order' => (int) ($row->order ?? 0),
-                'views' => (int) ($row->views ?? 0),
-                'helpful' => $useful,
-                'not_helpful' => $votes - $useful,
-                'created_at' => $this->run->now,
-                'updated_at' => $this->run->now,
-            ]);
-            $this->run->report->imported(self::KB_ARTICLES);
+            return;
         }
+
+        if ($categoryIds->count() > 1) {
+            $this->run->report->note(self::KB_ARTICLES, "\"{$title}\" was in {$categoryIds->count()} categories; here it's in the first one.");
+        }
+
+        $private = Whmcs::on($row->private ?? '');
+        if ($private) {
+            $this->run->report->note(self::KB_ARTICLES, "\"{$title}\" was only for logged-in clients in WHMCS. Articles here are public, so it was imported unpublished; check it before publishing.");
+        }
+
+        $votes = (int) ($row->votes ?? 0);
+        $useful = min((int) ($row->useful ?? 0), $votes);
+
+        DB::table('kb_articles')->insert([
+            'kb_category_id' => $categoryIds->first(),
+            'title' => Str::limit($title, 250, '') ?: 'Untitled',
+            'body' => HtmlToMarkdown::convert($row->article ?? '') ?: '(No text.)',
+            'tags' => Str::limit($tags->map(fn ($tag) => Whmcs::text($tag->tag))->filter()->unique()->join(', '), 250, '') ?: null,
+            'published' => ! $private,
+            'sort_order' => (int) ($row->order ?? 0),
+            'views' => (int) ($row->views ?? 0),
+            'helpful' => $useful,
+            'not_helpful' => $votes - $useful,
+            'created_at' => $this->run->now,
+            'updated_at' => $this->run->now,
+        ]);
+        $this->run->report->imported(self::KB_ARTICLES);
     }
 
     private function importAnnouncements(): void
@@ -159,7 +176,7 @@ class SupportImporter
 
             DB::table('announcements')->insert([
                 'title' => Whmcs::short($row->title) ?? 'Untitled',
-                'body' => self::markdown($row->announcement ?? '') ?: '(No text.)',
+                'body' => HtmlToMarkdown::convert($row->announcement ?? '') ?: '(No text.)',
                 'published' => Whmcs::on($row->published ?? ''),
                 'published_at' => $date,
                 'created_at' => $date,
@@ -190,7 +207,7 @@ class SupportImporter
 
             DB::table('network_issues')->insert([
                 'title' => $title,
-                'description' => self::markdown($row->description ?? '') ?: $title,
+                'description' => HtmlToMarkdown::convert($row->description ?? '') ?: $title,
                 'server_id' => $server,
                 'affecting' => $server === null ? (Whmcs::short($row->affecting ?? '') ?? Whmcs::short($row->type ?? '')) : null,
                 'priority' => self::networkPriority($row->priority ?? ''),
@@ -349,52 +366,13 @@ class SupportImporter
             $name = Whmcs::short($row->name) ?? "Rule {$row->id}";
             $notes = [];
 
-            $departments = collect(self::list($row->departments ?? ''))->map(fn ($id) => $this->departments[(int) $id] ?? null)->filter()->unique()->values();
-            $statuses = collect(self::list($row->statuses ?? ''))->map(function (string $status) use (&$notes) {
-                $mapped = self::knownStatus($status);
-                if ($mapped === null) {
-                    $notes[] = "its status \"{$status}\" doesn't exist here and was left out";
-                }
-
-                return $mapped;
-            })->filter()->unique()->values();
-            $priorities = collect(self::list($row->priorities ?? ''))->map(fn ($priority) => Whmcs::priority($priority)->value)->unique()->values();
-
-            $assignTo = (int) ($row->flagto ?? 0) > 0 ? $staff($row->flagto) : null;
-            if ((int) ($row->flagto ?? 0) > 0 && $assignTo === null) {
-                $notes[] = "it assigned tickets to WHMCS admin {$row->flagto}, who has no staff account here with the same email";
-            }
-
-            $notify = self::list($row->notify ?? '');
-            $notifyUsers = collect($notify)->filter(fn ($value) => ctype_digit($value))->map(fn ($id) => $staff($id))->filter()->unique()->values();
-            if (array_intersect(array_map('strtolower', $notify), ['all', 'department', 'dept']) !== []) {
-                $notes[] = 'it emailed all or the department\'s admins; pick who to email on the rule';
-            }
-
-            $newStatus = filled($row->newstatus ?? null) ? self::knownStatus((string) $row->newstatus) : null;
-            if (filled($row->newstatus ?? null) && $newStatus === null) {
-                $notes[] = "it set the status \"{$row->newstatus}\", which doesn't exist here";
-            }
-
-            $newDepartment = (int) ($row->newdepartment ?? 0) > 0 ? ($this->departments[(int) $row->newdepartment] ?? null) : null;
-
             DB::table('escalation_rules')->insert([
                 'name' => $name,
                 // Off until staff check it: rules act on live tickets and email clients.
                 'active' => false,
                 'sort_order' => (int) $row->id,
-                'department_ids' => $departments->isEmpty() ? null : json_encode($departments->all()),
-                'statuses' => $statuses->isEmpty() ? null : json_encode($statuses->all()),
-                'priorities' => $priorities->isEmpty() || $priorities->count() === count(TicketPriority::cases()) ? null : json_encode($priorities->all()),
-                'minutes_since_reply' => (int) ($row->timeelapsed ?? 0) > 0 ? (int) $row->timeelapsed : null,
-                'sla_breached' => false,
-                'set_department_id' => $newDepartment,
-                'set_status' => $newStatus,
-                'set_priority' => filled($row->newpriority ?? null) ? Whmcs::priority($row->newpriority)->value : null,
-                'assign_to' => $assignTo,
-                'notify_assignee' => array_intersect(array_map('strtolower', $notify), ['assigned', 'flagged', 'flag']) !== [],
-                'notify_user_ids' => $notifyUsers->isEmpty() ? null : json_encode($notifyUsers->all()),
-                'reply' => filled($row->addreply ?? null) ? Whmcs::plain((string) $row->addreply) : null,
+                ...$this->escalationConditions($row, $notes),
+                ...$this->escalationActions($row, $staff, $notes),
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]);
@@ -402,6 +380,74 @@ class SupportImporter
             $this->run->report->note(self::ESCALATIONS, "\"{$name}\" was imported turned off, so you can check it before it acts on tickets".($notes === [] ? '.' : ': '.implode('; ', $notes).'.'));
             $this->run->report->imported(self::ESCALATIONS);
         }
+    }
+
+    /**
+     * Which tickets a WHMCS escalation rule applies to, as escalation_rules columns.
+     *
+     * @param  list<string>  $notes  what didn't come over
+     * @return array<string, mixed>
+     */
+    private function escalationConditions(object $row, array &$notes): array
+    {
+        $departments = collect(self::list($row->departments ?? ''))->map(fn ($id) => $this->departments[(int) $id] ?? null)->filter()->unique()->values();
+        $statuses = collect(self::list($row->statuses ?? ''))->map(function (string $status) use (&$notes) {
+            $mapped = self::knownStatus($status);
+            if ($mapped === null) {
+                $notes[] = "its status \"{$status}\" doesn't exist here and was left out";
+            }
+
+            return $mapped;
+        })->filter()->unique()->values();
+        $priorities = collect(self::list($row->priorities ?? ''))->map(fn ($priority) => Whmcs::priority($priority)->value)->unique()->values();
+        $allPriorities = $priorities->isEmpty() || $priorities->count() === count(TicketPriority::cases());
+        $minutes = (int) ($row->timeelapsed ?? 0);
+
+        return [
+            'department_ids' => $departments->isEmpty() ? null : json_encode($departments->all()),
+            'statuses' => $statuses->isEmpty() ? null : json_encode($statuses->all()),
+            'priorities' => $allPriorities ? null : json_encode($priorities->all()),
+            'minutes_since_reply' => $minutes > 0 ? $minutes : null,
+            'sla_breached' => false,
+        ];
+    }
+
+    /**
+     * What a WHMCS escalation rule does, as escalation_rules columns.
+     *
+     * @param  callable(mixed): ?int  $staff  the staff account for a WHMCS admin id
+     * @param  list<string>  $notes  what didn't come over
+     * @return array<string, mixed>
+     */
+    private function escalationActions(object $row, callable $staff, array &$notes): array
+    {
+        $flagTo = (int) ($row->flagto ?? 0);
+        $assignTo = $flagTo > 0 ? $staff($flagTo) : null;
+        if ($flagTo > 0 && $assignTo === null) {
+            $notes[] = "it assigned tickets to WHMCS admin {$flagTo}, who has no staff account here with the same email";
+        }
+
+        $notify = self::list($row->notify ?? '');
+        $notifyWords = array_map('strtolower', $notify);
+        $notifyUsers = collect($notify)->filter(fn ($value) => ctype_digit($value))->map(fn ($id) => $staff($id))->filter()->unique()->values();
+        if (array_intersect($notifyWords, ['all', 'department', 'dept']) !== []) {
+            $notes[] = 'it emailed all or the department\'s admins; pick who to email on the rule';
+        }
+
+        $newStatus = filled($row->newstatus ?? null) ? self::knownStatus((string) $row->newstatus) : null;
+        if (filled($row->newstatus ?? null) && $newStatus === null) {
+            $notes[] = "it set the status \"{$row->newstatus}\", which doesn't exist here";
+        }
+
+        return [
+            'set_department_id' => $this->departments[(int) ($row->newdepartment ?? 0)] ?? null,
+            'set_status' => $newStatus,
+            'set_priority' => filled($row->newpriority ?? null) ? Whmcs::priority($row->newpriority)->value : null,
+            'assign_to' => $assignTo,
+            'notify_assignee' => array_intersect($notifyWords, ['assigned', 'flagged', 'flag']) !== [],
+            'notify_user_ids' => $notifyUsers->isEmpty() ? null : json_encode($notifyUsers->all()),
+            'reply' => filled($row->addreply ?? null) ? Whmcs::plain((string) $row->addreply) : null,
+        ];
     }
 
     /** Whether a row is the original rather than a translation of another one. */
@@ -432,16 +478,6 @@ class SupportImporter
         }
 
         return null;
-    }
-
-    /** HTML from WHMCS as Markdown. Some installs keep it HTML-escaped once more. */
-    private static function markdown(string $html): string
-    {
-        if (! str_contains($html, '<') && str_contains($html, '&lt;')) {
-            $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        }
-
-        return Whmcs::markdown($html);
     }
 
     /** @return list<string> "1,2,,3" -> ["1", "2", "3"] */

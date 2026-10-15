@@ -6,17 +6,21 @@
     <p class="mb-6 max-w-3xl text-sm text-ink-600">Clients rate the support from 1 to 5 stars when a ticket is closed, in departments that ask for feedback. Turn it on for a department under <a href="{{ route('admin.departments.index') }}" class="text-brand-600">Departments</a>.</p>
 
     <form method="GET" class="mb-6 flex flex-wrap items-center gap-2 text-sm">
-        <select name="period" onchange="this.form.submit()" aria-label="Period" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
-            @foreach ($periods as $value => $label)
-                <option value="{{ $value }}" @selected($period === (string) $value)>{{ $label }}</option>
-            @endforeach
-        </select>
-        <select name="department" onchange="this.form.submit()" aria-label="Department" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
-            <option value="">All departments</option>
-            @foreach ($departments as $item)
-                <option value="{{ $item->id }}" @selected($department === $item->id)>{{ $item->name }}</option>
-            @endforeach
-        </select>
+        <label class="flex items-center gap-1.5">Period
+            <select name="period" onchange="this.form.submit()" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
+                @foreach ($periods as $value => $label)
+                    <option value="{{ $value }}" @selected($period === (string) $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="flex items-center gap-1.5">Department
+            <select name="department" onchange="this.form.submit()" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
+                <option value="">All departments</option>
+                @foreach ($departments as $item)
+                    <option value="{{ $item->id }}" @selected($department === $item->id)>{{ $item->name }}</option>
+                @endforeach
+            </select>
+        </label>
     </form>
 
     @if ($count === 0)

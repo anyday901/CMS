@@ -16,6 +16,9 @@ class EmailTemplates
     /** Placeholders every template can use. */
     public const COMMON = ['client_first_name', 'client_name', 'company_name', 'portal_url'];
 
+    /** The subject of ticket emails; the ticket number in it is how replies find their ticket. */
+    public const TICKET_SUBJECT = '[Ticket #{ticket_id}] {ticket_subject}';
+
     /** Templates that carry an invoice, and get its PDF attached when that setting is on. */
     public const INVOICE_TEMPLATES = ['invoice_created', 'order_invoice'];
 
@@ -88,7 +91,7 @@ class EmailTemplates
             'ticket_opened' => [
                 'name' => 'Ticket received',
                 'description' => 'Sent when a client opens a ticket, in the portal or by email.',
-                'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+                'subject' => self::TICKET_SUBJECT,
                 'body' => "Hello {client_first_name},\n\nWe've received your request and will get back to you soon. You can reply to this email to add to it.\n\n[View the ticket]({ticket_url})\n\n{company_name}",
                 'contacts' => 'support_emails',
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department'],
@@ -97,7 +100,7 @@ class EmailTemplates
             'ticket_reply' => [
                 'name' => 'Ticket reply',
                 'description' => 'Sent when staff reply to a ticket. Internal notes are never emailed.',
-                'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+                'subject' => self::TICKET_SUBJECT,
                 'body' => "Hello {client_first_name},\n\n{staff_name} replied to your ticket:\n\n{reply}\n\n[View the ticket]({ticket_url})\n\n{company_name}",
                 'contacts' => 'support_emails',
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department', 'staff_name', 'reply'],
@@ -106,7 +109,7 @@ class EmailTemplates
             'ticket_auto_closed' => [
                 'name' => 'Ticket closed for inactivity',
                 'description' => 'Sent when an answered ticket is closed because the client hasn\'t replied in the hours set under Settings.',
-                'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+                'subject' => self::TICKET_SUBJECT,
                 'body' => "Hello {client_first_name},\n\nWe haven't heard back from you in {inactive_hours} hours, so we've closed this ticket. If you still need help, just reply to this email or to the ticket and it will open again.\n\n[View the ticket]({ticket_url})\n\n{company_name}",
                 'contacts' => 'support_emails',
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department', 'inactive_hours'],

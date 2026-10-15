@@ -261,7 +261,12 @@ class TicketImporter
 
         foreach ($values as $value) {
             $field = $this->fields[(int) $value->fieldid] ?? null;
-            $text = $field['type'] === CustomField::CHECKBOX ? (Whmcs::on($value->value) ? '1' : '') : Whmcs::text($value->value);
+            if ($field === null) {
+                continue;
+            }
+
+            $checked = Whmcs::on($value->value) ? '1' : '';
+            $text = $field['type'] === CustomField::CHECKBOX ? $checked : Whmcs::text($value->value);
 
             if ($text !== '') {
                 $saved[$field['id']] = $text;

@@ -19,13 +19,7 @@ return [
      * business hours only. Days left out are closed. Times are in the
      * timezone below. All three can be changed under Settings.
      */
-    'business_hours' => [
-        'mon' => ['09:00', '17:00'],
-        'tue' => ['09:00', '17:00'],
-        'wed' => ['09:00', '17:00'],
-        'thu' => ['09:00', '17:00'],
-        'fri' => ['09:00', '17:00'],
-    ],
+    'business_hours' => array_fill_keys(['mon', 'tue', 'wed', 'thu', 'fri'], ['09:00', '17:00']),
 
     // Dates (YYYY-MM-DD) the business is closed all day, such as public holidays.
     'holidays' => [],

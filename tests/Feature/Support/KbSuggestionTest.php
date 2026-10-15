@@ -13,6 +13,8 @@ class KbSuggestionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PASSWORD_ARTICLE = 'Change your password';
+
     private const SUGGEST = '/portal/support/suggest';
 
     protected function setUp(): void
@@ -21,7 +23,7 @@ class KbSuggestionTest extends TestCase
         $category = KbCategory::create(['name' => 'Email']);
         $hidden = KbCategory::create(['name' => 'Internal', 'visible' => false]);
         KbArticle::create(['kb_category_id' => $category->id, 'title' => 'Set up email on your phone', 'body' => 'Use IMAP on port 993.', 'tags' => 'iphone, android']);
-        KbArticle::create(['kb_category_id' => $category->id, 'title' => 'Change your password', 'body' => 'Open settings and pick a new **password** for email.']);
+        KbArticle::create(['kb_category_id' => $category->id, 'title' => self::PASSWORD_ARTICLE, 'body' => 'Open settings and pick a new **password** for email.']);
         KbArticle::create(['kb_category_id' => $category->id, 'title' => 'Email draft', 'body' => 'Not ready', 'published' => false]);
         KbArticle::create(['kb_category_id' => $hidden->id, 'title' => 'Email server notes', 'body' => 'Staff only']);
     }
@@ -31,11 +33,11 @@ class KbSuggestionTest extends TestCase
         $this->actingAs(Client::factory()->create(), 'client');
 
         $response = $this->getJson(self::SUGGEST.'?subject='.urlencode("Can't get email working on my iPhone"))->assertOk();
-        $this->assertSame(['Set up email on your phone', 'Change your password'], array_column($response->json('articles'), 'title'));
+        $this->assertSame(['Set up email on your phone', self::PASSWORD_ARTICLE], array_column($response->json('articles'), 'title'));
         $this->assertStringContainsString('/knowledgebase/', $response->json('articles.0.url'));
 
         $this->getJson(self::SUGGEST.'?subject=the+and+for')->assertExactJson(['articles' => []]);
-        $this->getJson(self::SUGGEST.'?subject=hi&body='.urlencode('I forgot my password'))->assertJsonPath('articles.0.title', 'Change your password');
+        $this->getJson(self::SUGGEST.'?subject=hi&body='.urlencode('I forgot my password'))->assertJsonPath('articles.0.title', self::PASSWORD_ARTICLE);
     }
 
     public function test_the_new_ticket_form_asks_for_suggestions_and_guests_cannot(): void

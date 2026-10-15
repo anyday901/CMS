@@ -21,6 +21,12 @@ class TicketMergeSplitTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SITE_DOWN = 'Site down';
+
+    private const EMAIL_BROKEN = 'Email is broken';
+
+    private const WRONG_AMOUNT = 'Wrong amount';
+
     private Department $department;
 
     private Client $client;
@@ -45,7 +51,7 @@ class TicketMergeSplitTest extends TestCase
 
     public function test_staff_merge_tickets_of_the_same_client(): void
     {
-        $first = $this->open('Site down', 'My site is down');
+        $first = $this->open(self::SITE_DOWN, 'My site is down');
         $this->travel(1)->hour();
         $second = $this->open('Still down', 'Any news?');
         $second->syncTags(['outage']);
@@ -69,7 +75,7 @@ class TicketMergeSplitTest extends TestCase
 
         // The merged ticket's number leads to the ticket it went into, for staff, the client and email replies.
         $this->get(route('admin.tickets.show', $second))->assertRedirect(route('admin.tickets.show', $first));
-        $this->get('/admin/tickets?status=all')->assertSee('Site down')->assertDontSee('Still down');
+        $this->get('/admin/tickets?status=all')->assertSee(self::SITE_DOWN)->assertDontSee('Still down');
         $this->actingAs($this->client, 'client')->get(route('portal.tickets.show', $second))->assertRedirect(route('portal.tickets.show', $first));
 
         $email = "From: ada@example.com\r\nTo: support@example.com\r\nSubject: Re: [Ticket #{$second->id}] Still down\r\n\r\nThanks!\r\n";
@@ -92,7 +98,7 @@ class TicketMergeSplitTest extends TestCase
 
     public function test_staff_split_messages_into_a_new_ticket(): void
     {
-        $ticket = $this->open('Two problems', 'Email is broken');
+        $ticket = $this->open('Two problems', self::EMAIL_BROKEN);
         $this->travel(5)->minutes();
         $second = app(TicketDesk::class)->clientReply($ticket, 'Also, please change my invoice address');
         $ticket->syncTags(['vip']);
@@ -111,14 +117,14 @@ class TicketMergeSplitTest extends TestCase
         $this->assertSame(['Invoice address', TicketStatus::Open, TicketPriority::Low, $this->client->id], [$new->subject, $new->status, $new->priority, $new->client_id]);
         $this->assertSame(['Also, please change my invoice address', "Split from ticket #{$ticket->id} (Two problems)."], $new->messages->pluck('body')->all());
         $this->assertSame(['vip'], $new->tags->pluck('name')->all());
-        $this->assertSame('Email is broken', $ticket->messages()->first()->body);
+        $this->assertSame(self::EMAIL_BROKEN, $ticket->messages()->first()->body);
         $this->assertSame("Moved 1 message(s) to ticket #{$new->id} (Invoice address).", $ticket->messages()->get()->last()->body);
         $this->assertSame(1, EmailLog::where('template', 'ticket_opened')->where('ticket_id', $new->id)->count());
     }
 
     public function test_a_split_recomputes_who_the_source_ticket_waits_on(): void
     {
-        $ticket = $this->open('Two problems', 'Email is broken');
+        $ticket = $this->open('Two problems', self::EMAIL_BROKEN);
         $desk = app(TicketDesk::class);
         $desk->staffReply($ticket, $this->staff, 'Looking at email');
         $this->travel(5)->minutes();
@@ -141,7 +147,7 @@ class TicketMergeSplitTest extends TestCase
 
     public function test_internal_notes_alone_cannot_be_split_off(): void
     {
-        $ticket = $this->open('One problem', 'Email is broken');
+        $ticket = $this->open('One problem', self::EMAIL_BROKEN);
         $note = app(TicketDesk::class)->staffReply($ticket, $this->staff, 'Check the MX record', internal: true);
 
         $this->actingAs($this->staff, 'web')->post(route('admin.tickets.split', $ticket), [
@@ -155,7 +161,7 @@ class TicketMergeSplitTest extends TestCase
 
     public function test_a_split_leaves_at_least_one_message(): void
     {
-        $ticket = $this->open('One problem', 'Email is broken');
+        $ticket = $this->open('One problem', self::EMAIL_BROKEN);
         $reply = app(TicketDesk::class)->staffReply($ticket, $this->staff, 'Looking');
 
         $this->actingAs($this->staff, 'web')->post(route('admin.tickets.split', $ticket), [
@@ -176,16 +182,16 @@ class TicketMergeSplitTest extends TestCase
 
     public function test_staff_tag_tickets_and_filter_by_tag(): void
     {
-        $billing = $this->open('Wrong amount', 'Invoice is wrong');
-        $outage = $this->open('Site down', 'Down');
+        $billing = $this->open(self::WRONG_AMOUNT, 'Invoice is wrong');
+        $outage = $this->open(self::SITE_DOWN, 'Down');
 
         $this->actingAs($this->staff, 'web')->put(route('admin.tickets.update', $billing), [
             'status' => 'open', 'priority' => 'medium', 'department_id' => $this->department->id, 'tags' => ' Billing, refund ,billing,,',
         ])->assertRedirect();
         $this->assertSame(['billing', 'refund'], $billing->fresh()->tags->pluck('name')->all());
 
-        $this->get('/admin/tickets?tag=billing')->assertOk()->assertSee('Wrong amount')->assertDontSee('Site down');
-        $this->get('/admin/tickets')->assertSee('Wrong amount')->assertSee('Site down')->assertSee('refund');
+        $this->get('/admin/tickets?tag=billing')->assertOk()->assertSee(self::WRONG_AMOUNT)->assertDontSee(self::SITE_DOWN);
+        $this->get('/admin/tickets')->assertSee(self::WRONG_AMOUNT)->assertSee(self::SITE_DOWN)->assertSee('refund');
 
         // Tags no ticket uses any more are tidied away.
         $this->put(route('admin.tickets.update', $billing), ['status' => 'open', 'priority' => 'medium', 'department_id' => $this->department->id, 'tags' => 'billing']);

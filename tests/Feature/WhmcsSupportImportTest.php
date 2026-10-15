@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
-use App\Import\Whmcs\Whmcs;
+use App\Import\Whmcs\HtmlToMarkdown;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Announcement;
 use App\Models\Client;
@@ -191,7 +191,7 @@ class WhmcsSupportImportTest extends TestCase
     {
         $this->assertSame(
             "## Set up & go\n\nLog in,\\\nthen [click](https://example.com/?a=1&b=2).\n\n1. One\n1. Two\n\n```\n<dir>\n```\n\nbad",
-            Whmcs::markdown("<h2>Set up &amp; go</h2>\n    <p>Log in,<br>then <a href=\"https://example.com/?a=1&amp;b=2\">click</a>.</p><ol><li>One</li><li>Two</li></ol><pre>&lt;dir&gt;</pre><a href=\"javascript:alert(1)\">bad</a>"),
+            HtmlToMarkdown::convert("<h2>Set up &amp; go</h2>\n    <p>Log in,<br>then <a href=\"https://example.com/?a=1&amp;b=2\">click</a>.</p><ol><li>One</li><li>Two</li></ol><pre>&lt;dir&gt;</pre><a href=\"javascript:alert(1)\">bad</a>"),
         );
     }
 }
