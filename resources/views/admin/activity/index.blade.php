@@ -6,7 +6,7 @@
         <label for="activity-actor" class="sr-only">Who</label>
         <select id="activity-actor" name="actor" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300">
             <option value="">Everyone</option>
-            @foreach (['staff' => 'Staff', 'client' => 'Clients', 'system' => 'System'] as $value => $label)
+            @foreach (['staff' => 'Staff', 'client' => 'Clients', 'api' => 'API keys', 'system' => 'System'] as $value => $label)
                 <option value="{{ $value }}" @selected($actor === $value)>{{ $label }}</option>
             @endforeach
         </select>

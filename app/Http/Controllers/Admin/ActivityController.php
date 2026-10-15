@@ -20,7 +20,7 @@ class ActivityController extends Controller
                 ->where('description', 'like', "%{$search}%")
                 ->orWhere('actor_name', 'like', "%{$search}%")
                 ->orWhere('ip_address', $search)))
-            ->when(in_array($actor, ['staff', 'client', 'system'], true), fn ($query) => $query->where('actor_type', $actor))
+            ->when(in_array($actor, ['staff', 'client', 'api', 'system'], true), fn ($query) => $query->where('actor_type', $actor))
             ->latest('created_at')
             ->latest('id')
             ->paginate(50)
