@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
+use App\Events\ClientCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Models\Activity;
@@ -91,6 +92,7 @@ class ClientController extends Controller
         }
         $client->save();
         Activity::record('Created client', $client);
+        ClientCreated::dispatch($client);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
     }

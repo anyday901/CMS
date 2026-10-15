@@ -2,6 +2,9 @@
 
 namespace App\Notifications;
 
+use App\Hooks\HookCatalog;
+use App\Hooks\HookEvent;
+use App\Hooks\Hooks;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
@@ -30,6 +33,9 @@ class StaffAlert extends Notification implements ShouldQueueAfterCommit
     /** @param  iterable<User>  $staff */
     public static function sendTo(iterable $staff, string $subject, array $lines, string $actionText, string $url): void
     {
+        // Chat channels and webhooks hear about it too.
+        app(Hooks::class)->fire(new HookEvent(HookCatalog::STAFF_ALERT, ['subject' => $subject, 'lines' => array_values($lines), 'url' => $url], $subject, $url));
+
         $staff = collect($staff);
 
         if ($staff->isNotEmpty()) {

@@ -25,7 +25,7 @@ class ClientMerger
     /** Tables whose rows belong to a client and move with the merge. Credit history is summed up instead. */
     public const MOVES = [
         'services', 'invoices', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
-        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos',
+        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log',
     ];
 
     /** Tables with a client_id that don't move row by row: contacts are matched up, and credit history is summed. */
