@@ -297,24 +297,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');
-            Route::prefix('settings/security')->name('security.')->controller(Admin\SecurityController::class)->group(function () {
-                Route::get('/', 'show')->name('show');
-                Route::put('/', 'update')->name('update');
-                Route::post('bans', 'ban')->name('bans.store');
-                Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
-            });
             Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
             Route::get('settings/automation', [Admin\AutomationController::class, 'edit'])->name('automation.edit');
             Route::put('settings/automation', [Admin\AutomationController::class, 'update'])->name('automation.update');
             Route::get('settings/cron', Admin\CronController::class)->name('cron.show');
-            Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
-                Route::get('/', 'show')->name('show');
-                Route::post('connect', 'connect')->name('connect');
-                Route::post('dry-run', 'dryRun')->name('dry-run');
-                Route::post('import', 'import')->name('import');
-                Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
-                Route::delete('/', 'reset')->name('reset');
-            });
         });
     });
 });
@@ -342,4 +328,92 @@ Route::prefix('admin/account')->name('admin.account.')->middleware(['auth:web', 
 Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-staff'])->group(function () {
     Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
     Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
+});
+
+// Keys for the REST API (see docs/api.md).
+Route::prefix('admin/settings/api-keys')->name('admin.api-keys.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])
+    ->controller(Admin\ApiKeyController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('{apiKey}/edit', 'edit')->name('edit');
+        Route::put('{apiKey}', 'update')->name('update');
+        Route::post('{apiKey}/revoke', 'revoke')->name('revoke');
+        Route::delete('{apiKey}', 'destroy')->name('destroy');
+    });
+
+// Mass mail, for staff who manage clients.
+Route::prefix('admin/mass-mail')->name('admin.mass-mail.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-clients'])->group(function () {
+    Route::get('/', [Admin\MassMailController::class, 'index'])->name('index');
+    Route::get('create', [Admin\MassMailController::class, 'create'])->name('create');
+    Route::post('preview', [Admin\MassMailController::class, 'preview'])->name('preview');
+    Route::post('/', [Admin\MassMailController::class, 'store'])->middleware('throttle:10,1')->name('store');
+    Route::get('{massMail}', [Admin\MassMailController::class, 'show'])->name('show');
+});
+
+// Add-ons, webhooks, chat and SMS, under Settings > Integrations.
+Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])->group(function () {
+    Route::get('addons', [Admin\AddonController::class, 'index'])->name('addons.index');
+    Route::prefix('addons/{key}')->name('addons.')->controller(Admin\AddonController::class)->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+        Route::delete('/', 'destroy')->name('destroy');
+        foreach (['install', 'enable', 'disable', 'upgrade'] as $action) {
+            Route::post($action, $action)->name($action);
+        }
+    });
+    Route::resource('webhooks', Admin\WebhookController::class)->except(['show', 'create']);
+    Route::post('webhook-deliveries/{delivery}/redeliver', [Admin\WebhookController::class, 'redeliver'])->name('webhook-deliveries.redeliver');
+    Route::post('webhooks/{webhook}/test', [Admin\WebhookController::class, 'test'])->name('webhooks.test');
+    Route::post('webhooks/{webhook}/secret', [Admin\WebhookController::class, 'secret'])->name('webhooks.secret');
+    Route::resource('chat', Admin\NotificationChannelController::class)->except(['show', 'create'])->names('chat-channels')->parameters(['chat' => 'chatChannel']);
+    Route::post('chat/{chatChannel}/test', [Admin\NotificationChannelController::class, 'test'])->name('chat-channels.test');
+    Route::controller(Admin\SmsSettingsController::class)->group(function () {
+        Route::get('sms', 'edit')->name('sms.edit');
+        Route::put('sms', 'update')->name('sms.update');
+        Route::post('sms/test', 'test')->middleware('throttle:5,1')->name('sms.test');
+    });
+    Route::prefix('security')->name('security.')->controller(Admin\SecurityController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::put('/', 'update')->name('update');
+        Route::post('bans', 'ban')->name('bans.store');
+        Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
+    });
+    Route::prefix('whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('connect', 'connect')->name('connect');
+        Route::post('dry-run', 'dryRun')->name('dry-run');
+        Route::post('import', 'import')->name('import');
+        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
+        Route::delete('/', 'reset')->name('reset');
+    });
+});
+
+// Affiliates: referral links, the portal's affiliate page, and the admin area for affiliates, payouts and settings.
+Route::middleware(EnsureClientCanLogIn::class)->controller(Store\AffiliateLinkController::class)->group(function () {
+    Route::get('r/{code}', 'visit')->middleware('throttle:60,1')->name('affiliates.visit');
+    Route::get('aff.php', 'whmcs')->middleware('throttle:60,1')->name('affiliates.whmcs');
+});
+Route::prefix('portal/affiliates')->name('portal.affiliates.')->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:owner'])
+    ->controller(Portal\AffiliateController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+        Route::post('payouts', 'payout')->middleware('throttle:10,1')->name('payouts.store');
+    });
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class])->group(function () {
+    Route::middleware('can:manage-settings')->controller(Admin\AffiliateSettingsController::class)->group(function () {
+        Route::get('affiliates/settings', 'edit')->name('affiliates.settings');
+        Route::put('affiliates/settings', 'update')->name('affiliates.settings.update');
+    });
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('affiliates', [Admin\AffiliateController::class, 'index'])->name('affiliates.index');
+        Route::post('affiliates', [Admin\AffiliateController::class, 'store'])->name('affiliates.store');
+        Route::get('affiliates/payouts', [Admin\AffiliatePayoutController::class, 'index'])->name('affiliates.payouts');
+        Route::post('affiliates/payouts/{payout}/pay', [Admin\AffiliatePayoutController::class, 'pay'])->name('affiliates.payouts.pay');
+        Route::post('affiliates/payouts/{payout}/reject', [Admin\AffiliatePayoutController::class, 'reject'])->name('affiliates.payouts.reject');
+        Route::post('affiliates/commissions/{commission}/approve', [Admin\AffiliateCommissionController::class, 'approve'])->name('affiliates.commissions.approve');
+        Route::post('affiliates/commissions/{commission}/void', [Admin\AffiliateCommissionController::class, 'void'])->name('affiliates.commissions.void');
+        Route::put('clients/{client}/referrer', [Admin\AffiliateController::class, 'referrer'])->name('affiliates.referrer');
+        Route::get('affiliates/{affiliate}', [Admin\AffiliateController::class, 'show'])->whereNumber('affiliate')->name('affiliates.show');
+        Route::put('affiliates/{affiliate}', [Admin\AffiliateController::class, 'update'])->whereNumber('affiliate')->name('affiliates.update');
+    });
 });

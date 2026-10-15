@@ -4,6 +4,8 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+/* Add-ons keep their views beside their code. */
+@source '../../app/Addons/**/*.blade.php';
 
 /*
  * Harbor theme. Views use `brand` (sea green) for actions and links and `ink`

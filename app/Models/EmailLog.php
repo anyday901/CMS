@@ -15,8 +15,8 @@ class EmailLog extends Model
     public const FAILED = 'failed';
 
     protected $fillable = [
-        'client_id', 'invoice_id', 'ticket_id', 'template', 'to', 'cc', 'subject', 'body',
-        'status', 'error', 'attach_invoice_pdf', 'reply_to', 'sent_at',
+        'client_id', 'invoice_id', 'ticket_id', 'mass_mail_id', 'template', 'to', 'cc', 'subject', 'body',
+        'status', 'error', 'attach_invoice_pdf', 'reply_to', 'list_unsubscribe', 'sent_at',
     ];
 
     protected function casts(): array
@@ -36,6 +36,11 @@ class EmailLog extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function massMail(): BelongsTo
+    {
+        return $this->belongsTo(MassMail::class);
     }
 
     public function ticket(): BelongsTo

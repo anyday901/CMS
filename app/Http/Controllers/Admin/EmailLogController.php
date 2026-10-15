@@ -41,7 +41,7 @@ class EmailLogController extends Controller
     /** Sends a failed email again. Emails with a private link can't be resent; send a new link instead. */
     public function resend(EmailLog $email): RedirectResponse
     {
-        abort_if(EmailTemplates::definition($email->template)['sensitive'] ?? false, 422, 'This email contained a private link. Send a new one instead.');
+        abort_if(EmailTemplates::definitions()[$email->template]['sensitive'] ?? false, 422, 'This email contained a private link. Send a new one instead.');
         abort_if($email->status === EmailLog::SENT, 422, 'This email was already sent.');
 
         $email->update(['status' => EmailLog::QUEUED, 'error' => null]);

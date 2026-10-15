@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
+use App\Events\ClientCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Models\Activity;
@@ -89,8 +90,10 @@ class ClientController extends Controller
         if ($request->boolean('marketing_emails')) {
             $client->setMarketingConsent(true);
         }
+        $client->sms_notifications = $request->boolean('sms_notifications');
         $client->save();
         Activity::record('Created client', $client);
+        ClientCreated::dispatch($client);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
     }
@@ -134,6 +137,7 @@ class ClientController extends Controller
         if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
             Activity::record($client->marketing_emails ? 'Agreed to marketing emails (set by staff)' : 'Opted out of marketing emails (set by staff)', $client);
         }
+        $client->sms_notifications = $request->boolean('sms_notifications');
         // A new address hasn't been confirmed by the client yet.
         if ($client->isDirty('email')) {
             $client->email_verified_at = null;

@@ -180,14 +180,17 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] WHMCS import brings over the history reports read, so they cover the years before the switch: orders, promotions and their usage, the credit log, cancellation requests and the activity log (invoices, payments, services and tickets already come over)
 - [x] The WHMCS import wizard explains that custom WHMCS reports (PHP files in `modules/reports`) can't be copied, since the importer only reads the database, and points to the closest built-in reports
 - [x] Automation settings page (all billing run days in one place) and a cron status page
-- [ ] Mass mail to filtered clients (marketing ones only to clients who agreed, with their unsubscribe link and a List-Unsubscribe header)
-- [ ] Staff notifications to Slack, Discord or Teams
-- [ ] SMS notifications (pluggable provider)
-- [ ] REST API with keys and permissions
-- [ ] Outgoing webhooks and an event hook system for plugins
-- [ ] Add-on module system (install, configure, enable from the admin area)
-- [ ] Affiliates: referral links, commissions and payouts
-- [ ] Project management add-on (projects, tasks, time linked to invoices)
+- [x] Mass mail to filtered clients (marketing ones only to clients who agreed, with their unsubscribe link and a List-Unsubscribe header)
+- [x] Staff notifications to Slack, Discord or Teams
+- [x] SMS notifications (pluggable provider)
+- [x] REST API with keys and permissions
+- [x] Outgoing webhooks and an event hook system for plugins
+- [x] Add-on module system (install, configure, enable from the admin area)
+- [x] Affiliates: referral links, commissions and payouts
+- [x] Project management add-on (projects, tasks, time linked to invoices)
+- [ ] Try the Twilio and Vonage SMS providers and the Slack, Discord and Teams channels with real accounts (built from their API docs and tested with mocked replies)
+- [ ] Ticket attachments and setting a client's currency through the REST API
+- [ ] Check the WHMCS affiliate import against a real WHMCS database (table and setting names written from WHMCS's schema without a live copy), and import per-product commissions
 
 ## Milestone 12: Platform and community
 - [ ] Translations (multi-language portal and emails)

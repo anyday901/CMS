@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Addons\AddonManager;
+use App\Affiliates\AffiliateHooks;
 use App\Billing\ServiceUpgrader;
 use App\Console\RecordsScheduledTasks;
 use App\Enums\InvoiceStatus;
@@ -14,6 +16,8 @@ use App\Events\ServiceChanged;
 use App\Events\ServiceSuspended;
 use App\Events\ServiceTerminated;
 use App\Events\ServiceUnsuspended;
+use App\Hooks\HookCatalog;
+use App\Hooks\Hooks;
 use App\Mail\ClientMailer;
 use App\Models\ClientContact;
 use App\Models\ServiceUpgrade;
@@ -35,7 +39,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(Hooks::class);
+        $this->app->singleton(AddonManager::class);
     }
 
     /**
@@ -49,6 +54,11 @@ class AppServiceProvider extends ServiceProvider
 
         Settings::apply();
         RecordsScheduledTasks::listen();
+
+        // Events reach plugins, webhooks, chat channels and SMS; then enabled add-ons boot.
+        HookCatalog::wire();
+        AffiliateHooks::wire();
+        $this->app->make(AddonManager::class)->boot();
 
         // Contacts' password links only find contacts who can sign in.
         Auth::provider('contacts', fn ($app) => (new EloquentUserProvider($app['hash'], ClientContact::class))

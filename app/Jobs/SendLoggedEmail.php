@@ -31,9 +31,16 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
 
     public function handle(InvoicePdf $pdfs): void
     {
-        $log = EmailLog::with('invoice')->find($this->logId);
+        $log = EmailLog::with(['invoice', 'massMail', 'client'])->find($this->logId);
 
         if ($log === null || $log->status === EmailLog::SENT) {
+            return;
+        }
+
+        // A client who unsubscribed after a marketing email was queued doesn't get it.
+        if ($log->massMail?->marketing && ! $log->client?->marketing_emails) {
+            $log->update(['status' => EmailLog::FAILED, 'error' => 'Not sent: the client unsubscribed from marketing emails before it went out.']);
+
             return;
         }
 
@@ -42,7 +49,7 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
                 ? ['data' => $pdfs->output($log->invoice), 'name' => $pdfs->filename($log->invoice)]
                 : null;
 
-            Mail::to($log->to)->cc($log->cc ?? [])->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf));
+            Mail::to($log->to)->cc($log->cc ?? [])->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf, $log->list_unsubscribe));
         } catch (Throwable $e) {
             $log->update(['status' => EmailLog::FAILED, 'error' => Str::limit($e->getMessage(), 1000)]);
             report($e);

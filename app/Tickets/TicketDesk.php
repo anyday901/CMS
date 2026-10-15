@@ -5,6 +5,9 @@ namespace App\Tickets;
 use App\Auth\PortalContact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Events\TicketAnswered;
+use App\Events\TicketOpened;
+use App\Events\TicketReplied;
 use App\Mail\ClientMailer;
 use App\Models\Activity;
 use App\Models\Client;
@@ -90,6 +93,7 @@ class TicketDesk
         });
 
         $this->sendOpened($ticket);
+        TicketOpened::dispatch($ticket);
         $this->alertStaff($ticket, "New ticket #{$ticket->id}: {$ticket->subject}", "{$client->fullName()} opened a ticket in {$department->name} ({$priority->label()} priority).");
 
         return $ticket;
@@ -124,6 +128,7 @@ class TicketDesk
         });
 
         $this->sendOpened($ticket);
+        TicketOpened::dispatch($ticket);
         $this->alertStaff($ticket, "New ticket #{$ticket->id}: {$ticket->subject}", "{$name} ({$ticket->guest_email}), who has no account, opened a ticket in {$department->name} ({$priority->label()} priority).");
 
         return $ticket;
@@ -151,6 +156,7 @@ class TicketDesk
             return $message;
         });
 
+        TicketReplied::dispatch($ticket);
         $this->alertStaff($ticket, "Reply on ticket #{$ticket->id}: {$ticket->subject}", "{$ticket->requesterName()} replied:", Str::limit($message->body, 500));
 
         return $message;
@@ -184,6 +190,7 @@ class TicketDesk
                 'staff_name' => $user->name,
                 'reply' => $message->body,
             ]);
+            TicketAnswered::dispatch($ticket);
         }
 
         return $message;

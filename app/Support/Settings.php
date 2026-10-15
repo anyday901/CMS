@@ -58,18 +58,35 @@ class Settings
         'security.captcha.site_key',
         'security.captcha.secret_key',
         'security.captcha.forms',
+        'sms.provider',
+        'sms.from',
+        'sms.credentials',
+        'sms.default_country_code',
+        'sms.staff_numbers',
+        'sms.staff_events',
+        'sms.client_events',
+        'affiliates.enabled',
+        'affiliates.commission_type',
+        'affiliates.commission_amount',
+        'affiliates.first_invoice_only',
+        'affiliates.months',
+        'affiliates.clearing_days',
+        'affiliates.minimum_payout',
+        'affiliates.cookie_days',
+        'affiliates.self_signup',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
         'billing.reminder_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
+        'sms.staff_numbers', 'sms.staff_events', 'sms.client_events',
     ];
 
     /** Saved encrypted, read back decrypted. */
-    private const SECRETS = ['security.captcha.secret_key'];
+    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

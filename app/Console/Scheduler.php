@@ -7,6 +7,8 @@ use App\Models\IpBan;
 use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\ScheduledTaskRun;
+use App\Models\SmsLog;
+use App\Models\WebhookDelivery;
 use Illuminate\Console\Scheduling\Schedule;
 
 /**
@@ -30,10 +32,12 @@ class Scheduler
             ->description('Close inactive tickets');
         $schedule->command('servers:check')->everyFiveMinutes()->withoutOverlapping()
             ->description('Check that monitored servers answer');
+        $schedule->command('affiliates:clear')->dailyAt('02:30')->withoutOverlapping()
+            ->description('Approve affiliate commissions past their clearing days');
         $schedule->command('activity:prune')->dailyAt('03:15')
             ->description('Delete old activity log entries');
-        $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class]])->dailyAt('03:25')
-            ->description('Delete old ticket email, logins, ended IP bans, forgotten browsers and task runs');
+        $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class, WebhookDelivery::class, SmsLog::class]])->dailyAt('03:25')
+            ->description('Delete old ticket email, logins, ended IP bans, forgotten browsers, task runs, webhook deliveries and texts');
     }
 
     /** The billing run's time of day, "HH:MM". */

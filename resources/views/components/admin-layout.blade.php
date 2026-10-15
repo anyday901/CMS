@@ -24,18 +24,26 @@
                         'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
                         'admin.todos.index' => 'To-do'.(($myTodos = App\Models\Todo::unfinished()->where('user_id', auth()->id())->count()) ? " ({$myTodos})" : ''),
+                        'admin.affiliates.index' => auth()->user()->can('manage-billing') && (config('affiliates.enabled') || App\Models\Affiliate::exists()) ? 'Affiliates' : null,
                         'admin.reports.index' => auth()->user()->can('view-reports') ? 'Reports' : null,
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
                         'admin.emails.index' => $settings ? 'Emails' : null,
                         'admin.settings.edit' => $settings ? 'Settings' : null,
                         'admin.staff.index' => auth()->user()->can('manage-staff') ? 'Staff' : null,
-                    ]);
+                    ] + app(App\Addons\AddonManager::class)->adminLinks(auth()->user()));
+                @endphp
+                @php
+                    // Pages that light up a menu item besides its own.
+                    $alsoActive = [
+                        'admin.clients.index' => ['admin.mass-mail.*'],
+                        'admin.settings.edit' => ['admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
+                        'admin.kb.index' => ['admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*'],
+                    ];
                 @endphp
                 @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
-
-                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
+                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route), ...$alsoActive[$route] ?? []) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
                 <form method="GET" action="{{ route('admin.search') }}" role="search" class="ml-auto">
                     <label class="sr-only" for="admin-search">Search everything</label>

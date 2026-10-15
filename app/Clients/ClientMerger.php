@@ -2,7 +2,11 @@
 
 namespace App\Clients;
 
+use App\Affiliates\AffiliateMerger;
 use App\Billing\CreditLedger;
+use App\Hooks\HookCatalog;
+use App\Hooks\HookEvent;
+use App\Hooks\Hooks;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
@@ -16,7 +20,7 @@ use InvalidArgumentException;
 /**
  * Merges one client account into another: everything on the first account
  * (services, invoices, payments, orders, tickets, contacts, notes, to-dos,
- * emails, logins and activity) moves to the second, its credit balance is
+ * emails, logins, activity and affiliate records) moves to the second, its credit balance is
  * added there, and the first account is deleted. Its details are kept in a
  * note on the account it was merged into.
  */
@@ -25,13 +29,13 @@ class ClientMerger
     /** Tables whose rows belong to a client and move with the merge. Credit history is summed up instead. */
     public const MOVES = [
         'services', 'invoices', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
-        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos',
+        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log',
     ];
 
-    /** Tables with a client_id that don't move row by row: contacts are matched up, and credit history is summed. */
-    public const HANDLED = ['client_contacts', 'credit_entries'];
+    /** Tables with a client_id that don't move row by row: contacts are matched up, credit history is summed, and AffiliateMerger sorts out affiliates and referrals. */
+    public const HANDLED = ['client_contacts', 'credit_entries', 'affiliates', 'affiliate_referrals'];
 
-    public function __construct(private CreditLedger $ledger) {}
+    public function __construct(private CreditLedger $ledger, private AffiliateMerger $affiliates) {}
 
     /** Why these two can't be merged, or null when they can. */
     public static function problem(Client $from, Client $into): ?string
@@ -81,6 +85,8 @@ class ClientMerger
             }
             $this->keepDetails($from, $into);
 
+            $this->affiliates->merge($from, $into);
+
             foreach (self::MOVES as $table) {
                 DB::table($table)->where('client_id', $from->id)->update(['client_id' => $into->id]);
             }
@@ -92,6 +98,10 @@ class ClientMerger
             if ($from->credit_balance !== 0) {
                 $this->ledger->change($into->id, $from->credit_balance, "Credit balance of client #{$from->id} ({$from->fullName()}), merged into this account");
             }
+
+            // Add-ons move rows in their own tables here, inside this transaction and before the old account is deleted.
+            app(Hooks::class)->fire(new HookEvent(HookCatalog::CLIENT_MERGED, ['from_client_id' => $from->id, 'into_client_id' => $into->id],
+                "Client #{$from->id} ({$from->fullName()}) merged into {$into->fullName()}", route('admin.clients.show', $into), $into->id));
 
             $from->delete();
 

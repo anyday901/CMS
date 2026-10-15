@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
+use App\Models\Concerns\HasAffiliateProgram;
 use App\Models\Concerns\HasTwoFactor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasFactory, HasTwoFactor, Notifiable;
+    use HasAffiliateProgram, HasFactory, HasTwoFactor, Notifiable;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -55,6 +56,7 @@ class Client extends Authenticatable
             'anonymised_at' => 'datetime',
             'marketing_emails' => 'boolean',
             'marketing_consent_at' => 'datetime',
+            'sms_notifications' => 'boolean',
         ];
     }
 

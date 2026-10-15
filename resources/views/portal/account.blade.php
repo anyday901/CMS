@@ -32,10 +32,17 @@
     <form method="POST" action="{{ route('portal.account.marketing') }}" class="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
         @csrf
         @method('PUT')
-        <h2 class="w-full font-semibold">Email preferences</h2>
-        <input type="hidden" name="marketing_emails" value="0">
-        <label class="flex grow items-start gap-2"><input type="checkbox" name="marketing_emails" value="1" class="mt-1" @checked($client->marketing_emails)>
-            <span>Email me news and special offers. Emails about your account, such as invoices and support replies, always come.</span></label>
+        <h2 class="w-full font-semibold">{{ $offersTexts ? 'Email and text preferences' : 'Email preferences' }}</h2>
+        <div class="grow space-y-2">
+            <input type="hidden" name="marketing_emails" value="0">
+            <label class="flex items-start gap-2"><input type="checkbox" name="marketing_emails" value="1" class="mt-1" @checked($client->marketing_emails)>
+                <span>Email me news and special offers. Emails about your account, such as invoices and support replies, always come.</span></label>
+            @if ($offersTexts)
+                <input type="hidden" name="sms_notifications" value="0">
+                <label class="flex items-start gap-2"><input type="checkbox" name="sms_notifications" value="1" class="mt-1" @checked($client->sms_notifications)>
+                    <span>Text me about my account, such as new invoices and support replies, at {{ $client->phone ?: 'my phone number (add it above)' }}.</span></label>
+            @endif
+        </div>
         <button class="rounded-full px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Save preference</button>
     </form>
 

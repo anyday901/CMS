@@ -3,6 +3,8 @@
 namespace App\Privacy;
 
 use App\Models\Activity;
+use App\Models\AffiliateCommission;
+use App\Models\AffiliatePayout;
 use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\ClientContact;
@@ -14,6 +16,7 @@ use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\Order;
 use App\Models\Service;
+use App\Models\SmsLog;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\Transaction;
@@ -24,7 +27,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Everything kept about a client, as one JSON document they can be given
  * (a GDPR subject access or portability request). Passwords, two-factor
- * secrets, server logins and staff's internal ticket notes are left out.
+ * secrets, server logins and staff's internal ticket notes are left out,
+ * and so are the names of clients they referred as an affiliate.
  * Amounts are in minor units (cents), in the currency beside them.
  */
 class ClientDataExport
@@ -45,7 +49,7 @@ class ClientDataExport
             'client' => $this->only($client, [
                 'id', 'first_name', 'last_name', 'company', 'email', 'email_verified_at', 'phone', 'address1', 'address2',
                 'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'status', 'credit_balance', 'custom_fields',
-                'marketing_emails', 'marketing_consent_at', 'created_at',
+                'marketing_emails', 'marketing_consent_at', 'sms_notifications', 'created_at',
             ]) + ['group' => $client->group?->name, 'two_factor_enabled' => $client->hasTwoFactor()],
             'contacts' => $client->contacts->map(fn (ClientContact $contact) => $this->only($contact, [
                 'first_name', 'last_name', 'email', 'phone', 'invoice_emails', 'support_emails', 'portal_access', 'permissions', 'last_login_at', 'created_at',
@@ -81,10 +85,33 @@ class ClientDataExport
                 ])->all(),
             ])->all(),
             'emails' => $client->emailLogs()->orderBy('id')->get()->map(fn (EmailLog $email) => $this->only($email, ['to', 'cc', 'subject', 'body', 'status', 'sent_at', 'created_at']))->all(),
+            'texts' => SmsLog::where('client_id', $client->id)->orderBy('id')->get()->map(fn (SmsLog $text) => $this->only($text, ['to', 'message', 'status', 'sent_at', 'created_at']))->all(),
             'devices' => KnownDevice::whereIn('email', $client->contacts->pluck('email')->push($client->email)->map(fn ($email) => strtolower((string) $email)))
                 ->orderBy('id')->get()->map(fn (KnownDevice $device) => $this->only($device, ['email', 'user_agent', 'ip_address', 'created_at', 'last_used_at']))->all(),
             'logins' => $client->loginAttempts()->orderBy('id')->get()->map(fn (LoginAttempt $login) => $this->only($login, ['email', 'ip_address', 'user_agent', 'outcome', 'created_at']))->all(),
+            'affiliate' => $this->affiliate($client),
             'activity' => Activity::where('client_id', $client->id)->orderBy('id')->get()->map(fn (Activity $entry) => $this->only($entry, ['actor_name', 'description', 'ip_address', 'created_at']))->all(),
+        ];
+    }
+
+    /**
+     * Their place in the affiliate program and who referred them. The people
+     * they referred are other clients, so only when each signed up is given.
+     *
+     * @return array<string, mixed>
+     */
+    private function affiliate(Client $client): array
+    {
+        $affiliate = $client->affiliate;
+
+        return [
+            'referred_at' => $this->date($client->referral?->created_at),
+            'program' => $affiliate === null ? null : $this->only($affiliate, ['code', 'status', 'visits', 'created_at']) + [
+                'link' => $affiliate->link(),
+                'referrals' => $affiliate->referrals()->orderBy('id')->pluck('created_at')->map(fn ($date) => $this->date($date))->all(),
+                'commissions' => $affiliate->commissions()->orderBy('id')->get()->map(fn (AffiliateCommission $commission) => $this->only($commission, ['amount', 'currency', 'status', 'available_at', 'void_reason', 'created_at']))->all(),
+                'payouts' => $affiliate->payouts()->orderBy('id')->get()->map(fn (AffiliatePayout $payout) => $this->only($payout, ['amount', 'currency', 'status', 'method', 'reference', 'paid_at', 'created_at']))->all(),
+            ],
         ];
     }
 
