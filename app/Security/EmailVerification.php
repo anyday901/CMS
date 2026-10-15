@@ -38,9 +38,10 @@ class EmailVerification
         ]);
     }
 
+    /** Keyed with the app key, so the address can't be read back out of the link. */
     public static function hash(Client $client): string
     {
-        return sha1(strtolower((string) $client->email));
+        return hash_hmac('sha256', strtolower((string) $client->email), (string) config('app.key'));
     }
 
     /** Marks the address verified when the link is for the address the client has now. */
