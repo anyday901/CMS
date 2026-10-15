@@ -31,6 +31,8 @@ class WhmcsDatabase
     /** The VPS's monthly price. */
     private const PRICE = '13.00';
 
+    private const MONTHLY = '10.00';
+
     private const NOVEMBER = '2026-11-15';
 
     public static function create(): ConnectionInterface
@@ -51,6 +53,7 @@ class WhmcsDatabase
         self::serviceTables($schema);
         self::ticketTables($schema);
         self::supportTables($schema);
+        self::historyTables($schema);
 
         return $db;
     }
@@ -209,6 +212,8 @@ class WhmcsDatabase
             $t->string('username')->nullable();
             $t->text('password')->nullable();
             $t->string('dedicatedip')->nullable();
+            $t->integer('orderid')->default(0);
+            $t->integer('promoid')->default(0);
         });
         $schema->create('tblservers', function (Blueprint $t) {
             $t->id();
@@ -448,6 +453,98 @@ class WhmcsDatabase
         });
     }
 
+    private static function historyTables(Builder $schema): void
+    {
+        $schema->create('tblpromotions', function (Blueprint $t) {
+            $t->id();
+            $t->string('code');
+            $t->string('type');
+            $t->integer('recurring')->default(0);
+            $t->decimal('value', 16, 2)->default(0);
+            $t->text('appliesto')->nullable();
+            $t->date('startdate')->nullable();
+            $t->date('expirationdate')->nullable();
+            $t->integer('maxuses')->default(0);
+            $t->integer('uses')->default(0);
+            $t->integer('onceperclient')->default(0);
+            $t->text('notes')->nullable();
+        });
+        $schema->create('tblorders', function (Blueprint $t) {
+            $t->id();
+            $t->integer('ordernum')->default(0);
+            $t->integer('userid');
+            $t->dateTime('date')->nullable();
+            $t->string('promocode')->nullable();
+            $t->decimal('amount', 16, 2)->default(0);
+            $t->integer('invoiceid')->default(0);
+            $t->string('status');
+            $t->string('ipaddress')->nullable();
+        });
+        $schema->create('tblcredit', function (Blueprint $t) {
+            $t->id();
+            $t->integer('clientid');
+            $t->date('date')->nullable();
+            $t->text('description')->nullable();
+            $t->decimal('amount', 16, 2)->default(0);
+            $t->integer('relid')->default(0);
+        });
+        $schema->create('tblcancelrequests', function (Blueprint $t) {
+            $t->id();
+            $t->dateTime('date')->nullable();
+            $t->integer('relid');
+            $t->text('reason')->nullable();
+            $t->string('type');
+        });
+        $schema->create('tblactivitylog', function (Blueprint $t) {
+            $t->id();
+            $t->dateTime('date')->nullable();
+            $t->text('description');
+            $t->string('user')->nullable();
+            $t->integer('userid')->default(0);
+            $t->integer('user_id')->default(0);
+            $t->integer('admin_id')->default(0);
+            $t->string('ipaddr')->nullable();
+        });
+    }
+
+    /**
+     * History on top of seed(): a promotion and the order that used it for
+     * the VPS, a cancelled second service with its cancellation request, a
+     * credit log that adds up to Ada's balance less 1.00, and activity log
+     * lines by an admin, the client and WHMCS itself.
+     */
+    public static function seedHistory(ConnectionInterface $db): void
+    {
+        $db->table('tblpromotions')->insert([
+            ['id' => 5, 'code' => 'SPRING20', 'type' => 'Percentage', 'recurring' => 1, 'value' => '20.00', 'appliesto' => '3,A9,D.com', 'startdate' => '2024-01-01', 'expirationdate' => '0000-00-00', 'maxuses' => 0, 'uses' => 14, 'onceperclient' => 1, 'notes' => 'Spring sale'],
+            ['id' => 6, 'code' => 'FREESETUP', 'type' => 'Free Setup', 'recurring' => 0, 'value' => '0.00', 'appliesto' => '', 'startdate' => null, 'expirationdate' => '2024-06-01', 'maxuses' => 50, 'uses' => 3, 'onceperclient' => 0, 'notes' => ''],
+        ]);
+        $db->table('tblorders')->insert([
+            ['id' => 900, 'ordernum' => 1234567, 'userid' => 7, 'date' => '2024-01-15 08:30:00', 'promocode' => 'SPRING20', 'amount' => '10.40', 'invoiceid' => 100, 'status' => 'Active', 'ipaddress' => '198.51.100.7'],
+            ['id' => 901, 'ordernum' => 7654321, 'userid' => 7, 'date' => '2025-02-01 08:30:00', 'promocode' => '', 'amount' => '5.00', 'invoiceid' => 0, 'status' => 'Fraud', 'ipaddress' => ''],
+            ['id' => 902, 'ordernum' => 1111111, 'userid' => 99, 'date' => '2025-02-01 08:30:00', 'promocode' => '', 'amount' => '5.00', 'invoiceid' => 0, 'status' => 'Pending', 'ipaddress' => ''],
+        ]);
+        $db->table('tblhosting')->where('id', 40)->update(['orderid' => 900, 'promoid' => 5]);
+        $db->table('tblhosting')->insert([
+            'id' => 41, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-02-01', 'domain' => 'old.example.com', 'amount' => self::MONTHLY,
+            'billingcycle' => 'Monthly', 'nextduedate' => '2025-03-01', 'termination_date' => '2025-02-20', 'domainstatus' => 'Cancelled', 'orderid' => 0, 'promoid' => 0,
+        ]);
+        $db->table('tblcancelrequests')->insert([
+            ['date' => '2025-02-10 12:00:00', 'relid' => 41, 'reason' => 'Moving to a bigger plan', 'type' => 'End of Billing Period'],
+            ['date' => '2026-10-01 12:00:00', 'relid' => 40, 'reason' => 'Too expensive', 'type' => 'Immediate'],
+        ]);
+        $db->table('tblcredit')->insert([
+            ['clientid' => 7, 'date' => '2024-05-01', 'description' => 'Goodwill credit', 'amount' => '20.00', 'relid' => 0],
+            ['clientid' => 7, 'date' => '2024-06-01', 'description' => 'Credit Applied to Invoice #100', 'amount' => '-8.50', 'relid' => 100],
+        ]);
+        $db->table('tblactivitylog')->insert([
+            ['date' => '2024-01-15 08:31:00', 'description' => 'Order Accepted - Order ID: 900', 'user' => 'jane', 'userid' => 7, 'user_id' => 0, 'admin_id' => 1, 'ipaddr' => '203.0.113.9'],
+            ['date' => '2024-01-15 08:00:00', 'description' => 'Client Logged In', 'user' => 'Client', 'userid' => 7, 'user_id' => 1, 'admin_id' => 0, 'ipaddr' => '198.51.100.7'],
+            ['date' => '2024-01-16 00:05:00', 'description' => 'Cron Job: Starting', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
+            ['date' => '2024-01-16 00:06:00', 'description' => '', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
+        ]);
+    }
+
     /**
      * Support content on top of seed(): a knowledge base with a nested
      * category, a translation and a private article; announcements; network
@@ -527,7 +624,7 @@ class WhmcsDatabase
         $db->table('tblservergroupsrel')->insert([['groupid' => 4, 'serverid' => 1], ['groupid' => 4, 'serverid' => 2]]);
 
         $db->table('tblproducts')->insert(['id' => 3, 'name' => 'VPS Small', 'description' => 'Fast<br>Cheap', 'tax' => '1', 'paytype' => 'recurring', 'servertype' => 'cpanel', 'configoption1' => 'gold', 'servergroup' => 4]);
-        $db->table('tblpricing')->insert(['type' => 'product', 'currency' => 1, 'relid' => 3, 'monthly' => '10.00', 'msetupfee' => '5.00', 'annually' => '100.00']);
+        $db->table('tblpricing')->insert(['type' => 'product', 'currency' => 1, 'relid' => 3, 'monthly' => self::MONTHLY, 'msetupfee' => '5.00', 'annually' => '100.00']);
 
         $db->table('tblproductconfiglinks')->insert(['gid' => 1, 'pid' => 3]);
         $db->table('tblproductconfigoptions')->insert(['id' => 11, 'gid' => 1, 'optionname' => 'ram|Memory', 'optiontype' => 1]);
@@ -558,7 +655,7 @@ class WhmcsDatabase
         // This month's renewal, unpaid, with part paid from credit.
         $db->table('tblinvoices')->insert([
             'id' => 101, 'userid' => 7, 'invoicenum' => 'INV-0042', 'date' => '2026-11-08', 'duedate' => self::NOVEMBER,
-            'subtotal' => self::PRICE, 'credit' => '3.00', 'total' => '10.00', 'status' => 'Unpaid',
+            'subtotal' => self::PRICE, 'credit' => '3.00', 'total' => self::MONTHLY, 'status' => 'Unpaid',
         ]);
         $db->table('tblinvoiceitems')->insert(['invoiceid' => 101, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/11/2026 - 14/12/2026)', 'amount' => self::PRICE, 'taxed' => 1, 'duedate' => self::NOVEMBER]);
 

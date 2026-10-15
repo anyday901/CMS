@@ -20,7 +20,8 @@ use Throwable;
  * Copies a WHMCS database into this app: servers and server groups, client
  * groups, clients and their contacts, staff notes on clients, the to-do list, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
- * transactions, admins as staff, ticket departments, custom fields, tags,
+ * transactions, admins as staff, promotions, orders, the credit log,
+ * cancellation requests, the activity log, ticket departments, custom fields, tags,
  * tickets (guest tickets too), replies and feedback ratings, and the
  * knowledge base and announcements with their translations, network
  * issues, downloads and escalation rules.
@@ -76,6 +77,9 @@ class WhmcsImporter
 
     /** @var array<string, int> "gateway|reference" => times seen */
     private array $references = [];
+
+    /** @var array<int, int> client id => WHMCS credit balance, for those with one */
+    private array $balances = [];
 
     private ContactLoginImporter $logins;
 
@@ -143,6 +147,12 @@ class WhmcsImporter
         $this->importTransactions();
         $staff = new StaffImporter($this->run);
         $staff->import();
+        $history = new HistoryImporter($this->run, $this->clients, $this->services, $this->invoices, $this->catalog->products);
+        $history->importPromotions();
+        $history->importOrders();
+        $history->importCredit($this->balances);
+        $history->importCancellations();
+        $history->importActivity($staff);
         $this->extras->importNotes($this->clients, $staff);
         $this->extras->importTodos($staff);
         $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
@@ -207,13 +217,7 @@ class WhmcsImporter
             DB::table('clients')->insert($client);
 
             if ($client['credit_balance'] !== 0) {
-                DB::table('credit_entries')->insert([
-                    'client_id' => $client['id'],
-                    'amount' => $client['credit_balance'],
-                    'balance_after' => $client['credit_balance'],
-                    'description' => 'Credit balance brought over from WHMCS',
-                    'created_at' => $this->run->now,
-                ]);
+                $this->balances[$client['id']] = $client['credit_balance'];
             }
 
             $this->clients[$client['id']] = $client['currency'];
@@ -380,7 +384,7 @@ class WhmcsImporter
             'next_due_date' => $cycle->isRecurring() ? Whmcs::day(Whmcs::date($row->nextduedate)) : null,
             'suspended_at' => $suspended ? $this->run->now : null,
             'suspension_reason' => $suspended ? Whmcs::short($row->suspendreason ?? '') ?? 'Suspended in WHMCS' : null,
-            'terminated_at' => $status === ServiceStatus::Terminated ? Whmcs::dateTime($row->termination_date ?? null) ?? $this->run->now : null,
+            'terminated_at' => in_array($status, [ServiceStatus::Terminated, ServiceStatus::Cancelled], true) ? Whmcs::dateTime($row->termination_date ?? null) ?? $this->run->now : null,
             'custom_fields' => Whmcs::fieldValues($this->catalog->serviceValues[(int) $row->id] ?? []),
             'created_at' => Whmcs::dateTime($row->created_at ?? null) ?? "{$registered} 00:00:00",
             'updated_at' => $this->run->now,

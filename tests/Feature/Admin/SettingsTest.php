@@ -19,17 +19,20 @@ class SettingsTest extends TestCase
 
     private const URL = '/admin/settings';
 
+    /** Late fees moved to the automation settings with the other billing run days. */
+    private const AUTOMATION = '/admin/settings/automation';
+
     private function valid(array $overrides = []): array
     {
-        return $overrides + ['late_fee_after_days' => '5', 'late_fee_type' => 'fixed', 'late_fee_amount' => '7.50', 'tax_inclusive' => '0'];
+        return $overrides + ['run_time' => '00:05', 'invoice_days_before_due' => '7', 'overage_due_days' => '7', 'late_fee_after_days' => '5', 'late_fee_type' => 'fixed', 'late_fee_amount' => '7.50'];
     }
 
     public function test_admins_save_late_fee_settings_that_the_billing_run_uses(): void
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->get(self::URL)->assertOk()->assertSee('Late fees');
-        $this->put(self::URL, $this->valid())->assertRedirect(self::URL);
+        $this->get(self::AUTOMATION)->assertOk()->assertSee('Late fees');
+        $this->put(self::AUTOMATION, $this->valid())->assertRedirect(self::AUTOMATION);
 
         $this->assertSame('5', (string) Setting::find('billing.late_fee_after_days')->value);
         $this->assertSame('7.50', config('billing.late_fee_amount'));
@@ -58,12 +61,12 @@ class SettingsTest extends TestCase
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put(self::URL, $this->valid(['late_fee_after_days' => '']))->assertSessionDoesntHaveErrors();
+        $this->put(self::AUTOMATION, $this->valid(['late_fee_after_days' => '']))->assertSessionDoesntHaveErrors();
         $this->assertNull(config('billing.late_fee_after_days'));
 
-        $this->put(self::URL, $this->valid(['late_fee_type' => 'percent', 'late_fee_amount' => '150']))->assertSessionHasErrors('late_fee_amount');
-        $this->put(self::URL, $this->valid(['late_fee_amount' => '0']))->assertSessionHasErrors('late_fee_amount');
-        $this->put(self::URL, $this->valid(['late_fee_type' => 'weekly']))->assertSessionHasErrors('late_fee_type');
+        $this->put(self::AUTOMATION, $this->valid(['late_fee_type' => 'percent', 'late_fee_amount' => '150']))->assertSessionHasErrors('late_fee_amount');
+        $this->put(self::AUTOMATION, $this->valid(['late_fee_amount' => '0']))->assertSessionHasErrors('late_fee_amount');
+        $this->put(self::AUTOMATION, $this->valid(['late_fee_type' => 'weekly']))->assertSessionHasErrors('late_fee_type');
     }
 
     public function test_only_admins_reach_settings(): void
@@ -72,6 +75,8 @@ class SettingsTest extends TestCase
 
         $this->get(self::URL)->assertForbidden();
         $this->put(self::URL, $this->valid())->assertForbidden();
+        $this->get(self::AUTOMATION)->assertForbidden();
+        $this->get('/admin/settings/cron')->assertForbidden();
     }
 
     public function test_tax_inclusive_invoices_take_the_tax_out_of_the_price(): void

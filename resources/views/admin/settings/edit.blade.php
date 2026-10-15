@@ -4,24 +4,9 @@
         @csrf
         @method('PUT')
 
-        <fieldset class="space-y-3">
-            <legend class="mb-1 text-base font-semibold">Late fees</legend>
-            <p class="text-ink-600">The nightly billing run adds one late fee to an invoice that is still unpaid this many days after its due date. Late fees are not taxed.</p>
-            <label class="block">Days after the due date
-                <input type="number" name="late_fee_after_days" min="0" max="365" value="{{ old('late_fee_after_days', $lateFeeDays) }}" placeholder="Off" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
-                <span class="text-ink-500">Leave blank to turn late fees off.</span>
-            </label>
-            <div class="flex flex-wrap items-end gap-3">
-                <label class="block">Fee type
-                    <select name="late_fee_type" class="mt-1 block rounded-md px-3 py-2 ring-1 ring-ink-300">
-                        <option value="fixed" @selected(old('late_fee_type', $lateFeeType) === 'fixed')>Fixed amount</option>
-                        <option value="percent" @selected(old('late_fee_type', $lateFeeType) === 'percent')>Percent of the invoice total</option>
-                    </select>
-                </label>
-                <label class="block">Amount
-                    <input name="late_fee_amount" value="{{ old('late_fee_amount', $lateFeeAmount) }}" placeholder="5.00 or 10" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
-                </label>
-            </div>
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Automation</legend>
+            <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">

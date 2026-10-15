@@ -304,6 +304,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
             });
             Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
+            Route::get('settings/automation', [Admin\AutomationController::class, 'edit'])->name('automation.edit');
+            Route::put('settings/automation', [Admin\AutomationController::class, 'update'])->name('automation.update');
+            Route::get('settings/cron', Admin\CronController::class)->name('cron.show');
             Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
                 Route::get('/', 'show')->name('show');
                 Route::post('connect', 'connect')->name('connect');
@@ -314,6 +317,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
         });
     });
+});
+
+// Kept outside the admin group above so that group stays readable; same login and two-factor checks.
+Route::prefix('admin/reports')->name('admin.reports.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:view-reports'])->controller(Admin\ReportController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('{report}', 'show')->name('show');
+    Route::get('{report}/export', 'export')->name('export');
 });
 
 // Every staff member's own login.

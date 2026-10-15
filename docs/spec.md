@@ -81,6 +81,8 @@ Parts of milestone 9 (support parity) are in too: a knowledge base with search, 
 
 Parts of milestone 10 (clients and security) are in too: two-factor authentication for clients and staff, contacts with their own portal logins and permissions (one login can reach several accounts, with remember-me), emails about logins from new devices, email verification, login history with failed login lockout and IP bans, CAPTCHA on public forms, GDPR tools to export a client's data and anonymise a closed account, client groups, staff notes on clients, a staff to-do list, an admin search across clients, services, invoices, orders and tickets, merging two client accounts, and marketing email consent.
 
+Parts of milestone 11 (reports and automation) are in too: a Reports area with income, sales, invoice, tax, client and support reports, each with dates, currency and CSV export, behind a reports permission; the WHMCS import brings over the history they read (orders, promotions, the credit log, cancellation requests and the activity log); an automation settings page with every billing run day in one place; and a cron status page.
+
 Still to come in milestone 5: fraud checks on new orders. See [TODO.md](../TODO.md).
 
 ## Out of scope for v1 (planned after v1)
