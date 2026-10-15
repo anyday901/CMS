@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Lets GET /health?token=… list each check's status for an uptime monitor. Without it, /health only says ok, warning or problem.
+    'health_token' => env('HEALTH_TOKEN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

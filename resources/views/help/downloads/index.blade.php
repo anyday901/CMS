@@ -1,9 +1,9 @@
 @php use Illuminate\Support\Number; @endphp
-<x-portal-layout title="Downloads" :store="true">
+<x-portal-layout :title="__('Downloads')" :store="true">
     @include('help._nav')
-    <h1 class="mb-6 text-2xl font-semibold">Downloads</h1>
+    <h1 class="mb-6 text-2xl font-semibold">{{ __('Downloads') }}</h1>
     @if ($categories->isEmpty())
-        <p class="text-sm text-ink-500">There are no downloads yet.</p>
+        <p class="text-sm text-ink-500">{{ __('There are no downloads yet.') }}</p>
     @endif
     @foreach ($categories as $category)
         <section class="mb-8">
@@ -16,14 +16,14 @@
                         <div class="min-w-0 flex-1">
                             <div class="font-medium">{{ $download->title }}</div>
                             @if ($download->description)<p class="text-ink-600">{{ $download->description }}</p>@endif
-                            <p class="text-ink-500">{{ $download->file_name }} · {{ Number::fileSize($download->size) }}@if ($download->needsLogin()) · {{ $download->audience() }}@endif</p>
+                            <p class="text-ink-500">{{ $download->file_name }} · {{ Number::fileSize($download->size) }}@if ($download->needsLogin()) · {{ $download->products->isNotEmpty() ? __('Clients with :products', ['products' => $download->products->pluck('name')->join(', ', ' '.__('or').' ')]) : __($download->audience()) }}@endif</p>
                         </div>
                         @if ($allowed)
-                            <a href="{{ route('downloads.file', $download) }}" class="rounded-full bg-brand-600 px-4 py-1.5 font-medium text-white hover:bg-brand-500">Download</a>
+                            <a href="{{ route('downloads.file', $download) }}" class="rounded-full bg-brand-600 px-4 py-1.5 font-medium text-white hover:bg-brand-500">{{ __('Download') }}</a>
                         @elseif ($client === null)
-                            <a href="{{ route('downloads.file', $download) }}" class="rounded-full px-4 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Log in to download</a>
+                            <a href="{{ route('downloads.file', $download) }}" class="rounded-full px-4 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Log in to download') }}</a>
                         @else
-                            <span class="rounded-full bg-ink-100 px-4 py-1.5 text-ink-500">For clients with {{ $download->products->pluck('name')->join(', ', ' or ') }}</span>
+                            <span class="rounded-full bg-ink-100 px-4 py-1.5 text-ink-500">{{ __('For clients with :products', ['products' => $download->products->pluck('name')->join(', ', ' '.__('or').' ')]) }}</span>
                         @endif
                     </div>
                 @endforeach

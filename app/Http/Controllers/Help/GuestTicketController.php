@@ -103,7 +103,7 @@ class GuestTicketController extends Controller
         $found = $this->find($ticket, $key);
 
         if ($found->id !== $ticket) {
-            return redirect()->to($found->guestUrl())->with('status', "Ticket #{$ticket} was merged into this one.");
+            return redirect()->to($found->guestUrl())->with('status', __('Ticket #:id was merged into this one.', ['id' => $ticket]));
         }
 
         $found->load(['department', 'feedback', 'messages' => fn ($query) => $query->where('internal', false)->with(['user', 'client', 'attachments'])]);
@@ -118,7 +118,7 @@ class GuestTicketController extends Controller
 
         $desk->clientReply($ticket, $request->input('body'), TicketDesk::fromUploads($request->file('attachments')));
 
-        return redirect()->to($ticket->guestUrl())->with('status', 'Reply sent.');
+        return redirect()->to($ticket->guestUrl())->with('status', __('Reply sent.'));
     }
 
     public function close(int $ticket, string $key, TicketDesk $desk): RedirectResponse
@@ -126,7 +126,7 @@ class GuestTicketController extends Controller
         $ticket = $this->find($ticket, $key);
         $desk->close($ticket);
 
-        return redirect()->to($ticket->guestUrl())->with('status', 'Ticket closed. Reply any time to reopen it.');
+        return redirect()->to($ticket->guestUrl())->with('status', __('Ticket closed. Reply any time to reopen it.'));
     }
 
     /** The guest's rating of the support on a closed ticket. Once per ticket. */
@@ -143,7 +143,7 @@ class GuestTicketController extends Controller
         $ticket->feedback()->create(['client_id' => null, 'rating' => (int) $data['rating'], 'comment' => filled($data['comment'] ?? null) ? trim($data['comment']) : null]);
         Activity::record("Guest rated ticket #{$ticket->id} {$data['rating']} out of ".TicketFeedback::MAX_RATING, $ticket);
 
-        return redirect()->to($ticket->guestUrl())->with('status', 'Thanks for your feedback.');
+        return redirect()->to($ticket->guestUrl())->with('status', __('Thanks for your feedback.'));
     }
 
     public function attachment(int $ticket, string $key, int $attachment): StreamedResponse

@@ -6,6 +6,7 @@ use App\Enums\StaffRole;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\User;
+use App\Support\Demo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class StaffController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        Demo::refuse();
         $user = User::create($this->withPermissions($this->validated($request)));
         Activity::record("Added staff member {$user->name} ({$user->role->label()})", $user);
 
@@ -42,6 +44,7 @@ class StaffController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
+        Demo::refuse();
         $data = $this->validated($request, $user);
 
         if (blank($data['password'] ?? null)) {
@@ -69,6 +72,7 @@ class StaffController extends Controller
     /** For a staff member who lost their phone and recovery codes. */
     public function resetTwoFactor(User $user): RedirectResponse
     {
+        Demo::refuse();
         $user->disableTwoFactor();
         Activity::record("Turned off two-factor authentication for {$user->name}", $user);
 
@@ -77,6 +81,7 @@ class StaffController extends Controller
 
     public function destroy(Request $request, User $user): RedirectResponse
     {
+        Demo::refuse();
         if ($user->is($request->user())) {
             return back()->withErrors(['staff' => 'You cannot delete your own account.']);
         }

@@ -1,0 +1,14 @@
+{
+    "key": "status-board",
+    "name": "Status board",
+    "description": "A big-number board of today's payments, new orders and open tickets, for a screen on the office wall.",
+    "version": "1.0.0",
+    "author": "CMS",
+    "requires": "1.0.0",
+    "class": "CmsAddons\\StatusBoard\\StatusBoardAddon",
+    "autoload": {
+        "psr-4": {
+            "CmsAddons\\StatusBoard\\": "src/"
+        }
+    }
+}

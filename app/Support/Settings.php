@@ -74,10 +74,33 @@ class Settings
         'affiliates.minimum_payout',
         'affiliates.cookie_days',
         'affiliates.self_signup',
+        'mail.default',
+        'mail.mailers.smtp.scheme',
+        'mail.mailers.smtp.host',
+        'mail.mailers.smtp.port',
+        'mail.mailers.smtp.username',
+        'mail.mailers.smtp.password',
+        'mail.from.address',
+        'mail.from.name',
+        'billing.company.name',
+        'billing.company.address',
+        'billing.company.email',
+        'billing.company.tax_id',
+        'branding.logo',
+        'branding.color',
+        'branding.admin_name',
+        'branding.hide_powered_by',
+        'themes.active',
+        'maintenance.enabled',
+        'maintenance.message',
+        'backups.schedule',
+        'backups.time',
+        'backups.keep',
+        'backups.disk',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
@@ -86,7 +109,7 @@ class Settings
     ];
 
     /** Saved encrypted, read back decrypted. */
-    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials'];
+    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials', 'mail.mailers.smtp.password'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

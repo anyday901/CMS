@@ -69,7 +69,7 @@ class TicketController extends Controller
         );
         $ticket->update(['custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), null)]);
 
-        return redirect()->route('portal.tickets.show', $ticket)->with('status', "Ticket #{$ticket->id} opened. We'll be in touch soon.");
+        return redirect()->route('portal.tickets.show', $ticket)->with('status', __("Ticket #:id opened. We'll be in touch soon.", ['id' => $ticket->id]));
     }
 
     public function show(Request $request, int $ticket): View|RedirectResponse
@@ -77,7 +77,7 @@ class TicketController extends Controller
         $found = $this->find($request, $ticket);
 
         if ($found->id !== $ticket) {
-            return redirect()->route('portal.tickets.show', $found)->with('status', "Ticket #{$ticket} was merged into this one.");
+            return redirect()->route('portal.tickets.show', $found)->with('status', __('Ticket #:id was merged into this one.', ['id' => $ticket]));
         }
 
         $found->load(['department', 'feedback', 'messages' => fn ($query) => $query->where('internal', false)->with(['user', 'client', 'attachments'])]);
@@ -114,7 +114,7 @@ class TicketController extends Controller
         $ticket->feedback()->create(['client_id' => $ticket->client_id, 'rating' => (int) $data['rating'], 'comment' => filled($data['comment'] ?? null) ? trim($data['comment']) : null]);
         Activity::record("Rated ticket #{$ticket->id} {$data['rating']} out of ".TicketFeedback::MAX_RATING, $ticket);
 
-        return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Thanks for your feedback.');
+        return redirect()->route('portal.tickets.show', $ticket)->with('status', __('Thanks for your feedback.'));
     }
 
     public function reply(Request $request, int $ticket, TicketDesk $desk): RedirectResponse
@@ -124,7 +124,7 @@ class TicketController extends Controller
 
         $desk->clientReply($ticket, $request->input('body'), TicketDesk::fromUploads($request->file('attachments')));
 
-        return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Reply sent.');
+        return redirect()->route('portal.tickets.show', $ticket)->with('status', __('Reply sent.'));
     }
 
     public function close(Request $request, int $ticket, TicketDesk $desk): RedirectResponse
@@ -132,7 +132,7 @@ class TicketController extends Controller
         $ticket = $this->find($request, $ticket);
         $desk->close($ticket);
 
-        return redirect()->route('portal.tickets.show', $ticket)->with('status', 'Ticket closed. Reply any time to reopen it.');
+        return redirect()->route('portal.tickets.show', $ticket)->with('status', __('Ticket closed. Reply any time to reopen it.'));
     }
 
     public function attachment(Request $request, int $ticket, int $attachment): StreamedResponse

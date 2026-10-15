@@ -1,0 +1,80 @@
+name: Docs and marketplace
+
+# Builds the documentation site and the marketplace registry on every pull
+# request. On main, publishes both to GitHub Pages once the repository
+# variable DOCS_DEPLOY is set to "true" (and Pages is set to deploy from
+# GitHub Actions).
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
+
+      - name: Build the docs
+        run: mkdocs build --strict --site-dir _site
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, mbstring, zip, intl
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Build the marketplace registry
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan marketplace:registry marketplace _site/marketplace --base-url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/marketplace"
+
+      - name: Upload the site
+        if: github.event_name == 'push' && vars.DOCS_DEPLOY == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name == 'push' && vars.DOCS_DEPLOY == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

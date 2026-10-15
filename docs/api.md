@@ -2,7 +2,7 @@
 
 The REST API lets other software, such as an accounting tool, a status page or your own scripts, read and change clients, services, invoices, orders, products and tickets. It speaks JSON and lives under `https://your-domain/api/v1/`.
 
-Records look the same as in [webhooks](../app/Hooks/Payload.php): money is an integer in minor units (cents) with its currency next to it, dates are `YYYY-MM-DD` and times are ISO 8601.
+Records look the same as in [webhooks](https://github.com/anyday901/CMS/blob/main/app/Hooks/Payload.php): money is an integer in minor units (cents) with its currency next to it, dates are `YYYY-MM-DD` and times are ISO 8601.
 
 ## API keys
 

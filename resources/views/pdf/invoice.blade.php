@@ -27,6 +27,7 @@
     <table class="header" role="presentation">
         <tr>
             <td>
+                @if ($logo = App\Support\Branding::logoDataUri())<img src="{{ $logo }}" alt="{{ $company['name'] }}" style="max-height: 48px; max-width: 220px; margin-bottom: 6px;"><br>@endif
                 <h1>{{ $company['name'] }}</h1>
                 @if ($company['address'])<div>{!! nl2br(e(str_replace('\n', "\n", $company['address']))) !!}</div>@endif
                 @if ($company['email'])<div>{{ $company['email'] }}</div>@endif

@@ -10,4 +10,4 @@
         default => 'bg-ink-100 text-ink-700',
     };
 @endphp
-<span {{ $attributes->class("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold {$color}") }}>{{ $slot->isEmpty() ? ucfirst(str_replace('_', ' ', $value)) : $slot }}</span>
+<span {{ $attributes->class("inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold {$color}") }}>{{ $slot->isEmpty() ? __(ucfirst(str_replace('_', ' ', $value))) : $slot }}</span>

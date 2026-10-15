@@ -13,6 +13,7 @@ use App\Models\ClientGroup;
 use App\Models\CustomField;
 use App\Support\ClientSearch;
 use App\Support\Csv;
+use App\Support\Language;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -178,11 +179,13 @@ class ClientController extends Controller
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
+            'language' => ['nullable', Rule::in(Language::all())],
         ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         return [
             ...$data,
             'client_group_id' => $data['client_group_id'] ?? null,
+            'language' => $data['language'] ?? null,
             'tax_exempt' => $request->boolean('tax_exempt'),
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client?->custom_fields),
         ];

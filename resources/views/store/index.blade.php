@@ -1,9 +1,9 @@
-<x-portal-layout title="Products" :store="true">
-    <h1 class="mb-2 text-2xl font-semibold">Products</h1>
-    <p class="mb-8 text-sm text-ink-600">Pick a product to choose its options. You can create an account when you check out.</p>
+<x-portal-layout :title="__('Products')" :store="true">
+    <h1 class="mb-2 text-2xl font-semibold">{{ __('Products') }}</h1>
+    <p class="mb-8 text-sm text-ink-600">{{ __('Pick a product to choose its options. You can create an account when you check out.') }}</p>
 
     @if ($groups->isEmpty() && $ungrouped->isEmpty())
-        <p class="text-sm text-ink-500">There is nothing to order right now.</p>
+        <p class="text-sm text-ink-500">{{ __('There is nothing to order right now.') }}</p>
     @endif
 
     @foreach ($groups as $group)
@@ -22,7 +22,7 @@
 
     @if ($ungrouped->isNotEmpty())
         <section class="mb-10">
-            @if ($groups->isNotEmpty())<h2 class="mb-3 text-lg font-semibold">More products</h2>@endif
+            @if ($groups->isNotEmpty())<h2 class="mb-3 text-lg font-semibold">{{ __('More products') }}</h2>@endif
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($ungrouped as $product)
                     @include('store._product-card')

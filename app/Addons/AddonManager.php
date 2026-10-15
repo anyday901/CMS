@@ -3,6 +3,7 @@
 namespace App\Addons;
 
 use App\Http\Middleware\EnsureAddonEnabled;
+use App\Marketplace\ExtensionAddons;
 use App\Models\Activity;
 use App\Models\InstalledAddon;
 use App\Models\User;
@@ -38,10 +39,17 @@ class AddonManager
     /** @return Collection<string, Addon> every add-on that can be installed, by key */
     public function available(): Collection
     {
-        return $this->available ??= collect([...config('addons.available', []), ...self::$registered])
+        return $this->available ??= collect([...config('addons.available', []), ...self::$registered, ...ExtensionAddons::classes()])
             ->unique()
             ->map(fn (string $class) => app($class))
             ->keyBy(fn (Addon $addon) => $addon->key());
+    }
+
+    /** Forgets the add-ons found so far, after the marketplace adds or removes one. */
+    public function refresh(): void
+    {
+        $this->available = null;
+        $this->installed = null;
     }
 
     public function find(string $key): ?Addon
@@ -102,6 +110,9 @@ class AddonManager
 
         foreach ($this->available() as $key => $addon) {
             if ($this->isInstalled($key)) {
+                if ($addon->langPath() && is_dir($addon->langPath())) {
+                    app('translator')->addJsonPath($addon->langPath());
+                }
                 $addon->bootInstalled();
             }
         }

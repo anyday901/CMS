@@ -34,7 +34,7 @@ class PasswordController extends Controller
         }
 
         // Same answer whether or not the email exists, so accounts can't be probed.
-        return back()->with('status', 'If that email has an account, a link to set your password is on its way.');
+        return back()->with('status', __('If that email has an account, a link to set your password is on its way.'));
     }
 
     public function edit(Request $request, string $token): View
@@ -69,6 +69,6 @@ class PasswordController extends Controller
             throw ValidationException::withMessages(['email' => __($status)]);
         }
 
-        return redirect()->route('portal.login')->with('status', 'Your password is set. You can log in now.');
+        return redirect()->route('portal.login')->with('status', __('Your password is set. You can log in now.'));
     }
 }

@@ -69,8 +69,8 @@ class UpgradeController extends Controller
         }
 
         return $upgrade->invoice
-            ? redirect()->route('portal.invoices.show', $upgrade->invoice)->with('status', "Pay this invoice to move to {$product->name}.")
-            : redirect()->route('portal.services.show', $service)->with('status', "Your service is now on {$product->name}.");
+            ? redirect()->route('portal.invoices.show', $upgrade->invoice)->with('status', __('Pay this invoice to move to :product.', ['product' => $product->name]))
+            : redirect()->route('portal.services.show', $service)->with('status', __('Your service is now on :product.', ['product' => $product->name]));
     }
 
     private function service(Request $request, int $id): Service

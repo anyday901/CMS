@@ -24,13 +24,22 @@ use App\Models\ServiceUpgrade;
 use App\Models\User;
 use App\Provisioning\AccountMover;
 use App\Provisioning\Provisioner;
+use App\Support\Demo;
 use App\Support\Money;
 use App\Support\Settings;
+use App\Support\TranslationLoader;
+use App\System\Installer;
+use App\Themes\ThemeManager;
+use App\Themes\ThemeViewFinder;
 use Illuminate\Auth\EloquentUserProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Translation\FileLoader;
+use Illuminate\Translation\TranslationServiceProvider;
+use Illuminate\View\FileViewFinder;
+use ReflectionClass;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -41,6 +50,21 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(Hooks::class);
         $this->app->singleton(AddonManager::class);
+        $this->app->singleton(ThemeManager::class);
+
+        // Staff wording from Settings > Portal text wins over the language files.
+        $this->app->extend('translation.loader', fn (FileLoader $loader, $app) => new TranslationLoader($app['files'], [
+            dirname((new ReflectionClass(TranslationServiceProvider::class))->getFileName()).'/lang',
+            $app->langPath(),
+        ]));
+
+        // Client-facing views can come from the active theme; see ThemeViewFinder.
+        $this->app->extend('view.finder', fn (FileViewFinder $finder, $app) => new ThemeViewFinder($app['files'], $finder->getPaths(), $finder->getExtensions()));
+
+        // A fresh copy has no APP_KEY yet; make one so the installer's first page can load.
+        if (! $this->app->runningInConsole() && Installer::enabled()) {
+            $this->app->make(Installer::class)->ensureAppKey();
+        }
     }
 
     /**
@@ -53,6 +77,13 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Settings::apply();
+
+        $this->app->make(ThemeManager::class)->apply();
+
+        // A public demo never sends email.
+        if (Demo::enabled()) {
+            config(['mail.default' => 'log']);
+        }
         RecordsScheduledTasks::listen();
 
         // Events reach plugins, webhooks, chat channels and SMS; then enabled add-ons boot.

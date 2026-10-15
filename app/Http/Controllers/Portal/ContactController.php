@@ -27,7 +27,7 @@ class ContactController extends Controller
         $contact = $client->contacts()->create(ClientContact::attributesFrom($data, $request));
         Activity::record("Added contact {$contact->fullName()}", $client);
 
-        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, true), 'Contact added.', $contact));
+        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, true), __('Contact added.'), $contact));
     }
 
     public function edit(Request $request, ClientContact $contact): View
@@ -44,7 +44,7 @@ class ContactController extends Controller
         $contact->update(ClientContact::attributesFrom($data, $request));
         Activity::record("Updated contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), 'Contact updated.', $contact));
+        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), __('Contact updated.'), $contact));
     }
 
     public function resendInvite(Request $request, ClientContact $contact): RedirectResponse
@@ -54,7 +54,7 @@ class ContactController extends Controller
         $this->invitation->send($contact);
         Activity::record("Sent contact {$contact->fullName()} a portal password link", $contact->client);
 
-        return back()->with('status', "A link to choose a password is on its way to {$contact->email}.");
+        return back()->with('status', __('A link to choose a password is on its way to :email.', ['email' => $contact->email]));
     }
 
     public function destroy(Request $request, ClientContact $contact): RedirectResponse
@@ -63,7 +63,7 @@ class ContactController extends Controller
         $contact->delete();
         Activity::record("Removed contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('portal.account.edit')->with('status', 'Contact removed.');
+        return redirect()->route('portal.account.edit')->with('status', __('Contact removed.'));
     }
 
     private function authorizeContact(Request $request, ClientContact $contact): void

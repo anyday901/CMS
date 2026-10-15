@@ -42,6 +42,9 @@ class StaffImporter
     /** Given with billing rather than from a WHMCS permission. */
     private const REPORTS = 'view-reports';
 
+    /** Given with general settings, which is where WHMCS keeps its system pages. */
+    private const SYSTEM = 'manage-system';
+
     /** WHMCS's Full Administrator role, which every new install has. */
     private const FULL_ADMINISTRATOR = 1;
 
@@ -207,7 +210,11 @@ class StaffImporter
         $abilities = array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => isset(self::PERMISSIONS[$ability])
             ? array_diff(array_keys(self::PERMISSIONS[$ability]), $ticked) === []
             // WHMCS's report permissions vary by version, so reports come with billing, as on the Billing role here.
-            : $ability === self::REPORTS && array_diff(array_keys(self::PERMISSIONS['manage-billing']), $ticked) === []));
+            : match ($ability) {
+                self::REPORTS => array_diff(array_keys(self::PERMISSIONS['manage-billing']), $ticked) === [],
+                self::SYSTEM => array_diff(array_keys(self::PERMISSIONS['manage-settings']), $ticked) === [],
+                default => false,
+            }));
         $builtIn = self::builtInRole($abilities);
 
         return $builtIn === null ? [StaffRole::Custom, $abilities] : [$builtIn, []];

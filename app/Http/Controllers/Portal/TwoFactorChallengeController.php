@@ -32,17 +32,17 @@ class TwoFactorChallengeController extends Controller
         if ($account === null || ! $login->canLogIn($account)) {
             TwoFactorChallenge::clear();
 
-            return redirect()->route('portal.login')->withErrors(['email' => 'That took too long. Please log in again.']);
+            return redirect()->route('portal.login')->withErrors(['email' => __('That took too long. Please log in again.')]);
         }
 
         if (! $account->verifyTwoFactor($request->input('code'))) {
             $security->failed(LoginAttempt::PORTAL, $account->email, $account, $request, LoginAttempt::TWO_FACTOR_FAILED);
 
             if (! TwoFactorChallenge::failed()) {
-                return redirect()->route('portal.login')->withErrors(['email' => 'Too many wrong codes. Please log in again.']);
+                return redirect()->route('portal.login')->withErrors(['email' => __('Too many wrong codes. Please log in again.')]);
             }
 
-            throw ValidationException::withMessages(['code' => 'That code isn\'t right. Check the time on your phone, or use a recovery code.']);
+            throw ValidationException::withMessages(['code' => __("That code isn't right. Check the time on your phone, or use a recovery code.")]);
         }
 
         $remember = TwoFactorChallenge::remember();

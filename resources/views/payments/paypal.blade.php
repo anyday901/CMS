@@ -5,7 +5,7 @@
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
     const showError = (message) => {
         const el = document.getElementById('payment-error');
-        el.textContent = message || 'Something went wrong. Please try again.';
+        el.textContent = message || @json(__('Something went wrong. Please try again.'));
         el.classList.remove('hidden');
     };
     const post = async (url, body) => {

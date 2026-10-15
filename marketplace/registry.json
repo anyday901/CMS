@@ -1,0 +1,18 @@
+{
+    "packages": [
+        {
+            "type": "addon",
+            "key": "status-board",
+            "description": "A big-number board of today's payments, new orders and open tickets, for a screen on the office wall.",
+            "author": "CMS",
+            "homepage": "https://github.com/anyday901/CMS/tree/main/marketplace/packages/status-board"
+        },
+        {
+            "type": "theme",
+            "key": "sunrise",
+            "description": "Warm coral and stone, with soft rounded panels.",
+            "author": "CMS",
+            "homepage": "https://github.com/anyday901/CMS/tree/main/marketplace/packages/sunrise"
+        }
+    ]
+}

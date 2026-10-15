@@ -19,7 +19,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields', 'client_group_id',
+        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields', 'client_group_id', 'language',
     ];
 
     protected $hidden = ['password', 'legacy_password', 'remember_token'];

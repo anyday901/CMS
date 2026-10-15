@@ -30,7 +30,7 @@ class DownloadController extends Controller
             return redirect()->guest(route('portal.login'));
         }
 
-        abort_unless($download->allows($client), 403, 'This download is for clients with '.$download->products->pluck('name')->join(', ', ' or ').'.');
+        abort_unless($download->allows($client), 403, __('This download is for clients with :products.', ['products' => $download->products->pluck('name')->join(', ', ' '.__('or').' ')]));
         $download->increment('downloads');
 
         return Storage::disk('local')->download($download->path, $download->file_name, ['X-Content-Type-Options' => 'nosniff']);

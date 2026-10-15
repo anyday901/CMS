@@ -417,3 +417,5 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
         Route::put('affiliates/{affiliate}', [Admin\AffiliateController::class, 'update'])->whereNumber('affiliate')->name('affiliates.update');
     });
 });
+
+require __DIR__.'/platform.php';

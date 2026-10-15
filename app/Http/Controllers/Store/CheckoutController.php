@@ -44,13 +44,13 @@ class CheckoutController extends Controller
     private function cannotCheckOut(?Client $client): ?string
     {
         if ($client !== null && ! PortalContact::allows('orders')) {
-            return 'Your login doesn\'t include placing orders. Ask the account holder if you need it.';
+            return __("Your login doesn't include placing orders. Ask the account holder if you need it.");
         }
 
         $quote = $this->checkout->quote($this->cart, $client);
 
         if ($quote->rows === [] || $quote->errors !== [] || $quote->promotionError !== null) {
-            return $quote->promotionError ?? 'Check your cart and try again.';
+            return $quote->promotionError ?? __('Check your cart and try again.');
         }
 
         return null;
@@ -77,8 +77,8 @@ class CheckoutController extends Controller
         $invoice = $order->invoice;
 
         return $invoice->status === InvoiceStatus::Unpaid
-            ? redirect()->route('portal.invoices.show', $invoice)->with('status', 'Thanks for your order. Pay this invoice to get started.')
-            : redirect()->route('portal.services.index')->with('status', 'Thanks for your order. Nothing is due, so your services are being set up.');
+            ? redirect()->route('portal.invoices.show', $invoice)->with('status', __('Thanks for your order. Pay this invoice to get started.'))
+            : redirect()->route('portal.services.index')->with('status', __('Thanks for your order. Nothing is due, so your services are being set up.'));
     }
 
     /** Sends a client who already has an account to log in, then back here. */
@@ -107,7 +107,7 @@ class CheckoutController extends Controller
             'postcode' => ['required', 'string', 'max:20'],
             'country' => ['required', 'string', 'size:2'],
         ] + CustomField::rules($fields), [
-            'email.unique' => 'There is already an account with this email. Log in to order with it.',
+            'email.unique' => __('There is already an account with this email. Log in to order with it.'),
         ], CustomField::attributeNames($fields));
 
         $client = new Client([

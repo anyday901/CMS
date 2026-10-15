@@ -30,6 +30,17 @@
             </select>
             @can('manage-settings')<span class="mt-1 block text-ink-500">Add groups under <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">Client groups</a>.</span>@endcan
         </label>
+        @if (count(App\Support\Language::all()) > 1)
+            <label class="block">Language
+                <select name="language" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    <option value="">{{ App\Support\Language::name(App\Support\Language::main()) }} (the main language)</option>
+                    @foreach (App\Support\Language::others() as $code)
+                        <option value="{{ $code }}" @selected(old('language', $client->language) === $code)>{{ App\Support\Language::name($code) }}</option>
+                    @endforeach
+                </select>
+                <span class="mt-1 block text-ink-500">For the portal and their emails. Clients can change it in the portal.</span>
+            </label>
+        @endif
         @include('custom-fields._inputs', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-2'])
         <div class="space-y-2 md:col-span-2">
             <input type="hidden" name="tax_exempt" value="0">

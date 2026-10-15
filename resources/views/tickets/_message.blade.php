@@ -7,13 +7,13 @@
 ])>
     <header class="mb-2 flex flex-wrap items-baseline gap-x-2 text-ink-500">
         @if ($splittable ?? false)
-            <label for="split-pick-{{ $message->id }}" class="split-pick hidden self-center"><input id="split-pick-{{ $message->id }}" type="checkbox" form="split-form" name="messages[]" value="{{ $message->id }}" @checked(in_array((string) $message->id, (array) old('messages', []), true))><span class="sr-only">Move this message to a new ticket</span></label>
+            <label for="split-pick-{{ $message->id }}" class="split-pick hidden self-center"><input id="split-pick-{{ $message->id }}" type="checkbox" form="split-form" name="messages[]" value="{{ $message->id }}" @checked(in_array((string) $message->id, (array) old('messages', []), true))><span class="sr-only">{{ __('Move this message to a new ticket') }}</span></label>
         @endif
-        <span class="font-semibold text-ink-900">{{ $message->authorName() }}</span>
-        @if ($message->fromStaff())<span>Staff</span>@endif
-        @if ($message->internal)<span class="font-semibold text-amber-800">Internal note</span>@endif
-        @if ($message->via === 'email')<span>by email</span>@endif
-        <time class="ml-auto">{{ $message->created_at->format('M j, Y g:ia') }}</time>
+        <span class="font-semibold text-ink-900">{{ __($message->authorName()) }}</span>
+        @if ($message->fromStaff())<span>{{ __('Staff') }}</span>@endif
+        @if ($message->internal)<span class="font-semibold text-amber-800">{{ __('Internal note') }}</span>@endif
+        @if ($message->via === 'email')<span>{{ __('by email') }}</span>@endif
+        <time class="ml-auto">{{ $message->created_at->translatedFormat('M j, Y g:ia') }}</time>
     </header>
     <div class="whitespace-pre-line break-words">{{ $message->body }}</div>
     @if ($message->attachments->isNotEmpty())

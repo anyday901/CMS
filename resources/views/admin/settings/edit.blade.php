@@ -5,6 +5,18 @@
         @method('PUT')
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Look and email</legend>
+            <p class="text-ink-600">Your logo, colours, company details and the portal theme, and how email is sent. <a href="{{ route('admin.appearance.edit') }}" class="text-brand-600">Appearance</a> · <a href="{{ route('admin.mail.edit') }}" class="text-brand-600">Mail</a> · <a href="{{ route('admin.languages.index') }}" class="text-brand-600">Portal text and translations</a>.</p>
+        </fieldset>
+
+        @can('manage-system')
+            <fieldset class="space-y-2">
+                <legend class="mb-1 text-base font-semibold">System</legend>
+                <p class="text-ink-600">Check the server is in order, take the portal offline for maintenance, back up the database, update CMS, and add modules and themes. <a href="{{ route('admin.system.health') }}" class="text-brand-600">System health</a> · <a href="{{ route('admin.maintenance.edit') }}" class="text-brand-600">Maintenance</a> · <a href="{{ route('admin.backups.index') }}" class="text-brand-600">Backups</a> · <a href="{{ route('admin.updates.index') }}" class="text-brand-600">Updates</a> · <a href="{{ route('admin.marketplace.index') }}" class="text-brand-600">Marketplace</a>.</p>
+            </fieldset>
+        @endcan
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Automation</legend>
             <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
         </fieldset>
@@ -86,11 +98,11 @@
 
         <fieldset id="languages" class="space-y-3">
             <legend class="mb-1 text-base font-semibold">Languages</legend>
-            <p class="text-ink-600">Knowledge base articles and announcements can be translated. Visitors see the translation into the language their browser asks for, and can pick another one on the help pages.</p>
+            <p class="text-ink-600">The languages the portal, client emails, knowledge base articles and announcements come in. Visitors get the language their browser asks for and can pick another; signed-in clients keep the one they picked, and their emails use it too. Change any portal wording, or translate it into a language CMS doesn't ship, under <a href="{{ route('admin.languages.index') }}" class="text-brand-600">Portal text</a>, and translate each email under <a href="{{ route('admin.email-templates.index') }}" class="text-brand-600">Email templates</a>.</p>
             <div class="grid max-w-3xl gap-3 sm:grid-cols-2">
                 <label class="block">Main language
                     <input name="main_language" value="{{ old('main_language', $mainLanguage) }}" required maxlength="12" list="language-codes" class="mt-1 block w-28 rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">
-                    <span class="text-ink-500">The language articles are written in.</span>
+                    <span class="text-ink-500">The language articles and emails are written in.</span>
                 </label>
                 <label class="block">Other languages
                     <input name="languages" value="{{ old('languages', implode(', ', $languages)) }}" placeholder="fr, de, pt-BR" class="mt-1 block w-full rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">

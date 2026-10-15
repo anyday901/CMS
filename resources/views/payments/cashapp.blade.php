@@ -6,7 +6,7 @@
     const csrf = '{{ csrf_token() }}';
     const showError = (message) => {
         const el = document.getElementById('payment-error');
-        el.textContent = message || 'Something went wrong. Please try again.';
+        el.textContent = message || @json(__('Something went wrong. Please try again.'));
         el.classList.remove('hidden');
     };
 
@@ -15,7 +15,7 @@
         const request = payments.paymentRequest({
             countryCode: 'US',
             currencyCode: @json($invoice->currency),
-            total: { amount: @json(Money::toInput($invoice->balance())), label: 'Total' },
+            total: { amount: @json(Money::toInput($invoice->balance())), label: @json(__('Total')) },
         });
         const cashAppPay = await payments.cashAppPay(request, {
             redirectURL: window.location.href,
@@ -25,7 +25,7 @@
         cashAppPay.addEventListener('ontokenization', async (event) => {
             const { tokenResult, error } = event.detail;
             if (error || tokenResult.status !== 'OK') {
-                showError('Cash App did not complete the payment.');
+                showError(@json(__('Cash App did not complete the payment.')));
                 return;
             }
             const res = await fetch(@json(route('portal.pay.cashapp', $invoice)), {
@@ -40,7 +40,7 @@
 
         await cashAppPay.attach('#cash-app-pay', { shape: 'semiround', width: 'full' });
     } catch (e) {
-        showError('Cash App Pay is unavailable right now. Please choose another way to pay.');
+        showError(@json(__('Cash App Pay is unavailable right now. Please choose another way to pay.')));
     }
 })();
 </script>

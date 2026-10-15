@@ -31,8 +31,8 @@ class InvoiceController extends Controller
         $applied = $credit->apply($invoice);
 
         return redirect()->route('portal.invoices.show', $invoice)->with('status', $applied
-            ? 'Applied '.Money::format($applied->amount, $applied->currency).' of your credit to this invoice.'
-            : 'There was no credit to apply.');
+            ? __('Applied :amount of your credit to this invoice.', ['amount' => Money::format($applied->amount, $applied->currency)])
+            : __('There was no credit to apply.'));
     }
 
     public function pdf(Request $request, int $invoice, InvoicePdf $pdf): Response

@@ -4,12 +4,16 @@ use App\Http\Middleware\BlockBannedIps;
 use App\Http\Middleware\EnsureAddonEnabled;
 use App\Http\Middleware\EnsureContactCan;
 use App\Http\Middleware\RecallPortalContact;
+use App\Http\Middleware\RedirectToInstaller;
+use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\ShowMaintenancePage;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,11 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: fn () => Route::group([], base_path('routes/install.php')),
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Mail apps' one-click unsubscribe posts without a session; the link is signed instead.
         $middleware->validateCsrfTokens(except: ['webhooks/*', 'unsubscribe/*']);
-        $middleware->web(append: [BlockBannedIps::class, RecallPortalContact::class]);
+        $middleware->web(prepend: [RedirectToInstaller::class], append: [BlockBannedIps::class, RecallPortalContact::class, SetLocale::class, ShowMaintenancePage::class]);
         $middleware->alias(['contact.can' => EnsureContactCan::class]);
         // A remembered contact is signed back in before routes check who is signed in.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: RecallPortalContact::class);

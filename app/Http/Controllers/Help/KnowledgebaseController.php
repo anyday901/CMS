@@ -80,6 +80,6 @@ class KnowledgebaseController extends Controller
             $article->increment($request->boolean('helpful') ? 'helpful' : 'not_helpful');
         }
 
-        return redirect()->route('kb.article', $article)->with('status', 'Thanks for your feedback.');
+        return redirect()->route('kb.article', $article)->with('status', __('Thanks for your feedback.'));
     }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Support;
 
+use App\Models\Client;
+
 /**
- * The languages knowledge base articles and announcements are offered in:
- * the main one they're written in, and the others they can be translated
- * into (both under Settings), and which one a visitor sees.
+ * The languages the portal, client emails, knowledge base articles and
+ * announcements are offered in: the main one, and the others they can be
+ * translated into (both under Settings), and which one a visitor sees.
  */
 final class Language
 {
@@ -55,7 +57,19 @@ final class Language
         return self::NAMES[$code] ?? $code;
     }
 
-    /** The language a visitor sees: the one they picked, else the best match for their browser, else the main one. */
+    /** A language's name in that language ("Deutsch", "Français"), for language pickers. */
+    public static function nativeName(string $code): string
+    {
+        $name = class_exists(\Locale::class) ? \Locale::getDisplayName(str_replace('-', '_', $code), str_replace('-', '_', $code)) : '';
+
+        return $name !== '' && $name !== str_replace('-', '_', $code) ? mb_convert_case(mb_substr($name, 0, 1), MB_CASE_UPPER).mb_substr($name, 1) : self::name($code);
+    }
+
+    /**
+     * The language a visitor sees: the one they picked, else (signed in) the
+     * one on their account, else the best match for their browser, else the
+     * main one.
+     */
     public static function current(): string
     {
         $all = self::all();
@@ -64,15 +78,40 @@ final class Language
             return $all[0];
         }
 
-        $picked = session()->get(self::SESSION_KEY);
+        $picked = request()->hasSession() ? request()->session()->get(self::SESSION_KEY) : null;
         if (is_string($picked) && in_array($picked, $all, true)) {
             return $picked;
+        }
+
+        $client = request()->hasSession() ? auth('client')->user() : null;
+        if ($client?->language !== null && in_array($client->language, $all, true)) {
+            return $client->language;
         }
 
         // Symfony writes locales with underscores and returns the first one when nothing matches.
         $preferred = request()->getPreferredLanguage(array_map(fn (string $code) => str_replace('-', '_', $code), $all));
 
         return self::normalize((string) $preferred) ?? $all[0];
+    }
+
+    /** The language a client's emails are written in. */
+    public static function forClient(?Client $client): string
+    {
+        $language = $client?->language;
+
+        return $language !== null && in_array($language, self::all(), true) ? $language : self::main();
+    }
+
+    /**
+     * Languages CMS ships portal text for, from lang/*.json (English is the source, so always there).
+     *
+     * @return list<string>
+     */
+    public static function shipped(): array
+    {
+        $codes = array_map(fn (string $file) => basename($file, '.json'), glob(lang_path('*.json')) ?: []);
+
+        return self::list(['en', ...$codes]);
     }
 
     /** Whether visitors see a translation rather than the main language. */
