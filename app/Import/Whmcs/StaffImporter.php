@@ -28,8 +28,8 @@ class StaffImporter
     /**
      * The WHMCS admin permissions, by their id in tbladminperms, that each
      * ability here needs: a role gets the ability when it has all of them.
-     * The ids are one more than the permission's place in the list WHMCS's
-     * admin templates get, which counts from 0 (API Access, 80th there, is 81).
+     * The ids are the keys of WHMCS's getAdminPermsArray(), checked against
+     * WHMCS 8.
      */
     private const PERMISSIONS = [
         'manage-staff' => [64 => 'Configure Administrators', 65 => 'Configure Admin Roles'],
