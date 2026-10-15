@@ -178,6 +178,10 @@ For a client with two accounts, open the one to get rid of and use **Merge**. Fi
 
 Clients say whether they want news and offers by email with a box at sign-up (unticked unless they tick it) and under **Account > Email preferences** in the portal. Staff can change it on the client's edit form when a client asks. Every change is kept in the activity log, and the client's page shows when they last said yes or no. Each client has a signed unsubscribe link (in the CSV export) that works without logging in and supports mail apps' one-click unsubscribe. The WHMCS import brings over WHMCS's marketing opt-in.
 
+### Mass mail
+
+**Clients > Mass mail** emails many clients at once, picked by status, group, country, currency and the products they have. Preview it to see how many clients it reaches and how it reads. Marketing emails only go to clients who agreed to them, with their unsubscribe link and a one-click `List-Unsubscribe` header; service notices go to everyone picked. Emails go out from the queue.
+
 ### Contacts
 
 A client can have contacts: other people on the account, such as a bookkeeper or a developer. Staff add them on the client's page, and clients add them under **Account** in the portal. Each contact can be copied on invoice emails (new invoices, reminders and receipts), on support emails (ticket received and ticket replies), or both. A contact who gets support emails can also open and reply to tickets by email for that client.
@@ -250,6 +254,19 @@ Each report has a date range (with shortcuts such as last month or this year), a
 **Settings > Automation** holds everything the nightly billing run works by: the time it runs, how many days before the due date renewal invoices are made, paying new invoices from credit, the days overdue reminders go out, late fees, the days before overdue services are suspended and terminated, and the days to pay an overage invoice. Values saved there replace the matching `BILLING_*` settings in `.env`.
 
 **Settings > Cron status** shows whether the scheduler is running (with the crontab line to add when it isn't), each automatic task with when it runs, when it last ran, whether that worked and when it runs next, the queue's waiting and failed jobs, and the last 50 runs. Runs are kept 30 days.
+
+### Integrations: webhooks, chat, SMS and the API
+
+- **Settings > Webhooks** sends a signed JSON POST to your URLs when events happen (new orders, paid invoices, service changes, tickets and more). See [docs/webhooks.md](docs/webhooks.md).
+- **Settings > Chat notifications** posts events to Slack, Discord or Microsoft Teams channels.
+- **Settings > SMS** texts staff, and clients who agree to it, through Twilio or Vonage (or another provider you add in `config/sms.php`).
+- **Settings > API keys** makes keys for the REST API under `/api/v1`, each limited to what it may do. See [docs/api.md](docs/api.md).
+
+All of these are sent from the queue, so run a queue worker.
+
+### Add-ons
+
+**Settings > Add-ons** installs, configures and enables optional modules. The **Project management** add-on ships with the app: projects for clients with tasks, time tracking and a timer, and billable time put on a draft invoice. Developers can write their own add-ons and listen to events with the hook system; see [docs/addons.md](docs/addons.md).
 
 ### Settings
 
