@@ -21,6 +21,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -178,8 +179,8 @@ class WhmcsSupportImportTest extends TestCase
     public function test_admins_come_over_as_staff_with_their_passwords_assignments_and_replies(): void
     {
         $this->whmcs->table('tbladminroles')->insert([['id' => 1, 'name' => 'Full Administrator'], ['id' => 2, 'name' => 'Account Manager'], ['id' => 3, 'name' => 'Support Operator']]);
-        $this->whmcs->table('tbladmins')->where('id', 1)->update(['firstname' => 'Jane', 'lastname' => 'Admin', 'roleid' => 3, 'password' => password_hash('whmcs-pass', PASSWORD_BCRYPT)]);
-        $this->whmcs->table('tbladmins')->where('id', 2)->update(['firstname' => 'Gary', 'lastname' => 'Gone', 'roleid' => 2, 'password' => md5('old')]);
+        $this->whmcs->table('tbladmins')->where('id', 1)->update(['firstname' => 'Jane', 'lastname' => 'Admin', 'roleid' => 3, 'password' => Hash::make('whmcs-pass')]);
+        $this->whmcs->table('tbladmins')->where('id', 2)->update(['firstname' => 'Gary', 'lastname' => 'Gone', 'roleid' => 2, 'password' => str_repeat('f', 32)]); // shaped like an old md5 hash
         $this->whmcs->table('tbladmins')->insert([
             ['id' => 3, 'firstname' => 'Old', 'lastname' => 'Timer', 'email' => 'old@example.com', 'roleid' => 1, 'password' => '', 'disabled' => 1],
             ['id' => 4, 'firstname' => 'Me', 'lastname' => 'Myself', 'email' => 'ME@example.com', 'roleid' => 1, 'password' => '', 'disabled' => 0],
