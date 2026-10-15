@@ -172,7 +172,9 @@ class Installer
         ]);
 
         Settings::save(['billing.company.name' => $company]);
-        $this->env->writable() && $this->env->set(['APP_NAME' => $company]);
+        if ($this->env->writable()) {
+            $this->env->set(['APP_NAME' => $company]);
+        }
         $this->markInstalled();
         Activity::record('Finished setting up CMS with the web installer', $user);
 

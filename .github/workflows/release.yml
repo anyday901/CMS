@@ -55,7 +55,7 @@ jobs:
           cd dist/cms
           echo "${TAG#v}" > VERSION
           composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction --no-progress
-          npm ci
+          npm ci --ignore-scripts
           npm run build
           rm -rf node_modules tests .github docs marketplace mkdocs.yml requirements-docs.txt phpunit.xml
 

@@ -59,7 +59,9 @@
             @csrf
             <h2 class="text-base font-semibold">Upload a package</h2>
             <p class="text-ink-600">A zip with an addon.json or theme.json, such as one a developer sent you or one you made with <code class="rounded bg-ink-100 px-1">php artisan marketplace:package</code>. Uploading a newer version of something installed replaces it.</p>
-            <input type="file" name="package" accept=".zip" required class="block">
+            <label class="block">Package zip (up to 7.5 MB)
+                <input type="file" name="package" accept=".zip" required class="mt-1 block">
+            </label>
             <button class="rounded-full bg-white px-4 py-2 font-medium ring-1 ring-ink-300 hover:bg-ink-50">Upload and install</button>
         </form>
     @else

@@ -50,7 +50,7 @@ class MarketplaceController extends Controller
     public function upload(Request $request): RedirectResponse
     {
         $this->guard();
-        $request->validate(['package' => ['required', 'file', 'mimes:zip', 'max:51200']], [], ['package' => 'package']);
+        $request->validate(['package' => ['required', 'file', 'mimes:zip', 'max:7680']], [], ['package' => 'package']);
 
         try {
             $manifest = $this->installer->install($request->file('package')->getRealPath());

@@ -64,9 +64,9 @@ Run the tests with `php artisan test`.
 
 ## Installing on a server
 
-[docs/install.md](docs/install.md) walks through a production install on Ubuntu with Nginx, PHP-FPM, MariaDB, cron for the scheduler and a systemd queue worker, plus updates and backups. A release download (`cms.zip` from GitHub releases) has `vendor/` and the built assets, sets itself up with the web installer at `/install`, and updates with one click under **Settings > Updates**.
+[docs/install.md](docs/install.md) walks through a production install on Ubuntu with Nginx, PHP-FPM, MariaDB, cron for the scheduler and a systemd queue worker, plus updates and backups. It also covers the included Docker Compose setup (`Dockerfile` and `docker-compose.yml`), which runs the app with Nginx, MariaDB, Redis, a queue worker and the scheduler. A release download (`cms.zip` from GitHub releases) has `vendor/` and the built assets, sets itself up with the web installer at `/install`, and updates with one click under **Settings > Updates**.
 
-The documentation is also a site, built from `docs/` with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`) and published to GitHub Pages; see [docs/release.md](docs/release.md#the-docs-site-and-the-marketplace-registry). The developer guide for modules, gateways, themes and translations starts at [docs/developers/index.md](docs/developers/index.md), and [docs/demo.md](docs/demo.md) sets up a public demo instance. It also covers the included Docker Compose setup (`Dockerfile` and `docker-compose.yml`), which runs the app with Nginx, MariaDB, Redis, a queue worker and the scheduler.
+The documentation is also a site, built from `docs/` with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`) and published to GitHub Pages; see [docs/release.md](docs/release.md#the-docs-site-and-the-marketplace-registry). The developer guide for modules, gateways, themes and translations starts at [docs/developers/index.md](docs/developers/index.md), and [docs/demo.md](docs/demo.md) sets up a public demo instance.
 
 ## Moving from WHMCS
 

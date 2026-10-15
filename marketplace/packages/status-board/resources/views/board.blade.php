@@ -1,5 +1,4 @@
 <x-admin-layout :title="$title">
-    <meta http-equiv="refresh" content="60">
     <h1 class="mb-6 text-2xl font-semibold">{{ $title }}</h1>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         @foreach ([
@@ -14,4 +13,5 @@
             </div>
         @endforeach
     </div>
+    <script>setTimeout(() => window.location.reload(), 60000);</script>
 </x-admin-layout>

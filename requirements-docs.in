@@ -1,0 +1,3 @@
+# The documentation site's direct dependencies. requirements-docs.txt is the hashed lock built from this.
+mkdocs==1.6.1
+mkdocs-material==9.7.7

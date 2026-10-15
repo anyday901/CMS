@@ -112,6 +112,8 @@ class MarketplaceTest extends TestCase
         $this->assertFileDoesNotExist($this->root.'/escaped.txt');
         $this->assertDirectoryDoesNotExist($this->root.'/themes/evil');
 
+        $this->from(self::URL)->post(self::URL.'/upload', ['package' => UploadedFile::fake()->create('big.zip', 7681, 'application/zip')])->assertSessionHasErrors('package');
+
         $empty = $this->zip('empty.zip', ['readme.txt' => 'Nothing here']);
         $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($empty, 'empty.zip', 'application/zip', null, true)])->assertSessionHasErrors('package');
 
