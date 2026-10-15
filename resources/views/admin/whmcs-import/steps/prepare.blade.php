@@ -28,7 +28,9 @@
     </li>
 </ul>
 
-<p class="mb-6 rounded-md bg-ink-50 px-4 py-3 text-ink-600">Not copied: disabled admins, WHMCS email templates, and add-on and domain renewals. The dry run report lists everything it skips. With tens of thousands of invoices, the command line is more reliable than a browser: <code class="rounded bg-white px-1">php artisan whmcs:import --dry-run</code> runs the same import (add <code class="rounded bg-white px-1">--hash=</code> with the encryption hash).</p>
+<p class="mb-4 rounded-md bg-ink-50 px-4 py-3 text-ink-600">Not copied: disabled admins, WHMCS email templates, custom reports, and add-on and domain renewals. The dry run report lists everything it skips. With tens of thousands of invoices, the command line is more reliable than a browser: <code class="rounded bg-white px-1">php artisan whmcs:import --dry-run</code> runs the same import (add <code class="rounded bg-white px-1">--hash=</code> with the encryption hash).</p>
+
+@include('admin.whmcs-import._custom-reports')
 
 @if ($blockers === [])
     <a href="{{ route('admin.whmcs-import.show', ['step' => 2]) }}" class="inline-block rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Continue</a>

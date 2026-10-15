@@ -64,7 +64,7 @@ Run the tests with `php artisan test`.
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies servers and server groups, client groups, clients and contacts (a WHMCS 8 user of several clients gets one login for all of them), staff notes on clients, marketing email consent, the to-do list, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, admins as staff accounts, ticket departments, custom fields, tags, tickets (including ones from people without a client account) and replies (and, with `--attachments`, ticket attachments), ticket feedback ratings, the knowledge base and announcements with their translations, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
+`php artisan whmcs:import` copies servers and server groups, client groups, clients and contacts (a WHMCS 8 user of several clients gets one login for all of them), staff notes on clients, marketing email consent, the to-do list, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances with the credit log, promotions and the orders that used them, cancellation requests, the activity log, admins as staff accounts, ticket departments, custom fields, tags, tickets (including ones from people without a client account) and replies (and, with `--attachments`, ticket attachments), ticket feedback ratings, the knowledge base and announcements with their translations, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
 
 Or use the walkthrough in the admin area under **Settings > Import from WHMCS**: it checks the install is empty, connects to WHMCS (from `.env` or details you type in), runs the dry run and shows its report, then imports and lists the next steps. It runs the same importer; on very large installs the command line is more reliable than a browser request.
 
@@ -75,6 +75,8 @@ Or use the walkthrough in the admin area under **Settings > Import from WHMCS**:
 - Escalation rules come over turned off, so you can check them first. Knowledge base articles that were for logged-in clients only come over unpublished, since articles here are public.
 - Feedback ratings come over out of 5 instead of WHMCS's 10 (halved and rounded up). WHMCS rates each admin who replied; here a ticket has one rating, the average of those.
 - Tickets from people without a client account come over as guest tickets. Translations of articles, knowledge base categories and announcements come over, with their languages offered under **Settings > Languages** and WHMCS's default language as the main one.
+- The history reports read comes over (orders, promotions and their usage, the credit log, cancellation requests and the activity log, as well as invoices, payments, services and tickets), so **Reports** covers the years before the switch. Orders keep their WHMCS numbers. Promotions WHMCS had as price overrides or free setup come over switched off. Cancellation requests for services WHMCS hadn't cancelled yet come over waiting, so the billing run carries them out on their date; withdraw any you don't want first.
+- Custom WHMCS reports (PHP files in `modules/reports`) can't be copied, since the importer only reads the database. The walkthrough lists the closest built-in report for each of WHMCS's own.
 - `php artisan whmcs:compare --simulate` checks that this app would bill the same renewals as WHMCS for a period after the import, without saving anything, so both can run side by side for a cycle before you switch.
 
 The full steps, and what changes for clients, are in [docs/install.md](docs/install.md#moving-from-whmcs).
@@ -205,9 +207,9 @@ Each staff account has one role:
 | Role | Can do |
 | --- | --- |
 | Admin | Everything, including staff, products, tax rules, departments, email templates, the email log, settings and the activity log |
-| Billing | Create and edit clients, services and invoices; record payments, apply credit and refund; handle tickets |
+| Billing | Create and edit clients, services and invoices; record payments, apply credit and refund; handle tickets; see reports |
 | Support | Handle tickets; look at clients, services and invoices, and download invoice PDFs, without changing them |
-| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets |
+| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets, see reports |
 
 Every role can look at clients, services, invoices and tasks. A custom staff member with nothing ticked can only look.
 
@@ -230,9 +232,28 @@ Clients who sign up at checkout or change their email are asked to confirm the a
 
 For GDPR requests, a client's page has **Export personal data** (a JSON file of everything kept about them, which clients can also download under **Account** in the portal) and, on a closed account with no running services, **Anonymise this client**. Anonymising removes the client's personal details, contacts, emails and login history and blanks their tickets, but keeps invoices, payments and services for your records. It can't be undone.
 
+### Reports
+
+**Reports** (Admin and Billing roles, or a custom role with **See reports**) has:
+
+- Income: annual income by month, monthly transactions (payments, fees and refunds), daily performance, and an income forecast from active services' renewals.
+- Sales: income by product, new orders and new clients by month, promotion usage, and top clients by income.
+- Invoices: aging (not yet due, 1 to 30, 31 to 60, 61 to 90 and over 90 days overdue), credits given and used, and a statement for one client with a running balance.
+- Tax: tax collected by country and rate, on invoices paid or issued in the dates, optionally only for EU clients (sales tax liability and EU VAT returns).
+- Clients and services: clients by country and by group, client growth and churn, retention time by product, suspensions and cancellations by reason, and server revenue.
+- Support: tickets opened and closed, first response and resolution times, replies by staff, ratings and feedback comments, and ticket tags.
+
+Each report has a date range (with shortcuts such as last month or this year), a currency when you bill in more than one, and **Export to CSV**. Income counts payments less refunds by the day they were made; credit applied to invoices isn't counted again.
+
+### Automation and cron status
+
+**Settings > Automation** holds everything the nightly billing run works by: the time it runs, how many days before the due date renewal invoices are made, paying new invoices from credit, the days overdue reminders go out, late fees, the days before overdue services are suspended and terminated, and the days to pay an overage invoice. Values saved there replace the matching `BILLING_*` settings in `.env`.
+
+**Settings > Cron status** shows whether the scheduler is running (with the crontab line to add when it isn't), each automatic task with when it runs, when it last ran, whether that worked and when it runs next, the queue's waiting and failed jobs, and the last 50 runs. Runs are kept 30 days.
+
 ### Settings
 
-Admins change late fees, tax-inclusive pricing, whether invoice emails attach the PDF, and how long to keep the activity log under **Settings**, which also links to ticket departments and email templates. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
+Admins change tax-inclusive pricing, whether invoice emails attach the PDF, and how long to keep the activity log under **Settings**, which also links to ticket departments and email templates. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
 
 ### Provisioning modules
 

@@ -10,7 +10,7 @@ enum StaffRole: string
     case Custom = 'custom';
 
     /** Abilities checked with Gate / the "can" middleware. */
-    public const ABILITIES = ['manage-staff', 'manage-settings', 'manage-clients', 'manage-billing', 'manage-tickets'];
+    public const ABILITIES = ['manage-staff', 'manage-settings', 'manage-clients', 'manage-billing', 'manage-tickets', 'view-reports'];
 
     /** What each ability lets staff do, for the staff form. */
     public static function abilityLabel(string $ability): string
@@ -21,6 +21,7 @@ enum StaffRole: string
             'manage-clients' => 'Add and edit clients and services, and run provisioning',
             'manage-billing' => 'Create and edit invoices, record payments, apply credit and refund',
             'manage-tickets' => 'Answer, assign and close support tickets',
+            'view-reports' => 'See reports on income, sales, invoices, tax, clients and support, and download them as CSV',
             default => $ability,
         };
     }
@@ -39,7 +40,7 @@ enum StaffRole: string
     {
         return match ($this) {
             self::Admin => 'Everything, including staff, products, tax rules and the activity log.',
-            self::Billing => 'Clients, services, invoices and support tickets: create, edit, payments, credit and refunds.',
+            self::Billing => 'Clients, services, invoices and support tickets: create, edit, payments, credit and refunds, and reports.',
             self::Support => 'Answers support tickets; read-only access to clients, services and invoices.',
             self::Custom => 'Only the permissions ticked below. Everyone can look at clients, services and invoices.',
         };
@@ -50,7 +51,7 @@ enum StaffRole: string
     {
         return match ($this) {
             self::Admin => true,
-            self::Billing => in_array($ability, ['manage-clients', 'manage-billing', 'manage-tickets'], true),
+            self::Billing => in_array($ability, ['manage-clients', 'manage-billing', 'manage-tickets', 'view-reports'], true),
             self::Support => $ability === 'manage-tickets',
             self::Custom => false,
         };

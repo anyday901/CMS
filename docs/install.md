@@ -176,6 +176,8 @@ sudo crontab -u www-data -e
 * * * * * cd /var/www/cms && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+Within a few minutes, **Settings > Cron status** in the admin area should say the scheduler is running and list each task's last run. The billing run's time of day, and the days it works by, are under **Settings > Automation**.
+
 ## 7. Queue worker
 
 Emails, provisioning actions and webhooks run on the queue, so a worker must always be running. Create `/etc/systemd/system/cms-queue.service`:

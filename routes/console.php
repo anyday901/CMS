@@ -7,19 +7,16 @@ use App\Billing\OverageBiller;
 use App\Billing\OverdueProcessor;
 use App\Billing\RefundReconciler;
 use App\Billing\ServiceCanceller;
+use App\Console\Scheduler;
 use App\Models\Activity;
 use App\Models\Department;
-use App\Models\InboundEmail;
-use App\Models\IpBan;
-use App\Models\KnownDevice;
-use App\Models\LoginAttempt;
 use App\Monitoring\ServerMonitor;
 use App\Provisioning\UsageCollector;
 use App\Tickets\InactiveTicketCloser;
 use App\Tickets\InboundMail;
 use App\Tickets\TicketEscalator;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, OverageBiller $overages, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
     $cancelled = $cancellations->run(today());
@@ -105,10 +102,4 @@ Artisan::command('servers:check', function (ServerMonitor $monitor) {
     }
 })->purpose('Check that each monitored server and its ports answer, and email staff when one goes down or comes back');
 
-Schedule::command('billing:run')->dailyAt('00:05')->withoutOverlapping();
-Schedule::command('usage:collect')->hourlyAt(50)->withoutOverlapping();
-Schedule::command('tickets:escalate')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('tickets:close-inactive')->everyFifteenMinutes()->withoutOverlapping();
-Schedule::command('servers:check')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('activity:prune')->dailyAt('03:15');
-Schedule::command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class]])->dailyAt('03:25');
+Scheduler::define(app(Schedule::class));

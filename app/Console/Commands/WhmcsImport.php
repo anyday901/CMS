@@ -47,6 +47,7 @@ class WhmcsImport extends Command
         $path = $report->save($this->option('report'));
         $this->newLine();
         $this->line("Full report, with every skipped record: {$path}");
+        $this->line('Custom WHMCS reports (PHP files in modules/reports) are not copied, since only the database is read. Admin > Reports has the closest built-in ones.');
 
         if ($dryRun) {
             $this->info('Nothing was saved. Run again without --dry-run to import.');

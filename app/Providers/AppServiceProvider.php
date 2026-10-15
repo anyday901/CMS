@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Billing\ServiceUpgrader;
+use App\Console\RecordsScheduledTasks;
 use App\Enums\InvoiceStatus;
 use App\Enums\StaffRole;
 use App\Events\InvoiceIssued;
@@ -47,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Settings::apply();
+        RecordsScheduledTasks::listen();
 
         // Contacts' password links only find contacts who can sign in.
         Auth::provider('contacts', fn ($app) => (new EloquentUserProvider($app['hash'], ClientContact::class))

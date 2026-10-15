@@ -21,6 +21,13 @@ class Settings
 
     /** Config keys that can be saved here. */
     public const KEYS = [
+        'billing.run_time',
+        'billing.invoice_days_before_due',
+        'billing.apply_credit_automatically',
+        'billing.reminder_days',
+        'billing.suspend_after_days',
+        'billing.terminate_after_days',
+        'billing.overage_due_days',
         'billing.late_fee_after_days',
         'billing.late_fee_type',
         'billing.late_fee_amount',
@@ -54,11 +61,11 @@ class Settings
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
-        'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
+        'billing.reminder_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
     ];
 
     /** Saved encrypted, read back decrypted. */

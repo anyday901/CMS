@@ -39,6 +39,9 @@ class StaffImporter
         'manage-tickets' => [105 => 'View Support Ticket'],
     ];
 
+    /** Given with billing rather than from a WHMCS permission. */
+    private const REPORTS = 'view-reports';
+
     /** WHMCS's Full Administrator role, which every new install has. */
     private const FULL_ADMINISTRATOR = 1;
 
@@ -201,7 +204,10 @@ class StaffImporter
             return [$billing ? StaffRole::Billing : StaffRole::Support, []];
         }
 
-        $abilities = array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => array_diff(array_keys(self::PERMISSIONS[$ability]), $ticked) === []));
+        $abilities = array_values(array_filter(StaffRole::ABILITIES, fn (string $ability) => isset(self::PERMISSIONS[$ability])
+            ? array_diff(array_keys(self::PERMISSIONS[$ability]), $ticked) === []
+            // WHMCS's report permissions vary by version, so reports come with billing, as on the Billing role here.
+            : $ability === self::REPORTS && array_diff(array_keys(self::PERMISSIONS['manage-billing']), $ticked) === []));
         $builtIn = self::builtInRole($abilities);
 
         return $builtIn === null ? [StaffRole::Custom, $abilities] : [$builtIn, []];
@@ -233,7 +239,7 @@ class StaffImporter
             return 'has a custom role here that can only look, since their WHMCS role has none of the permissions the abilities here need.';
         }
 
-        $granted = collect($abilities)->map(fn (string $ability) => lcfirst(StaffRole::abilityLabel($ability)).' (from '.implode(' and ', self::PERMISSIONS[$ability]).')');
+        $granted = collect($abilities)->map(fn (string $ability) => lcfirst(StaffRole::abilityLabel($ability)).' (from '.implode(' and ', self::PERMISSIONS[$ability] ?? self::PERMISSIONS['manage-billing']).')');
 
         return 'has a custom role here that can '.$granted->join('; ', '; and ').'.';
     }

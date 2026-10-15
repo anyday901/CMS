@@ -212,6 +212,8 @@ class TicketImporter
             'custom_fields' => $this->fieldValues($values),
             'last_reply_at' => Whmcs::dateTime($row->lastreply ?? null) ?? $opened,
             'closed_at' => Whmcs::ticketStatus($row->status) === TicketStatus::Closed ? (Whmcs::dateTime($row->lastreply ?? null) ?? $opened) : null,
+            // For response time reports: when an admin first answered.
+            'first_response_at' => $messages->filter(fn ($reply) => filled($reply->admin ?? null))->map(fn ($reply) => Whmcs::dateTime($reply->date))->filter()->min(),
             'created_at' => $opened,
             'updated_at' => $this->run->now,
         ]);
