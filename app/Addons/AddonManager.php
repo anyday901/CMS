@@ -89,7 +89,8 @@ class AddonManager
 
     /**
      * Registers every add-on's views and routes (routes answer 404 while it is
-     * disabled), then boots the enabled ones. Called once at startup.
+     * disabled), then runs bootInstalled() for installed ones and boot() for
+     * enabled ones. Called once at startup.
      */
     public function boot(): void
     {
@@ -98,6 +99,12 @@ class AddonManager
                 View::addNamespace($key, $addon->viewsPath());
             }
             Route::middleware(['web', EnsureAddonEnabled::class.':'.$key])->group(fn () => $addon->routes());
+        }
+
+        foreach ($this->available() as $key => $addon) {
+            if ($this->isInstalled($key)) {
+                $addon->bootInstalled();
+            }
         }
 
         foreach ($this->enabledAddons() as $addon) {

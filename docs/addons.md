@@ -68,6 +68,7 @@ What each part does:
 - **`routes()`**: always registered, so `php artisan route:cache` works; while the add-on is disabled its routes answer 404. `adminRoutes($path, ...)` adds staff login and two-factor checks under `/admin/{path}` with names `admin.{key}.*`; `portalRoutes($path, ...)` does the same for signed-in clients under `/portal/{path}` with names `portal.{key}.*`. Check abilities with the `can:` middleware as the core does.
 - **`adminLinks()` / `portalLinks()`**: menu links while enabled. Portal links show to the account holder, not to contacts.
 - **`boot()`**: runs on every request while enabled. Listen to events here.
+- **`bootInstalled()`**: runs on every request while installed, even when disabled. Listen here to hooks that keep the add-on's data right, such as `client.merged`.
 - **`installed()`**: runs once after the first install, for seeding.
 
 Views use the theme's components, `<x-admin-layout>` and `<x-portal-layout>`, and its Tailwind classes. Views under `app/Addons` are included in the CSS build; an add-on kept elsewhere (such as a Composer package) adds its views folder as an `@source` line in `resources/css/app.css` before `npm run build`.
@@ -82,7 +83,7 @@ The project management add-on in `app/Addons/ProjectManagement` uses each part o
 - `routes()` uses `adminRoutes('projects', ...)` and `portalRoutes('projects', ...)` for `/admin/projects` and `/portal/projects`, with `can:` middleware inside (creating projects needs `manage-clients`, invoicing time needs `manage-billing`).
 - `settings()` declares the default hourly rate, whether invoiced time is taxed, whether clients see their projects in the portal, whether they see time logged, and the wording of invoice lines.
 - `adminLinks()` adds **Projects** to the admin menu; `portalLinks()` adds it to the portal only while the portal setting is on.
-- `boot()` defines `project.created`, `project.completed`, `project.task_completed` and `project.invoiced` for webhooks and chat, and listens to the core `client.merged` event to move a merged client's projects inside the merge.
+- `boot()` defines `project.created`, `project.completed`, `project.task_completed` and `project.invoiced` for webhooks and chat, and its `bootInstalled()` listens to the core `client.merged` event, even while disabled, to move a merged client's projects inside the merge.
 - It stays out of the billing core: unbilled time becomes a draft invoice through the public `App\Billing\InvoiceEditor`, and the link from time entries to invoice lines lives in its own table.
 
 In tests, install and enable it through `AddonManager`, then call `$manager->find('projects')->boot()`, since the app booted before it was enabled.

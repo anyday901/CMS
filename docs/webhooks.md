@@ -83,7 +83,7 @@ The URL is kept encrypted and isn't shown again. **Send a test** checks it strai
 Pick a provider under Settings > SMS (Twilio, Vonage, or Log only for trying it out), enter its credentials (secrets are kept encrypted) and the number or sender ID to send from.
 
 - **Staff texts**: list staff numbers and tick the events they're texted about.
-- **Client texts**: tick which of new invoice, payment received, service activated, service suspended and support replied clients are texted about. Only clients who agreed (under Account in the portal, or ticked by staff on their edit page) and have a phone number get them. Numbers without a country code get the default one from the settings.
+- **Client texts**: tick which of new invoice, payment received, service activated, service suspended and support replied clients are texted about. Only clients who agreed (under Account in the portal, or ticked by staff on their edit page) and have a phone number get them. Numbers without a leading + or 00 are read as national numbers and get the default country code from the settings.
 
 The page lists recent texts with any error. Texts are kept 90 days.
 

@@ -72,6 +72,14 @@ abstract class Addon
     public function boot(): void {}
 
     /**
+     * Called on every request while the add-on is installed, even when it is
+     * disabled, before boot(). Listen here to hooks that keep the add-on's
+     * data correct, such as client.merged, so turning the add-on off never
+     * leaves its rows behind.
+     */
+    public function bootInstalled(): void {}
+
+    /**
      * Links in the admin menu while enabled: route name => label. An entry
      * can be [label, ability] to show it only to staff with that ability.
      *

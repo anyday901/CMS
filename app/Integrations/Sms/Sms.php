@@ -59,13 +59,18 @@ class Sms
         return preg_match('/^\+[1-9]\d{6,14}$/', $number) ? $number : null;
     }
 
+    /**
+     * A number written without + or 00 is a national one: drop its trunk
+     * prefix (0, or 1 in North America) and add the default country code.
+     * International numbers need + or 00, since digits alone can't tell a
+     * country code from the start of a national number.
+     */
     private static function withCountryCode(string $digits): string
     {
         $code = preg_replace('/\D/', '', (string) config('sms.default_country_code'));
 
-        // A number already starting with the code and long enough to include it, such as 1 555 123 4567.
-        if ($code !== '' && str_starts_with($digits, $code) && strlen($digits) > 10) {
-            return '+'.$digits;
+        if ($code === '1' && strlen($digits) === 11 && str_starts_with($digits, '1')) {
+            $digits = substr($digits, 1);
         }
 
         return '+'.$code.ltrim($digits, '0');

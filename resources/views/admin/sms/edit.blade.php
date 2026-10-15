@@ -38,7 +38,7 @@
                     <label class="block grow">Sending number or sender ID
                         <input name="from" value="{{ old('from', $from) }}" maxlength="40" placeholder="+15551234567" class="{{ $input }}">
                     </label>
-                    <label class="block">Country code for numbers without one
+                    <label class="block">Country code for numbers without + or 00
                         <input name="default_country_code" value="{{ old('default_country_code', $countryCode) }}" maxlength="5" placeholder="1" class="{{ $input }} w-24">
                     </label>
                 </div>

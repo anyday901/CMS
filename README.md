@@ -455,7 +455,7 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `SECURITY_NEW_DEVICE_EMAILS` | `true` | Email clients and contacts about portal logins from new devices |
 | `CAPTCHA_PROVIDER` | (off) | `turnstile`, `hcaptcha` or `recaptcha`, with `CAPTCHA_SITE_KEY` and `CAPTCHA_SECRET_KEY` |
 | `SMS_PROVIDER` | (off) | `twilio`, `vonage` or `log`, with `SMS_FROM`; credentials are set under **Settings > SMS** |
-| `SMS_DEFAULT_COUNTRY_CODE` | `1` | Country calling code for client phone numbers written without one |
+| `SMS_DEFAULT_COUNTRY_CODE` | `1` | Country calling code for client phone numbers written without + or 00 |
 | `AFFILIATES_ENABLED` | `false` | Run the affiliate program; its other settings are under **Settings > Affiliates** |
 
 Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set, IP bans that have ended and devices unused for a year, webhook deliveries older than 30 days and texts older than 90 days. `php artisan affiliates:clear` approves affiliate commissions whose clearing days are up, every night. The security settings are on **Settings > Security**.

@@ -49,6 +49,7 @@ class ProjectManagementTest extends TestCase
         $addons->install('projects');
         $addons->setEnabled('projects', true);
         // The app booted before the add-on was enabled, so boot it as the next request would.
+        $addons->find('projects')->bootInstalled();
         $addons->find('projects')->boot();
         app(Hooks::class)->listen(Hooks::ANY, function (HookEvent $event) {
             $this->fired[] = $event;
@@ -391,6 +392,21 @@ class ProjectManagementTest extends TestCase
         $this->assertNull(Client::find($this->client->id));
         $this->assertSame($keep->id, $project->fresh()->client_id);
         $this->assertSame(['from_client_id' => $this->client->id, 'into_client_id' => $keep->id], $merged);
+    }
+
+    public function test_merging_clients_moves_their_projects_while_the_add_on_is_disabled(): void
+    {
+        $keep = Client::factory()->create(['currency' => 'USD']);
+        $project = $this->project();
+        $addons = app(AddonManager::class);
+        $addons->setEnabled('projects', false);
+        // A fresh request: only what boots for a disabled add-on is listening.
+        app()->instance(Hooks::class, new Hooks);
+        $addons->boot();
+
+        app(ClientMerger::class)->merge($this->client, $keep);
+
+        $this->assertSame($keep->id, $project->fresh()->client_id);
     }
 
     public function test_uninstalling_with_data_removes_the_tables(): void

@@ -103,6 +103,12 @@ class NotificationsTest extends TestCase
 
         config(['sms.default_country_code' => '44']);
         $this->assertSame('+447700900123', Sms::normalise('07700 900123'));
+
+        // Digits alone are a national number, even when they start with the country code; international ones need + or 00.
+        config(['sms.default_country_code' => '65']);
+        $this->assertSame('+6591234567', Sms::normalise('+65 9123 4567'));
+        config(['sms.default_country_code' => '91']);
+        $this->assertSame('+919123456789', Sms::normalise('9123456789'));
     }
 
     public function test_staff_are_texted_about_their_events_and_clients_only_when_they_agreed(): void

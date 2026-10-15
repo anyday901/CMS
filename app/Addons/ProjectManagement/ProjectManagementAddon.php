@@ -132,9 +132,13 @@ class ProjectManagementAddon extends Addon
         foreach (ProjectHooks::events() as $key => $label) {
             $hooks->define($key, $label);
         }
+    }
 
-        // Merging clients: the merged client's projects move with everything else.
-        $hooks->listen('client.merged', function (HookEvent $event) {
+    public function bootInstalled(): void
+    {
+        // Merging clients: the merged client's projects move with everything
+        // else, even while the add-on is turned off.
+        app(Hooks::class)->listen('client.merged', function (HookEvent $event) {
             Project::where('client_id', $event->data['from_client_id'])->update(['client_id' => $event->data['into_client_id']]);
         });
     }
