@@ -389,6 +389,11 @@ class WhmcsDatabase
             $t->id();
             $t->string('name');
         });
+        $schema->create('tbladminperms', function (Blueprint $t) {
+            $t->id();
+            $t->integer('roleid');
+            $t->integer('permid');
+        });
         $schema->create('tblticketfeedback', function (Blueprint $t) {
             $t->id();
             $t->integer('ticketid');

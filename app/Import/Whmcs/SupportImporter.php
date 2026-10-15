@@ -115,7 +115,7 @@ class SupportImporter
      */
     private function importKbCategories(): array
     {
-        $rows = $this->run->table('tblknowledgebasecats')->orderBy('id')->get()->filter(fn ($row) => TranslationImporter::original($row, 'catid'));
+        [$rows, $translations] = $this->run->table('tblknowledgebasecats')->orderBy('id')->get()->partition(fn ($row) => TranslationImporter::original($row, 'catid'));
         $byId = $rows->keyBy(fn ($row) => (int) $row->id);
         $categories = [];
 
@@ -138,6 +138,10 @@ class SupportImporter
                 'updated_at' => $this->run->now,
             ]);
             $this->run->report->imported(self::KB_CATEGORIES);
+        }
+
+        foreach ($translations as $row) {
+            $this->translations->importCategory($categories, $row);
         }
 
         return $categories;

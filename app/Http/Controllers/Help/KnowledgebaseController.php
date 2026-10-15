@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Help;
 use App\Http\Controllers\Controller;
 use App\Models\KbArticle;
 use App\Models\KbCategory;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,10 +22,10 @@ class KnowledgebaseController extends Controller
 
         return view('help.kb.index', [
             'search' => $search,
-            'results' => $search === '' ? null : KbArticle::visible()->search($search)->with('category')->translated()->ordered()->paginate(20)->withQueryString(),
-            'categories' => KbCategory::visible()->whereNull('parent_id')->ordered()
+            'results' => $search === '' ? null : KbArticle::visible()->search($search)->with(self::withCategory())->translated()->ordered()->paginate(20)->withQueryString(),
+            'categories' => KbCategory::visible()->whereNull('parent_id')->ordered()->translated()
                 ->withCount(['articles' => fn ($query) => $query->where('published', true)])
-                ->with(['children' => fn ($query) => $query->where('visible', true)])
+                ->with(['children' => fn ($query) => $query->where('visible', true)->translated()])
                 ->get(),
             'popular' => KbArticle::visible()->translated()->orderByDesc('views')->orderBy('title')->limit(5)->get(),
         ]);
@@ -34,9 +35,11 @@ class KnowledgebaseController extends Controller
     {
         abort_unless($category->isVisible(), 404);
 
+        $category->loadTranslation()->parent?->loadTranslation();
+
         return view('help.kb.category', [
             'category' => $category,
-            'children' => $category->children()->where('visible', true)->withCount(['articles' => fn ($query) => $query->where('published', true)])->get(),
+            'children' => $category->children()->where('visible', true)->translated()->withCount(['articles' => fn ($query) => $query->where('published', true)])->get(),
             'articles' => $category->articles()->where('published', true)->translated()->get(),
         ]);
     }
@@ -52,10 +55,18 @@ class KnowledgebaseController extends Controller
         }
 
         return view('help.kb.article', [
-            'article' => $article->loadTranslation(),
+            'article' => $article->loadTranslation()->load(self::withCategory()),
             'voted' => $request->session()->has("kb_voted.{$article->id}"),
             'related' => KbArticle::visible()->where('kb_category_id', $article->kb_category_id)->whereKeyNot($article->id)->translated()->ordered()->limit(5)->get(),
         ]);
+    }
+
+    /** @return array<string, Closure> an article's category and the one above it, in the visitor's language */
+    private static function withCategory(): array
+    {
+        $translated = fn ($query) => $query->translated();
+
+        return ['category' => $translated, 'category.parent' => $translated];
     }
 
     /** "Was this article helpful?" Once per visitor session. */

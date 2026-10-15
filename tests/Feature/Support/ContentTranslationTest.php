@@ -23,6 +23,8 @@ class ContentTranslationTest extends TestCase
 
     private const GERMAN_TITLE = 'Neues Rechenzentrum';
 
+    private const FRENCH_SUBCATEGORY = 'Connexion en deux étapes';
+
     private KbArticle $article;
 
     protected function setUp(): void
@@ -99,6 +101,38 @@ class ContentTranslationTest extends TestCase
 
         $announcement->delete();
         $this->assertSame(0, ContentTranslation::count());
+    }
+
+    public function test_category_names_and_descriptions_are_translated(): void
+    {
+        $this->actingAs(User::factory()->create(), 'web');
+        $category = $this->article->category;
+        $category->update(['description' => 'Logins and passwords']);
+        $child = KbCategory::create(['name' => 'Two-step login', 'parent_id' => $category->id, 'visible' => true]);
+        $this->article->update(['kb_category_id' => $child->id]);
+
+        $this->get(route('admin.kb-categories.edit', $category))->assertOk()->assertSee('French')->assertSee('not translated yet');
+        $this->put(route('admin.translations.update', ['kb-categories', $category->id, 'fr']), ['title' => 'Comptes', 'body' => ''])
+            ->assertRedirect(route('admin.kb-categories.edit', $category).'#translation-fr');
+        $this->put(route('admin.translations.update', ['kb-categories', $child->id, 'fr']), ['title' => self::FRENCH_SUBCATEGORY, 'body' => 'Codes à usage unique']);
+        $this->put(route('admin.translations.update', ['kb-categories', $category->id, 'fr']), ['title' => 'Comptes', 'body' => 'x', 'tags' => 'y'])->assertSessionHasErrors('tags');
+        $this->assertNull($category->translations()->sole()->body);
+        $this->assertSame('Accounts', $category->fresh()->name, 'Staff edit the main language.');
+
+        $french = ['Accept-Language' => self::FRENCH];
+        // A translation without a description shows the main one.
+        $this->get(route('kb.index'), $french)->assertOk()->assertSee('Comptes')->assertSee('Logins and passwords')->assertSee(self::FRENCH_SUBCATEGORY);
+        $this->get(route('kb.category', $child), $french)->assertOk()->assertSee('Comptes')->assertSee('Codes à usage unique')->assertSee('lang="fr"', false);
+        $this->get(route('kb.article', $this->article), $french)->assertOk()->assertSee('Comptes')->assertSee(self::FRENCH_SUBCATEGORY);
+        $this->get(route('kb.index', ['q' => 'password']), $french)->assertOk()->assertSee(self::FRENCH_SUBCATEGORY);
+        $this->get(route('kb.index'), ['Accept-Language' => 'en'])->assertOk()->assertSee('Accounts')->assertDontSee('Comptes');
+
+        $this->delete(route('admin.translations.destroy', ['kb-categories', $child->id, 'fr']))->assertRedirect();
+        $this->get(route('kb.category', $child), $french)->assertOk()->assertSee('Two-step login');
+        $this->article->delete();
+        $child->delete();
+        $category->delete();
+        $this->assertSame(0, ContentTranslation::count(), 'Deleting a category removes its translations.');
     }
 
     public function test_staff_set_the_languages_under_settings(): void

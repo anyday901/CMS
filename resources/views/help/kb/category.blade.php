@@ -1,7 +1,7 @@
 <x-portal-layout :title="$category->name" :store="true">
     @include('help._nav')
     <p class="mb-2 text-sm text-ink-500"><a href="{{ route('kb.index') }}" class="text-brand-600">Knowledge base</a>@if ($category->parent) › <a href="{{ route('kb.category', $category->parent) }}" class="text-brand-600">{{ $category->parent->name }}</a>@endif</p>
-    <h1 class="mb-2 text-2xl font-semibold">{{ $category->name }}</h1>
+    <h1 lang="{{ $category->shownLanguage() }}" class="mb-2 text-2xl font-semibold">{{ $category->name }}</h1>
     @if ($category->description)<p class="mb-4 text-sm text-ink-600">{{ $category->description }}</p>@endif
     @include('help.kb._search')
 

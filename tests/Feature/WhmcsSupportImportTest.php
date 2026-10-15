@@ -34,6 +34,8 @@ class WhmcsSupportImportTest extends TestCase
 
     private const ANNOUNCEMENT = 'New data centre';
 
+    private const KB_CATEGORY = 'Getting started';
+
     private const FEEDBACK_DATE = '2026-10-02 09:00:00';
 
     private const GUEST_NAME = 'Sam Visitor';
@@ -67,8 +69,8 @@ class WhmcsSupportImportTest extends TestCase
     {
         (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
-        $this->assertSame(['Email', 'Getting started', 'Webmail'], KbCategory::orderBy('name')->pluck('name')->all());
-        $top = KbCategory::where('name', 'Getting started')->first();
+        $this->assertSame(['Email', self::KB_CATEGORY, 'Webmail'], KbCategory::orderBy('name')->pluck('name')->all());
+        $top = KbCategory::where('name', self::KB_CATEGORY)->first();
         // Webmail was nested two deep, so it moved up under the top-level category.
         $this->assertSame($top->id, KbCategory::where('name', 'Webmail')->value('parent_id'));
         $this->assertSame($top->id, KbCategory::where('name', 'Email')->value('parent_id'));
@@ -218,6 +220,53 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertStringContainsString('Jane Admin (Support Operator in WHMCS) has the Support role here.', $markdown);
     }
 
+    public function test_admin_roles_become_the_role_or_custom_permissions_their_whmcs_permissions_add_up_to(): void
+    {
+        $this->whmcs->table('tbladminroles')->insert([
+            ['id' => 1, 'name' => 'Full Administrator'], ['id' => 2, 'name' => 'Account Manager'], ['id' => 3, 'name' => 'Support Operator'],
+            ['id' => 4, 'name' => 'Sales Desk'], ['id' => 5, 'name' => 'Owners'], ['id' => 6, 'name' => 'Reports Only'],
+        ]);
+        $perms = fn (int $role, array $ids) => array_map(fn (int $id) => ['roleid' => $role, 'permid' => $id], $ids);
+        $this->whmcs->table('tbladminperms')->insert([
+            ...$perms(1, range(1, 135)),
+            ...$perms(2, [4, 9, 12, 29, 35, 42, 105]),
+            ...$perms(3, [42, 43, 105]),
+            ...$perms(4, [4, 9, 12, 105, 35]), // Manage Invoice without Add Transaction: no billing
+            ...$perms(5, range(1, 135)),
+            ...$perms(6, [45]),
+        ]);
+        $this->whmcs->table('tbladmins')->where('id', 1)->update(['roleid' => 3]);
+        $this->whmcs->table('tbladmins')->where('id', 2)->update(['roleid' => 2]);
+        $this->whmcs->table('tbladmins')->insert([
+            ['id' => 3, 'firstname' => 'Sam', 'lastname' => 'Sales', 'email' => 'sam@example.com', 'roleid' => 4, 'password' => '', 'disabled' => 0],
+            ['id' => 4, 'firstname' => 'Olive', 'lastname' => 'Owner', 'email' => 'olive@example.com', 'roleid' => 5, 'password' => '', 'disabled' => 0],
+            ['id' => 5, 'firstname' => 'Rita', 'lastname' => 'Reports', 'email' => 'rita@example.com', 'roleid' => 6, 'password' => '', 'disabled' => 0],
+            ['id' => 6, 'firstname' => 'Ned', 'lastname' => 'New', 'email' => 'ned@example.com', 'roleid' => 7, 'password' => '', 'disabled' => 0],
+        ]);
+
+        $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+
+        $staff = User::orderBy('id')->get()->mapWithKeys(fn (User $user) => [$user->email => [$user->role, $user->permissions]])->all();
+        $this->assertSame([
+            'jane@example.com' => [StaffRole::Support, null],
+            'gone@example.com' => [StaffRole::Billing, null],
+            'sam@example.com' => [StaffRole::Custom, ['manage-clients', 'manage-tickets']],
+            'olive@example.com' => [StaffRole::Admin, null],
+            'rita@example.com' => [StaffRole::Custom, []],
+            // A role WHMCS has no permissions for ticks nothing.
+            'ned@example.com' => [StaffRole::Custom, []],
+        ], $staff);
+
+        $sam = User::where('email', 'sam@example.com')->sole();
+        $this->assertTrue($sam->allows('manage-tickets'));
+        $this->assertFalse($sam->allows('manage-billing'));
+
+        $markdown = $report->toMarkdown();
+        $this->assertStringContainsString('Sam Sales (Sales Desk in WHMCS) has a custom role here that can add and edit clients and services, and run provisioning (from Edit Clients Details and Edit Clients Products/Services); and answer, assign and close support tickets (from View Support Ticket).', $markdown);
+        $this->assertStringContainsString('Rita Reports (Reports Only in WHMCS) has a custom role here that can only look', $markdown);
+        $this->assertStringContainsString('Olive Owner (Owners in WHMCS) has the Admin role here.', $markdown);
+    }
+
     public function test_feedback_ratings_come_over_out_of_five(): void
     {
         $this->whmcs->table('tbltickets')->where('id', 60)->update(['status' => 'Closed']);
@@ -261,6 +310,10 @@ class WhmcsSupportImportTest extends TestCase
     {
         $this->whmcs->table('tblknowledgebase')->insert(['id' => 4, 'title' => 'Mot de passe cPanel', 'article' => '<p>En français</p>', 'parentid' => 1, 'language' => 'french']);
         $this->whmcs->table('tblknowledgebase')->insert(['id' => 5, 'title' => 'Klingon', 'article' => '<p>?</p>', 'parentid' => 1, 'language' => 'klingon!']);
+        $this->whmcs->table('tblknowledgebasecats')->insert([
+            ['id' => 5, 'parentid' => 0, 'name' => 'Premiers pas', 'description' => 'Les &eacute;tapes', 'hidden' => '', 'catid' => 1, 'language' => 'french'],
+            ['id' => 6, 'parentid' => 0, 'name' => 'Courriel', 'description' => '', 'hidden' => '', 'catid' => 99, 'language' => 'french'],
+        ]);
         $this->whmcs->table('tblknowledgebasetags')->insert(['articleid' => 4, 'tag' => 'mot de passe']);
         $this->whmcs->table('tblconfiguration')->insert(['setting' => 'Language', 'value' => 'english']);
 
@@ -272,9 +325,13 @@ class WhmcsSupportImportTest extends TestCase
         $this->assertSame(['Mot de passe cPanel', 'En français', 'mot de passe'], [$french->title, $french->body, $french->tags]);
         $this->assertSame('Neues Rechenzentrum', Announcement::where('title', self::ANNOUNCEMENT)->sole()->translations->sole()->title);
         $this->assertSame(['en', ['de', 'fr']], [config('help.main_language'), config('help.languages')]);
-        $this->assertSame(['found' => 4, 'imported' => 3, 'skipped' => 1], $report->counts()['Translations']);
+        $this->assertSame(['found' => 7, 'imported' => 5, 'skipped' => 2], $report->counts()['Translations']);
+        $this->assertSame(3, KbCategory::count(), 'Translated categories are translations, not categories of their own.');
+        $category = KbCategory::where('name', self::KB_CATEGORY)->sole();
+        $this->assertSame([['de', 'Erste Schritte', null], ['fr', 'Premiers pas', 'Les étapes']], $category->translations->map(fn ($t) => [$t->locale, $t->title, $t->body])->all());
+        $this->assertStringContainsString('"Courriel" (french) was left out: the category it translates wasn\'t imported.', $report->toMarkdown());
 
-        $this->get(route('kb.article', $article), ['Accept-Language' => 'de'])->assertOk()->assertSee('cPanel Passwort');
+        $this->get(route('kb.article', $article), ['Accept-Language' => 'de'])->assertOk()->assertSee('cPanel Passwort')->assertSee('Erste Schritte');
     }
 
     public function test_a_dry_run_leaves_the_language_settings_alone(): void

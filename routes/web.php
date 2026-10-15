@@ -201,7 +201,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('kb-categories', Admin\KbCategoryController::class)->only(['store', 'edit', 'update', 'destroy']);
             Route::resource('kb-articles', Admin\KbArticleController::class)->except(['index', 'show']);
             Route::resource('announcements', Admin\AnnouncementController::class)->except('show');
-            Route::prefix('translations/{type}/{id}/{locale}')->whereIn('type', ['kb-articles', 'announcements'])->whereNumber('id')->name('translations.')->controller(Admin\TranslationController::class)->group(function () {
+            Route::prefix('translations/{type}/{id}/{locale}')->whereIn('type', ['kb-articles', 'kb-categories', 'announcements'])->whereNumber('id')->name('translations.')->controller(Admin\TranslationController::class)->group(function () {
                 Route::put('/', 'update')->name('update');
                 Route::delete('/', 'destroy')->name('destroy');
             });
