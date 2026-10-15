@@ -58,6 +58,8 @@
         @if ($client->notes)<div class="md:col-span-3"><div class="text-ink-500">Profile notes</div>{!! nl2br(e($client->notes)) !!}</div>@endif
     </div>
 
+    @include('admin.affiliates._client')
+
     <h2 id="notes" class="mb-3 text-lg font-semibold">Notes</h2>
     <div class="mb-8 space-y-2">
         @foreach ($client->clientNotes as $note)

@@ -38,6 +38,9 @@ class HookCatalog
             'service.terminated' => 'Service terminated',
             'ticket.opened' => 'New ticket',
             'ticket.replied' => 'Client replied to a ticket',
+            'affiliate.signup' => 'New affiliate',
+            'affiliate.commission' => 'Affiliate commission earned',
+            'affiliate.payout_requested' => 'Affiliate payout requested',
             self::STAFF_ALERT => 'Staff alert (failed provisioning, disputes, tasks)',
         ];
     }

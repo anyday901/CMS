@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Store;
 
+use App\Affiliates\Referrals;
 use App\Auth\PortalContact;
 use App\Enums\InvoiceStatus;
 use App\Events\ClientCreated;
@@ -125,6 +126,7 @@ class CheckoutController extends Controller
             Activity::record('Agreed to marketing emails at sign-up', $client);
         }
         $this->verification->send($client);
+        app(Referrals::class)->signedUp($request, $client);
         ClientCreated::dispatch($client);
 
         return $client;

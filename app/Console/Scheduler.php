@@ -30,6 +30,8 @@ class Scheduler
             ->description('Close inactive tickets');
         $schedule->command('servers:check')->everyFiveMinutes()->withoutOverlapping()
             ->description('Check that monitored servers answer');
+        $schedule->command('affiliates:clear')->dailyAt('02:30')->withoutOverlapping()
+            ->description('Approve affiliate commissions past their clearing days');
         $schedule->command('activity:prune')->dailyAt('03:15')
             ->description('Delete old activity log entries');
         $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class]])->dailyAt('03:25')

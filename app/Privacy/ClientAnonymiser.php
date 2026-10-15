@@ -5,6 +5,7 @@ namespace App\Privacy;
 use App\Enums\ClientStatus;
 use App\Enums\ServiceStatus;
 use App\Models\Activity;
+use App\Models\Affiliate;
 use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\InboundEmail;
@@ -74,6 +75,8 @@ class ClientAnonymiser
 
             $client->contacts()->delete();
             $client->clientNotes()->delete();
+            // Their referral link stops working; commissions and payouts stay for the books.
+            Affiliate::where('client_id', $client->id)->update(['status' => Affiliate::DISABLED]);
             KnownDevice::whereIn('email', array_map('strtolower', $emails))->delete();
             $client->emailLogs()->delete();
             LoginAttempt::where('client_id', $client->id)->delete();

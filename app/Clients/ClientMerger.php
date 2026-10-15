@@ -2,6 +2,7 @@
 
 namespace App\Clients;
 
+use App\Affiliates\AffiliateMerger;
 use App\Billing\CreditLedger;
 use App\Models\Activity;
 use App\Models\Client;
@@ -16,7 +17,7 @@ use InvalidArgumentException;
 /**
  * Merges one client account into another: everything on the first account
  * (services, invoices, payments, orders, tickets, contacts, notes, to-dos,
- * emails, logins and activity) moves to the second, its credit balance is
+ * emails, logins, activity and affiliate records) moves to the second, its credit balance is
  * added there, and the first account is deleted. Its details are kept in a
  * note on the account it was merged into.
  */
@@ -28,10 +29,10 @@ class ClientMerger
         'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log',
     ];
 
-    /** Tables with a client_id that don't move row by row: contacts are matched up, and credit history is summed. */
-    public const HANDLED = ['client_contacts', 'credit_entries'];
+    /** Tables with a client_id that don't move row by row: contacts are matched up, credit history is summed, and AffiliateMerger sorts out affiliates and referrals. */
+    public const HANDLED = ['client_contacts', 'credit_entries', 'affiliates', 'affiliate_referrals'];
 
-    public function __construct(private CreditLedger $ledger) {}
+    public function __construct(private CreditLedger $ledger, private AffiliateMerger $affiliates) {}
 
     /** Why these two can't be merged, or null when they can. */
     public static function problem(Client $from, Client $into): ?string
@@ -80,6 +81,8 @@ class ClientMerger
                 $this->keepAccountHolder($from, $into);
             }
             $this->keepDetails($from, $into);
+
+            $this->affiliates->merge($from, $into);
 
             foreach (self::MOVES as $table) {
                 DB::table($table)->where('client_id', $from->id)->update(['client_id' => $into->id]);
