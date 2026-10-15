@@ -25,7 +25,15 @@
     </div>
 
     <div class="mb-8 grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm md:grid-cols-3">
-        <div><div class="text-ink-500">Email</div>{{ $client->email }}</div>
+        <div><div class="text-ink-500">Email</div>{{ $client->email }}
+            @if ($client->isAnonymised())
+                <span class="text-ink-500">(anonymised {{ $client->anonymised_at->format('M j, Y') }})</span>
+            @elseif ($client->hasVerifiedEmail())
+                <span class="text-green-700">· verified</span>
+            @else
+                <span class="text-amber-700">· not verified</span>
+            @endif
+        </div>
         <div><div class="text-ink-500">Company</div>{{ $client->company ?: '—' }}</div>
         <div><div class="text-ink-500">Phone</div>{{ $client->phone ?: '—' }}</div>
         <div><div class="text-ink-500">Address</div>{{ collect([$client->address1, $client->address2, $client->city, $client->state, $client->postcode, $client->country])->filter()->join(', ') ?: '—' }}</div>
@@ -41,7 +49,7 @@
         @can('manage-clients')<a href="{{ route('admin.contacts.create', $client) }}" class="text-sm text-brand-600">Add contact</a>@endcan
     </div>
     <div class="mb-8">
-        @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => auth()->user()->can('manage-clients') ? 'admin.contacts.edit' : null, 'destroyRoute' => 'admin.contacts.destroy'])
+        @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => auth()->user()->can('manage-clients') ? 'admin.contacts.edit' : null, 'destroyRoute' => 'admin.contacts.destroy', 'inviteRoute' => 'admin.contacts.invite', 'twoFactorRoute' => 'admin.contacts.two-factor.reset'])
     </div>
 
     <h2 class="mb-3 text-lg font-semibold">Services</h2>
@@ -129,6 +137,47 @@
     @else
         @include('admin.tickets._table', ['hideClient' => true])
     @endif
+
+    <h2 id="security" class="mt-8 mb-3 text-lg font-semibold">Login and privacy</h2>
+    <div class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+        <span class="grow text-ink-600">
+            Two-factor authentication is <strong>{{ $client->hasTwoFactor() ? 'on' : 'off' }}</strong>.
+            @unless ($client->hasVerifiedEmail() || $client->isAnonymised()) The email address isn't verified yet. @endunless
+        </span>
+        @can('manage-clients')
+            @unless ($client->hasVerifiedEmail() || $client->isAnonymised())
+                <form method="POST" action="{{ route('admin.clients.verification-link', $client) }}">@csrf
+                    <button class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Email verification link</button>
+                </form>
+                <form method="POST" action="{{ route('admin.clients.verify-email', $client) }}">@csrf
+                    <button class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Mark verified</button>
+                </form>
+            @endunless
+            @if ($client->hasTwoFactor())
+                <form method="POST" action="{{ route('admin.clients.two-factor.reset', $client) }}" onsubmit="return confirm('Turn off two-factor authentication for this client? Do this only once you are sure who you are talking to.')">@csrf @method('DELETE')
+                    <button class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Turn off two-factor</button>
+                </form>
+            @endif
+            <a href="{{ route('admin.clients.export', $client) }}" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Export personal data</a>
+        @endcan
+        @can('manage-settings')
+            <a href="{{ route('admin.security.show', ['client' => $client->id]) }}#logins" class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">All logins</a>
+        @endcan
+    </div>
+    <div class="mb-4">@include('security._logins', ['logins' => $logins, 'showWho' => true])</div>
+    @can('manage-clients')
+        @if ($client->status === App\Enums\ClientStatus::Closed && ! $client->isAnonymised())
+            <details class="mb-8 rounded-lg border border-red-200 bg-red-50 p-4 text-sm" @if ($errors->hasAny(['confirm', 'anonymise'])) open @endif>
+                <summary class="cursor-pointer font-medium text-red-800">Anonymise this client</summary>
+                <form method="POST" action="{{ route('admin.clients.anonymise', $client) }}" class="mt-3 space-y-3">
+                    @csrf
+                    <p class="text-red-900">For a right-to-erasure request. This removes the client's name, email, phone, address, notes and custom fields, deletes their contacts, emails and login history, and blanks what was said in their tickets. Invoices, payments and services are kept for your tax records, without their personal details. It can't be undone, so export their data first if they asked for a copy.</p>
+                    <label class="flex items-center gap-2"><input type="checkbox" name="confirm" value="1"> I understand this can't be undone</label>
+                    <button class="rounded-md bg-red-700 px-3 py-1.5 font-medium text-white hover:bg-red-600">Anonymise</button>
+                </form>
+            </details>
+        @endif
+    @endcan
 
     <h2 class="mt-8 mb-3 text-lg font-semibold">Recent emails</h2>
     @if ($emails->isEmpty())

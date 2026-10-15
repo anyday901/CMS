@@ -2,6 +2,7 @@
 
 namespace App\Tickets;
 
+use App\Auth\PortalContact;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Mail\ClientMailer;
@@ -62,6 +63,14 @@ class TicketDesk
         ])->values()->all();
     }
 
+    /** A contact signed in to the portal writes under their own name. */
+    private static function portalAuthor(): array
+    {
+        $contact = PortalContact::current();
+
+        return $contact ? ['author_name' => $contact->fullName()] : [];
+    }
+
     /** @param  list<array{name: string, mime: ?string, contents: string}>  $files */
     public function open(Client $client, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], ?EmailOrigin $email = null): Ticket
     {
@@ -74,7 +83,7 @@ class TicketDesk
                 'priority' => $priority,
                 'last_reply_at' => now(),
             ]);
-            $this->addMessage($ticket, ['client_id' => $client->id] + ($email?->attributes() ?? []), $body, $files);
+            $this->addMessage($ticket, ['client_id' => $client->id] + ($email?->attributes() ?? self::portalAuthor()), $body, $files);
             Activity::record("Opened ticket #{$ticket->id}: {$ticket->subject}", $ticket, $email ? ['via' => 'email'] : []);
 
             return $ticket;
@@ -135,7 +144,7 @@ class TicketDesk
     {
         $message = DB::transaction(function () use ($ticket, $body, $files, $email) {
             $author = $ticket->isGuest() ? ['guest' => true, 'author_name' => $ticket->guest_name] : ['client_id' => $ticket->client_id];
-            $message = $this->addMessage($ticket, $author + ($email?->attributes() ?? []), $body, $files);
+            $message = $this->addMessage($ticket, $author + ($email?->attributes() ?? ($ticket->isGuest() ? [] : self::portalAuthor())), $body, $files);
             $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now(), 'escalations' => null]);
             Activity::record(($ticket->isGuest() ? 'Guest' : 'Client')." replied to ticket #{$ticket->id}", $ticket, $email ? ['via' => 'email'] : []);
 

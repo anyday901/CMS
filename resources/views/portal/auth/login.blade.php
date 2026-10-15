@@ -11,6 +11,7 @@
                 <input type="password" name="password" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
             <label class="flex items-center gap-2"><input type="checkbox" name="remember" value="1"> Remember me</label>
+            <x-captcha form="login" />
             <button class="w-full rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Log in</button>
             <a href="{{ route('portal.password.request') }}" class="block text-center text-brand-600">Forgot or never set your password?</a>
             <p class="border-t border-ink-100 pt-4 text-center text-ink-600">New here? <a href="{{ route('store.index') }}" class="text-brand-600">Browse our products</a> and create an account when you order.</p>

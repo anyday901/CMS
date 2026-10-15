@@ -77,6 +77,8 @@ class WhmcsDatabase
         });
         $schema->create('tblusers', function (Blueprint $t) {
             $t->id();
+            $t->string('first_name')->nullable();
+            $t->string('last_name')->nullable();
             $t->string('email');
             $t->string('password')->nullable();
         });
@@ -85,11 +87,12 @@ class WhmcsDatabase
             $t->integer('auth_user_id');
             $t->integer('client_id');
             $t->integer('owner')->default(0);
+            $t->text('permissions')->nullable();
         });
         $schema->create('tblcontacts', function (Blueprint $t) {
             $t->id();
             $t->integer('userid');
-            foreach (['firstname', 'lastname', 'email', 'phonenumber', 'subaccount', 'invoiceemails', 'supportemails'] as $column) {
+            foreach (['firstname', 'lastname', 'email', 'phonenumber', 'subaccount', 'permissions', 'invoiceemails', 'supportemails'] as $column) {
                 $t->text($column)->nullable();
             }
         });

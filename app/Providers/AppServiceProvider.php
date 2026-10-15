@@ -14,12 +14,15 @@ use App\Events\ServiceSuspended;
 use App\Events\ServiceTerminated;
 use App\Events\ServiceUnsuspended;
 use App\Mail\ClientMailer;
+use App\Models\ClientContact;
 use App\Models\ServiceUpgrade;
 use App\Models\User;
 use App\Provisioning\AccountMover;
 use App\Provisioning\Provisioner;
 use App\Support\Money;
 use App\Support\Settings;
+use Illuminate\Auth\EloquentUserProvider;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -44,6 +47,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Settings::apply();
+
+        // Contacts' password links only find contacts who can sign in.
+        Auth::provider('contacts', fn ($app) => (new EloquentUserProvider($app['hash'], ClientContact::class))
+            ->withQuery(fn ($query) => $query->where('portal_access', true)));
 
         // Module actions follow service status changes, after they are saved.
         foreach ([

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
+use App\Models\Concerns\HasTwoFactor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, HasTwoFactor, Notifiable;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -49,6 +50,8 @@ class Client extends Authenticatable
             'credit_balance' => 'integer',
             'tax_exempt' => 'boolean',
             'custom_fields' => 'array',
+            'email_verified_at' => 'datetime',
+            'anonymised_at' => 'datetime',
         ];
     }
 
@@ -98,6 +101,21 @@ class Client extends Authenticatable
             'reset_url' => route('portal.password.reset', ['token' => $token, 'email' => $this->email]),
             'expire_minutes' => config('auth.passwords.clients.expire'),
         ]);
+    }
+
+    public function loginAttempts(): HasMany
+    {
+        return $this->hasMany(LoginAttempt::class);
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
+    }
+
+    public function isAnonymised(): bool
+    {
+        return $this->anonymised_at !== null;
     }
 
     public function canLogIn(): bool

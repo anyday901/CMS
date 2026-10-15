@@ -6,10 +6,12 @@ use App\Enums\ClientStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\ClientContact;
 use App\Models\CustomField;
 use App\Support\ClientSearch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -75,7 +77,9 @@ class ClientController extends Controller
 
         $fields = CustomField::forClients()->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders'));
+        $logins = $client->loginAttempts()->with('account')->latest('created_at')->latest('id')->limit(5)->get();
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins'));
     }
 
     public function edit(Client $client): View
@@ -85,8 +89,13 @@ class ClientController extends Controller
 
     public function update(Request $request, Client $client): RedirectResponse
     {
-        $client->update($this->validated($request, $client));
-        Activity::record('Updated client details', $client, ['changed' => array_keys($client->getChanges())]);
+        $client->fill($this->validated($request, $client));
+        // A new address hasn't been confirmed by the client yet.
+        if ($client->isDirty('email')) {
+            $client->email_verified_at = null;
+        }
+        $client->save();
+        Activity::record('Updated client details', $client, ['changed' => array_keys(Arr::except($client->getChanges(), 'email_verified_at'))]);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client updated.');
     }
@@ -109,7 +118,7 @@ class ClientController extends Controller
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'company' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('clients')->ignore($client)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('clients')->ignore($client), ClientContact::loginEmailRule()],
             'phone' => ['nullable', 'string', 'max:50'],
             'address1' => ['nullable', 'string', 'max:255'],
             'address2' => ['nullable', 'string', 'max:255'],

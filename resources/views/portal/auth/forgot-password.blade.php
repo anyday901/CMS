@@ -8,6 +8,7 @@
             <label class="block">Email
                 <input type="email" name="email" value="{{ old('email') }}" required class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
+            <x-captcha form="password" />
             <button class="w-full rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Email me a link</button>
             <a href="{{ route('portal.login') }}" class="block text-center text-brand-600">Back to log in</a>
         </form>

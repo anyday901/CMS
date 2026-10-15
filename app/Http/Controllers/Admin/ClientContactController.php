@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Security\ContactInvitation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,6 +14,8 @@ use Illuminate\View\View;
 /** Extra people on a client's account. */
 class ClientContactController extends Controller
 {
+    public function __construct(private ContactInvitation $invitation) {}
+
     public function create(Client $client): View
     {
         return view('admin.contacts.edit', ['contact' => new ClientContact, 'client' => $client]);
@@ -20,11 +23,11 @@ class ClientContactController extends Controller
 
     public function store(Request $request, Client $client): RedirectResponse
     {
-        $data = $request->validate(ClientContact::rules($client));
+        $data = $request->validate(ClientContact::rules($client, request: $request));
         $contact = $client->contacts()->create(ClientContact::attributesFrom($data, $request));
         Activity::record("Added contact {$contact->fullName()}", $client);
 
-        return redirect()->route('admin.clients.show', $client)->with('status', 'Contact added.');
+        return redirect()->route('admin.clients.show', $client)->with('status', $this->invitation->sendIfNew($contact, true) ? 'Contact added, and invited to choose a portal password.' : 'Contact added.');
     }
 
     public function edit(ClientContact $contact): View
@@ -34,11 +37,20 @@ class ClientContactController extends Controller
 
     public function update(Request $request, ClientContact $contact): RedirectResponse
     {
-        $data = $request->validate(ClientContact::rules($contact->client, $contact));
+        $data = $request->validate(ClientContact::rules($contact->client, $contact, $request));
         $contact->update(ClientContact::attributesFrom($data, $request));
         Activity::record("Updated contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('admin.clients.show', $contact->client)->with('status', 'Contact updated.');
+        return redirect()->route('admin.clients.show', $contact->client)->with('status', $this->invitation->sendIfNew($contact, $contact->wasChanged('portal_access')) ? 'Contact updated, and invited to choose a portal password.' : 'Contact updated.');
+    }
+
+    public function resendInvite(ClientContact $contact): RedirectResponse
+    {
+        abort_unless($contact->portal_access, 404);
+        $this->invitation->send($contact);
+        Activity::record("Sent contact {$contact->fullName()} a portal password link", $contact->client);
+
+        return back()->with('status', "A link to choose a password is on its way to {$contact->email}.");
     }
 
     public function destroy(ClientContact $contact): RedirectResponse

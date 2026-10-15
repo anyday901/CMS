@@ -20,7 +20,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Client portal: login, password setup and reset, invoices, services, account
 - [x] Own visual theme (Harbor) for the admin area and client portal
 - [ ] Use the Harbor colors on PDF invoices
-- [ ] Client 2FA
+- [x] Client 2FA
 - [x] Client sign-up and ordering from the portal
 - [x] PayPal gateway (one-time checkout per invoice)
 - [x] Payment gateway plugin interface
@@ -152,12 +152,15 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Map WHMCS admin role permissions to custom staff permissions (the closest built-in role by name only when WHMCS has no role permissions)
 
 ## Milestone 10: Clients, security and staff
-- [ ] Two-factor authentication (TOTP) for clients and staff
-- [ ] Contacts with their own logins and permissions (billing, support, orders)
-- [ ] Email address verification
-- [ ] Login history, failed login lockout and IP bans
-- [ ] CAPTCHA on public forms
-- [ ] GDPR tools: export a client's data, anonymise a closed account
+- [x] Two-factor authentication (TOTP) for clients and staff, with recovery codes and an option to require it for staff
+- [x] Contacts with their own logins and permissions (billing, orders, services, support), brought over from WHMCS sub-accounts and users
+- [x] Email address verification
+- [x] Login history, failed login lockout and IP bans (automatic and by hand)
+- [x] CAPTCHA on public forms (Cloudflare Turnstile, hCaptcha, reCAPTCHA v2)
+- [x] GDPR tools: export a client's data, anonymise a closed account
+- [ ] Contacts who can sign in to several client accounts with one login (WHMCS 8 users)
+- [ ] Remember-me for contacts
+- [ ] Email clients when there's a login from a new device
 - [ ] Client notes and admin to-do list
 - [x] Advanced search on the admin clients list, hiding closed clients by default
 - [ ] Client groups (and a client group filter on the clients search)

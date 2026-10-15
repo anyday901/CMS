@@ -155,6 +155,11 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Security</legend>
+            <p class="text-ink-600">Failed login lockouts, IP bans, staff two-factor, CAPTCHA on public forms and the login history: <a href="{{ route('admin.security.show') }}" class="text-brand-600">Security settings</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Moving from WHMCS</legend>
             <p class="text-ink-600">Bring clients, services, invoices and tickets over from WHMCS, step by step, with a dry run first: <a href="{{ route('admin.whmcs-import.show') }}" class="text-brand-600">Import from WHMCS</a>.</p>
         </fieldset>

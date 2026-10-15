@@ -77,6 +77,19 @@ class WhmcsImporter
     /** @var array<string, int> "gateway|reference" => times seen */
     private array $references = [];
 
+    /** @var array<string, true> emails that sign in here: clients' and sub-account contacts' */
+    private array $loginEmails = [];
+
+    /** WHMCS sub-account permissions and the contact permission each one gives here. */
+    private const CONTACT_PERMISSIONS = [
+        'invoices' => 'billing',
+        'orders' => 'orders',
+        'products' => 'services',
+        'manageproducts' => 'services',
+        'productsso' => 'services',
+        'tickets' => 'support',
+    ];
+
     private ServerImporter $servers;
 
     /** @param  string|null  $encryptionHash  WHMCS's cc_encryption_hash, to bring stored passwords over */
@@ -129,6 +142,7 @@ class WhmcsImporter
         $this->catalog->import();
         $this->importClients();
         $this->importContacts();
+        $this->importUserLogins();
         $this->importServices();
         $this->importServiceOptions();
         $this->importInvoices();
@@ -192,6 +206,7 @@ class WhmcsImporter
             }
 
             $emails[$email] = (int) $row->id;
+            $this->loginEmails[$email] = true;
             $client = $this->clientRow($row, $email, $passwords[(int) $row->id] ?? null);
             DB::table('clients')->insert($client);
 
@@ -221,6 +236,8 @@ class WhmcsImporter
             'last_name' => Whmcs::short($row->lastname) ?? '',
             'company' => Whmcs::short($row->companyname ?? ''),
             'email' => $email,
+            // Clients who got WHMCS's emails count as having a working address.
+            'email_verified_at' => $this->run->now,
             'password' => null,
             'legacy_password' => $this->passwordHash($row, $ownerHash),
             'phone' => Whmcs::short($row->phonenumber ?? ''),
@@ -299,9 +316,7 @@ class WhmcsImporter
                 continue;
             }
 
-            if (Whmcs::on($row->subaccount ?? '')) {
-                $this->run->report->note(self::CONTACTS, "Contact {$email} of client {$row->userid} could log in to WHMCS. Contacts can't log in here yet, so they won't be able to.");
-            }
+            $access = $this->contactAccess($row, $email);
 
             $this->run->queue('client_contacts', [
                 'client_id' => (int) $row->userid,
@@ -311,11 +326,102 @@ class WhmcsImporter
                 'phone' => Whmcs::short($row->phonenumber ?? '', 50),
                 'invoice_emails' => Whmcs::on($row->invoiceemails ?? ''),
                 'support_emails' => Whmcs::on($row->supportemails ?? ''),
+                'portal_access' => $access !== null,
+                'permissions' => $access === null ? null : json_encode($access),
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]);
             $this->run->report->imported(self::CONTACTS);
         }
+    }
+
+    /**
+     * WHMCS 8 gives other people a login to a client as users of it, rather
+     * than as sub-account contacts. Each becomes a contact with portal
+     * access here, or gives an existing contact with their email access.
+     */
+    private function importUserLogins(): void
+    {
+        if (! $this->run->hasTables('tblusers', 'tblusers_clients')) {
+            return;
+        }
+
+        $this->run->flush('client_contacts');
+        $users = $this->run->table('tblusers_clients')
+            ->join('tblusers', 'tblusers.id', '=', 'tblusers_clients.auth_user_id')
+            ->where('tblusers_clients.owner', 0)
+            ->orderBy('tblusers_clients.id')
+            ->select('tblusers_clients.*', 'tblusers.email', 'tblusers.first_name', 'tblusers.last_name');
+
+        foreach ($users->cursor() as $row) {
+            $email = strtolower(trim((string) $row->email));
+
+            if (! isset($this->clients[(int) $row->client_id]) || $email === '') {
+                continue;
+            }
+
+            $row->subaccount = 'on';
+            $row->userid = $row->client_id;
+            $existing = DB::table('client_contacts')->where('client_id', (int) $row->client_id)->where('email', $email)->first();
+
+            if ($existing?->portal_access) {
+                continue;
+            }
+
+            $access = $this->contactAccess($row, $email);
+
+            if ($access === null) {
+                continue;
+            }
+
+            if ($existing !== null) {
+                DB::table('client_contacts')->where('id', $existing->id)->update(['portal_access' => true, 'permissions' => json_encode($access)]);
+
+                continue;
+            }
+
+            $this->run->report->found(self::CONTACTS);
+            DB::table('client_contacts')->insert([
+                'client_id' => (int) $row->client_id,
+                'first_name' => Whmcs::short($row->first_name ?? '') ?? '-',
+                'last_name' => Whmcs::short($row->last_name ?? '') ?? '',
+                'email' => $email,
+                'invoice_emails' => false,
+                'support_emails' => false,
+                'portal_access' => true,
+                'permissions' => json_encode($access),
+                'created_at' => $this->run->now,
+                'updated_at' => $this->run->now,
+            ]);
+            $this->run->report->imported(self::CONTACTS);
+        }
+    }
+
+    /**
+     * A WHMCS sub-account keeps its login, with the permissions that match
+     * ones here. Its WHMCS password can't come over, so it chooses a new one
+     * with Forgot password. Null for a contact who can't sign in.
+     *
+     * @return list<string>|null
+     */
+    private function contactAccess(object $row, string $email): ?array
+    {
+        if (! Whmcs::on($row->subaccount ?? '')) {
+            return null;
+        }
+
+        if (isset($this->loginEmails[$email])) {
+            $this->run->report->note(self::CONTACTS, "Contact {$email} of client {$row->userid} could log in to WHMCS, but another client or contact signs in with that email here, so this contact can't.");
+
+            return null;
+        }
+
+        $this->loginEmails[$email] = true;
+        $ticked = preg_split('/\s*,\s*/', strtolower((string) ($row->permissions ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+        $permissions = array_values(array_unique(array_intersect_key(self::CONTACT_PERMISSIONS, array_flip($ticked))));
+        $this->run->report->note(self::CONTACTS, "Contact {$email} of client {$row->userid} can sign in to the portal (".($permissions === [] ? 'with no permissions yet' : implode(', ', $permissions))."). WHMCS passwords don't come over, so they set a new one with Forgot password.");
+
+        return $permissions;
     }
 
     private function importServices(): void

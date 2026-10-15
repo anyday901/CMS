@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Auth\PortalContact;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\User;
@@ -18,6 +19,7 @@ class Impersonation
 
     public static function start(User $staff, Client $client): void
     {
+        PortalContact::forget();
         Auth::guard('client')->login($client);
         session()->regenerate();
         session()->put(self::KEY, $staff->id);
@@ -43,6 +45,7 @@ class Impersonation
 
         // Not logout(): that rotates the client's remember token and signs them out on their own devices.
         Auth::guard('client')->logoutCurrentDevice();
+        PortalContact::forget();
         session()->forget(self::KEY);
         session()->regenerate();
 

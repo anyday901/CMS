@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\BlockBannedIps;
+use App\Http\Middleware\EnsureContactCan;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: ['webhooks/*']);
+        $middleware->web(append: [BlockBannedIps::class]);
+        $middleware->alias(['contact.can' => EnsureContactCan::class]);
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin*')
             ? route('admin.login')
             : route('portal.login'));

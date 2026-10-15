@@ -33,6 +33,11 @@
         <h2 class="text-lg font-semibold">Contacts</h2>
         <a href="{{ route('portal.contacts.create') }}" class="text-sm text-brand-600">Add contact</a>
     </div>
-    <p class="mb-3 max-w-2xl text-sm text-ink-600">Other people on your account, such as a bookkeeper. They can get copies of your emails but can't sign in.</p>
-    @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => 'portal.contacts.edit', 'destroyRoute' => 'portal.contacts.destroy'])
+    <p class="mb-3 max-w-2xl text-sm text-ink-600">Other people on your account, such as a bookkeeper. They can get copies of your emails, and you can give each one their own login with just the access they need.</p>
+    @include('contacts._list', ['contacts' => $client->contacts, 'editRoute' => 'portal.contacts.edit', 'destroyRoute' => 'portal.contacts.destroy', 'inviteRoute' => 'portal.contacts.invite'])
+
+    <div class="mt-8 flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+        <p class="grow text-ink-600">Two-factor authentication, recent logins, and a copy of your data are under <a href="{{ route('portal.security.show') }}" class="text-brand-600">Security</a>.</p>
+        <a href="{{ route('portal.account.export') }}" class="rounded-full px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">Download my data</a>
+    </div>
 </x-portal-layout>

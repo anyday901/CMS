@@ -33,11 +33,12 @@
                 @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
 
-                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
+                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*', 'admin.security.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
-                <form method="POST" action="{{ route('admin.logout') }}" class="ml-auto">
+                <a href="{{ route('admin.account.show') }}" class="ml-auto rounded-full px-3 py-1 text-sm {{ request()->routeIs('admin.account.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ auth()->user()->name }}</a>
+                <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf
-                    <button class="rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log out {{ auth()->user()->name }}</button>
+                    <button class="rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log out</button>
                 </form>
             </div>
         </nav>

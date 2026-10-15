@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Client;
+use App\Models\ClientContact;
 use App\Models\User;
 
 return [
@@ -78,6 +79,12 @@ return [
             'model' => Client::class,
         ],
 
+        // Only contacts with portal access; see AppServiceProvider.
+        'contacts' => [
+            'driver' => 'contacts',
+            'model' => ClientContact::class,
+        ],
+
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
@@ -115,6 +122,14 @@ return [
             'provider' => 'clients',
             'table' => 'client_password_reset_tokens',
             'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // Contacts set their first password from an invite, so links last a day.
+        'contacts' => [
+            'provider' => 'contacts',
+            'table' => 'contact_password_reset_tokens',
+            'expire' => 1440,
             'throttle' => 60,
         ],
     ],

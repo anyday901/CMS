@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Jobs\SendLoggedEmail;
 use App\Models\Client;
+use App\Models\ClientContact;
 use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -69,6 +70,31 @@ class ClientMailer
             'cc' => null,
             'attach_invoice_pdf' => false,
             'reply_to' => $ticket->department->email,
+        ]);
+    }
+
+    /**
+     * An email to one contact only, such as their portal invitation. The
+     * client placeholders are the contact's own name; {account_name} is
+     * the account's.
+     *
+     * @param  array<string, string|int|null>  $values
+     */
+    public function sendToContact(ClientContact $contact, string $template, array $values = []): ?EmailLog
+    {
+        $client = $contact->client;
+
+        return $this->deliver($template, array_merge($this->common($client), [
+            'client_first_name' => $contact->first_name,
+            'client_name' => $contact->fullName(),
+            'account_name' => $client->company ?: $client->fullName(),
+        ], $values), $contact->email, [
+            'client_id' => $client->id,
+            'invoice_id' => null,
+            'ticket_id' => null,
+            'cc' => null,
+            'attach_invoice_pdf' => false,
+            'reply_to' => null,
         ]);
     }
 

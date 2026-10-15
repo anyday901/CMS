@@ -7,6 +7,7 @@ use App\Http\Controllers\Portal;
 use App\Http\Controllers\Store;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\EnsureClientCanLogIn;
+use App\Http\Middleware\RequireStaffTwoFactor;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/portal');
@@ -23,7 +24,7 @@ Route::middleware(EnsureClientCanLogIn::class)->group(function () {
     Route::get('cart', [Store\CartController::class, 'index'])->name('cart.index');
     Route::middleware('throttle:30,1')->group(function () {
         Route::post('store/order/{product}', [Store\CartController::class, 'store'])->name('cart.store');
-        Route::post('cart/addons', [Store\CartController::class, 'addon'])->middleware('auth:client')->name('cart.addon');
+        Route::post('cart/addons', [Store\CartController::class, 'addon'])->middleware(['auth:client', 'contact.can:orders'])->name('cart.addon');
         Route::delete('cart/lines/{line}', [Store\CartController::class, 'destroy'])->name('cart.destroy');
         Route::post('cart/promotion', [Store\CartController::class, 'promotion'])->name('cart.promotion');
         Route::delete('cart/promotion', [Store\CartController::class, 'removePromotion'])->name('cart.promotion.destroy');
@@ -64,53 +65,86 @@ Route::prefix('portal')->name('portal.')->group(function () {
     Route::middleware('guest:client')->group(function () {
         Route::get('login', [Portal\AuthController::class, 'create'])->name('login');
         Route::post('login', [Portal\AuthController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('two-factor', [Portal\TwoFactorChallengeController::class, 'create'])->name('two-factor.challenge');
+        Route::post('two-factor', [Portal\TwoFactorChallengeController::class, 'store'])->middleware('throttle:10,1');
         Route::get('forgot-password', [Portal\PasswordController::class, 'request'])->name('password.request');
         Route::post('forgot-password', [Portal\PasswordController::class, 'email'])->middleware('throttle:5,1')->name('password.email');
         Route::get('reset-password/{token}', [Portal\PasswordController::class, 'edit'])->name('password.reset');
         Route::post('reset-password', [Portal\PasswordController::class, 'update'])->middleware('throttle:10,1')->name('password.update');
     });
 
+    // The link in the verification email works signed in or not.
+    Route::get('verify-email/{client}/{hash}', [Portal\EmailVerificationController::class, 'verify'])->middleware(['signed', 'throttle:10,1'])->name('verification.verify');
+
     Route::middleware(['auth:client', EnsureClientCanLogIn::class])->group(function () {
         Route::post('logout', [Portal\AuthController::class, 'destroy'])->name('logout');
         Route::post('back-to-admin', [Admin\ImpersonationController::class, 'destroy'])->name('impersonation.stop');
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
-        Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
-        Route::prefix('invoices/{invoice}')->group(function () {
-            Route::get('/', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
-            Route::post('credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
-            Route::get('pdf', [Portal\InvoiceController::class, 'pdf'])->name('invoices.pdf');
-            Route::middleware('throttle:20,1')->group(function () {
-                Route::post('paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
-                Route::post('paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
-                Route::post('cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+
+        // Everyone signed in: the account holder and contacts manage their own login here.
+        Route::prefix('security')->name('security.')->controller(Portal\SecurityController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
+            Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
+            Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
+            Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
+            Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
+            Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
+        });
+
+        // Contacts only see what their login allows; the account holder sees everything.
+        Route::middleware('contact.can:billing')->group(function () {
+            Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
+            Route::prefix('invoices/{invoice}')->group(function () {
+                Route::get('/', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
+                Route::post('credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+                Route::get('pdf', [Portal\InvoiceController::class, 'pdf'])->name('invoices.pdf');
+                Route::middleware('throttle:20,1')->group(function () {
+                    Route::post('paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
+                    Route::post('paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
+                    Route::post('cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+                });
             });
         });
-        Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
-        Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');
-        Route::get('services/{service}/upgrade', [Portal\UpgradeController::class, 'index'])->name('services.upgrade');
-        Route::get('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'show'])->name('services.upgrade.show');
-        Route::post('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'store'])->middleware('throttle:10,1')->name('services.upgrade.store');
-        Route::post('services/{service}/cancel', [Portal\CancellationController::class, 'store'])->middleware('throttle:10,1')->name('services.cancel');
-        Route::delete('services/{service}/cancel', [Portal\CancellationController::class, 'destroy'])->name('services.cancel.destroy');
-        Route::post('services/{service}/control-panel', [Portal\ServiceAccountController::class, 'controlPanel'])->middleware('throttle:10,1')->name('services.control-panel');
-        Route::put('services/{service}/password', [Portal\ServiceAccountController::class, 'password'])->middleware('throttle:5,1')->name('services.password');
-        Route::post('services/{service}/reinstall', [Portal\ServiceAccountController::class, 'reinstall'])->middleware('throttle:3,1')->name('services.reinstall');
-        Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:10,1')->name('services.license.reissue');
-        Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
-        Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
-        Route::get('support/suggest', [Portal\TicketController::class, 'suggest'])->middleware('throttle:60,1')->name('tickets.suggest');
-        Route::middleware('throttle:20,1')->group(function () {
-            Route::post('support', [Portal\TicketController::class, 'store'])->name('tickets.store');
-            Route::post('support/{ticket}/reply', [Portal\TicketController::class, 'reply'])->name('tickets.reply');
+        Route::middleware('contact.can:services')->group(function () {
+            Route::get('services', [Portal\ServiceController::class, 'index'])->name('services.index');
+            Route::get('services/{service}', [Portal\ServiceController::class, 'show'])->name('services.show');
+            Route::post('services/{service}/control-panel', [Portal\ServiceAccountController::class, 'controlPanel'])->middleware('throttle:10,1')->name('services.control-panel');
+            Route::put('services/{service}/password', [Portal\ServiceAccountController::class, 'password'])->middleware('throttle:5,1')->name('services.password');
+            Route::post('services/{service}/reinstall', [Portal\ServiceAccountController::class, 'reinstall'])->middleware('throttle:3,1')->name('services.reinstall');
+            Route::post('services/{service}/license/reissue', [Portal\ServiceAccountController::class, 'reissue'])->middleware('throttle:10,1')->name('services.license.reissue');
         });
-        Route::get('support/{ticket}', [Portal\TicketController::class, 'show'])->name('tickets.show');
-        Route::post('support/{ticket}/close', [Portal\TicketController::class, 'close'])->name('tickets.close');
-        Route::post('support/{ticket}/feedback', [Portal\TicketController::class, 'feedback'])->middleware('throttle:10,1')->name('tickets.feedback');
-        Route::get('support/{ticket}/files/{attachment}', [Portal\TicketController::class, 'attachment'])->name('tickets.attachment');
-        Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
-        Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
-        Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
-        Route::resource('account/contacts', Portal\ContactController::class)->except(['index', 'show'])->parameters(['contacts' => 'contact'])->names('contacts');
+        Route::middleware('contact.can:orders')->group(function () {
+            Route::get('services/{service}/upgrade', [Portal\UpgradeController::class, 'index'])->name('services.upgrade');
+            Route::get('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'show'])->name('services.upgrade.show');
+            Route::post('services/{service}/upgrade/{product}', [Portal\UpgradeController::class, 'store'])->middleware('throttle:10,1')->name('services.upgrade.store');
+            Route::post('services/{service}/cancel', [Portal\CancellationController::class, 'store'])->middleware('throttle:10,1')->name('services.cancel');
+            Route::delete('services/{service}/cancel', [Portal\CancellationController::class, 'destroy'])->name('services.cancel.destroy');
+        });
+        Route::middleware('contact.can:support')->group(function () {
+            Route::get('support', [Portal\TicketController::class, 'index'])->name('tickets.index');
+            Route::get('support/new', [Portal\TicketController::class, 'create'])->name('tickets.create');
+            Route::get('support/suggest', [Portal\TicketController::class, 'suggest'])->middleware('throttle:60,1')->name('tickets.suggest');
+            Route::middleware('throttle:20,1')->group(function () {
+                Route::post('support', [Portal\TicketController::class, 'store'])->name('tickets.store');
+                Route::post('support/{ticket}/reply', [Portal\TicketController::class, 'reply'])->name('tickets.reply');
+            });
+            Route::get('support/{ticket}', [Portal\TicketController::class, 'show'])->name('tickets.show');
+            Route::post('support/{ticket}/close', [Portal\TicketController::class, 'close'])->name('tickets.close');
+            Route::post('support/{ticket}/feedback', [Portal\TicketController::class, 'feedback'])->middleware('throttle:10,1')->name('tickets.feedback');
+            Route::get('support/{ticket}/files/{attachment}', [Portal\TicketController::class, 'attachment'])->name('tickets.attachment');
+        });
+
+        // The account holder only.
+        Route::middleware('contact.can:owner')->group(function () {
+            Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
+            Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
+            Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
+            Route::get('account/export', [Portal\AccountController::class, 'export'])->middleware('throttle:5,1')->name('account.export');
+            Route::post('account/verify-email', [Portal\EmailVerificationController::class, 'resend'])->middleware('throttle:3,10')->name('verification.send');
+            Route::resource('account/contacts', Portal\ContactController::class)->except(['index', 'show'])->parameters(['contacts' => 'contact'])->names('contacts');
+            Route::post('account/contacts/{contact}/invite', [Portal\ContactController::class, 'resendInvite'])->middleware('throttle:5,1')->name('contacts.invite');
+        });
     });
 });
 
@@ -118,13 +152,26 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware('guest:web')->group(function () {
         Route::get('login', [Admin\AuthController::class, 'create'])->name('login');
         Route::post('login', [Admin\AuthController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('two-factor', [Admin\AuthController::class, 'challenge'])->name('two-factor.challenge');
+        Route::post('two-factor', [Admin\AuthController::class, 'verify'])->middleware('throttle:10,1');
     });
 
-    Route::middleware('auth:web')->group(function () {
+    Route::middleware(['auth:web', RequireStaffTwoFactor::class])->group(function () {
         $service = 'services/{service}';
 
         Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
+
+        // Every staff member's own login.
+        Route::prefix('account')->name('account.')->controller(Admin\AccountController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
+            Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
+            Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
+            Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
+            Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
+            Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
+        });
 
         // Creating and editing come first so "create" isn't read as a client id.
         Route::middleware('can:manage-clients')->group(function () use ($service) {
@@ -138,6 +185,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('contacts', Admin\ClientContactController::class)->only(['edit', 'update', 'destroy']);
             Route::post('clients/{client}/login-as', [Admin\ImpersonationController::class, 'store'])->name('clients.login-as');
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
+            Route::post('contacts/{contact}/invite', [Admin\ClientContactController::class, 'resendInvite'])->name('contacts.invite');
+            Route::delete('contacts/{contact}/two-factor', [Admin\ClientPrivacyController::class, 'resetContactTwoFactor'])->name('contacts.two-factor.reset');
+            Route::prefix('clients/{client}')->name('clients.')->controller(Admin\ClientPrivacyController::class)->group(function () {
+                Route::get('export', 'export')->name('export');
+                Route::post('anonymise', 'anonymise')->name('anonymise');
+                Route::post('verify-email', 'verifyEmail')->name('verify-email');
+                Route::post('verification-link', 'sendVerification')->name('verification-link');
+                Route::delete('two-factor', 'resetTwoFactor')->name('two-factor.reset');
+            });
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');
             Route::put('tasks/{task}', [Admin\TaskController::class, 'update'])->name('tasks.update');
@@ -233,6 +289,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('tax-rules', Admin\TaxRuleController::class)->except(['show', 'create']);
             Route::get('activity', Admin\ActivityController::class)->name('activity.index');
             Route::get('settings', [Admin\SettingsController::class, 'edit'])->name('settings.edit');
+            Route::prefix('settings/security')->name('security.')->controller(Admin\SecurityController::class)->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::put('/', 'update')->name('update');
+                Route::post('bans', 'ban')->name('bans.store');
+                Route::delete('bans/{ban}', 'unban')->name('bans.destroy');
+            });
             Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
             Route::prefix('settings/whmcs-import')->name('whmcs-import.')->controller(Admin\WhmcsImportController::class)->group(function () {
                 Route::get('/', 'show')->name('show');
@@ -246,6 +308,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::middleware('can:manage-staff')->group(function () {
             Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
+            Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
         });
     });
 });

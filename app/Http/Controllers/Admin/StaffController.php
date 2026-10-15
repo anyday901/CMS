@@ -66,6 +66,15 @@ class StaffController extends Controller
         return redirect()->route(self::INDEX)->with('status', 'Staff member updated.');
     }
 
+    /** For a staff member who lost their phone and recovery codes. */
+    public function resetTwoFactor(User $user): RedirectResponse
+    {
+        $user->disableTwoFactor();
+        Activity::record("Turned off two-factor authentication for {$user->name}", $user);
+
+        return redirect()->route('admin.staff.edit', $user)->with('status', "Two-factor authentication is off for {$user->name}.");
+    }
+
     public function destroy(Request $request, User $user): RedirectResponse
     {
         if ($user->is($request->user())) {

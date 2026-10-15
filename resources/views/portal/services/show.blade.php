@@ -13,9 +13,11 @@
     @if ($service->pendingCancellation)
         <div class="mb-4 flex flex-wrap items-center gap-3 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">
             <span>This service will be cancelled on {{ $service->pendingCancellation->cancel_on->format('M j, Y') }} and won't be renewed.</span>
-            <form method="POST" action="{{ route('portal.services.cancel.destroy', $service) }}" class="ml-auto">@csrf @method('DELETE')
-                <button class="font-medium underline">Keep my service</button>
-            </form>
+            @if ($canOrder)
+                <form method="POST" action="{{ route('portal.services.cancel.destroy', $service) }}" class="ml-auto">@csrf @method('DELETE')
+                    <button class="font-medium underline">Keep my service</button>
+                </form>
+            @endif
         </div>
     @endif
     @foreach ($service->upgrades as $upgrade)
