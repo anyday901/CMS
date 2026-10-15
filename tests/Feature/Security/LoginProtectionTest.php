@@ -15,11 +15,21 @@ class LoginProtectionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const ADMIN_LOGIN = '/admin/login';
+
+    private const IP = '198.51.100.7';
+
+    private const HOME = '/portal';
+
+    private const REASON = 'Card testing';
+
     private const PASSWORD = 'right-password-1';
 
     private const LOGIN = '/portal/login';
 
     private const SECURITY = '/admin/settings/security';
+
+    private const BANS = self::SECURITY.'/bans';
 
     protected function setUp(): void
     {
@@ -28,7 +38,7 @@ class LoginProtectionTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
     }
 
-    private function failLogin(string $email, string $ip = '198.51.100.7'): void
+    private function failLogin(string $email, string $ip = self::IP): void
     {
         $this->withServerVariables(['REMOTE_ADDR' => $ip])->post(self::LOGIN, ['email' => $email, 'password' => 'wrong']);
     }
@@ -40,14 +50,14 @@ class LoginProtectionTest extends TestCase
         $this->failLogin($client->email);
         $this->failLogin('nobody@example.com');
         $this->withHeader('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15')
-            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect('/portal');
+            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect(self::HOME);
 
         $attempts = LoginAttempt::orderBy('id')->get();
         $this->assertSame([LoginAttempt::FAILED, LoginAttempt::FAILED, LoginAttempt::SUCCESS], $attempts->pluck('outcome')->all());
         $this->assertSame([$client->id, null, $client->id], $attempts->pluck('client_id')->all());
         $this->assertSame('Safari on macOS', $attempts[2]->browser());
 
-        $this->get('/portal/security')->assertOk()->assertSee('Wrong email or password')->assertSee('198.51.100.7');
+        $this->get('/portal/security')->assertOk()->assertSee('Wrong email or password')->assertSee(self::IP);
 
         $this->actingAs(User::factory()->create(), 'web');
         $this->get("/admin/clients/{$client->id}")->assertSee('Login and privacy')->assertSee('Signed in');
@@ -64,7 +74,7 @@ class LoginProtectionTest extends TestCase
         }
 
         // Locked out from this address, even with the right password.
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])
             ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])
             ->assertSessionHasErrors(['email' => 'Too many failed logins. Try again in 15 minutes, or reset your password.']);
         $this->assertGuest('client');
@@ -72,13 +82,13 @@ class LoginProtectionTest extends TestCase
 
         // The real owner, somewhere else, still gets in.
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])
-            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect('/portal');
+            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect(self::HOME);
         $this->post('/portal/logout');
 
         // It ends once the failures are old enough.
         $this->travel(16)->minutes();
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])
-            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect('/portal');
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])
+            ->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect(self::HOME);
     }
 
     public function test_staff_logins_lock_out_too(): void
@@ -86,9 +96,9 @@ class LoginProtectionTest extends TestCase
         $user = User::factory()->create(['password' => self::PASSWORD]);
 
         for ($i = 0; $i < 5; $i++) {
-            $this->post('/admin/login', ['email' => $user->email, 'password' => 'wrong']);
+            $this->post(self::ADMIN_LOGIN, ['email' => $user->email, 'password' => 'wrong']);
         }
-        $this->post('/admin/login', ['email' => $user->email, 'password' => self::PASSWORD])->assertSessionHasErrors('email');
+        $this->post(self::ADMIN_LOGIN, ['email' => $user->email, 'password' => self::PASSWORD])->assertSessionHasErrors('email');
         $this->assertGuest('web');
         $this->assertSame(6, LoginAttempt::where('area', LoginAttempt::ADMIN)->where('account_id', $user->id)->count());
     }
@@ -102,17 +112,17 @@ class LoginProtectionTest extends TestCase
         }
 
         $ban = IpBan::sole();
-        $this->assertSame(['198.51.100.7', null], [$ban->ip_address, $ban->user_id]);
+        $this->assertSame([self::IP, null], [$ban->ip_address, $ban->user_id]);
         $this->assertTrue($ban->expires_at->between(now()->addMinutes(119), now()->addMinutes(121)));
 
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])->get('/portal/login')->assertForbidden();
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])->get('/store')->assertForbidden();
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])->get(self::LOGIN)->assertForbidden();
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])->get('/store')->assertForbidden();
         // Payment webhooks still get through.
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])->postJson('/webhooks/paypal', [])->assertStatus(400);
-        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])->get('/portal/login')->assertOk();
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])->postJson('/webhooks/paypal', [])->assertStatus(400);
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.50'])->get(self::LOGIN)->assertOk();
 
         $this->travel(3)->hours();
-        $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])->get('/portal/login')->assertOk();
+        $this->withServerVariables(['REMOTE_ADDR' => self::IP])->get(self::LOGIN)->assertOk();
     }
 
     public function test_staff_ban_and_unban_addresses_and_ranges(): void
@@ -120,18 +130,18 @@ class LoginProtectionTest extends TestCase
         $admin = User::factory()->create();
         $this->actingAs($admin, 'web');
 
-        $this->post(self::SECURITY.'/bans', ['ip_address' => 'not-an-ip'])->assertSessionHasErrors('ip_address');
-        $this->post(self::SECURITY.'/bans', ['ip_address' => '127.0.0.0/8'])->assertSessionHasErrors('ip_address');
-        $this->post(self::SECURITY.'/bans', ['ip_address' => '203.0.113.0/24', 'reason' => 'Card testing', 'days' => 30])->assertRedirect();
+        $this->post(self::BANS, ['ip_address' => 'not-an-ip'])->assertSessionHasErrors('ip_address');
+        $this->post(self::BANS, ['ip_address' => '127.0.0.0/8'])->assertSessionHasErrors('ip_address');
+        $this->post(self::BANS, ['ip_address' => '203.0.113.0/24', 'reason' => self::REASON, 'days' => 30])->assertRedirect();
 
         $ban = IpBan::sole();
-        $this->assertSame([$admin->id, 'Card testing'], [$ban->user_id, $ban->reason]);
-        $this->get(self::SECURITY)->assertSee('203.0.113.0/24')->assertSee('Card testing');
-        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])->get('/portal/login')->assertForbidden();
+        $this->assertSame([$admin->id, self::REASON], [$ban->user_id, $ban->reason]);
+        $this->get(self::SECURITY)->assertSee('203.0.113.0/24')->assertSee(self::REASON);
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])->get(self::LOGIN)->assertForbidden();
 
-        $this->withServerVariables([])->delete(self::SECURITY."/bans/{$ban->id}")->assertRedirect();
+        $this->withServerVariables([])->delete(self::BANS."/{$ban->id}")->assertRedirect();
         $this->assertSame(0, IpBan::count());
-        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])->get('/portal/login')->assertOk();
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])->get(self::LOGIN)->assertOk();
 
         // Support staff can't change security.
         $this->actingAs(User::factory()->create(['role' => 'support']), 'web');
@@ -151,7 +161,7 @@ class LoginProtectionTest extends TestCase
         $this->assertSame([3, 30, null, 30], [config('security.lockout_attempts'), config('security.lockout_minutes'), config('security.ban_after_failures'), config('security.login_history_days')]);
 
         $client = Client::factory()->create(['password' => self::PASSWORD]);
-        foreach (range(1, 3) as $i) {
+        for ($i = 0; $i < 3; $i++) {
             $this->failLogin($client->email);
         }
         $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertSessionHasErrors('email');
@@ -167,8 +177,8 @@ class LoginProtectionTest extends TestCase
         config(['hashing.bcrypt.rounds' => 5]);
         Hash::forgetDrivers();
 
-        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect('/portal');
-        $this->post('/admin/login', ['email' => $user->email, 'password' => self::PASSWORD])->assertRedirect('/admin');
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertRedirect(self::HOME);
+        $this->post(self::ADMIN_LOGIN, ['email' => $user->email, 'password' => self::PASSWORD])->assertRedirect('/admin');
 
         foreach ([$client->fresh(), $user->fresh()] as $account) {
             $this->assertNotSame($weak, $account->password);

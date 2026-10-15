@@ -68,8 +68,10 @@ class SecurityController extends Controller
 
         $provider = $data['captcha_provider'] ?? null;
         // A blank secret keeps the saved one, but only for the provider it belongs to.
-        $keep = $provider !== null && $provider === config('security.captcha.provider');
-        $secret = filled($data['captcha_secret_key'] ?? null) ? $data['captcha_secret_key'] : ($keep ? config('security.captcha.secret_key') : null);
+        $secret = $data['captcha_secret_key'] ?? null;
+        if (blank($secret) && $provider !== null && $provider === config('security.captcha.provider')) {
+            $secret = config('security.captcha.secret_key');
+        }
 
         if ($provider !== null && (blank($data['captcha_site_key'] ?? null) || blank($secret))) {
             throw ValidationException::withMessages(['captcha_site_key' => 'Enter the site key and secret key from '.Captcha::PROVIDERS[$provider]['name'].', or turn the CAPTCHA off.']);

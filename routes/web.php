@@ -187,12 +187,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::post('contacts/{contact}/invite', [Admin\ClientContactController::class, 'resendInvite'])->name('contacts.invite');
             Route::delete('contacts/{contact}/two-factor', [Admin\ClientPrivacyController::class, 'resetContactTwoFactor'])->name('contacts.two-factor.reset');
-            Route::prefix('clients/{client}')->name('clients.')->controller(Admin\ClientPrivacyController::class)->group(function () {
-                Route::get('export', 'export')->name('export');
-                Route::post('anonymise', 'anonymise')->name('anonymise');
-                Route::post('verify-email', 'verifyEmail')->name('verify-email');
-                Route::post('verification-link', 'sendVerification')->name('verification-link');
-                Route::delete('two-factor', 'resetTwoFactor')->name('two-factor.reset');
+            Route::name('clients.')->controller(Admin\ClientPrivacyController::class)->group(function () {
+                Route::get('clients/{client}/export', 'export')->name('export');
+                Route::post('clients/{client}/anonymise', 'anonymise')->name('anonymise');
+                Route::post('clients/{client}/verify-email', 'verifyEmail')->name('verify-email');
+                Route::post('clients/{client}/verification-link', 'sendVerification')->name('verification-link');
+                Route::delete('clients/{client}/two-factor', 'resetTwoFactor')->name('two-factor.reset');
             });
             Route::get('clients/{client}/services/create', [Admin\ServiceController::class, 'create'])->name('services.create');
             Route::post('clients/{client}/services', [Admin\ServiceController::class, 'store'])->name('services.store');

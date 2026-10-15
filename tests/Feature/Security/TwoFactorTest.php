@@ -14,6 +14,14 @@ class TwoFactorTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const WRONG_CODE = '000000';
+
+    private const SECURITY = '/portal/security';
+
+    private const HOME = '/portal';
+
+    private const ADMIN_ACCOUNT = '/admin/account';
+
     private const PASSWORD = 'correct-horse-battery';
 
     private const PORTAL_LOGIN = '/portal/login';
@@ -31,7 +39,7 @@ class TwoFactorTest extends TestCase
         $secret = session('two_factor_setup');
         $this->assertNotNull($secret);
 
-        $this->post("{$prefix}/two-factor/confirm", ['code' => '000000'])->assertSessionHasErrors('code');
+        $this->post("{$prefix}/two-factor/confirm", ['code' => self::WRONG_CODE])->assertSessionHasErrors('code');
         $this->post("{$prefix}/two-factor/confirm", ['code' => Totp::code($secret, Totp::step() - 1)])
             ->assertSessionHas('recovery_codes');
 
@@ -42,9 +50,9 @@ class TwoFactorTest extends TestCase
     {
         $client = Client::factory()->create(['password' => self::PASSWORD]);
         $this->actingAs($client, 'client');
-        $this->get('/portal/security')->assertOk()->assertSee('Set up two-factor');
-        $secret = $this->enable('/portal/security');
-        $this->get('/portal/security')->assertSee('Turned on');
+        $this->get(self::SECURITY)->assertOk()->assertSee('Set up two-factor');
+        $secret = $this->enable(self::SECURITY);
+        $this->get(self::SECURITY)->assertSee('Turned on');
         auth('client')->logout();
         $this->flushSession();
 
@@ -64,7 +72,7 @@ class TwoFactorTest extends TestCase
 
         $this->post(self::PORTAL_CHALLENGE, ['code' => '123456'])->assertSessionHasErrors('code');
         $this->assertGuest('client');
-        $this->post(self::PORTAL_CHALLENGE, ['code' => Totp::code($secret, Totp::step())])->assertRedirect('/portal');
+        $this->post(self::PORTAL_CHALLENGE, ['code' => Totp::code($secret, Totp::step())])->assertRedirect(self::HOME);
         $this->assertAuthenticatedAs($client, 'client');
 
         $this->assertSame([LoginAttempt::TWO_FACTOR_FAILED, LoginAttempt::SUCCESS], LoginAttempt::orderBy('id')->pluck('outcome')->all());
@@ -75,7 +83,7 @@ class TwoFactorTest extends TestCase
         [$client, $secret] = $this->twoFactorClient();
         $code = Totp::code($secret, Totp::step());
         $this->post(self::PORTAL_LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
-        $this->post(self::PORTAL_CHALLENGE, ['code' => $code])->assertRedirect('/portal');
+        $this->post(self::PORTAL_CHALLENGE, ['code' => $code])->assertRedirect(self::HOME);
         $this->post('/portal/logout');
 
         // The same code, replayed, is refused.
@@ -83,7 +91,7 @@ class TwoFactorTest extends TestCase
         $this->post(self::PORTAL_CHALLENGE, ['code' => $code])->assertSessionHasErrors('code');
 
         $recovery = $client->fresh()->two_factor_recovery_codes[0];
-        $this->post(self::PORTAL_CHALLENGE, ['code' => strtoupper($recovery)])->assertRedirect('/portal');
+        $this->post(self::PORTAL_CHALLENGE, ['code' => strtoupper($recovery)])->assertRedirect(self::HOME);
         $this->assertSame(7, $client->fresh()->recoveryCodesLeft());
         $this->post('/portal/logout');
 
@@ -97,9 +105,9 @@ class TwoFactorTest extends TestCase
         $this->post(self::PORTAL_LOGIN, ['email' => $client->email, 'password' => self::PASSWORD]);
 
         for ($i = 1; $i < 5; $i++) {
-            $this->post(self::PORTAL_CHALLENGE, ['code' => '000000'])->assertSessionHasErrors('code');
+            $this->post(self::PORTAL_CHALLENGE, ['code' => self::WRONG_CODE])->assertSessionHasErrors('code');
         }
-        $this->post(self::PORTAL_CHALLENGE, ['code' => '000000'])->assertRedirect(self::PORTAL_LOGIN);
+        $this->post(self::PORTAL_CHALLENGE, ['code' => self::WRONG_CODE])->assertRedirect(self::PORTAL_LOGIN);
         $this->get(self::PORTAL_CHALLENGE)->assertRedirect(self::PORTAL_LOGIN);
     }
 
@@ -133,8 +141,8 @@ class TwoFactorTest extends TestCase
     {
         $staff = User::factory()->create(['password' => self::PASSWORD, 'role' => 'support']);
         $this->actingAs($staff);
-        $this->get('/admin/account')->assertOk()->assertSee('Set up two-factor');
-        $secret = $this->enable('/admin/account');
+        $this->get(self::ADMIN_ACCOUNT)->assertOk()->assertSee('Set up two-factor');
+        $secret = $this->enable(self::ADMIN_ACCOUNT);
         $this->post('/admin/logout');
 
         $this->post(self::ADMIN_LOGIN, ['email' => $staff->email, 'password' => self::PASSWORD])->assertRedirect(self::ADMIN_CHALLENGE);
@@ -156,14 +164,14 @@ class TwoFactorTest extends TestCase
 
         // An admin without it can't make it required, so they don't lock themselves out.
         $this->put('/admin/settings/security', $this->securitySettings(['staff_two_factor' => '1']))->assertSessionHasErrors('staff_two_factor');
-        $this->enable('/admin/account');
+        $this->enable(self::ADMIN_ACCOUNT);
         $this->put('/admin/settings/security', $this->securitySettings(['staff_two_factor' => '1']))->assertSessionHasNoErrors();
 
         $other = User::factory()->create(['role' => 'billing']);
         $this->actingAs($other);
-        $this->get('/admin/clients')->assertRedirect('/admin/account');
-        $this->get('/admin/account')->assertOk();
-        $this->enable('/admin/account');
+        $this->get('/admin/clients')->assertRedirect(self::ADMIN_ACCOUNT);
+        $this->get(self::ADMIN_ACCOUNT)->assertOk();
+        $this->enable(self::ADMIN_ACCOUNT);
         $this->get('/admin/clients')->assertOk();
     }
 

@@ -9,6 +9,7 @@ use App\Models\LoginAttempt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -42,9 +43,9 @@ class AccountController extends Controller
         return back()->with('status', 'Your password is changed.');
     }
 
-    protected function twoFactorAccount(Request $request): Model
+    protected function twoFactorAccount(): Model
     {
-        return $request->user();
+        return Auth::guard('web')->user();
     }
 
     protected function twoFactorPage(): string

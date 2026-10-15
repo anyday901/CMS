@@ -19,6 +19,10 @@ class CaptchaTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const LOGIN = '/portal/login';
+
+    private const SETTINGS = '/admin/settings/security';
+
     private const VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
     private const PASSWORD = 'right-password-1';
@@ -31,12 +35,12 @@ class CaptchaTest extends TestCase
 
     public function test_forms_show_the_widget_only_where_it_is_turned_on(): void
     {
-        $this->get('/portal/login')->assertSee('challenges.cloudflare.com/turnstile/v0/api.js')->assertSee('data-sitekey="site-123"', false);
+        $this->get(self::LOGIN)->assertSee('challenges.cloudflare.com/turnstile/v0/api.js')->assertSee('data-sitekey="site-123"', false);
         $this->get('/portal/forgot-password')->assertSee('cf-turnstile');
         $this->get('/admin/login')->assertDontSee('cf-turnstile');
 
         config(['security.captcha.secret_key' => null]);
-        $this->get('/portal/login')->assertDontSee('cf-turnstile');
+        $this->get(self::LOGIN)->assertDontSee('cf-turnstile');
     }
 
     public function test_logins_need_a_solved_captcha(): void
@@ -44,11 +48,11 @@ class CaptchaTest extends TestCase
         $client = Client::factory()->create(['password' => self::PASSWORD]);
         Http::fake([self::VERIFY => Http::sequence()->push(['success' => false])->push(['success' => true])]);
 
-        $this->post('/portal/login', ['email' => $client->email, 'password' => self::PASSWORD])->assertSessionHasErrors('captcha');
-        $this->post('/portal/login', ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'bad'])->assertSessionHasErrors('captcha');
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD])->assertSessionHasErrors('captcha');
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'bad'])->assertSessionHasErrors('captcha');
         $this->assertGuest('client');
 
-        $this->post('/portal/login', ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'good'])->assertRedirect('/portal');
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'good'])->assertRedirect('/portal');
         Http::assertSent(fn (Request $request) => $request['secret'] === 'secret-456' && $request['response'] === 'good');
     }
 
@@ -72,7 +76,7 @@ class CaptchaTest extends TestCase
         $client = Client::factory()->create(['password' => self::PASSWORD]);
         Http::fake([self::VERIFY => fn () => throw new ConnectionException('down')]);
 
-        $this->post('/portal/login', ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'x'])->assertRedirect('/portal');
+        $this->post(self::LOGIN, ['email' => $client->email, 'password' => self::PASSWORD, 'cf-turnstile-response' => 'x'])->assertRedirect('/portal');
     }
 
     public function test_staff_set_up_the_captcha_and_the_secret_is_stored_encrypted(): void
@@ -81,8 +85,8 @@ class CaptchaTest extends TestCase
         $this->actingAs(User::factory()->create(), 'web');
         $settings = ['lockout_attempts' => 5, 'lockout_minutes' => 15, 'ban_hours' => 24, 'login_history_days' => 90];
 
-        $this->put('/admin/settings/security', $settings + ['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site'])->assertSessionHasErrors('captcha_site_key');
-        $this->put('/admin/settings/security', $settings + [
+        $this->put(self::SETTINGS, $settings + ['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site'])->assertSessionHasErrors('captcha_site_key');
+        $this->put(self::SETTINGS, $settings + [
             'captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site', 'captcha_secret_key' => 'top-secret', 'captcha_forms' => ['register', 'contact'],
         ])->assertSessionHasNoErrors();
 
@@ -93,12 +97,12 @@ class CaptchaTest extends TestCase
         $this->assertFalse(Captcha::enabledFor('login'));
 
         // Leaving the secret blank keeps the saved one.
-        $this->put('/admin/settings/security', $settings + ['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site2', 'captcha_forms' => ['login']])->assertSessionHasNoErrors();
+        $this->put(self::SETTINGS, $settings + ['captcha_provider' => 'hcaptcha', 'captcha_site_key' => 'site2', 'captcha_forms' => ['login']])->assertSessionHasNoErrors();
         $this->assertSame('top-secret', config('security.captcha.secret_key'));
-        $this->get('/admin/settings/security')->assertSee('Saved. Leave blank to keep it')->assertDontSee('top-secret');
+        $this->get(self::SETTINGS)->assertSee('Saved. Leave blank to keep it')->assertDontSee('top-secret');
 
         // A new provider needs its own secret.
-        $this->put('/admin/settings/security', $settings + ['captcha_provider' => 'turnstile', 'captcha_site_key' => 'site3'])->assertSessionHasErrors('captcha_site_key');
+        $this->put(self::SETTINGS, $settings + ['captcha_provider' => 'turnstile', 'captcha_site_key' => 'site3'])->assertSessionHasErrors('captcha_site_key');
         $this->assertSame('hcaptcha', config('security.captcha.provider'));
     }
 }

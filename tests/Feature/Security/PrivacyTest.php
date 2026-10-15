@@ -29,6 +29,10 @@ class PrivacyTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PAT = 'pat@example.com';
+
+    private const ANONYMISE_BUTTON = 'Anonymise this client';
+
     private const JANE = 'jane@example.com';
 
     protected function setUp(): void
@@ -46,7 +50,7 @@ class PrivacyTest extends TestCase
             'first_name' => 'Jane', 'last_name' => 'Doe', 'email' => self::JANE, 'password' => 'jane-password-1',
             'phone' => '555-0100', 'address1' => '1 Main St', 'city' => 'Austin', 'notes' => 'VIP',
         ]);
-        $client->contacts()->create(['first_name' => 'Pat', 'last_name' => 'Lee', 'email' => 'pat@example.com', 'invoice_emails' => true]);
+        $client->contacts()->create(['first_name' => 'Pat', 'last_name' => 'Lee', 'email' => self::PAT, 'invoice_emails' => true]);
         Service::factory()->for($client)->create(['label' => 'jane.example', 'status' => ServiceStatus::Cancelled, 'custom_fields' => ['note' => 'x']]);
         $invoice = Invoice::create(['client_id' => $client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
         $invoice->items()->create(['description' => 'Hosting', 'amount' => 1500]);
@@ -63,7 +67,7 @@ class PrivacyTest extends TestCase
         Activity::record('Verified their email address '.self::JANE, $client);
         Activity::create(['actor_type' => 'client', 'actor_id' => $client->id, 'description' => 'Updated their phone number', 'actor_name' => 'Pat Lee (contact)', 'client_id' => $client->id]);
         DB::table('client_password_reset_tokens')->insert(['email' => self::JANE, 'token' => 'x', 'created_at' => now()]);
-        DB::table('contact_password_reset_tokens')->insert(['email' => 'pat@example.com', 'token' => 'y', 'created_at' => now()]);
+        DB::table('contact_password_reset_tokens')->insert(['email' => self::PAT, 'token' => 'y', 'created_at' => now()]);
 
         return $client->fresh();
     }
@@ -78,7 +82,7 @@ class PrivacyTest extends TestCase
         $data = json_decode($response->getContent(), true);
 
         $this->assertSame([self::JANE, '1 Main St'], [$data['client']['email'], $data['client']['address1']]);
-        $this->assertSame('pat@example.com', $data['contacts'][0]['email']);
+        $this->assertSame(self::PAT, $data['contacts'][0]['email']);
         $this->assertSame('jane.example', $data['services'][0]['label']);
         $this->assertSame('Hosting', $data['invoices'][0]['items'][0]['description']);
         $this->assertSame(['id.png'], $data['tickets'][0]['messages'][0]['attachments']);
@@ -102,12 +106,12 @@ class PrivacyTest extends TestCase
         $client = $this->busyClient();
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->get("/admin/clients/{$client->id}")->assertDontSee('Anonymise this client');
+        $this->get("/admin/clients/{$client->id}")->assertDontSee(self::ANONYMISE_BUTTON);
         $this->post("/admin/clients/{$client->id}/anonymise", ['confirm' => '1'])->assertSessionHasErrors('anonymise');
 
         $client->update(['status' => 'closed']);
         $running = Service::factory()->for($client)->create();
-        $this->get("/admin/clients/{$client->id}")->assertSee('Anonymise this client');
+        $this->get("/admin/clients/{$client->id}")->assertSee(self::ANONYMISE_BUTTON);
         $this->post("/admin/clients/{$client->id}/anonymise")->assertSessionHasErrors('confirm');
         $this->post("/admin/clients/{$client->id}/anonymise", ['confirm' => '1'])->assertSessionHasErrors(['anonymise' => 'Terminate or cancel the client\'s services first.']);
 
@@ -155,7 +159,7 @@ class PrivacyTest extends TestCase
         $this->assertSame(0, DB::table('client_password_reset_tokens')->count() + DB::table('contact_password_reset_tokens')->count());
         $this->assertSame(0, Activity::where('client_id', $client->id)->whereNotNull('ip_address')->where('description', '!=', "Anonymised client #{$client->id}")->count());
 
-        $this->get("/admin/clients/{$client->id}")->assertOk()->assertSee('anonymised')->assertDontSee('Anonymise this client');
+        $this->get("/admin/clients/{$client->id}")->assertOk()->assertSee('anonymised')->assertDontSee(self::ANONYMISE_BUTTON);
         $this->post("/admin/clients/{$client->id}/anonymise", ['confirm' => '1'])->assertSessionHasErrors('anonymise');
     }
 }

@@ -7,7 +7,7 @@
         <form method="POST" action="{{ $action }}" class="space-y-4 text-sm">
             @csrf
             <label class="block">Code
-                <input name="code" required autofocus autocomplete="one-time-code" inputmode="numeric" maxlength="30" class="mt-1 w-full rounded-md px-3 py-2 font-mono text-lg tracking-widest ring-1 ring-ink-300">
+                <input name="code" required autocomplete="one-time-code" inputmode="numeric" maxlength="30" class="mt-1 w-full rounded-md px-3 py-2 font-mono text-lg tracking-widest ring-1 ring-ink-300">
             </label>
             <button class="w-full rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Log in</button>
             <a href="{{ $back }}" class="block text-center text-brand-600">Use a different account</a>

@@ -38,19 +38,30 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /** Signs a new client up first when nobody is logged in, then places the order. */
-    public function store(Request $request): RedirectResponse
+    /** Why this cart can't be checked out now, or null when it can. */
+    private function cannotCheckOut(?Client $client): ?string
     {
-        $client = $request->user('client');
-
         if ($client !== null && ! PortalContact::allows('orders')) {
-            return redirect()->route('cart.index')->withErrors(['cart' => 'Your login doesn\'t include placing orders. Ask the account holder if you need it.']);
+            return 'Your login doesn\'t include placing orders. Ask the account holder if you need it.';
         }
 
         $quote = $this->checkout->quote($this->cart, $client);
 
         if ($quote->rows === [] || $quote->errors !== [] || $quote->promotionError !== null) {
-            return redirect()->route('cart.index')->withErrors(['cart' => $quote->promotionError ?? 'Check your cart and try again.']);
+            return $quote->promotionError ?? 'Check your cart and try again.';
+        }
+
+        return null;
+    }
+
+    /** Signs a new client up first when nobody is logged in, then places the order. */
+    public function store(Request $request): RedirectResponse
+    {
+        $client = $request->user('client');
+        $problem = $this->cannotCheckOut($client);
+
+        if ($problem !== null) {
+            return redirect()->route('cart.index')->withErrors(['cart' => $problem]);
         }
 
         $client ??= $this->signUp($request);

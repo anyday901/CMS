@@ -21,6 +21,14 @@ class ContactLoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const HOME = '/portal';
+
+    private const CONTACTS = '/portal/account/contacts';
+
+    private const ACCOUNT = '/portal/account';
+
+    private const SUPPORT = '/portal/support';
+
     private const PASSWORD = 'contact-password-1';
 
     private const BOOKKEEPER = 'books@example.com';
@@ -40,7 +48,7 @@ class ContactLoginTest extends TestCase
 
     private function logInAs(ClientContact $contact): void
     {
-        $this->post(self::LOGIN, ['email' => $contact->email, 'password' => self::PASSWORD, 'remember' => '1'])->assertRedirect('/portal');
+        $this->post(self::LOGIN, ['email' => $contact->email, 'password' => self::PASSWORD, 'remember' => '1'])->assertRedirect(self::HOME);
     }
 
     public function test_the_account_holder_invites_a_contact_who_chooses_a_password(): void
@@ -50,15 +58,15 @@ class ContactLoginTest extends TestCase
         $this->actingAs($client, 'client');
 
         $this->get('/portal/account/contacts/create')->assertOk()->assertSee('Can sign in to the portal');
-        $this->post('/portal/account/contacts', [
+        $this->post(self::CONTACTS, [
             'first_name' => 'Pat', 'last_name' => 'Lee', 'email' => self::BOOKKEEPER,
             'portal_access' => '1', 'permissions' => ['billing', 'support', 'bogus'],
         ])->assertSessionHasErrors('permissions.2');
 
-        $this->post('/portal/account/contacts', [
+        $this->post(self::CONTACTS, [
             'first_name' => 'Pat', 'last_name' => 'Lee', 'email' => self::BOOKKEEPER,
             'portal_access' => '1', 'permissions' => ['billing', 'support'],
-        ])->assertRedirect('/portal/account');
+        ])->assertRedirect(self::ACCOUNT);
 
         $contact = ClientContact::sole();
         $this->assertSame([true, ['billing', 'support']], [$contact->portal_access, $contact->permissions]);
@@ -80,9 +88,9 @@ class ContactLoginTest extends TestCase
         ])->assertRedirect(self::LOGIN);
         $this->assertNotNull($contact->fresh()->password);
 
-        $this->post(self::LOGIN, ['email' => self::BOOKKEEPER, 'password' => self::PASSWORD])->assertRedirect('/portal');
+        $this->post(self::LOGIN, ['email' => self::BOOKKEEPER, 'password' => self::PASSWORD])->assertRedirect(self::HOME);
         $this->assertAuthenticatedAs($client, 'client');
-        $this->get('/portal')->assertOk()->assertSee('Welcome, Pat')->assertSee('signed in to Acme Ltd');
+        $this->get(self::HOME)->assertOk()->assertSee('Welcome, Pat')->assertSee('signed in to Acme Ltd');
     }
 
     public function test_contacts_only_open_what_their_login_allows(): void
@@ -91,16 +99,16 @@ class ContactLoginTest extends TestCase
         $invoice = Invoice::create(['client_id' => $client->id, 'currency' => 'USD', 'issue_date' => today(), 'due_date' => today()]);
         $this->logInAs($this->contact($client, ['billing']));
 
-        $this->get('/portal')->assertOk()->assertSee('Invoices')->assertDontSee('Your services');
+        $this->get(self::HOME)->assertOk()->assertSee('Invoices')->assertDontSee('Your services');
         $this->get('/portal/invoices')->assertOk();
         $this->get("/portal/invoices/{$invoice->id}")->assertOk();
         $this->get('/portal/security')->assertOk()->assertSee('a contact on this account');
 
-        $this->get('/portal/support')->assertRedirect('/portal')->assertSessionHasErrors('permission');
-        $this->get('/portal/services')->assertRedirect('/portal');
-        $this->get('/portal/account')->assertRedirect('/portal');
-        $this->get('/portal/account/export')->assertRedirect('/portal');
-        $this->post('/portal/account/contacts', ['first_name' => 'X', 'last_name' => 'Y', 'email' => 'x@example.com'])->assertRedirect('/portal');
+        $this->get(self::SUPPORT)->assertRedirect(self::HOME)->assertSessionHasErrors('permission');
+        $this->get('/portal/services')->assertRedirect(self::HOME);
+        $this->get(self::ACCOUNT)->assertRedirect(self::HOME);
+        $this->get('/portal/account/export')->assertRedirect(self::HOME);
+        $this->post(self::CONTACTS, ['first_name' => 'X', 'last_name' => 'Y', 'email' => 'x@example.com'])->assertRedirect(self::HOME);
         $this->assertSame(1, ClientContact::count());
         $this->post('/checkout')->assertRedirect('/cart')->assertSessionHasErrors('cart');
     }
@@ -116,7 +124,7 @@ class ContactLoginTest extends TestCase
         $this->assertSame('owner-remember-token', $client->fresh()->remember_token);
 
         $contact->update(['portal_access' => false]);
-        $this->get('/portal/support')->assertRedirect(self::LOGIN);
+        $this->get(self::SUPPORT)->assertRedirect(self::LOGIN);
         $this->assertGuest('client');
         $this->assertSame('owner-remember-token', $client->fresh()->remember_token);
 
@@ -139,7 +147,7 @@ class ContactLoginTest extends TestCase
         $department = Department::create(['name' => 'Support']);
         $this->logInAs($this->contact($client, ['support']));
 
-        $this->post('/portal/support', ['department_id' => $department->id, 'subject' => 'Help', 'body' => 'Our site is down', 'priority' => 'medium'])->assertRedirect();
+        $this->post(self::SUPPORT, ['department_id' => $department->id, 'subject' => 'Help', 'body' => 'Our site is down', 'priority' => 'medium'])->assertRedirect();
         $ticket = Ticket::sole();
         $this->assertSame($client->id, $ticket->client_id);
         $this->assertSame('Pat Lee', $ticket->messages()->sole()->authorName());
@@ -156,14 +164,14 @@ class ContactLoginTest extends TestCase
         $this->actingAs($client, 'client');
 
         // A login contact can't use a client's email, or another login contact's.
-        $this->post('/portal/account/contacts', ['first_name' => 'A', 'last_name' => 'B', 'email' => $other->email, 'portal_access' => '1'])->assertSessionHasErrors('email');
-        $this->post('/portal/account/contacts', ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER, 'portal_access' => '1'])->assertSessionHasErrors('email');
+        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => $other->email, 'portal_access' => '1'])->assertSessionHasErrors('email');
+        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER, 'portal_access' => '1'])->assertSessionHasErrors('email');
 
         // Without a login, the same bookkeeper can be on several accounts.
-        $this->post('/portal/account/contacts', ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasNoErrors();
+        $this->post(self::CONTACTS, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasNoErrors();
 
         // And no client can take a login contact's email.
-        $this->put('/portal/account', ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasErrors('email');
+        $this->put(self::ACCOUNT, ['first_name' => 'A', 'last_name' => 'B', 'email' => self::BOOKKEEPER])->assertSessionHasErrors('email');
     }
 
     public function test_staff_give_a_contact_portal_access_and_send_the_invite_again(): void
@@ -210,12 +218,12 @@ class ContactLoginTest extends TestCase
     {
         $contact = $this->contact(Client::factory()->create(), []);
         $this->logInAs($contact);
-        $this->get('/portal')->assertSee('doesn\'t include invoices', false);
+        $this->get(self::HOME)->assertSee('doesn\'t include invoices', false);
 
         $new = Str::random(16);
         $this->put('/portal/security/password', ['current_password' => 'wrong', 'password' => $new, 'password_confirmation' => $new])->assertSessionHasErrors('current_password');
         $this->put('/portal/security/password', ['current_password' => self::PASSWORD, 'password' => $new, 'password_confirmation' => $new])->assertSessionHas('status');
         $this->post('/portal/logout');
-        $this->post(self::LOGIN, ['email' => self::BOOKKEEPER, 'password' => $new])->assertRedirect('/portal');
+        $this->post(self::LOGIN, ['email' => self::BOOKKEEPER, 'password' => $new])->assertRedirect(self::HOME);
     }
 }

@@ -92,17 +92,28 @@ trait HasTwoFactor
             return true;
         }
 
+        return $this->useRecoveryCode($code);
+    }
+
+    /** Uses up a recovery code, so it works once. */
+    private function useRecoveryCode(string $code): bool
+    {
         $codes = $this->two_factor_recovery_codes ?? [];
+        $used = null;
         foreach ($codes as $i => $recovery) {
             if (hash_equals($recovery, strtolower($code))) {
-                unset($codes[$i]);
-                $this->forceFill(['two_factor_recovery_codes' => array_values($codes)])->save();
-
-                return true;
+                $used = $i;
             }
         }
 
-        return false;
+        if ($used === null) {
+            return false;
+        }
+
+        unset($codes[$used]);
+        $this->forceFill(['two_factor_recovery_codes' => array_values($codes)])->save();
+
+        return true;
     }
 
     /** @return list<string> */

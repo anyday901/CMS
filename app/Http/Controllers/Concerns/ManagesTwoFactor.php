@@ -20,22 +20,27 @@ trait ManagesTwoFactor
     private const SETUP_KEY = 'two_factor_setup';
 
     /** The client, contact or staff member signed in. */
-    abstract protected function twoFactorAccount(Request $request): Model;
+    abstract protected function twoFactorAccount(): Model;
 
     /** Where the two-factor settings are. */
     abstract protected function twoFactorPage(): string;
 
     /** Who the activity log entries are about. */
-    protected function twoFactorSubject(Request $request): ?Model
+    protected function twoFactorSubject(): ?Model
     {
-        return $this->twoFactorAccount($request);
+        return $this->twoFactorAccount();
+    }
+
+    private function backToTwoFactor(): RedirectResponse
+    {
+        return redirect()->to($this->twoFactorPage().'#two-factor');
     }
 
     public function startTwoFactor(Request $request): RedirectResponse
     {
         $request->session()->put(self::SETUP_KEY, Totp::secret());
 
-        return redirect()->to($this->twoFactorPage().'#two-factor');
+        return $this->backToTwoFactor();
     }
 
     public function confirmTwoFactor(Request $request): RedirectResponse
@@ -44,19 +49,19 @@ trait ManagesTwoFactor
         $secret = $request->session()->get(self::SETUP_KEY);
 
         if ($secret === null) {
-            return redirect()->to($this->twoFactorPage().'#two-factor')->withErrors(['code' => 'Start again: scan the new QR code, then type the code it shows.']);
+            return $this->backToTwoFactor()->withErrors(['code' => 'Start again: scan the new QR code, then type the code it shows.']);
         }
 
-        $codes = $this->twoFactorAccount($request)->enableTwoFactor($secret, $request->input('code'));
+        $codes = $this->twoFactorAccount()->enableTwoFactor($secret, $request->input('code'));
 
         if ($codes === null) {
             throw ValidationException::withMessages(['code' => 'That code isn\'t right. Type the six digits the app shows now.']);
         }
 
         $request->session()->forget(self::SETUP_KEY);
-        Activity::record('Turned on two-factor authentication', $this->twoFactorSubject($request));
+        Activity::record('Turned on two-factor authentication', $this->twoFactorSubject());
 
-        return redirect()->to($this->twoFactorPage().'#two-factor')
+        return $this->backToTwoFactor()
             ->with('status', 'Two-factor authentication is on. Keep your recovery codes somewhere safe.')
             ->with('recovery_codes', $codes);
     }
@@ -65,25 +70,25 @@ trait ManagesTwoFactor
     {
         $request->session()->forget(self::SETUP_KEY);
 
-        return redirect()->to($this->twoFactorPage().'#two-factor');
+        return $this->backToTwoFactor();
     }
 
     public function disableTwoFactor(Request $request): RedirectResponse
     {
         $this->confirmPassword($request);
-        $this->twoFactorAccount($request)->disableTwoFactor();
-        Activity::record('Turned off two-factor authentication', $this->twoFactorSubject($request));
+        $this->twoFactorAccount()->disableTwoFactor();
+        Activity::record('Turned off two-factor authentication', $this->twoFactorSubject());
 
-        return redirect()->to($this->twoFactorPage().'#two-factor')->with('status', 'Two-factor authentication is off.');
+        return $this->backToTwoFactor()->with('status', 'Two-factor authentication is off.');
     }
 
     public function recoveryCodes(Request $request): RedirectResponse
     {
         $this->confirmPassword($request);
-        $codes = $this->twoFactorAccount($request)->regenerateRecoveryCodes();
-        Activity::record('Made new two-factor recovery codes', $this->twoFactorSubject($request));
+        $codes = $this->twoFactorAccount()->regenerateRecoveryCodes();
+        Activity::record('Made new two-factor recovery codes', $this->twoFactorSubject());
 
-        return redirect()->to($this->twoFactorPage().'#two-factor')
+        return $this->backToTwoFactor()
             ->with('status', 'Here are your new recovery codes. The old ones no longer work.')
             ->with('recovery_codes', $codes);
     }
@@ -92,7 +97,7 @@ trait ManagesTwoFactor
     {
         $request->validate(['current_password' => ['required', 'string']]);
 
-        if (! Hash::check($request->input('current_password'), (string) $this->twoFactorAccount($request)->password)) {
+        if (! Hash::check($request->input('current_password'), (string) $this->twoFactorAccount()->password)) {
             throw ValidationException::withMessages(['current_password' => 'That isn\'t your current password.']);
         }
     }

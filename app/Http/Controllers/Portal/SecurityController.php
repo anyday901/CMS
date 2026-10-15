@@ -10,6 +10,7 @@ use App\Models\ClientContact;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -58,14 +59,14 @@ class SecurityController extends Controller
         return back()->with('status', 'Your password is changed.');
     }
 
-    protected function twoFactorAccount(Request $request): Model
+    protected function twoFactorAccount(): Model
     {
         return PortalContact::account();
     }
 
-    protected function twoFactorSubject(Request $request): ?Model
+    protected function twoFactorSubject(): ?Model
     {
-        return $request->user('client');
+        return Auth::guard('client')->user();
     }
 
     protected function twoFactorPage(): string

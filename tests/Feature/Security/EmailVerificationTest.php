@@ -16,6 +16,8 @@ class EmailVerificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const HOME = '/portal';
+
     private const BANNER = 'Please confirm your email address';
 
     private function linkFrom(LoggedEmail $mail): ?string
@@ -40,7 +42,7 @@ class EmailVerificationTest extends TestCase
 
         $client = Client::sole();
         $this->assertFalse($client->hasVerifiedEmail());
-        $this->get('/portal')->assertSee(self::BANNER);
+        $this->get(self::HOME)->assertSee(self::BANNER);
 
         $url = null;
         Mail::assertSent(LoggedEmail::class, function (LoggedEmail $mail) use (&$url) {
@@ -67,12 +69,12 @@ class EmailVerificationTest extends TestCase
         $client = Client::factory()->create();
         $oldLink = EmailVerification::url($client);
         $this->actingAs($client, 'client');
-        $this->get('/portal')->assertDontSee(self::BANNER);
+        $this->get(self::HOME)->assertDontSee(self::BANNER);
 
         $this->put('/portal/account', ['first_name' => $client->first_name, 'last_name' => $client->last_name, 'email' => 'new@example.com'])
             ->assertSessionHas('status', "Your details are saved. We've sent a link to new@example.com to confirm it's yours.");
         $this->assertFalse($client->fresh()->hasVerifiedEmail());
-        $this->get('/portal')->assertSee(self::BANNER);
+        $this->get(self::HOME)->assertSee(self::BANNER);
         Mail::assertSent(LoggedEmail::class, fn (LoggedEmail $mail) => $mail->hasTo('new@example.com'));
 
         // A link sent to the old address doesn't verify the new one.
