@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasTwoFactor;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -17,7 +18,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields',
+        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields', 'client_group_id',
     ];
 
     protected $hidden = ['password', 'legacy_password', 'remember_token'];
@@ -52,12 +53,29 @@ class Client extends Authenticatable
             'custom_fields' => 'array',
             'email_verified_at' => 'datetime',
             'anonymised_at' => 'datetime',
+            'marketing_emails' => 'boolean',
+            'marketing_consent_at' => 'datetime',
         ];
     }
 
     public function contacts(): HasMany
     {
         return $this->hasMany(ClientContact::class)->orderBy('first_name')->orderBy('last_name');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(ClientGroup::class, 'client_group_id');
+    }
+
+    public function clientNotes(): HasMany
+    {
+        return $this->hasMany(ClientNote::class)->orderByDesc('pinned')->latest()->latest('id');
+    }
+
+    public function todos(): HasMany
+    {
+        return $this->hasMany(Todo::class);
     }
 
     public function orders(): HasMany
@@ -121,6 +139,21 @@ class Client extends Authenticatable
     public function canLogIn(): bool
     {
         return $this->status !== ClientStatus::Closed;
+    }
+
+    /**
+     * Records the client's answer about news and offers, with when they gave
+     * it, as proof of consent. Returns whether it changed.
+     */
+    public function setMarketingConsent(bool $yes): bool
+    {
+        if ($this->exists && $this->marketing_emails === $yes) {
+            return false;
+        }
+
+        $this->forceFill(['marketing_emails' => $yes, 'marketing_consent_at' => now()]);
+
+        return true;
     }
 
     public function fullName(): string

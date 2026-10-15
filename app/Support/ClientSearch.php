@@ -27,6 +27,11 @@ class ClientSearch
 
     private const TO = 'to';
 
+    private const GROUP = 'group';
+
+    /** The group filter's value for clients in no group. */
+    public const NO_GROUP = 'none';
+
     /** Each filter in the query string and how it matches. */
     private const FILTERS = [
         'q' => self::NAME,
@@ -42,6 +47,8 @@ class ClientSearch
         'currency' => self::EXACT,
         'credit_balance' => self::YES_NO,
         'tax_exempt' => self::YES_NO,
+        'marketing_emails' => self::YES_NO,
+        'group' => self::GROUP,
         'signup_from' => self::FROM,
         'signup_to' => self::TO,
     ];
@@ -71,6 +78,7 @@ class ClientSearch
             self::STATUS => ClientStatus::tryFrom($value) !== null,
             self::YES_NO => in_array($value, ['yes', 'no'], true),
             self::FROM, self::TO => self::validDate($value),
+            self::GROUP => $value === self::NO_GROUP || ctype_digit($value),
             default => true,
         };
     }
@@ -137,6 +145,7 @@ class ClientSearch
                 self::YES_NO => $this->matchYesNo($query, $key, $value === 'yes'),
                 self::FROM => $query->whereDate('created_at', '>=', $value),
                 self::TO => $query->whereDate('created_at', '<=', $value),
+                self::GROUP => $value === self::NO_GROUP ? $query->whereNull('client_group_id') : $query->where('client_group_id', (int) $value),
             };
         }
 

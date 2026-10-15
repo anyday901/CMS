@@ -27,7 +27,7 @@ class ContactController extends Controller
         $contact = $client->contacts()->create(ClientContact::attributesFrom($data, $request));
         Activity::record("Added contact {$contact->fullName()}", $client);
 
-        return redirect()->route('portal.account.edit')->with('status', $this->invitation->sendIfNew($contact, true) ? "Contact added. We've emailed {$contact->email} a link to choose their password." : 'Contact added.');
+        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, true), 'Contact added.', $contact));
     }
 
     public function edit(Request $request, ClientContact $contact): View
@@ -44,7 +44,7 @@ class ContactController extends Controller
         $contact->update(ClientContact::attributesFrom($data, $request));
         Activity::record("Updated contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('portal.account.edit')->with('status', $this->invitation->sendIfNew($contact, $contact->wasChanged('portal_access')) ? "Contact updated. We've emailed {$contact->email} a link to choose their password." : 'Contact updated.');
+        return redirect()->route('portal.account.edit')->with('status', ContactInvitation::message($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), 'Contact updated.', $contact));
     }
 
     public function resendInvite(Request $request, ClientContact $contact): RedirectResponse

@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Who signs in to the portal after a WHMCS import: sub-account contacts and
  * WHMCS 8 users keep a login, with the permissions that match ones here, as
- * long as no client or other contact already signs in with their email.
+ * long as no client signs in with their email. A WHMCS 8 user of several
+ * clients becomes a contact on each, sharing one login.
  */
 class ContactLoginImporter
 {
@@ -21,15 +22,15 @@ class ContactLoginImporter
         'tickets' => 'support',
     ];
 
-    /** @var array<string, true> emails that sign in here: clients' and login contacts' */
-    private array $emails = [];
+    /** @var array<string, true> clients' emails, which no contact can sign in with */
+    private array $clientEmails = [];
 
     public function __construct(private ImportRun $run, private string $label) {}
 
-    /** Marks an email as signing in already, such as a client's. */
+    /** Marks an email as a client's own login. */
     public function claim(string $email): void
     {
-        $this->emails[$email] = true;
+        $this->clientEmails[$email] = true;
     }
 
     /**
@@ -109,13 +110,12 @@ class ContactLoginImporter
             return null;
         }
 
-        if (isset($this->emails[$email])) {
-            $this->run->report->note($this->label, "Contact {$email} of client {$row->userid} could log in to WHMCS, but another client or contact signs in with that email here, so this contact can't.");
+        if (isset($this->clientEmails[$email])) {
+            $this->run->report->note($this->label, "Contact {$email} of client {$row->userid} could log in to WHMCS, but a client signs in with that email here, so this contact can't.");
 
             return null;
         }
 
-        $this->claim($email);
         $ticked = preg_split('/\s*,\s*/', strtolower((string) ($row->permissions ?? '')), -1, PREG_SPLIT_NO_EMPTY);
         $permissions = array_values(array_unique(array_intersect_key(self::PERMISSIONS, array_flip($ticked))));
         $this->run->report->note($this->label, "Contact {$email} of client {$row->userid} can sign in to the portal (".($permissions === [] ? 'with no permissions yet' : implode(', ', $permissions))."). WHMCS passwords don't come over, so they set a new one with Forgot password.");

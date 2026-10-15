@@ -8,6 +8,7 @@ use App\Models\Activity;
 use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\InboundEmail;
+use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\TicketAttachment;
 use App\Models\TicketFeedback;
@@ -65,11 +66,15 @@ class ClientAnonymiser
                 'password' => null,
                 'legacy_password' => null,
                 'remember_token' => null,
+                'marketing_emails' => false,
+                'marketing_consent_at' => null,
                 'anonymised_at' => now(),
             ])->save();
             $client->disableTwoFactor();
 
             $client->contacts()->delete();
+            $client->clientNotes()->delete();
+            KnownDevice::whereIn('email', array_map('strtolower', $emails))->delete();
             $client->emailLogs()->delete();
             LoginAttempt::where('client_id', $client->id)->delete();
             foreach (['client_password_reset_tokens', 'contact_password_reset_tokens'] as $table) {

@@ -44,6 +44,15 @@
             </label>
         </fieldset>
 
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">New device emails</legend>
+            <input type="hidden" name="new_device_emails" value="0">
+            <label for="new-device-emails" class="flex items-start gap-2">
+                <input id="new-device-emails" type="checkbox" name="new_device_emails" value="1" class="mt-1" @checked(old('new_device_emails', $settings['new_device_emails']))>
+                <span>Email clients and contacts when they sign in to the portal from a browser or device they haven't used before, with the time, browser and IP address, so they can act if it wasn't them. Change the wording in the <a href="{{ route('admin.email-templates.edit', 'new_device_login') }}" class="text-brand-600">New device sign-in</a> template.</span>
+            </label>
+        </fieldset>
+
         <fieldset class="space-y-3">
             <legend class="mb-1 text-base font-semibold">CAPTCHA</legend>
             <p class="text-ink-600">Stops bots on public forms. Create a site in the provider's dashboard for this domain and paste its two keys here.</p>

@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\ClientGroup;
 use App\Models\CustomField;
 use App\Support\ClientSearch;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +17,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientController extends Controller
 {
@@ -23,6 +26,7 @@ class ClientController extends Controller
         $search = ClientSearch::fromRequest($request);
 
         $clients = $search->apply(Client::query())
+            ->with('group')
             ->withCount('services')
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -35,7 +39,41 @@ class ClientController extends Controller
             'closedCount' => $search->hidesClosed() ? $search->closedCount(Client::query()) : 0,
             'countries' => $this->distinct('country'),
             'currencies' => $this->distinct('currency'),
+            'groups' => ClientGroup::orderBy('name')->get(),
         ]);
+    }
+
+    /**
+     * The clients this search finds, as a CSV file, for a mailing list or a
+     * spreadsheet. Each row has the client's own unsubscribe link, for
+     * marketing emails sent from elsewhere.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $search = ClientSearch::fromRequest($request);
+        $query = $search->apply(Client::query())->with('group')->orderBy('id');
+        Activity::record('Exported clients to CSV', null, ['filters' => $search->filters(), 'count' => (clone $query)->count()]);
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['id', 'first_name', 'last_name', 'company', 'email', 'phone', 'country', 'status', 'group', 'marketing_emails', 'marketing_consent_at', 'unsubscribe_url', 'created_at'], escape: '');
+            $query->chunk(500, function ($clients) use ($out) {
+                foreach ($clients as $client) {
+                    fputcsv($out, array_map(fn (mixed $value) => self::csvCell($value), [
+                        $client->id, $client->first_name, $client->last_name, $client->company, $client->email, $client->phone,
+                        $client->country, $client->status->value, $client->group?->name, $client->marketing_emails ? 'yes' : 'no',
+                        $client->marketing_consent_at?->toIso8601String(), MarketingUnsubscribeController::url($client), $client->created_at?->toIso8601String(),
+                    ]), escape: '');
+                }
+            });
+            fclose($out);
+        }, 'clients-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /** Stops a spreadsheet treating a value such as "=HYPERLINK(...)" as a formula. */
+    private static function csvCell(mixed $value): mixed
+    {
+        return is_string($value) && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
     /** The values clients have for a column, for the search's dropdowns. */
@@ -47,12 +85,16 @@ class ClientController extends Controller
 
     public function create(): View
     {
-        return view('admin.clients.form', ['client' => new Client, 'fields' => CustomField::forClients()->get()]);
+        return view('admin.clients.form', ['client' => new Client, 'fields' => CustomField::forClients()->get(), 'groups' => ClientGroup::orderBy('name')->get()]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $client = Client::create($this->validated($request));
+        $client = new Client($this->validated($request));
+        if ($request->boolean('marketing_emails')) {
+            $client->setMarketingConsent(true);
+        }
+        $client->save();
         Activity::record('Created client', $client);
 
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
@@ -79,17 +121,24 @@ class ClientController extends Controller
 
         $logins = $client->loginAttempts()->with('account')->latest('created_at')->latest('id')->limit(5)->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins'));
+        $client->load(['group', 'clientNotes.user']);
+
+        $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins', 'todos'));
     }
 
     public function edit(Client $client): View
     {
-        return view('admin.clients.form', ['client' => $client, 'fields' => CustomField::forClients()->get()]);
+        return view('admin.clients.form', ['client' => $client, 'fields' => CustomField::forClients()->get(), 'groups' => ClientGroup::orderBy('name')->get()]);
     }
 
     public function update(Request $request, Client $client): RedirectResponse
     {
         $client->fill($this->validated($request, $client));
+        if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
+            Activity::record($client->marketing_emails ? 'Agreed to marketing emails (set by staff)' : 'Opted out of marketing emails (set by staff)', $client);
+        }
         // A new address hasn't been confirmed by the client yet.
         if ($client->isDirty('email')) {
             $client->email_verified_at = null;
@@ -129,10 +178,12 @@ class ClientController extends Controller
             'status' => ['required', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
+            'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
         ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         return [
             ...$data,
+            'client_group_id' => $data['client_group_id'] ?? null,
             'tax_exempt' => $request->boolean('tax_exempt'),
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client?->custom_fields),
         ];

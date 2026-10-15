@@ -51,7 +51,7 @@ class AuthController extends Controller
 
         $this->login->complete($request, $account, $request->boolean('remember'));
 
-        return redirect()->intended(route('portal.dashboard'));
+        return PortalLogin::home($account);
     }
 
     public function destroy(Request $request): RedirectResponse

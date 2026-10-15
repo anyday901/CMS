@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasTwoFactor;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -17,6 +20,11 @@ use Illuminate\Validation\Rules\Unique;
  * contact who gets support emails can open and reply to tickets by email.
  * With portal access, they sign in to the portal with their own email and
  * password and see only the parts of the account they're allowed to.
+ *
+ * One person can be a contact with portal access on several accounts, like
+ * a WHMCS 8 user: each account has its own contact, with its own name,
+ * emails and permissions, and contacts with the same login email share one
+ * login (password, two-factor and remember-me), kept the same on every row.
  */
 class ClientContact extends Authenticatable
 {
@@ -33,6 +41,36 @@ class ClientContact extends Authenticatable
     protected $fillable = ['first_name', 'last_name', 'email', 'phone', 'invoice_emails', 'support_emails', 'portal_access', 'permissions'];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /** The login itself, the same on every account the person signs in to. */
+    public const SHARED_LOGIN = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_confirmed_at', 'two_factor_last_step'];
+
+    /** Set when saving joined a login the person already had on another account. */
+    public bool $joinedLogin = false;
+
+    protected static function booted(): void
+    {
+        static::saving(function (ClientContact $contact) {
+            // A new email is a new login: the old one's password and two-factor stay with the old email.
+            if ($contact->exists && $contact->isDirty('email')) {
+                $contact->forceFill(array_fill_keys(self::SHARED_LOGIN, null));
+            }
+
+            // Given portal access with an email that already signs in elsewhere: use that login.
+            if ($contact->portal_access && (! $contact->exists || $contact->isDirty(['portal_access', 'email']))) {
+                $contact->joinLogin();
+            }
+        });
+
+        // A new password, two-factor change or remember token reaches every account of the login.
+        static::saved(function (ClientContact $contact) {
+            $changed = array_intersect(self::SHARED_LOGIN, array_keys($contact->getChanges()));
+
+            if ($contact->portal_access && $changed !== []) {
+                $contact->siblings()->toBase()->update(array_intersect_key($contact->getAttributes(), array_flip($changed)));
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -61,10 +99,55 @@ class ClientContact extends Authenticatable
         return trim("{$this->first_name} {$this->last_name}");
     }
 
-    /** Contacts have no remember-me: a remembered login would come back as the account owner. */
-    public function getRememberTokenName(): string
+    /** Every contact with portal access that signs in with this email, on any account. */
+    public static function loginsFor(string $email): Builder
     {
-        return '';
+        return static::where('email', $email)->where('portal_access', true);
+    }
+
+    /** This login's contacts on other accounts. */
+    public function siblings(): Builder
+    {
+        return static::loginsFor((string) $this->email)->whereKeyNot($this->getKey());
+    }
+
+    /**
+     * The contacts this login can switch between, one per account that can
+     * sign in, by account name.
+     *
+     * @return Collection<int, self>
+     */
+    public function accounts(): Collection
+    {
+        return static::loginsFor((string) $this->email)
+            ->whereHas('client', fn (Builder $query) => $query->where('status', '!=', ClientStatus::Closed))
+            ->with('client')->get()
+            ->sortBy(fn (self $contact) => strtolower($contact->accountName()))
+            ->values();
+    }
+
+    public function hasOtherAccounts(): bool
+    {
+        return $this->siblings()->whereHas('client', fn (Builder $query) => $query->where('status', '!=', ClientStatus::Closed))->exists();
+    }
+
+    /** The account's name, as the contact sees it: its company, or the account holder's name. */
+    public function accountName(): string
+    {
+        return $this->client->company ?: $this->client->fullName();
+    }
+
+    /** Copies the login from the person's contact on another account, if they have one with a password. */
+    private function joinLogin(): void
+    {
+        $login = $this->siblings()->whereNotNull('password')->first();
+
+        if ($login === null) {
+            return;
+        }
+
+        $this->setRawAttributes(array_merge($this->getAttributes(), array_intersect_key($login->getAttributes(), array_flip(self::SHARED_LOGIN))));
+        $this->joinedLogin = true;
     }
 
     public function allows(string $permission): bool
@@ -117,10 +200,9 @@ class ClientContact extends Authenticatable
             'permissions.*' => [Rule::in(array_keys(self::PERMISSIONS))],
         ];
 
-        // A login email has to point at one person: no client, and no other contact who signs in.
+        // A login email can't be a client's. Another account's contact with it is the same person, sharing one login.
         if ($request?->boolean('portal_access')) {
             $rules['email'][] = Rule::unique('clients', 'email');
-            $rules['email'][] = Rule::unique('client_contacts', 'email')->where('portal_access', true)->ignore($contact);
         }
 
         return $rules;

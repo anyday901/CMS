@@ -2,6 +2,7 @@
 @php
     $cartCount = $store || auth('client')->check() ? app(App\Ordering\Cart::class)->count() : 0;
     $portalContact = App\Auth\PortalContact::current();
+    $otherAccounts = (bool) $portalContact?->hasOtherAccounts();
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -39,10 +40,13 @@
                     <a href="{{ route($route) }}"
                        class="text-sm {{ request()->routeIs(preg_replace('/\.(index|edit)$/', '.*', $route)) || ($route === 'portal.tickets.index' && request()->routeIs(...App\Http\Controllers\Help\KnowledgebaseController::HELP_ROUTES)) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
-                @if ($cartCount)
-                    <a href="{{ route('cart.index') }}" class="ml-auto rounded-full px-3 py-1 text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Cart ({{ $cartCount }})</a>
+                @if ($otherAccounts)
+                    <a href="{{ route('portal.accounts') }}" class="ml-auto rounded-full px-3 py-1 text-sm ring-1 ring-ink-200 {{ request()->routeIs('portal.accounts') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}" title="Switch account">{{ $portalContact->accountName() }} <span aria-hidden="true">⇄</span><span class="sr-only">, switch account</span></a>
                 @endif
-                <form method="POST" action="{{ route('portal.logout') }}" class="{{ $cartCount ? '' : 'ml-auto' }}">
+                @if ($cartCount)
+                    <a href="{{ route('cart.index') }}" class="{{ $otherAccounts ? '' : 'ml-auto' }} rounded-full px-3 py-1 text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">Cart ({{ $cartCount }})</a>
+                @endif
+                <form method="POST" action="{{ route('portal.logout') }}" class="{{ $cartCount || $otherAccounts ? '' : 'ml-auto' }}">
                     @csrf
                     <button class="rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log out{{ $portalContact ? ' '.$portalContact->first_name : '' }}</button>
                 </form>

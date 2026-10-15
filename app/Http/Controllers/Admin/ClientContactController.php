@@ -27,7 +27,7 @@ class ClientContactController extends Controller
         $contact = $client->contacts()->create(ClientContact::attributesFrom($data, $request));
         Activity::record("Added contact {$contact->fullName()}", $client);
 
-        return redirect()->route('admin.clients.show', $client)->with('status', $this->invitation->sendIfNew($contact, true) ? 'Contact added, and invited to choose a portal password.' : 'Contact added.');
+        return redirect()->route('admin.clients.show', $client)->with('status', $this->status($this->invitation->sendIfNew($contact, true), 'added', $contact));
     }
 
     public function edit(ClientContact $contact): View
@@ -41,7 +41,7 @@ class ClientContactController extends Controller
         $contact->update(ClientContact::attributesFrom($data, $request));
         Activity::record("Updated contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('admin.clients.show', $contact->client)->with('status', $this->invitation->sendIfNew($contact, $contact->wasChanged('portal_access')) ? 'Contact updated, and invited to choose a portal password.' : 'Contact updated.');
+        return redirect()->route('admin.clients.show', $contact->client)->with('status', $this->status($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), 'updated', $contact));
     }
 
     public function resendInvite(ClientContact $contact): RedirectResponse
@@ -59,5 +59,14 @@ class ClientContactController extends Controller
         Activity::record("Removed contact {$contact->fullName()}", $contact->client);
 
         return redirect()->route('admin.clients.show', $contact->client)->with('status', 'Contact removed.');
+    }
+
+    private function status(?string $sent, string $done, ClientContact $contact): string
+    {
+        return match ($sent) {
+            ContactInvitation::INVITED => "Contact {$done}, and invited to choose a portal password.",
+            ContactInvitation::ADDED => "Contact {$done}. {$contact->email} already signs in to another account, so they use that login here too and have been told.",
+            default => "Contact {$done}.",
+        };
     }
 }

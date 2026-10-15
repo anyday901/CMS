@@ -108,16 +108,21 @@ class CheckoutController extends Controller
             'email.unique' => 'There is already an account with this email. Log in to order with it.',
         ], CustomField::attributeNames($fields));
 
-        $client = Client::create([
+        $client = new Client([
             ...collect($data)->except('password')->all(),
             'country' => strtoupper($data['country']),
             'password' => $data['password'],
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), null),
         ]);
+        $client->setMarketingConsent($request->boolean('marketing_emails'));
+        $client->save();
 
         Auth::guard('client')->login($client);
         $request->session()->regenerate();
         Activity::record('Signed up at checkout', $client);
+        if ($client->marketing_emails) {
+            Activity::record('Agreed to marketing emails at sign-up', $client);
+        }
         $this->verification->send($client);
 
         return $client;

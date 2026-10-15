@@ -8,7 +8,8 @@
                 <div class="min-w-0 flex-1">
                     <div class="font-medium">{{ $item->fullName() }}</div>
                     <div class="text-ink-500">{{ $item->email }}@if ($item->phone) · {{ $item->phone }}@endif · {{ $item->receives() }}</div>
-                    <div class="text-ink-500">{{ $item->access() }}@if ($item->portal_access && $item->hasTwoFactor()) · two-factor on @endif @if ($item->last_login_at) · last signed in {{ $item->last_login_at->format('M j, Y') }}@endif</div>
+                    <div class="text-ink-500">{{ $item->access() }}@if ($item->portal_access && $item->hasTwoFactor()) · two-factor on @endif @if ($item->last_login_at) · last signed in {{ $item->last_login_at->format('M j, Y') }}@endif
+                        @if ($item->portal_access && ($others = $item->siblings()->count())) · same login on {{ $others }} other {{ Str::plural('account', $others) }}@endif</div>
                 </div>
                 @if ($editRoute)
                     @if (($inviteRoute ?? null) && $item->portal_access && ! $item->password)

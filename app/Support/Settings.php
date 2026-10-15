@@ -46,6 +46,7 @@ class Settings
         'security.ban_hours',
         'security.login_history_days',
         'security.staff_two_factor',
+        'security.new_device_emails',
         'security.captcha.provider',
         'security.captcha.site_key',
         'security.captcha.secret_key',
@@ -53,7 +54,7 @@ class Settings
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor'];
+    private const BOOLEANS = ['billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [

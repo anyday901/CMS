@@ -23,6 +23,7 @@
                         'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
                         'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
+                        'admin.todos.index' => 'To-do'.(($myTodos = App\Models\Todo::unfinished()->where('user_id', auth()->id())->count()) ? " ({$myTodos})" : ''),
                         'admin.tax-rules.index' => $settings ? 'Tax' : null,
                         'admin.activity.index' => $settings ? 'Activity' : null,
                         'admin.emails.index' => $settings ? 'Emails' : null,
@@ -33,9 +34,13 @@
                 @foreach ($links as $route => $label)
                     <a href="{{ route($route) }}"
 
-                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*', 'admin.security.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
+                       class="text-sm {{ request()->routeIs(str_replace('.index', '.*', $route)) || ($route === 'admin.settings.edit' && request()->routeIs('admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*')) || ($route === 'admin.kb.index' && request()->routeIs('admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*')) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $label }}</a>
                 @endforeach
-                <a href="{{ route('admin.account.show') }}" class="ml-auto rounded-full px-3 py-1 text-sm {{ request()->routeIs('admin.account.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ auth()->user()->name }}</a>
+                <form method="GET" action="{{ route('admin.search') }}" role="search" class="ml-auto">
+                    <label class="sr-only" for="admin-search">Search everything</label>
+                    <input id="admin-search" type="search" name="q" value="{{ request()->routeIs('admin.search') ? request('q') : '' }}" placeholder="Search…" class="w-40 rounded-full bg-ink-50 px-3 py-1 text-sm ring-1 ring-ink-200 focus:w-56 focus:bg-white">
+                </form>
+                <a href="{{ route('admin.account.show') }}" class="rounded-full px-3 py-1 text-sm {{ request()->routeIs('admin.account.*') ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ auth()->user()->name }}</a>
                 <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf
                     <button class="rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">Log out</button>

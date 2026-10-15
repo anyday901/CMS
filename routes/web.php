@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Help;
 use App\Http\Controllers\InboundEmailController;
+use App\Http\Controllers\MarketingUnsubscribeController;
 use App\Http\Controllers\Portal;
 use App\Http\Controllers\Store;
 use App\Http\Controllers\WebhookController;
@@ -15,6 +16,12 @@ Route::redirect('/', '/portal');
 Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
 Route::post('webhooks/square', [WebhookController::class, 'square'])->name('webhooks.square');
 Route::post('webhooks/email', InboundEmailController::class)->middleware('throttle:60,1')->name('webhooks.email');
+
+// The unsubscribe link for marketing emails, signed for each client.
+Route::middleware(['signed', 'throttle:20,1'])->controller(MarketingUnsubscribeController::class)->group(function () {
+    Route::get('unsubscribe/{client}', 'show')->name('marketing.unsubscribe');
+    Route::post('unsubscribe/{client}', 'store');
+});
 
 // The public store. Guests can browse and fill a cart; checkout signs them up.
 Route::middleware(EnsureClientCanLogIn::class)->group(function () {
@@ -80,6 +87,8 @@ Route::prefix('portal')->name('portal.')->group(function () {
         Route::post('logout', [Portal\AuthController::class, 'destroy'])->name('logout');
         Route::post('back-to-admin', [Admin\ImpersonationController::class, 'destroy'])->name('impersonation.stop');
         Route::get('/', Portal\DashboardController::class)->name('dashboard');
+        Route::get('accounts', [Portal\AccountSwitchController::class, 'index'])->name('accounts');
+        Route::post('accounts/{contact}', [Portal\AccountSwitchController::class, 'store'])->middleware('throttle:30,1')->name('accounts.switch');
 
         // Everyone signed in: the account holder and contacts manage their own login here.
         Route::prefix('security')->name('security.')->controller(Portal\SecurityController::class)->group(function () {
@@ -140,6 +149,7 @@ Route::prefix('portal')->name('portal.')->group(function () {
             Route::get('account', [Portal\AccountController::class, 'edit'])->name('account.edit');
             Route::put('account', [Portal\AccountController::class, 'update'])->name('account.update');
             Route::put('account/password', [Portal\AccountController::class, 'password'])->name('account.password');
+            Route::put('account/marketing', [Portal\AccountController::class, 'marketing'])->name('account.marketing');
             Route::get('account/export', [Portal\AccountController::class, 'export'])->middleware('throttle:5,1')->name('account.export');
             Route::post('account/verify-email', [Portal\EmailVerificationController::class, 'resend'])->middleware('throttle:3,10')->name('verification.send');
             Route::resource('account/contacts', Portal\ContactController::class)->except(['index', 'show'])->parameters(['contacts' => 'contact'])->names('contacts');
@@ -162,20 +172,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
         Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
-        // Every staff member's own login.
-        Route::prefix('account')->name('account.')->controller(Admin\AccountController::class)->group(function () {
-            Route::get('/', 'show')->name('show');
-            Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
-            Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
-            Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
-            Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
-            Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
-            Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
-        });
-
         // Creating and editing come first so "create" isn't read as a client id.
         Route::middleware('can:manage-clients')->group(function () use ($service) {
             Route::get('clients/create', [Admin\ClientController::class, 'create'])->name('clients.create');
+            Route::get('clients/export', [Admin\ClientController::class, 'export'])->name('clients.export');
             Route::post('clients', [Admin\ClientController::class, 'store'])->name('clients.store');
             Route::get('clients/{client}/edit', [Admin\ClientController::class, 'edit'])->name('clients.edit');
             Route::put('clients/{client}', [Admin\ClientController::class, 'update'])->name('clients.update');
@@ -187,6 +187,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/password-link', [Admin\ClientController::class, 'sendPasswordLink'])->name('clients.password-link');
             Route::post('contacts/{contact}/invite', [Admin\ClientContactController::class, 'resendInvite'])->name('contacts.invite');
             Route::delete('contacts/{contact}/two-factor', [Admin\ClientPrivacyController::class, 'resetContactTwoFactor'])->name('contacts.two-factor.reset');
+            Route::post('clients/{client}/notes', [Admin\ClientNoteController::class, 'store'])->name('client-notes.store');
+            Route::resource('client-notes', Admin\ClientNoteController::class)->only(['update', 'destroy'])->parameters(['client-notes' => 'note']);
+            Route::get('clients/{client}/merge', [Admin\ClientMergeController::class, 'show'])->name('clients.merge');
+            Route::post('clients/{client}/merge', [Admin\ClientMergeController::class, 'store'])->name('clients.merge.store');
             Route::name('clients.')->controller(Admin\ClientPrivacyController::class)->group(function () {
                 Route::get('clients/{client}/export', 'export')->name('export');
                 Route::post('clients/{client}/anonymise', 'anonymise')->name('anonymise');
@@ -229,7 +233,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
         });
 
-        // Every staff role can look.
+        // Every staff role can look, and keep a to-do list.
+        Route::get('search', Admin\SearchController::class)->name('search');
+        Route::resource('todos', Admin\TodoController::class)->except(['show', 'create']);
+        Route::put('todos/{todo}/status', [Admin\TodoController::class, 'status'])->name('todos.status');
         Route::get('clients', [Admin\ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/{client}', [Admin\ClientController::class, 'show'])->name('clients.show');
         Route::get($service, [Admin\ServiceController::class, 'show'])->name('services.show');
@@ -269,6 +276,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::middleware('can:manage-settings')->group(function () {
             Route::resource('custom-fields', Admin\CustomFieldController::class)->except(['show', 'create']);
+            Route::resource('client-groups', Admin\ClientGroupController::class)->except(['show', 'create']);
             Route::resource('departments', Admin\DepartmentController::class)->only(['index', 'store', 'edit', 'update']);
             Route::resource('escalation-rules', Admin\EscalationRuleController::class)->except('show');
             Route::get('email-templates', [Admin\EmailTemplateController::class, 'index'])->name('email-templates.index');
@@ -305,10 +313,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('/', 'reset')->name('reset');
             });
         });
-
-        Route::middleware('can:manage-staff')->group(function () {
-            Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
-            Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
-        });
     });
+});
+
+// Every staff member's own login.
+Route::prefix('admin/account')->name('admin.account.')->middleware(['auth:web', RequireStaffTwoFactor::class])
+    ->controller(Admin\AccountController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::put('password', 'password')->middleware('throttle:5,1')->name('password');
+        Route::post('two-factor', 'startTwoFactor')->name('two-factor.start');
+        Route::post('two-factor/confirm', 'confirmTwoFactor')->middleware('throttle:10,1')->name('two-factor.confirm');
+        Route::delete('two-factor/setup', 'cancelTwoFactorSetup')->name('two-factor.cancel');
+        Route::delete('two-factor', 'disableTwoFactor')->middleware('throttle:5,1')->name('two-factor.disable');
+        Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:5,1')->name('two-factor.recovery-codes');
+    });
+
+// Managing staff logins.
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-staff'])->group(function () {
+    Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
+    Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
 });

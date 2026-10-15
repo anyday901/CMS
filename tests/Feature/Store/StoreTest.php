@@ -118,12 +118,14 @@ class StoreTest extends TestCase
             ->assertSee('VPS')->assertSee('web1.example.com')->assertSee('Disk: 50 GB')->assertSee('Backups')
             ->assertSee('$20.00'); // 13.00 + 5.00 setup + 2.00 backups
 
-        $this->get(self::CHECKOUT)->assertOk()->assertSee('Create your account');
-        $response = $this->post(self::CHECKOUT, $this->signUpDetails());
+        $this->get(self::CHECKOUT)->assertOk()->assertSee('Create your account')->assertSee('Email me news and special offers');
+        $response = $this->post(self::CHECKOUT, $this->signUpDetails(['marketing_emails' => '1']));
 
         $client = Client::where('email', self::EMAIL)->sole();
         $this->assertAuthenticatedAs($client, 'client');
         $this->assertSame('US', $client->country);
+        $this->assertTrue($client->marketing_emails);
+        $this->assertNotNull($client->marketing_consent_at);
         $order = Order::sole();
         $invoice = $order->invoice;
         $response->assertRedirect(route('portal.invoices.show', $invoice));

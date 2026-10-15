@@ -18,6 +18,10 @@ return [
     // they can use the admin area.
     'staff_two_factor' => (bool) env('SECURITY_STAFF_TWO_FACTOR', false),
 
+    // Email clients and contacts when they sign in to the portal from a
+    // browser or device that hasn't signed in with their email before.
+    'new_device_emails' => (bool) env('SECURITY_NEW_DEVICE_EMAILS', true),
+
     // A CAPTCHA on public forms: off (null), turnstile, hcaptcha or recaptcha.
     'captcha' => [
         'provider' => env('CAPTCHA_PROVIDER'),

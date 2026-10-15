@@ -3,6 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ $client->fullName() }}</h1>
         <x-status-badge :status="$client->status" />
+        <x-client-group-badge :group="$client->group" />
         <div class="ml-auto flex flex-wrap items-center gap-2">
             @can('manage-clients')
                 <form method="POST" action="{{ route('admin.clients.password-link', $client) }}">@csrf
@@ -13,6 +14,7 @@
                         <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Log in as client</button>
                     </form>
                 @endif
+                <a href="{{ route('admin.clients.merge', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Merge</a>
                 <a href="{{ route('admin.clients.edit', $client) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Edit</a>
             @endcan
             @can('manage-billing')
@@ -23,6 +25,13 @@
             @endcan
         </div>
     </div>
+
+    @foreach ($client->clientNotes->where('pinned', true) as $note)
+        <div class="mb-3 flex gap-3 rounded-md border border-amber-200 bg-sun-300/30 px-4 py-3 text-sm text-amber-950">
+            <span class="font-semibold">Note</span>
+            <div class="grow">{!! nl2br(e($note->body)) !!}<span class="mt-1 block text-xs text-amber-800">{{ $note->user?->name ?? 'Staff' }}, {{ $note->created_at->format('M j, Y') }} · <a href="#notes" class="underline">all notes</a></span></div>
+        </div>
+    @endforeach
 
     <div class="mb-8 grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm md:grid-cols-3">
         <div><div class="text-ink-500">Email</div>{{ $client->email }}
@@ -40,8 +49,68 @@
         <div><div class="text-ink-500">Credit balance</div>{{ Money::format($client->credit_balance, $client->currency) }}</div>
         <div><div class="text-ink-500">Tax</div>{{ $client->tax_exempt ? 'Exempt' : (App\Models\TaxRule::forClient($client)?->name ?? 'None') }}</div>
         <div><div class="text-ink-500">Client since</div>{{ $client->created_at->format('M j, Y') }}</div>
+        <div><div class="text-ink-500">Group</div>{{ $client->group?->name ?? 'None' }}</div>
+        <div><div class="text-ink-500">Marketing emails</div>
+            @if ($client->marketing_emails)<span class="text-green-700">Agreed</span>@else Not agreed @endif
+            @if ($client->marketing_consent_at)<span class="text-ink-500">· {{ $client->marketing_consent_at->format('M j, Y') }}</span>@endif
+        </div>
         @include('custom-fields._values', ['fields' => $fields, 'values' => $client->custom_fields ?? [], 'wide' => 'md:col-span-3', 'showAdminOnly' => true])
-        @if ($client->notes)<div class="md:col-span-3"><div class="text-ink-500">Notes</div>{!! nl2br(e($client->notes)) !!}</div>@endif
+        @if ($client->notes)<div class="md:col-span-3"><div class="text-ink-500">Profile notes</div>{!! nl2br(e($client->notes)) !!}</div>@endif
+    </div>
+
+    <h2 id="notes" class="mb-3 text-lg font-semibold">Notes</h2>
+    <div class="mb-8 space-y-2">
+        @foreach ($client->clientNotes as $note)
+            <div class="rounded-lg border bg-white p-4 text-sm {{ $note->pinned ? 'border-amber-300' : 'border-ink-200' }}">
+                <div class="mb-1 flex flex-wrap items-center gap-2 text-xs text-ink-500">
+                    <span class="font-medium text-ink-700">{{ $note->user?->name ?? 'Staff' }}</span>
+                    <span>{{ $note->created_at->format('M j, Y g:i A') }}@if ($note->updated_at->gt($note->created_at->addMinute())) · edited {{ $note->updated_at->format('M j, Y') }}@endif</span>
+                    @if ($note->pinned)<span class="rounded-full bg-sun-300/60 px-2 py-0.5 font-semibold text-amber-900">Pinned</span>@endif
+                </div>
+                <div>{!! nl2br(e($note->body)) !!}</div>
+                @can('manage-clients')
+                    <details class="mt-2">
+                        <summary id="note-edit-{{ $note->id }}" class="cursor-pointer text-brand-600">Edit note</summary>
+                        <form method="POST" action="{{ route('admin.client-notes.update', $note) }}" class="mt-2 space-y-2">
+                            @csrf @method('PUT')
+                            <textarea name="body" rows="3" required aria-labelledby="note-edit-{{ $note->id }}" class="w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $note->body }}</textarea>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <label for="note-pinned-{{ $note->id }}" class="flex items-center gap-2"><input id="note-pinned-{{ $note->id }}" type="checkbox" name="pinned" value="1" @checked($note->pinned)> Pin to the top of the page</label>
+                                <button class="rounded-md px-3 py-1 ring-1 ring-ink-300 hover:bg-ink-100">Save</button>
+                                <button form="delete-note-{{ $note->id }}" class="text-red-600 hover:underline">Delete</button>
+                            </div>
+                        </form>
+                        <form id="delete-note-{{ $note->id }}" method="POST" action="{{ route('admin.client-notes.destroy', $note) }}" onsubmit="return confirm('Delete this note?')">@csrf @method('DELETE')</form>
+                    </details>
+                @endcan
+            </div>
+        @endforeach
+        @can('manage-clients')
+            <form method="POST" action="{{ route('admin.client-notes.store', $client) }}" class="rounded-lg border border-dashed border-ink-300 bg-white p-4 text-sm">
+                @csrf
+                <label class="block">Add a note
+                    <textarea name="body" rows="2" required placeholder="Only staff see notes." class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300"></textarea>
+                </label>
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                    <label class="flex items-center gap-2"><input type="checkbox" name="pinned" value="1"> Pin to the top of the page</label>
+                    <button class="rounded-full bg-brand-600 px-3 py-1 font-medium text-white hover:bg-brand-500">Add note</button>
+                </div>
+            </form>
+        @elseif ($client->clientNotes->isEmpty())
+            <p class="text-sm text-ink-500">No notes.</p>
+        @endcan
+    </div>
+
+    <div id="todos" class="mb-3 flex items-center gap-3">
+        <h2 class="text-lg font-semibold">To-dos</h2>
+        <a href="{{ route('admin.todos.index', ['client' => $client->id, 'who' => 'all']) }}" class="text-sm text-brand-600">Add to-do</a>
+    </div>
+    <div class="mb-8">
+        @if ($todos->isEmpty())
+            <p class="text-sm text-ink-500">Nothing to do for this client.</p>
+        @else
+            @include('admin.todos._table', ['hideClient' => true])
+        @endif
     </div>
 
     <div class="mb-3 flex items-center gap-3">

@@ -49,6 +49,6 @@ class TwoFactorChallengeController extends Controller
         TwoFactorChallenge::clear();
         $login->complete($request, $account, $remember);
 
-        return redirect()->intended(route('portal.dashboard'));
+        return PortalLogin::home($account);
     }
 }

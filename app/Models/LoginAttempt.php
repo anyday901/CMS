@@ -77,8 +77,12 @@ class LoginAttempt extends Model
     /** The browser, shortened, for lists. */
     public function browser(): string
     {
-        $agent = (string) $this->user_agent;
+        return self::describeBrowser((string) $this->user_agent);
+    }
 
+    /** A user agent as "Chrome on Windows". */
+    public static function describeBrowser(string $agent): string
+    {
         $browser = match (true) {
             str_contains($agent, 'Edg/') => 'Edge',
             str_contains($agent, 'OPR/') => 'Opera',
