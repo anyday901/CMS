@@ -23,11 +23,19 @@ class HookCatalog
     /** Staff alerts (a failed provisioning action, a dispute); fired by App\Notifications\StaffAlert. */
     public const STAFF_ALERT = 'staff.alert';
 
+    /**
+     * Fired by App\Clients\ClientMerger inside its transaction, before the
+     * merged account is deleted, with from_client_id and into_client_id.
+     * Add-ons with a client_id in their own tables move those rows here.
+     */
+    public const CLIENT_MERGED = 'client.merged';
+
     /** @return array<string, string> */
     public static function events(): array
     {
         return [
             'client.created' => 'New client',
+            self::CLIENT_MERGED => 'Clients merged',
             'order.placed' => 'New order',
             'invoice.created' => 'Invoice issued',
             'invoice.paid' => 'Invoice paid',

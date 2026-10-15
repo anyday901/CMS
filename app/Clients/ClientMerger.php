@@ -3,6 +3,9 @@
 namespace App\Clients;
 
 use App\Billing\CreditLedger;
+use App\Hooks\HookCatalog;
+use App\Hooks\HookEvent;
+use App\Hooks\Hooks;
 use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
@@ -92,6 +95,10 @@ class ClientMerger
             if ($from->credit_balance !== 0) {
                 $this->ledger->change($into->id, $from->credit_balance, "Credit balance of client #{$from->id} ({$from->fullName()}), merged into this account");
             }
+
+            // Add-ons move rows in their own tables here, inside this transaction and before the old account is deleted.
+            app(Hooks::class)->fire(new HookEvent(HookCatalog::CLIENT_MERGED, ['from_client_id' => $from->id, 'into_client_id' => $into->id],
+                "Client #{$from->id} ({$from->fullName()}) merged into {$into->fullName()}", route('admin.clients.show', $into), $into->id));
 
             $from->delete();
 
