@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Models\Concerns\HasRequester;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,13 +14,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 
-/** A support request from a client, with its conversation in messages. */
+/**
+ * A support request, with its conversation in messages. It belongs to a
+ * client, or to a guest (someone without an account) known by name and email
+ * address, who reaches it through a link with the ticket's access key.
+ */
 class Ticket extends Model
 {
+    use HasRequester;
+
     protected $fillable = [
-        'client_id', 'merged_into_id', 'department_id', 'assigned_to', 'subject', 'status', 'priority', 'custom_fields',
+        'client_id', 'guest_name', 'guest_email', 'access_key', 'merged_into_id', 'department_id', 'assigned_to', 'subject', 'status', 'priority', 'custom_fields',
         'last_reply_at', 'first_response_at', 'closed_at', 'escalations',
     ];
+
+    protected $hidden = ['access_key'];
 
     protected function casts(): array
     {

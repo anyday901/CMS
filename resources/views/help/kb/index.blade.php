@@ -1,7 +1,7 @@
 <x-portal-layout title="Knowledge base" :store="true">
     @include('help._nav')
     <h1 class="mb-2 text-2xl font-semibold">Knowledge base</h1>
-    <p class="mb-4 text-sm text-ink-600">Answers to common questions. Can't find what you need? <a href="{{ route('portal.tickets.create') }}" class="text-brand-600">Open a ticket</a>.</p>
+    <p class="mb-4 text-sm text-ink-600">Answers to common questions. Can't find what you need? <a href="{{ route('tickets.guest.create') }}" class="text-brand-600">Open a ticket</a>.</p>
     @include('help.kb._search')
 
     @if ($results !== null)

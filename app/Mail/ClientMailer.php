@@ -28,6 +28,59 @@ class ClientMailer
 
         $definition = EmailTemplates::definition($template);
         $values = array_merge($this->common($client), $invoice ? $this->invoiceValues($invoice) : [], $ticket ? $this->ticketValues($ticket) : [], $values);
+
+        return $this->deliver($template, $values, $client->email, [
+            'client_id' => $client->id,
+            'invoice_id' => $invoice?->id,
+            'ticket_id' => $ticket?->id,
+            'cc' => $this->contactCopies($client, $definition['contacts'] ?? null),
+            'attach_invoice_pdf' => $invoice !== null && in_array($template, EmailTemplates::INVOICE_TEMPLATES, true) && (bool) config('billing.attach_invoice_pdf'),
+            'reply_to' => $ticket?->department->email,
+        ]);
+    }
+
+    /**
+     * A ticket email to whoever opened the ticket: its client, or the guest
+     * at the address they wrote from, with their private link to it.
+     *
+     * @param  array<string, string|int|null>  $values
+     */
+    public function sendForTicket(Ticket $ticket, string $template, array $values = []): ?EmailLog
+    {
+        if (! $ticket->isGuest()) {
+            return $ticket->client ? $this->send($ticket->client, $template, $values, ticket: $ticket) : null;
+        }
+
+        if (blank($ticket->guest_email)) {
+            return null;
+        }
+
+        $values = array_merge([
+            'client_first_name' => $ticket->requesterFirstName(),
+            'client_name' => $ticket->requesterName(),
+            'company_name' => config('billing.company.name'),
+            'portal_url' => $ticket->guestUrl(),
+        ], $this->ticketValues($ticket), $values);
+
+        return $this->deliver($template, $values, $ticket->guest_email, [
+            'client_id' => null,
+            'invoice_id' => null,
+            'ticket_id' => $ticket->id,
+            'cc' => null,
+            'attach_invoice_pdf' => false,
+            'reply_to' => $ticket->department->email,
+        ]);
+    }
+
+    /**
+     * Fills in the template, logs the email and queues it.
+     *
+     * @param  array<string, string|int|null>  $values
+     * @param  array<string, mixed>  $log  email log columns besides the message itself
+     */
+    private function deliver(string $template, array $values, string $to, array $log): ?EmailLog
+    {
+        $definition = EmailTemplates::definition($template);
         $rendered = EmailTemplates::render($template, $values);
 
         if ($rendered === null) {
@@ -37,23 +90,17 @@ class ClientMailer
         $body = ($definition['replyable'] ?? false) ? EmailTemplates::REPLY_MARKER."\n\n".$rendered['body'] : $rendered['body'];
         $sensitive = $definition['sensitive'] ?? false;
 
-        $log = EmailLog::create([
-            'client_id' => $client->id,
-            'invoice_id' => $invoice?->id,
-            'ticket_id' => $ticket?->id,
+        $entry = EmailLog::create($log + [
             'template' => $template,
-            'to' => $client->email,
-            'cc' => $this->contactCopies($client, $definition['contacts'] ?? null),
+            'to' => $to,
             'subject' => $rendered['subject'],
             'body' => $sensitive ? '(Not kept: this email contains a private link.)' : $body,
             'status' => EmailLog::QUEUED,
-            'attach_invoice_pdf' => $invoice !== null && in_array($template, EmailTemplates::INVOICE_TEMPLATES, true) && (bool) config('billing.attach_invoice_pdf'),
-            'reply_to' => $ticket?->department->email,
         ]);
 
-        SendLoggedEmail::dispatch($log->id, $sensitive ? $body : null);
+        SendLoggedEmail::dispatch($entry->id, $sensitive ? $body : null);
 
-        return $log;
+        return $entry;
     }
 
     /** Confirms a store order to the client, with what they ordered and its invoice. */
@@ -114,7 +161,7 @@ class ClientMailer
         return [
             'ticket_id' => $ticket->id,
             'ticket_subject' => $ticket->subject,
-            'ticket_url' => route('portal.tickets.show', $ticket),
+            'ticket_url' => $ticket->viewUrl(),
             'department' => $ticket->department->name,
         ];
     }

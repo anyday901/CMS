@@ -23,7 +23,7 @@ class DashboardController extends Controller
                 ->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])
                 ->orderBy('next_due_date')->get(),
             'credit' => $client->creditEntries()->latest('id')->limit(10)->get(),
-            'announcements' => Announcement::visible()->limit(3)->get(),
+            'announcements' => Announcement::visible()->translated()->limit(3)->get(),
             // Problems on the servers the client's services are on, and ones not tied to a server.
             'issues' => NetworkIssue::current()->with('server')
                 ->where(fn ($query) => $query->whereNull('server_id')->orWhereIn('server_id', $client->services()->whereNotNull('server_id')

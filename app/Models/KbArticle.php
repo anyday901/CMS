@@ -2,15 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
+use App\Support\Language;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/** A knowledge base article, written in Markdown. */
+/** A knowledge base article, written in Markdown, with translations into other languages. */
 class KbArticle extends Model
 {
+    use HasTranslations;
+
     /** Words too common to say what an article is about. */
     private const COMMON_WORDS = [
         'the', 'and', 'for', 'are', 'but', 'not', 'you', 'your', 'can', 'cant', 'has', 'have', 'had', 'was', 'were', 'with', 'this', 'that',
@@ -24,6 +29,21 @@ class KbArticle extends Model
     protected function casts(): array
     {
         return ['published' => 'boolean', 'sort_order' => 'integer', 'views' => 'integer', 'helpful' => 'integer', 'not_helpful' => 'integer'];
+    }
+
+    protected function title(): Attribute
+    {
+        return Attribute::get(fn (?string $value) => $this->fromTranslation('title', $value));
+    }
+
+    protected function body(): Attribute
+    {
+        return Attribute::get(fn (?string $value) => $this->fromTranslation('body', $value));
+    }
+
+    protected function tags(): Attribute
+    {
+        return Attribute::get(fn (?string $value) => $this->fromTranslation('tags', $value));
     }
 
     public function category(): BelongsTo
@@ -43,12 +63,28 @@ class KbArticle extends Model
         $query->where('published', true)->whereHas('category', fn ($category) => $category->visible());
     }
 
-    /** @param  Builder<self>  $query Every word must be in the title, text or tags. */
+    /** @param  Builder<self>  $query Every word must be in the title, text or tags, or in their translation into the visitor's language. */
     public function scopeSearch(Builder $query, string $terms): void
     {
         foreach (array_slice(preg_split('/\s+/', trim($terms), -1, PREG_SPLIT_NO_EMPTY), 0, 8) as $word) {
             $like = '%'.addcslashes($word, '\\%_').'%';
-            $query->where(fn ($match) => $match->where('title', 'like', $like)->orWhere('body', 'like', $like)->orWhere('tags', 'like', $like));
+            $query->where(fn ($match) => self::matching($match, $like));
+        }
+    }
+
+    /**
+     * Matches the title, text or tags, and their translation when the visitor reads another language.
+     *
+     * @param  Builder<self>  $query
+     */
+    private static function matching(Builder $query, string $like): void
+    {
+        $query->orWhere('title', 'like', $like)->orWhere('body', 'like', $like)->orWhere('tags', 'like', $like);
+
+        if (Language::translating()) {
+            $query->orWhereHas('translation', fn ($translation) => $translation->where(
+                fn ($match) => $match->where('title', 'like', $like)->orWhere('body', 'like', $like)->orWhere('tags', 'like', $like)
+            ));
         }
     }
 
@@ -74,10 +110,10 @@ class KbArticle extends Model
         $candidates = self::visible()
             ->where(function (Builder $query) use ($words) {
                 foreach ($words as $word) {
-                    $like = '%'.addcslashes($word, '\\%_').'%';
-                    $query->orWhere('title', 'like', $like)->orWhere('tags', 'like', $like)->orWhere('body', 'like', $like);
+                    self::matching($query, '%'.addcslashes($word, '\\%_').'%');
                 }
             })
+            ->translated()
             ->orderByDesc('views')
             ->limit(100)
             ->get();

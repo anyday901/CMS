@@ -3,6 +3,8 @@
 namespace App\Import\Whmcs;
 
 use App\Enums\TicketPriority;
+use App\Models\Announcement;
+use App\Models\KbArticle;
 use App\Models\NetworkIssue;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -10,10 +12,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * The support content around tickets: the knowledge base, announcements,
- * network issues, downloads (with their files, from a copy of WHMCS's
- * downloads folder) and ticket escalation rules. Translations are left out;
- * articles and announcements come over in WHMCS's main language.
+ * The support content around tickets: the knowledge base, announcements
+ * (both with their translations), network issues, downloads (with their
+ * files, from a copy of WHMCS's downloads folder) and ticket escalation
+ * rules.
  */
 class SupportImporter
 {
@@ -31,8 +33,13 @@ class SupportImporter
 
     private const ESCALATIONS = 'Escalation rules';
 
+    /** What an article or announcement with no text gets, since the body is required here. */
+    public const NO_TEXT = '(No text.)';
+
     /** @var list<string> download files copied in, removed again if the import fails */
     private array $copied = [];
+
+    private TranslationImporter $translations;
 
     /**
      * @param  array<int, int>  $departments  WHMCS department id => local department id
@@ -41,10 +48,13 @@ class SupportImporter
     public function __construct(
         private ImportRun $run,
         private ServerImporter $servers,
+        private StaffImporter $staff,
         private array $departments,
         private array $products,
         private ?string $downloadsPath = null,
-    ) {}
+    ) {
+        $this->translations = new TranslationImporter($run);
+    }
 
     public function import(): void
     {
@@ -53,6 +63,7 @@ class SupportImporter
         $this->importNetworkIssues();
         $this->importDownloads();
         $this->importEscalations();
+        $this->translations->offerLanguages();
     }
 
     public function removeCopiedFiles(): void
@@ -74,11 +85,26 @@ class SupportImporter
             ? $this->run->table('tblknowledgebasetags')->orderBy('id')->get()->groupBy(fn ($tag) => (int) $tag->articleid)
             : collect();
 
+        $articles = [];
+        $translations = [];
+
         foreach ($this->run->table('tblknowledgebase')->orderBy('id')->cursor() as $row) {
-            if ($this->original($row, 'parentid')) {
-                $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
-                $this->importKbArticle($row, $categoryIds, $tags->get((int) $row->id, collect()));
+            if (! TranslationImporter::original($row, 'parentid')) {
+                $translations[] = $row;
+
+                continue;
             }
+
+            $categoryIds = $links->get((int) $row->id, collect())->map(fn ($link) => $categories[(int) $link->categoryid] ?? null)->filter()->values();
+            $id = $this->importKbArticle($row, $categoryIds, $tags->get((int) $row->id, collect()));
+
+            if ($id !== null) {
+                $articles[(int) $row->id] = $id;
+            }
+        }
+
+        foreach ($translations as $row) {
+            $this->translations->import(KbArticle::class, $articles, $row, 'title', 'article', $tags->get((int) $row->id, collect()));
         }
     }
 
@@ -89,7 +115,7 @@ class SupportImporter
      */
     private function importKbCategories(): array
     {
-        $rows = $this->run->table('tblknowledgebasecats')->orderBy('id')->get()->filter(fn ($row) => $this->original($row, 'catid'));
+        $rows = $this->run->table('tblknowledgebasecats')->orderBy('id')->get()->filter(fn ($row) => TranslationImporter::original($row, 'catid'));
         $byId = $rows->keyBy(fn ($row) => (int) $row->id);
         $categories = [];
 
@@ -121,7 +147,7 @@ class SupportImporter
      * @param  Collection<int, int>  $categoryIds
      * @param  Collection<int, object>  $tags
      */
-    private function importKbArticle(object $row, Collection $categoryIds, Collection $tags): void
+    private function importKbArticle(object $row, Collection $categoryIds, Collection $tags): ?int
     {
         $this->run->report->found(self::KB_ARTICLES);
         $title = Whmcs::text($row->title);
@@ -129,7 +155,7 @@ class SupportImporter
         if ($categoryIds->isEmpty()) {
             $this->run->report->skipped(self::KB_ARTICLES, "\"{$title}\" isn't in a category that was imported.");
 
-            return;
+            return null;
         }
 
         if ($categoryIds->count() > 1) {
@@ -144,10 +170,10 @@ class SupportImporter
         $votes = (int) ($row->votes ?? 0);
         $useful = min((int) ($row->useful ?? 0), $votes);
 
-        DB::table('kb_articles')->insert([
+        $id = DB::table('kb_articles')->insertGetId([
             'kb_category_id' => $categoryIds->first(),
             'title' => Str::limit($title, 250, '') ?: 'Untitled',
-            'body' => HtmlToMarkdown::convert($row->article ?? '') ?: '(No text.)',
+            'body' => HtmlToMarkdown::convert($row->article ?? '') ?: self::NO_TEXT,
             'tags' => Str::limit($tags->map(fn ($tag) => Whmcs::text($tag->tag))->filter()->unique()->join(', '), 250, '') ?: null,
             'published' => ! $private,
             'sort_order' => (int) ($row->order ?? 0),
@@ -158,6 +184,8 @@ class SupportImporter
             'updated_at' => $this->run->now,
         ]);
         $this->run->report->imported(self::KB_ARTICLES);
+
+        return $id;
     }
 
     private function importAnnouncements(): void
@@ -166,23 +194,32 @@ class SupportImporter
             return;
         }
 
+        $announcements = [];
+        $translations = [];
+
         foreach ($this->run->table('tblannouncements')->orderBy('id')->cursor() as $row) {
-            if (! $this->original($row, 'parentid')) {
+            if (! TranslationImporter::original($row, 'parentid')) {
+                $translations[] = $row;
+
                 continue;
             }
 
             $this->run->report->found(self::ANNOUNCEMENTS);
             $date = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
 
-            DB::table('announcements')->insert([
+            $announcements[(int) $row->id] = DB::table('announcements')->insertGetId([
                 'title' => Whmcs::short($row->title) ?? 'Untitled',
-                'body' => HtmlToMarkdown::convert($row->announcement ?? '') ?: '(No text.)',
+                'body' => HtmlToMarkdown::convert($row->announcement ?? '') ?: self::NO_TEXT,
                 'published' => Whmcs::on($row->published ?? ''),
                 'published_at' => $date,
                 'created_at' => $date,
                 'updated_at' => $this->run->now,
             ]);
             $this->run->report->imported(self::ANNOUNCEMENTS);
+        }
+
+        foreach ($translations as $row) {
+            $this->translations->import(Announcement::class, $announcements, $row, 'title', 'announcement');
         }
     }
 
@@ -353,13 +390,7 @@ class SupportImporter
             return;
         }
 
-        $admins = $this->run->hasTables('tbladmins') ? $this->run->table('tbladmins')->get()->keyBy(fn ($admin) => (int) $admin->id) : collect();
-        $users = DB::table('users')->pluck('id', 'email')->mapWithKeys(fn ($id, $email) => [strtolower($email) => $id]);
-        $staff = function (mixed $adminId) use ($admins, $users): ?int {
-            $email = strtolower(trim((string) ($admins->get((int) $adminId)->email ?? '')));
-
-            return $email === '' ? null : ($users[$email] ?? null);
-        };
+        $staff = fn (mixed $adminId): ?int => $this->staff->userId($adminId);
 
         foreach ($this->run->table('tblticketescalations')->orderBy('id')->cursor() as $row) {
             $this->run->report->found(self::ESCALATIONS);
@@ -424,7 +455,7 @@ class SupportImporter
         $flagTo = (int) ($row->flagto ?? 0);
         $assignTo = $flagTo > 0 ? $staff($flagTo) : null;
         if ($flagTo > 0 && $assignTo === null) {
-            $notes[] = "it assigned tickets to WHMCS admin {$flagTo}, who has no staff account here with the same email";
+            $notes[] = "it assigned tickets to WHMCS admin {$flagTo}, who wasn't imported (disabled, or no email address)";
         }
 
         $notify = self::list($row->notify ?? '');
@@ -448,12 +479,6 @@ class SupportImporter
             'notify_user_ids' => $notifyUsers->isEmpty() ? null : json_encode($notifyUsers->all()),
             'reply' => filled($row->addreply ?? null) ? Whmcs::plain((string) $row->addreply) : null,
         ];
-    }
-
-    /** Whether a row is the original rather than a translation of another one. */
-    private function original(object $row, string $parentColumn): bool
-    {
-        return (int) ($row->{$parentColumn} ?? 0) === 0 && trim((string) ($row->language ?? '')) === '';
     }
 
     /**

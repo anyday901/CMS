@@ -45,6 +45,19 @@ Route::middleware(EnsureClientCanLogIn::class)->group(function () {
     Route::get('network-status', Help\NetworkStatusController::class)->name('network.index');
     Route::get('downloads', [Help\DownloadController::class, 'index'])->name('downloads.index');
     Route::get('downloads/{download}', [Help\DownloadController::class, 'file'])->middleware('throttle:30,1')->name('downloads.file');
+    Route::post('help/language', Help\LanguageController::class)->name('help.language');
+
+    // Tickets from people without an account, when guest tickets are on.
+    Route::get('support/contact', [Help\GuestTicketController::class, 'create'])->name('tickets.guest.create');
+    Route::post('support/contact', [Help\GuestTicketController::class, 'store'])->middleware('throttle:5,1')->name('tickets.guest.store');
+    Route::get('support/suggest', [Portal\TicketController::class, 'suggest'])->middleware('throttle:60,1')->name('tickets.guest.suggest');
+    Route::prefix('support/tickets/{ticket}/{key}')->whereNumber('ticket')->name('tickets.guest.')->controller(Help\GuestTicketController::class)->group(function () {
+        Route::get('/', 'show')->middleware('throttle:60,1')->name('show');
+        Route::post('reply', 'reply')->middleware('throttle:20,1')->name('reply');
+        Route::post('close', 'close')->middleware('throttle:10,1')->name('close');
+        Route::post('feedback', 'feedback')->middleware('throttle:10,1')->name('feedback');
+        Route::get('files/{attachment}', 'attachment')->middleware('throttle:30,1')->name('attachment');
+    });
 });
 
 Route::prefix('portal')->name('portal.')->group(function () {
@@ -174,9 +187,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('canned-replies', Admin\CannedReplyController::class)->except(['show', 'create']);
             Route::get('tickets', [Admin\TicketController::class, 'index'])->name('tickets.index');
             Route::get('tickets/feedback', Admin\TicketFeedbackController::class)->name('tickets.feedback');
+            Route::get('tickets/inbound', Admin\InboundEmailController::class)->name('tickets.inbound');
             Route::get('tickets/{ticket}', [Admin\TicketController::class, 'show'])->name('tickets.show');
             Route::put('tickets/{ticket}', [Admin\TicketController::class, 'update'])->name('tickets.update');
             Route::post('tickets/{ticket}/reply', [Admin\TicketController::class, 'reply'])->name('tickets.reply');
+            Route::post('tickets/{ticket}/client', [Admin\TicketController::class, 'linkClient'])->name('tickets.client');
             Route::post('tickets/{ticket}/merge', [Admin\TicketController::class, 'merge'])->name('tickets.merge');
             Route::post('tickets/{ticket}/split', [Admin\TicketController::class, 'split'])->name('tickets.split');
             Route::get('tickets/{ticket}/files/{attachment}', [Admin\TicketController::class, 'attachment'])->name('tickets.attachment');
@@ -186,6 +201,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('kb-categories', Admin\KbCategoryController::class)->only(['store', 'edit', 'update', 'destroy']);
             Route::resource('kb-articles', Admin\KbArticleController::class)->except(['index', 'show']);
             Route::resource('announcements', Admin\AnnouncementController::class)->except('show');
+            Route::prefix('translations/{type}/{id}/{locale}')->whereIn('type', ['kb-articles', 'announcements'])->whereNumber('id')->name('translations.')->controller(Admin\TranslationController::class)->group(function () {
+                Route::put('/', 'update')->name('update');
+                Route::delete('/', 'destroy')->name('destroy');
+            });
             Route::resource('network-issues', Admin\NetworkIssueController::class)->except('show');
             Route::post('network-issues/{network_issue}/resolve', [Admin\NetworkIssueController::class, 'resolve'])->name('network-issues.resolve');
             Route::resource('downloads', Admin\DownloadController::class)->except('show');

@@ -7,7 +7,7 @@
                     <td class="px-4 py-2">@can('manage-tickets')<a href="{{ route('admin.tickets.show', $ticket) }}" class="text-brand-600">#{{ $ticket->id }} {{ $ticket->subject }}</a>@else#{{ $ticket->id }} {{ $ticket->subject }}@endcan
                         @foreach ($ticket->tags as $tag)<span class="ml-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-700">{{ $tag->name }}</span>@endforeach
                     </td>
-                    @unless ($hideClient ?? false)<td class="px-4 py-2"><a href="{{ route('admin.clients.show', $ticket->client) }}" class="text-brand-600">{{ $ticket->client->fullName() }}</a></td>@endunless
+                    @unless ($hideClient ?? false)<td class="px-4 py-2">@include('admin.tickets._requester')</td>@endunless
                     <td class="px-4 py-2">{{ $ticket->department->name }}</td>
                     <td class="px-4 py-2"><x-status-badge :status="$ticket->priority" /></td>
                     <td class="px-4 py-2"><x-status-badge :status="$ticket->status" /></td>

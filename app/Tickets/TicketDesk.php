@@ -86,28 +86,63 @@ class TicketDesk
         return $ticket;
     }
 
-    /** Emails the client the new ticket's number, so their replies thread onto it. */
+    /**
+     * A ticket from someone without a client account, by email or the
+     * contact form. They follow it through the private link they're emailed.
+     *
+     * @param  list<array{name: string, mime: ?string, contents: string}>  $files
+     */
+    public function openForGuest(Sender $guest, Department $department, string $subject, string $body, TicketPriority $priority = TicketPriority::Medium, array $files = [], ?EmailOrigin $origin = null): Ticket
+    {
+        $email = $guest->email;
+        $name = Str::limit(trim($guest->name), 250, '') ?: Str::before($email, '@');
+
+        $ticket = DB::transaction(function () use ($name, $email, $department, $subject, $body, $priority, $files, $origin) {
+            $ticket = Ticket::create([
+                'guest_name' => $name,
+                'guest_email' => Str::limit(strtolower(trim($email)), 250, ''),
+                'access_key' => Str::random(40),
+                'department_id' => $department->id,
+                'subject' => Str::limit(trim($subject), 250, ''),
+                'status' => TicketStatus::Open,
+                'priority' => $priority,
+                'last_reply_at' => now(),
+            ]);
+            $this->addMessage($ticket, ['guest' => true, 'author_name' => $name] + ($origin?->attributes() ?? []), $body, $files);
+            Activity::record("Opened ticket #{$ticket->id} from guest {$ticket->guest_email}: {$ticket->subject}", $ticket, $origin ? ['via' => 'email'] : []);
+
+            return $ticket;
+        });
+
+        $this->sendOpened($ticket);
+        $this->alertStaff($ticket, "New ticket #{$ticket->id}: {$ticket->subject}", "{$name} ({$ticket->guest_email}), who has no account, opened a ticket in {$department->name} ({$priority->label()} priority).");
+
+        return $ticket;
+    }
+
+    /** Emails whoever opened the ticket its number, so their replies thread onto it. */
     public function sendOpened(Ticket $ticket): void
     {
-        $this->mailer->send($ticket->client, 'ticket_opened', ticket: $ticket);
+        $this->mailer->sendForTicket($ticket, 'ticket_opened');
     }
 
     /**
-     * A client reply. It reopens a closed ticket and puts it back in the staff queue.
+     * A reply from the ticket's client or guest. It reopens a closed ticket and puts it back in the staff queue.
      *
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
      */
     public function clientReply(Ticket $ticket, string $body, array $files = [], ?EmailOrigin $email = null): TicketMessage
     {
         $message = DB::transaction(function () use ($ticket, $body, $files, $email) {
-            $message = $this->addMessage($ticket, ['client_id' => $ticket->client_id] + ($email?->attributes() ?? []), $body, $files);
+            $author = $ticket->isGuest() ? ['guest' => true, 'author_name' => $ticket->guest_name] : ['client_id' => $ticket->client_id];
+            $message = $this->addMessage($ticket, $author + ($email?->attributes() ?? []), $body, $files);
             $ticket->update(['status' => TicketStatus::CustomerReply, 'last_reply_at' => now(), 'escalations' => null]);
-            Activity::record("Client replied to ticket #{$ticket->id}", $ticket, $email ? ['via' => 'email'] : []);
+            Activity::record(($ticket->isGuest() ? 'Guest' : 'Client')." replied to ticket #{$ticket->id}", $ticket, $email ? ['via' => 'email'] : []);
 
             return $message;
         });
 
-        $this->alertStaff($ticket, "Reply on ticket #{$ticket->id}: {$ticket->subject}", "{$ticket->client->fullName()} replied:", Str::limit($message->body, 500));
+        $this->alertStaff($ticket, "Reply on ticket #{$ticket->id}: {$ticket->subject}", "{$ticket->requesterName()} replied:", Str::limit($message->body, 500));
 
         return $message;
     }
@@ -136,10 +171,10 @@ class TicketDesk
         });
 
         if (! $internal) {
-            $this->mailer->send($ticket->client, 'ticket_reply', [
+            $this->mailer->sendForTicket($ticket, 'ticket_reply', [
                 'staff_name' => $user->name,
                 'reply' => $message->body,
-            ], ticket: $ticket);
+            ]);
         }
 
         return $message;
@@ -154,7 +189,7 @@ class TicketDesk
         $name = (string) config('app.name');
         $message = $this->addMessage($ticket, ['author_name' => $name], $body, []);
 
-        $this->mailer->send($ticket->client, 'ticket_reply', ['staff_name' => $name, 'reply' => $message->body], ticket: $ticket);
+        $this->mailer->sendForTicket($ticket, 'ticket_reply', ['staff_name' => $name, 'reply' => $message->body]);
 
         return $message;
     }
@@ -174,7 +209,7 @@ class TicketDesk
         Activity::record(($inactive ? 'Closed inactive' : 'Closed')." ticket #{$ticket->id}", $ticket, $inactive ? ['hours' => (int) config('tickets.close_inactive_hours')] : []);
 
         if ($inactive) {
-            $this->mailer->send($ticket->client, 'ticket_auto_closed', ['inactive_hours' => (int) config('tickets.close_inactive_hours')], ticket: $ticket);
+            $this->mailer->sendForTicket($ticket, 'ticket_auto_closed', ['inactive_hours' => (int) config('tickets.close_inactive_hours')]);
         }
 
         if ($by !== null || $inactive) {
@@ -186,7 +221,7 @@ class TicketDesk
     public function requestFeedback(Ticket $ticket): void
     {
         if ($ticket->refresh()->wantsFeedback()) {
-            $this->mailer->send($ticket->client, 'ticket_feedback', ['feedback_url' => route('portal.tickets.show', $ticket).'#feedback'], ticket: $ticket);
+            $this->mailer->sendForTicket($ticket, 'ticket_feedback', ['feedback_url' => $ticket->viewUrl().'#feedback']);
         }
     }
 

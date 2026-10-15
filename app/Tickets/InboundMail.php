@@ -6,6 +6,7 @@ use App\Mail\EmailTemplates;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\Department;
+use App\Models\InboundEmail;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -20,10 +21,12 @@ use ZBateson\MailMimeParser\Message\IMessagePart;
  * Turns a piped email into a ticket reply or a new ticket.
  *
  * A message whose subject carries "[Ticket #123]" from the address of that
- * ticket's client (or one of their contacts who gets support emails) is a
- * reply. Otherwise a message from a known client or such a contact to a
- * department's address opens a new ticket. Anything else is ignored, so
- * strangers and spam can't open tickets.
+ * ticket's client (or one of their contacts who gets support emails), or
+ * from the guest who opened it, is a reply. Otherwise a message from a known
+ * client or such a contact to a department's address opens a new ticket, and
+ * so does one from anyone else when guest tickets are on under Settings.
+ * The spam filter runs first, and every email is logged with what became
+ * of it.
  */
 class InboundMail
 {
@@ -33,68 +36,115 @@ class InboundMail
 
     public const IGNORED = 'ignored';
 
+    public const SPAM = InboundEmail::SPAM;
+
     private const TICKET_PATTERN = '/\[Ticket #(\d+)\]/i';
 
     /** Subjects of emails sent by WHMCS before the switch, such as "[Ticket ID: 482913]". */
     private const WHMCS_TICKET_PATTERN = '/\[Ticket ID: ([A-Z0-9-]+)\]/i';
 
-    public function __construct(private TicketDesk $desk) {}
+    /** Matches an email column to an address that's already lower case. */
+    private const SAME_EMAIL = 'lower(email) = ?';
+
+    public function __construct(private TicketDesk $desk, private SpamFilter $spam) {}
 
     /** @return array{0: string, 1: string} The outcome and a short reason, for logs and command output. */
     public function handle(string $raw, ?Department $department = null): array
     {
         $message = Message::from($raw, false);
         $from = strtolower((string) $message->getHeader('From')?->getEmail());
-        $client = $from === '' ? null : $this->clientFor($from, (string) $message->getSubject());
+        $subject = trim((string) $message->getSubject());
+        $named = $this->ticketIn($subject);
+        $client = $from === '' ? null : $this->clientFor($from, $named);
+        // The ticket this answers: one of the client's, or the guest's own.
+        $replyTo = match (true) {
+            $named === null => null,
+            $client !== null => $named->client_id === $client->id ? $named : null,
+            default => $named->isGuest() && strcasecmp((string) $named->guest_email, $from) === 0 ? $named : null,
+        };
         $body = $this->body($message);
         $files = $this->attachments($message);
         $messageId = Str::limit(trim((string) $message->getMessageId()), 250, '') ?: null;
+        $log = ['from' => Str::limit($from, 250, '') ?: null, 'subject' => Str::limit($subject, 250, '') ?: null];
 
         $rejected = match (true) {
             $from === '' => 'no sender address',
-            $this->isAutomatic($message) => "automatic message from {$from}",
-            $client === null => "sender {$from} is not a client",
+            $this->isAutomatic($message) || self::isMailSystem($from) => "automatic message from {$from}",
+            $this->isOwnAddress($from) => "email from our own address {$from}, which would loop",
+            $client === null && $replyTo === null && ! config('tickets.guest_tickets') => "sender {$from} is not a client",
             $body === '' && $files === [] => "empty message from {$from}",
             $messageId !== null && TicketMessage::where('email_message_id', $messageId)->exists() => "already received {$messageId}",
             default => null,
         };
 
+        $blocked = match (true) {
+            $rejected !== null => [self::IGNORED, $rejected],
+            ($spam = $this->spam->check($from, $subject, $body, $message)) !== null => [self::SPAM, "dropped the email from {$from}: {$spam}"],
+            default => null,
+        };
+
+        if ($blocked !== null) {
+            return $this->finish($blocked[0], $blocked[1], $log);
+        }
+
+        $sender = new Sender($from, trim((string) $message->getHeader('From')?->getPersonName()), $client, $replyTo);
+
         try {
-            return $rejected === null
-                ? $this->apply($client, $message, $body, $files, $department, new EmailOrigin($messageId))
-                : $this->ignore($rejected);
+            return $this->apply($sender, $message, $body, $files, $department, new EmailOrigin($messageId), $log);
         } catch (UniqueConstraintViolationException) {
             // The same email arrived twice at once and the other delivery won.
-            return $this->ignore("already received {$messageId}");
+            return $this->finish(self::IGNORED, "already received {$messageId}", $log);
         }
     }
 
     /**
      * @param  list<array{name: string, mime: ?string, contents: string}>  $files
+     * @param  array{from: ?string, subject: ?string}  $log
      * @return array{0: string, 1: string}
      */
-    private function apply(Client $client, IMessage $message, string $body, array $files, ?Department $department, EmailOrigin $origin): array
+    private function apply(Sender $sender, IMessage $message, string $body, array $files, ?Department $department, EmailOrigin $origin, array $log): array
     {
         $subject = trim((string) $message->getSubject());
         $body = $body !== '' ? $body : '(Attachments only.)';
-        $ticket = $this->ticketIn($subject);
-        $ticket = $ticket?->client_id === $client->id ? $ticket : null;
 
-        if ($ticket !== null) {
-            $this->desk->clientReply($ticket, $body, $files, $origin);
+        if ($sender->replyTo !== null) {
+            $this->desk->clientReply($sender->replyTo, $body, $files, $origin);
 
-            return [self::REPLIED, "reply on ticket #{$ticket->id} from {$client->email}"];
+            return $this->finish(self::REPLIED, "reply on ticket #{$sender->replyTo->id} from {$sender->email}", $log, $sender->replyTo);
         }
 
         $department ??= $this->departmentFor($message);
+        $limit = (int) config('tickets.spam.new_tickets_per_hour');
+        $blocked = match (true) {
+            $department === null => [self::IGNORED, "no department uses any address the email from {$sender->email} was sent to"],
+            $limit > 0 && $this->openedLastHour($sender) >= $limit => [self::SPAM, "{$sender->email} already opened {$limit} tickets in the last hour"],
+            default => null,
+        };
 
-        if ($department === null) {
-            return $this->ignore("no department uses any address the email from {$client->email} was sent to");
+        if ($blocked !== null) {
+            return $this->finish($blocked[0], $blocked[1], $log);
         }
 
-        $ticket = $this->desk->open($client, $department, $subject !== '' ? $subject : '(No subject)', $body, files: $files, email: $origin);
+        $subject = $subject !== '' ? $subject : '(No subject)';
+        $ticket = $sender->client !== null
+            ? $this->desk->open($sender->client, $department, $subject, $body, files: $files, email: $origin)
+            : $this->desk->openForGuest($sender, $department, $subject, $body, files: $files, origin: $origin);
 
-        return [self::OPENED, "ticket #{$ticket->id} from {$client->email}"];
+        return $this->finish(self::OPENED, "ticket #{$ticket->id} from ".($sender->client !== null ? $sender->email : "guest {$sender->email}"), $log, $ticket);
+    }
+
+    /**
+     * Tickets this address opened in the last hour. A guest's count includes
+     * the contact form; a client's counts only emails from this address, so
+     * other contacts on a busy account and its portal tickets don't use it up.
+     */
+    private function openedLastHour(Sender $sender): int
+    {
+        if ($sender->client !== null) {
+            return InboundEmail::where('from', $sender->email)->where('outcome', self::OPENED)->where('created_at', '>=', now()->subHour())->count();
+        }
+
+        return Ticket::whereNull('client_id')->where('guest_email', $sender->email)->where('created_at', '>=', now()->subHour())->count();
     }
 
     /**
@@ -103,15 +153,15 @@ class InboundMail
      * reply to a ticket goes to that ticket's client, and a new email from an
      * address shared by several clients is ignored rather than guessed.
      */
-    private function clientFor(string $from, string $subject): ?Client
+    private function clientFor(string $from, ?Ticket $named): ?Client
     {
-        $client = Client::whereRaw('lower(email) = ?', [$from])->first();
+        $client = Client::whereRaw(self::SAME_EMAIL, [$from])->first();
         if ($client !== null) {
             return $client;
         }
 
-        $clientIds = ClientContact::where('support_emails', true)->whereRaw('lower(email) = ?', [$from])->distinct()->pluck('client_id');
-        $ticketClient = $this->ticketIn($subject)?->client_id;
+        $clientIds = ClientContact::where('support_emails', true)->whereRaw(self::SAME_EMAIL, [$from])->distinct()->pluck('client_id');
+        $ticketClient = $named?->client_id;
 
         return match (true) {
             $ticketClient !== null && $clientIds->contains($ticketClient) => Client::find($ticketClient),
@@ -132,12 +182,21 @@ class InboundMail
         return $ticket?->merged_into_id !== null ? $ticket->mergedInto : $ticket;
     }
 
-    /** @return array{0: string, 1: string} */
-    private function ignore(string $reason): array
+    /**
+     * Logs what became of the email.
+     *
+     * @param  array{from: ?string, subject: ?string}  $log
+     * @return array{0: string, 1: string}
+     */
+    private function finish(string $outcome, string $reason, array $log, ?Ticket $ticket = null): array
     {
-        Log::info("Inbound ticket email ignored: {$reason}.");
+        if (in_array($outcome, [self::IGNORED, self::SPAM], true)) {
+            Log::info("Inbound ticket email {$outcome}: {$reason}.");
+        }
 
-        return [self::IGNORED, $reason];
+        InboundEmail::create($log + ['outcome' => $outcome, 'reason' => Str::limit($reason, 250, ''), 'ticket_id' => $ticket?->id]);
+
+        return [$outcome, $reason];
     }
 
     /** Auto-replies and bulk mail, which would otherwise loop or flood the queue. */
@@ -150,6 +209,19 @@ class InboundMail
             || in_array($precedence, ['bulk', 'junk', 'list', 'auto_reply'], true)
             || $message->getHeaderValue('X-Autoreply') !== null
             || $message->getHeaderValue('X-Autorespond') !== null;
+    }
+
+    /** Bounces and delivery reports, which come from the mail system rather than a person. */
+    private static function isMailSystem(string $from): bool
+    {
+        return in_array(strtolower(Str::before($from, '@')), ['mailer-daemon', 'postmaster'], true);
+    }
+
+    /** The address ticket emails go out from, or a department's: a reply from it would open tickets in a loop. */
+    private function isOwnAddress(string $from): bool
+    {
+        return strcasecmp($from, (string) config('mail.from.address')) === 0
+            || Department::whereNotNull('email')->whereRaw(self::SAME_EMAIL, [$from])->exists();
     }
 
     private function departmentFor(IMessage $message): ?Department

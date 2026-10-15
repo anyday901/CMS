@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Ticket;
+use App\Support\Language;
 use App\Support\Money;
 use App\Support\Settings;
 use App\Tickets\BusinessHours;
+use App\Tickets\SpamFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -29,6 +31,16 @@ class SettingsController extends Controller
             'holdNewOrders' => (bool) config('billing.hold_new_orders'),
             'activityRetentionDays' => config('activity.retention_days'),
             'closeInactiveHours' => config('tickets.close_inactive_hours'),
+            'guestTickets' => (bool) config('tickets.guest_tickets'),
+            'spam' => [
+                'use_spam_headers' => (bool) config('tickets.spam.use_spam_headers'),
+                'blocked_senders' => (array) config('tickets.spam.blocked_senders'),
+                'blocked_subjects' => (array) config('tickets.spam.blocked_subjects'),
+                'blocked_phrases' => (array) config('tickets.spam.blocked_phrases'),
+                'new_tickets_per_hour' => config('tickets.spam.new_tickets_per_hour'),
+            ],
+            'mainLanguage' => Language::main(),
+            'languages' => Language::others(),
             'businessHours' => BusinessHours::fromConfig(),
             'timezones' => timezone_identifiers_list(),
         ]);
@@ -51,7 +63,16 @@ class SettingsController extends Controller
             'hours.*.to' => ['nullable', 'date_format:H:i'],
             'holidays' => ['nullable', 'string', 'max:5000'],
             'timezone' => ['nullable', 'timezone:all'],
+            'guest_tickets' => ['boolean'],
+            'spam_use_headers' => ['boolean'],
+            'spam_blocked_senders' => ['nullable', 'string', 'max:20000'],
+            'spam_blocked_subjects' => ['nullable', 'string', 'max:20000'],
+            'spam_blocked_phrases' => ['nullable', 'string', 'max:20000'],
+            'spam_new_tickets_per_hour' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'main_language' => ['nullable', 'string', 'max:12'],
+            'languages' => ['nullable', 'string', 'max:500'],
         ]);
+        [$mainLanguage, $languages] = $this->languages($request);
         [$week, $holidays] = $this->businessHours($request);
 
         $hoursBefore = [config('tickets.business_hours'), config('tickets.holidays'), config('tickets.timezone')];
@@ -77,6 +98,14 @@ class SettingsController extends Controller
             'tickets.business_hours' => $week,
             'tickets.holidays' => $holidays,
             'tickets.timezone' => $data['timezone'] ?? config('tickets.timezone'),
+            'tickets.guest_tickets' => $request->boolean('guest_tickets'),
+            'tickets.spam.use_spam_headers' => $request->boolean('spam_use_headers'),
+            'tickets.spam.blocked_senders' => array_map('strtolower', SpamFilter::lines($data['spam_blocked_senders'] ?? '')),
+            'tickets.spam.blocked_subjects' => SpamFilter::lines($data['spam_blocked_subjects'] ?? ''),
+            'tickets.spam.blocked_phrases' => SpamFilter::lines($data['spam_blocked_phrases'] ?? ''),
+            'tickets.spam.new_tickets_per_hour' => filled($data['spam_new_tickets_per_hour'] ?? null) ? (int) $data['spam_new_tickets_per_hour'] : null,
+            'help.main_language' => $mainLanguage,
+            'help.languages' => $languages,
         ]);
 
         if ($hoursBefore != [config('tickets.business_hours'), config('tickets.holidays'), config('tickets.timezone')]) {
@@ -95,9 +124,43 @@ class SettingsController extends Controller
             'business_hours' => config('tickets.business_hours'),
             'holidays' => config('tickets.holidays'),
             'timezone' => config('tickets.timezone'),
+            'guest_tickets' => (bool) config('tickets.guest_tickets'),
+            'spam' => config('tickets.spam'),
+            'main_language' => config('help.main_language'),
+            'languages' => config('help.languages'),
         ]);
 
         return redirect()->route('admin.settings.edit')->with('status', 'Settings saved.');
+    }
+
+    /**
+     * The main language and the other languages from the form.
+     *
+     * @return array{0: string, 1: list<string>}
+     *
+     * @throws ValidationException when one isn't a language code
+     */
+    private function languages(Request $request): array
+    {
+        // Left out of the form entirely: keep what's saved.
+        if (! $request->has('main_language')) {
+            return [Language::main(), Language::others()];
+        }
+
+        $main = Language::normalize((string) $request->input('main_language'));
+        $codes = preg_split('/[\s,]+/', (string) $request->input('languages'), -1, PREG_SPLIT_NO_EMPTY);
+        $bad = collect($codes)->first(fn (string $code) => Language::normalize($code) === null);
+
+        $errors = array_filter([
+            'main_language' => $main === null ? 'Enter the main language as a code, such as en or pt-BR.' : null,
+            'languages' => $bad !== null ? "\"{$bad}\" isn't a language code. Use codes such as fr, de or pt-BR." : null,
+        ]);
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return [$main, array_values(array_diff(Language::list($codes), [$main]))];
     }
 
     /**

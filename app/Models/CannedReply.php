@@ -16,8 +16,8 @@ class CannedReply extends Model
     public function bodyFor(Ticket $ticket, User $user): string
     {
         $values = [
-            'client_first_name' => $ticket->client->first_name,
-            'client_name' => $ticket->client->fullName(),
+            'client_first_name' => $ticket->requesterFirstName(),
+            'client_name' => $ticket->requesterName(),
             'ticket_id' => $ticket->id,
             'ticket_subject' => $ticket->subject,
             'department' => $ticket->department->name,

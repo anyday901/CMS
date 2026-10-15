@@ -13,8 +13,8 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
-- Support tickets with email piping, custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
-- A knowledge base with search, announcements, a network status page and a downloads area
+- Support tickets with email piping, a spam filter, tickets from people without an account (by email or a contact form), custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
+- A knowledge base with search, announcements (both translatable), a network status page and a downloads area
 - An importer for existing WHMCS installs
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -62,14 +62,17 @@ Run the tests with `php artisan test`.
 
 ## Moving from WHMCS
 
-`php artisan whmcs:import` copies servers and server groups, clients and contacts, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, ticket departments, custom fields, tags, tickets and replies (and, with `--attachments`, ticket attachments), the knowledge base, announcements, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
+`php artisan whmcs:import` copies servers and server groups, clients and contacts, products with prices, configurable options and module settings, custom fields, services with their server and login, invoices, payments, refunds, credit balances, admins as staff accounts, ticket departments, custom fields, tags, tickets (including ones from people without a client account) and replies (and, with `--attachments`, ticket attachments), ticket feedback ratings, the knowledge base and announcements with their translations, network issues, downloads (with `--downloads` pointing at WHMCS's downloads folder) and escalation rules from a WHMCS database into a new install. With `--hash=` set to the `$cc_encryption_hash` from WHMCS's `configuration.php`, server and service passwords come over too. Clients, services, invoices and tickets keep their WHMCS ids, so invoice and ticket numbers stay the same. Set the `WHMCS_DB_*` settings in `.env` to a read-only connection or a restored dump first.
 
 Or use the walkthrough in the admin area under **Settings > Import from WHMCS**: it checks the install is empty, connects to WHMCS (from `.env` or details you type in), runs the dry run and shows its report, then imports and lists the next steps. It runs the same importer; on very large installs the command line is more reliable than a browser request.
 
 - `--dry-run` imports everything, compares totals with WHMCS (recurring revenue, balance due, payments and credit, per currency) and then undoes it, saving a report of every skipped record to `storage/app/whmcs/`.
 - Clients log in with their WHMCS password. It is checked once against the old WHMCS hash and then stored again with this app's own hashing.
 - Replies to old WHMCS ticket emails, with `[Ticket ID: 123456]` in the subject, still reach the right ticket, including tickets that were merged in WHMCS.
-- Escalation rules come over turned off, so you can check them first, with the WHMCS admin they assigned or emailed matched to a staff account here by email. Knowledge base articles that were for logged-in clients only come over unpublished, since articles here are public. Translations aren't imported.
+- WHMCS admins become staff accounts, unless a staff account with the same email already exists (such as yours). Full Administrators get the Admin role and other roles the closest built-in one (Account Manager becomes Billing, anything else Support), so check roles under **Staff**. Disabled admins are left out. Admins keep their WHMCS password; the few with an older kind of hash get a random one until you set theirs. Imported tickets keep their assignee, and staff replies are linked to the staff member who wrote them.
+- Escalation rules come over turned off, so you can check them first. Knowledge base articles that were for logged-in clients only come over unpublished, since articles here are public.
+- Feedback ratings come over out of 5 instead of WHMCS's 10 (halved and rounded up). WHMCS rates each admin who replied; here a ticket has one rating, the average of those.
+- Tickets from people without a client account come over as guest tickets. Translations of articles and announcements come over, with their languages offered under **Settings > Languages** and WHMCS's default language as the main one; category names stay in the main language.
 - `php artisan whmcs:compare --simulate` checks that this app would bill the same renewals as WHMCS for a period after the import, without saving anything, so both can run side by side for a cycle before you switch.
 
 The full steps, and what changes for clients, are in [docs/install.md](docs/install.md#moving-from-whmcs).
@@ -260,6 +263,7 @@ A department can also **ask clients to rate the support** when a ticket is close
 These are under **Support** in the admin area, for staff who handle tickets.
 
 - **Knowledge base** (`/knowledgebase`): articles written in Markdown, in categories one level deep, with search over titles, text and tags. Hidden categories and unpublished articles aren't shown. Each article counts its views and asks "Was this article helpful?".
+- **Translations**: set the main language and the other languages (codes such as `fr`, `de` or `pt-BR`) under **Settings > Languages**, then translate an article or announcement under **Translations** on its edit page. Visitors see the translation into the language their browser asks for, or pick a language at the top of the help pages; search and ticket suggestions match the translation too. Anything without a translation shows in the main language.
 - **Announcements** (`/announcements`, with an RSS feed at `/announcements/rss`): dated news, which can be written ahead and shown from its date. The latest three show on the portal home page.
 - **Network status** (`/network-status`): current issues and planned maintenance, each affecting a server or something described in words, with a status, priority, start and end. Clients with a service on an affected server see a notice on their portal home page. Tick **Show on the network status page** on a server (under **Status monitoring**) to list its name, status and 30-day uptime there; its host name and address aren't shown.
 - **Downloads** (`/downloads`): files in categories, kept in `storage/app/private/downloads` and always sent as downloads. A file can be for everyone, for logged-in clients, or for clients with an active service of chosen products. Uploads are limited to 7.5 MB, and to PHP's `upload_max_filesize` and `post_max_size`.
@@ -268,9 +272,18 @@ These are under **Support** in the admin area, for staff who handle tickets.
 
 Clients can open and reply to tickets by email. Ticket emails carry `[Ticket #N]` in the subject and a "Reply above this line" marker, and use the department's address as the reply-to. When an email arrives:
 
-- a subject with `[Ticket #N]` from the address of that ticket's client (or a contact of theirs who gets support emails) adds a reply to it;
-- otherwise, an email from a client's address (or such a contact's) to a department's address opens a new ticket in that department;
-- anything else (unknown senders, auto-replies, bulk mail) is ignored and noted in the Laravel log.
+- auto-replies, bulk mail, bounces and email from your own addresses are ignored, and the spam filter (below) drops spam;
+- a subject with `[Ticket #N]` from the address of that ticket's client (or a contact of theirs who gets support emails), or from the guest who opened it, adds a reply to it;
+- otherwise, an email from a client's address (or such a contact's) to a department's address opens a new ticket in that department, and so does one from anyone else when guest tickets are on;
+- anything else is ignored.
+
+**Tickets > Email and spam log** lists every email that came in, what became of it and why, for 90 days.
+
+### Guest tickets and the spam filter
+
+Tick **Accept tickets from people without an account** under **Settings** to let anyone open a ticket, by emailing a department or with the contact form at `/support/contact` (the help pages link to it). The guest is emailed a private link to their ticket, where they read and answer replies and can close and rate it; they can also just reply to the emails. The form never shows that link, so only whoever reads the inbox can follow the ticket. Keep the **Ticket received** email template on, since it carries the link. Staff see the guest's name and address on the ticket, and can **Move to client account** once the guest has an account: the ticket then shows in the client's portal and the private link stops working.
+
+The spam filter under **Settings > Ticket spam filter** checks piped email and the contact form. It drops email your mail server's spam checker (SpamAssassin or Rspamd) marked as spam, email from blocked addresses or domains (`@example.com` covers its subdomains too), email with blocked words in the subject or message, and new tickets past a limit per sender per hour (10 by default; replies aren't limited). The contact form also has a hidden field that catches bots. Spam on the form gets the same thank-you page as a real message. Everything caught is in **Tickets > Email and spam log**.
 
 Quoted text below the marker or an "On ... wrote:" line is dropped, and attachments of other types or over 10 MB are skipped. Anyone can fake a sender address, so treat tickets by email with the same care as any email.
 
@@ -344,8 +357,10 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 | `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |
 | `TICKETS_TIMEZONE` | `UTC` | Timezone of the business hours that SLA targets can count in |
+| `TICKETS_GUEST_TICKETS` | `false` | Accept tickets from people without a client account |
+| `HELP_MAIN_LANGUAGE` | `en` | Language knowledge base articles and announcements are written in |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket and business hours settings can also be changed on the admin **Settings** page.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night.
 
 ## License
 

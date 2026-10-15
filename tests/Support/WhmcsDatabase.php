@@ -267,6 +267,7 @@ class WhmcsDatabase
             $t->integer('did');
             $t->integer('userid');
             $t->string('name')->nullable();
+            $t->string('email')->nullable();
             $t->dateTime('date')->nullable();
             $t->string('title');
             $t->text('message');
@@ -275,6 +276,7 @@ class WhmcsDatabase
             $t->string('admin')->nullable();
             $t->string('attachment')->nullable();
             $t->dateTime('lastreply')->nullable();
+            $t->integer('flag')->default(0);
             $t->integer('merged_ticket_id')->default(0);
         });
         $schema->create('tblticketreplies', function (Blueprint $t) {
@@ -375,7 +377,26 @@ class WhmcsDatabase
         });
         $schema->create('tbladmins', function (Blueprint $t) {
             $t->id();
+            $t->integer('roleid')->default(1);
+            $t->string('username')->nullable();
+            $t->string('password')->nullable();
+            $t->string('firstname')->nullable();
+            $t->string('lastname')->nullable();
             $t->string('email');
+            $t->integer('disabled')->default(0);
+        });
+        $schema->create('tbladminroles', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+        });
+        $schema->create('tblticketfeedback', function (Blueprint $t) {
+            $t->id();
+            $t->integer('ticketid');
+            $t->integer('adminid')->default(0);
+            $t->integer('rating');
+            $t->text('comments')->nullable();
+            $t->dateTime('datetime')->nullable();
+            $t->string('ip')->nullable();
         });
         $schema->create('tblticketescalations', function (Blueprint $t) {
             $t->id();

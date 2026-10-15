@@ -6,16 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** One post on a ticket: from the client, a staff reply, or an internal staff note. */
+/** One post on a ticket: from the client or guest, a staff reply, or an internal staff note. */
 class TicketMessage extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'author_name', 'body', 'internal', 'via', 'email_message_id'];
+    protected $fillable = ['ticket_id', 'user_id', 'client_id', 'guest', 'author_name', 'body', 'internal', 'via', 'email_message_id'];
 
     protected function casts(): array
     {
-        return ['internal' => 'boolean'];
+        return ['internal' => 'boolean', 'guest' => 'boolean'];
     }
 
     public function ticket(): BelongsTo
@@ -40,13 +40,15 @@ class TicketMessage extends Model
 
     public function fromStaff(): bool
     {
-        return $this->client_id === null;
+        return $this->client_id === null && ! $this->guest;
     }
 
     public function authorName(): string
     {
-        return $this->fromStaff()
-            ? ($this->user->name ?? $this->author_name ?? 'Staff')
-            : ($this->author_name ?? $this->client?->fullName() ?? 'Client');
+        return match (true) {
+            $this->guest => $this->author_name ?? $this->ticket?->requesterName() ?? 'Guest',
+            $this->fromStaff() => $this->user->name ?? $this->author_name ?? 'Staff',
+            default => $this->author_name ?? $this->client?->fullName() ?? 'Client',
+        };
     }
 }

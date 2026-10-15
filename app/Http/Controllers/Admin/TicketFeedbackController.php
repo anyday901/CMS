@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/** What clients rated the support on their closed tickets: overall, per staff member, and each rating with its comment. */
+/** What clients and guests rated the support on their closed tickets: overall, per staff member, and each rating with its comment. */
 class TicketFeedbackController extends Controller
 {
     /** Periods to look back over, in days; null is all time. */
@@ -36,7 +36,7 @@ class TicketFeedbackController extends Controller
             'average' => $ratings->avg(),
             'distribution' => collect(range(TicketFeedback::MAX_RATING, 1))->mapWithKeys(fn (int $rating) => [$rating => $ratings->filter(fn ($value) => $value === $rating)->count()]),
             'staff' => $this->byStaff($scope()),
-            'feedback' => $scope()->with(['ticket.department', 'client'])->latest()->latest('id')->paginate(25)->withQueryString(),
+            'feedback' => $scope()->with(['ticket.department', 'ticket.client'])->latest()->latest('id')->paginate(25)->withQueryString(),
         ]);
     }
 

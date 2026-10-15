@@ -13,14 +13,14 @@ class AnnouncementController extends Controller
 {
     public function index(): View
     {
-        return view('help.announcements.index', ['announcements' => Announcement::visible()->paginate(10)]);
+        return view('help.announcements.index', ['announcements' => Announcement::visible()->translated()->paginate(10)]);
     }
 
     public function show(Announcement $announcement): View
     {
         abort_unless($announcement->isVisible(), 404);
 
-        return view('help.announcements.show', compact('announcement'));
+        return view('help.announcements.show', ['announcement' => $announcement->loadTranslation()]);
     }
 
     /** The latest announcements as an RSS 2.0 feed. */
@@ -36,7 +36,7 @@ class AnnouncementController extends Controller
         $self->addAttribute('rel', 'self');
         $self->addAttribute('type', 'application/rss+xml');
 
-        foreach (Announcement::visible()->limit(20)->get() as $announcement) {
+        foreach (Announcement::visible()->translated()->limit(20)->get() as $announcement) {
             $item = $channel->addChild('item');
             $item->addChild('title', e($announcement->title));
             $item->addChild('link', e(route('announcements.show', $announcement)));

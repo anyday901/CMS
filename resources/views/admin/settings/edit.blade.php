@@ -64,6 +64,52 @@
                 <input type="number" name="close_inactive_hours" min="1" max="8760" value="{{ old('close_inactive_hours', $closeInactiveHours) }}" placeholder="Off" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
                 <span class="text-ink-500">The client is emailed that the ticket was closed and can reply to open it again. Leave blank to keep answered tickets open.</span>
             </label>
+            <label class="flex items-start gap-2"><input type="checkbox" name="guest_tickets" value="1" class="mt-1" @checked(old('guest_tickets', $guestTickets))>
+                <span>Accept tickets from people without an account, by email to a department and with the <a href="{{ route('tickets.guest.create') }}" class="text-brand-600">contact form</a>. They're emailed a private link to follow the ticket, so keep the "Ticket received" email template on.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="spam" class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Ticket spam filter</legend>
+            <p class="text-ink-600">Checks piped ticket email and the contact form. What it catches is listed in the <a href="{{ route('admin.tickets.inbound', ['outcome' => 'spam']) }}" class="text-brand-600">email and spam log</a>; nothing caught becomes a ticket.</p>
+            <label class="flex items-start gap-2"><input type="checkbox" name="spam_use_headers" value="1" class="mt-1" @checked(old('spam_use_headers', $spam['use_spam_headers']))>
+                <span>Drop email your mail server's spam checker (SpamAssassin or Rspamd) marked as spam</span>
+            </label>
+            <label class="block">Blocked senders
+                <textarea name="spam_blocked_senders" rows="3" placeholder="spammer@example.com&#10;@spam-domain.example" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">{{ old('spam_blocked_senders', implode("\n", $spam['blocked_senders'])) }}</textarea>
+                <span class="text-ink-500">One per line: an address, or @ and a domain to block the domain and its subdomains.</span>
+            </label>
+            <div class="grid max-w-3xl gap-3 sm:grid-cols-2">
+                <label class="block">Blocked words in the subject
+                    <textarea name="spam_blocked_subjects" rows="3" placeholder="casino bonus" class="mt-1 block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('spam_blocked_subjects', implode("\n", $spam['blocked_subjects'])) }}</textarea>
+                </label>
+                <label class="block">Blocked words in the message
+                    <textarea name="spam_blocked_phrases" rows="3" placeholder="cheap backlinks" class="mt-1 block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('spam_blocked_phrases', implode("\n", $spam['blocked_phrases'])) }}</textarea>
+                </label>
+            </div>
+            <p class="text-ink-500">One word or phrase per line; capitals don't matter.</p>
+            <label class="block">New tickets one sender can open in an hour
+                <input type="number" name="spam_new_tickets_per_hour" min="1" max="1000" value="{{ old('spam_new_tickets_per_hour', $spam['new_tickets_per_hour']) }}" placeholder="No limit" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">Stops a mail loop or a flood from one address. Replies to existing tickets aren't limited.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="languages" class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Languages</legend>
+            <p class="text-ink-600">Knowledge base articles and announcements can be translated. Visitors see the translation into the language their browser asks for, and can pick another one on the help pages.</p>
+            <div class="grid max-w-3xl gap-3 sm:grid-cols-2">
+                <label class="block">Main language
+                    <input name="main_language" value="{{ old('main_language', $mainLanguage) }}" required maxlength="12" list="language-codes" class="mt-1 block w-28 rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">
+                    <span class="text-ink-500">The language articles are written in.</span>
+                </label>
+                <label class="block">Other languages
+                    <input name="languages" value="{{ old('languages', implode(', ', $languages)) }}" placeholder="fr, de, pt-BR" class="mt-1 block w-full rounded-md px-3 py-2 font-mono ring-1 ring-ink-300">
+                    <span class="text-ink-500">Language codes, separated by commas.</span>
+                </label>
+            </div>
+            <datalist id="language-codes">
+                @foreach (App\Support\Language::NAMES as $code => $name)<option value="{{ $code }}">{{ $name }}</option>@endforeach
+            </datalist>
         </fieldset>
 
         <fieldset id="business-hours" class="space-y-3">

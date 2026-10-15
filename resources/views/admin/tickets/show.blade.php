@@ -20,7 +20,7 @@
                     <summary class="cursor-pointer font-display text-base font-semibold">Split into a new ticket</summary>
                     <form id="split-form" method="POST" action="{{ route('admin.tickets.split', $ticket) }}" class="mt-3 space-y-3">
                         @csrf
-                        <p class="text-ink-600">Tick the messages above that belong in a ticket of their own. They move to a new ticket for {{ $ticket->client->first_name }}, and both tickets get a note linking them.</p>
+                        <p class="text-ink-600">Tick the messages above that belong in a ticket of their own. They move to a new ticket for {{ $ticket->requesterFirstName() }}, and both tickets get a note linking them.</p>
                         @error('messages')<p class="text-red-700">{{ $message }}</p>@enderror
                         <label class="block">Subject
                             <input name="split_subject" value="{{ old('split_subject', $ticket->subject) }}" required maxlength="250" class="mt-1 block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
@@ -41,7 +41,11 @@
                                 </select>
                             </label>
                         </div>
-                        <label for="split-notify" class="flex items-center gap-2"><input id="split-notify" type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->client->first_name }} the new ticket number</label>
+                        @if ($ticket->isGuest())
+                            <p class="text-sm text-ink-600">{{ $ticket->requesterFirstName() }} is emailed a link to the new ticket, since guests have no ticket list to find it in.</p>
+                        @else
+                            <label for="split-notify" class="flex items-center gap-2"><input id="split-notify" type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->requesterFirstName() }} the new ticket number</label>
+                        @endif
                         <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Split ticked messages</button>
                     </form>
                 </details>
@@ -71,7 +75,7 @@
                         </label>
                     @endif
                 </div>
-                <textarea id="reply-body" name="body" rows="6" required class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300" placeholder="Write to {{ $ticket->client->first_name }}…">{{ old('body') }}</textarea>
+                <textarea id="reply-body" name="body" rows="6" required class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300" placeholder="Write to {{ $ticket->requesterFirstName() }}…">{{ old('body') }}</textarea>
                 @include('tickets._attachments')
                 <label class="flex items-center gap-2"><input type="checkbox" name="internal" value="1" @checked(old('internal'))> Internal note: only staff see it and nothing is emailed</label>
                 <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Send</button>
@@ -98,7 +102,11 @@
 
         <aside class="space-y-4">
             <div class="space-y-2 rounded-lg border border-ink-200 bg-white p-4 text-sm">
-                <div><div class="text-ink-500">Client</div><a href="{{ route('admin.clients.show', $ticket->client) }}" class="text-brand-600">{{ $ticket->client->fullName() }}</a> <span class="text-ink-500">{{ $ticket->client->email }}</span></div>
+                @if ($ticket->isGuest())
+                    <div><div class="text-ink-500">From a guest</div>{{ $ticket->guest_name }} <span class="text-ink-500">{{ $ticket->guest_email }}</span></div>
+                @else
+                    <div><div class="text-ink-500">Client</div><a href="{{ route('admin.clients.show', $ticket->client) }}" class="text-brand-600">{{ $ticket->client->fullName() }}</a> <span class="text-ink-500">{{ $ticket->client->email }}</span></div>
+                @endif
                 <div><div class="text-ink-500">Opened</div>{{ $ticket->created_at->format('M j, Y g:ia') }}</div>
                 <div><div class="text-ink-500">Response due</div>@include('admin.tickets._due')</div>
                 @if ($ticket->closed_at)
@@ -108,6 +116,18 @@
                     <div><div class="text-ink-500">First answered</div>{{ $ticket->first_response_at->format('M j, Y g:ia') }} ({{ $ticket->first_response_at->diffForHumans($ticket->created_at, syntax: Carbon\CarbonInterface::DIFF_ABSOLUTE) }} after opening)</div>
                 @endif
             </div>
+
+            @if ($ticket->isGuest())
+                <form method="POST" action="{{ route('admin.tickets.client', $ticket) }}" class="space-y-2 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+                    @csrf
+                    <label for="link-client" class="block font-semibold">Move to a client account</label>
+                    <p class="text-ink-600">For a guest who has an account, or has just signed up. The ticket moves to the client and the guest's private link stops working.</p>
+                    <input id="link-client" name="client_email" type="email" value="{{ old('client_email', $matchingClient?->email) }}" placeholder="Client's email address" required class="block w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    @if ($matchingClient)<p class="text-ink-600">{{ $matchingClient->fullName() }} has an account with this guest's address.</p>@endif
+                    @error('client_email')<p class="text-red-700">{{ $message }}</p>@enderror
+                    <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Move to client</button>
+                </form>
+            @endif
 
             <form method="POST" action="{{ route('admin.tickets.update', $ticket) }}" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
                 @csrf @method('PUT')
@@ -157,7 +177,7 @@
 
             @if ($ticket->feedback)
                 <div class="space-y-1 rounded-lg border border-ink-200 bg-white p-4 text-sm">
-                    <div class="font-semibold">Client feedback</div>
+                    <div class="font-semibold">{{ $ticket->isGuest() ? 'Guest' : 'Client' }} feedback</div>
                     <div><x-rating :value="$ticket->feedback->rating" /> <span class="text-ink-600">{{ $ticket->feedback->label() }}</span></div>
                     @if ($ticket->feedback->comment)<p class="whitespace-pre-line text-ink-700">{{ $ticket->feedback->comment }}</p>@endif
                     <div class="text-ink-500">{{ $ticket->feedback->created_at->format('M j, Y') }} · <a href="{{ route('admin.tickets.feedback') }}" class="text-brand-600">All feedback</a></div>

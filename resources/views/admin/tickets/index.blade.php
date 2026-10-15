@@ -3,6 +3,7 @@
         <h1 class="text-2xl font-semibold">Tickets</h1>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('admin.tickets.feedback') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Feedback</a>
+            <a href="{{ route('admin.tickets.inbound') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Email and spam log</a>
             <a href="{{ route('admin.canned-replies.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Canned replies</a>
             @can('manage-settings')<a href="{{ route('admin.escalation-rules.index') }}" class="rounded-full px-4 py-2 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Escalation rules</a>@endcan
         </div>
