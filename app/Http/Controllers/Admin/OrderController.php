@@ -48,7 +48,7 @@ class OrderController extends Controller
         $number = ltrim($search, '#');
 
         $query->where(fn (Builder $query) => $query
-            ->when(ctype_digit($number), fn ($query) => $query->whereKey((int) $number))
+            ->when(ctype_digit($number), fn ($query) => $query->whereKey((int) $number)->orWhere('whmcs_number', $number))
             ->orWhereHas(self::CLIENT, fn (Builder $clients) => $clients
                 ->where('first_name', 'like', "%{$search}%")
                 ->orWhere('last_name', 'like', "%{$search}%")

@@ -3,6 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Order #{{ $order->id }}</h1>
         <x-status-badge :status="$order->status" />
+        @if ($order->whmcs_number)<span class="text-sm text-ink-500">WHMCS order number {{ $order->whmcs_number }}</span>@endif
     </div>
 
     <div class="mb-6 grid gap-4 rounded-lg border border-ink-200 bg-white p-4 text-sm md:grid-cols-4">

@@ -132,6 +132,7 @@ class HistoryImporter
 
             $this->run->queue('orders', [
                 'id' => (int) $row->id,
+                'whmcs_number' => (int) ($row->ordernum ?? 0) > 0 ? (string) (int) $row->ordernum : null,
                 'client_id' => (int) $row->userid,
                 'invoice_id' => isset($this->invoices[(int) ($row->invoiceid ?? 0)]) ? (int) $row->invoiceid : null,
                 'status' => $status->value,

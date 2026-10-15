@@ -8,6 +8,7 @@
             @foreach ($orders as $order)
                 <tr>
                     <td class="whitespace-nowrap px-4 py-2"><a href="{{ route('admin.orders.show', $order) }}" class="text-brand-600">#{{ $order->id }}</a>
+                        @if ($order->whmcs_number)<span class="text-ink-500">(WHMCS {{ $order->whmcs_number }})</span>@endif
                         <span class="text-ink-500">{{ $order->created_at->format('M j, Y g:ia') }}</span></td>
                     <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $order->client) }}" class="text-brand-600">{{ $order->client->fullName() }}</a></td>
                     <td class="px-4 py-2">{{ $order->services->map(fn ($service) => $service->description())->join(', ') }}</td>

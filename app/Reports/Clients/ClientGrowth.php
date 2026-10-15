@@ -50,14 +50,14 @@ class ClientGrowth extends Report
         $services = DB::table('services')->join('clients', 'clients.id', '=', 'services.client_id')
             ->where('clients.currency', $filters->currency)
             ->groupBy('services.client_id')
-            ->selectRaw('services.client_id, SUM(CASE WHEN services.status IN ('.implode(',', array_fill(0, count($running), '?')).') THEN 1 ELSE 0 END) as running, MAX(COALESCE(services.terminated_at, services.updated_at)) as ended', $running)
+            ->selectRaw('services.client_id, SUM(CASE WHEN services.status IN ('.implode(',', array_fill(0, count($running), '?')).') THEN 1 ELSE 0 END) as running, MAX(COALESCE(services.terminated_at, services.updated_at)) as ended, MIN(services.created_at) as started', $running)
             ->get();
 
-        // Customers are clients with a service; a client who never ordered isn't one.
+        // Customers are clients with a service, from the month of their first one; a client who never ordered isn't one.
         $customers = [];
         $churned = [];
         foreach ($services as $row) {
-            $customers[$row->client_id] = $joined[$row->client_id] ?? null;
+            $customers[$row->client_id] = CarbonImmutable::parse($row->started)->format('Y-m');
             if ((int) $row->running === 0) {
                 $churned[$row->client_id] = CarbonImmutable::parse($row->ended)->format('Y-m');
             }
@@ -97,6 +97,6 @@ class ClientGrowth extends Report
         $table->withTotals(['month' => null, 'customers' => $active, 'churn_rate' => null]);
 
         return (new ReportResult)->table($table)
-            ->note('Customers are clients with at least one pending, active or suspended service. A client is lost in the month their last service was cancelled or terminated. Churn rate is the clients lost in a month out of the customers at its start.');
+            ->note('Customers are clients with at least one pending, active or suspended service, counted from the month of their first service. A client is lost in the month their last service was cancelled or terminated. Churn rate is the clients lost in a month out of the customers at its start.');
     }
 }

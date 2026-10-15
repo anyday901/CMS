@@ -113,7 +113,7 @@ class GlobalSearch
     private function orders(): Builder
     {
         return Order::with(['client', 'invoice', 'services.product'])
-            ->when($this->number, fn (Builder $query, int $id) => $query->whereKey($id), fn (Builder $query) => $query->whereRaw('1 = 0'))
+            ->when($this->number, fn (Builder $query, int $id) => $query->where(fn (Builder $query) => $query->whereKey($id)->orWhere('whmcs_number', (string) $id)), fn (Builder $query) => $query->whereRaw('1 = 0'))
             ->latest('id');
     }
 

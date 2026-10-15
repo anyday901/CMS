@@ -56,6 +56,12 @@ class WhmcsHistoryImportTest extends TestCase
         $this->assertSame('2024-01-15 08:30:00', $order->created_at->toDateTimeString());
         $this->assertSame(OrderStatus::Fraud, Order::findOrFail(901)->status);
         $this->assertSame([900, $spring->id], [Service::find(40)->order_id, Service::find(40)->promotion_id]);
+
+        // The order number WHMCS showed clients is kept and found by search.
+        $this->assertSame('1234567', $order->whmcs_number);
+        $this->actingAs(User::factory()->create(), 'web');
+        $this->get('/admin/orders?q=1234567')->assertOk()->assertSee('WHMCS 1234567');
+        $this->get('/admin/search?q=1234567')->assertOk()->assertSee('WHMCS 1234567');
     }
 
     public function test_the_credit_log_comes_over_and_still_adds_up_to_the_balance(): void

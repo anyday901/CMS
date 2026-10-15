@@ -127,6 +127,11 @@ class ReportsTest extends TestCase
 
         $this->get('/admin/reports/top-clients?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['Ada Lovelace', self::TWENTY, '$5.00', '$15.00']);
         $this->get('/admin/reports/income-by-product?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['VPS Small', self::TWENTY]);
+
+        // A discount line on the same service doesn't count it twice.
+        $invoice->items()->create(['service_id' => $service->id, 'type' => 'promotion', 'description' => 'Discount', 'amount' => -200]);
+        $csv = $this->get('/admin/reports/income-by-product/export?from=2026-09-01&to=2026-09-30')->streamedContent();
+        $this->assertStringContainsString('"VPS Small",1,2,18.00', $csv);
     }
 
     public function test_the_forecast_steps_each_active_service_through_its_renewals(): void
@@ -186,15 +191,32 @@ class ReportsTest extends TestCase
         $this->assertStringNotContainsString('US,', $eu);
     }
 
+    public function test_a_refund_takes_its_tax_back_in_the_month_it_was_made(): void
+    {
+        $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id]);
+        $invoice = $this->paidInvoice($service, 1000, self::PAID_AT, 190, 1900);
+        Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'gateway' => 'paypal', 'currency' => 'USD', 'amount' => -1190])->forceFill(['created_at' => '2026-10-05 09:00:00'])->save();
+        $invoice->forceFill(['status' => 'refunded'])->save();
+
+        $september = $this->get('/admin/reports/tax-collected/export?from=2026-09-01&to=2026-09-30')->streamedContent();
+        $this->assertStringContainsString('DE,VAT,19.0,1,10.00,1.90', $september);
+
+        $october = $this->get('/admin/reports/tax-collected/export?from=2026-10-01&to=2026-10-31')->streamedContent();
+        $this->assertStringContainsString('DE,VAT,19.0,0,-10.00,-1.90', $october);
+    }
+
     public function test_growth_counts_a_client_lost_when_their_last_service_ends(): void
     {
-        Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id, 'status' => ServiceStatus::Terminated, 'terminated_at' => '2026-08-10 00:00:00']);
+        Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id, 'status' => ServiceStatus::Terminated, 'terminated_at' => '2026-08-10 00:00:00', 'created_at' => '2026-03-02 10:00:00']);
         $stays = Client::factory()->create(['created_at' => '2026-07-05 00:00:00']);
-        Service::factory()->create(['client_id' => $stays->id, 'product_id' => $this->product->id]);
+        Service::factory()->create(['client_id' => $stays->id, 'product_id' => $this->product->id, 'created_at' => '2026-07-05 00:00:00']);
+        // Signed up in July but only ordered in September, so not a customer yet in July or August.
+        $later = Client::factory()->create(['created_at' => '2026-07-20 00:00:00']);
+        Service::factory()->create(['client_id' => $later->id, 'product_id' => $this->product->id, 'created_at' => '2026-09-03 00:00:00']);
 
         $csv = $this->get('/admin/reports/client-growth/export?from=2026-07-01&to=2026-08-31')->streamedContent();
 
-        $this->assertStringContainsString("2026-07,1,0,2,0.0\n2026-08,0,1,1,50.0", $csv);
+        $this->assertStringContainsString("2026-07,2,0,2,0.0\n2026-08,0,1,1,50.0", $csv);
     }
 
     public function test_cancellations_promotions_credit_and_support_reports_add_up(): void

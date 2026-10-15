@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 /** What each product brought in on invoices paid in the dates. */
 class IncomeByProduct extends Report
 {
+    private const OTHER_TYPE = "CASE WHEN products.id IS NULL THEN invoice_items.type ELSE '' END";
+
     /** How lines without a service are named. */
     private const OTHER = [
         InvoiceItem::TYPE_LATE_FEE => 'Late fees',
@@ -51,9 +53,10 @@ class IncomeByProduct extends Report
             ->where('invoices.status', InvoiceStatus::Paid->value)
             ->where('invoices.currency', $filters->currency)
             ->whereBetween('invoices.paid_at', $filters->between())
-            ->groupBy('products.id', 'products.name', 'invoice_items.type')
+            // Lines without a product are grouped by their type; a product's lines of every type count as one.
+            ->groupBy('products.id', 'products.name', DB::raw(self::OTHER_TYPE))
             ->get([
-                'products.id', 'products.name', 'invoice_items.type',
+                'products.id', 'products.name', DB::raw(self::OTHER_TYPE.' as type'),
                 DB::raw('COUNT(*) as line_count'),
                 DB::raw('COUNT(DISTINCT invoice_items.service_id) as services'),
                 DB::raw('SUM(invoice_items.amount) as amount'),
@@ -61,13 +64,14 @@ class IncomeByProduct extends Report
 
         $products = [];
         foreach ($rows as $row) {
-            $key = $row->id !== null ? "product:{$row->id}" : "type:{$row->type}";
-            $products[$key] ??= ['product' => $row->name ?? (self::OTHER[$row->type] ?? 'Other items'), 'services' => 0, 'lines' => 0, 'amount' => 0];
-            $products[$key]['services'] += (int) $row->services;
-            $products[$key]['lines'] += (int) $row->line_count;
-            $products[$key]['amount'] += (int) $row->amount;
+            $products[] = [
+                'product' => $row->name ?? (self::OTHER[$row->type] ?? 'Other items'),
+                'services' => (int) $row->services,
+                'lines' => (int) $row->line_count,
+                'amount' => (int) $row->amount,
+            ];
         }
-        uasort($products, fn (array $a, array $b) => $b['amount'] <=> $a['amount']);
+        usort($products, fn (array $a, array $b) => $b['amount'] <=> $a['amount']);
 
         $table = new ReportTable([
             'product' => ['Product', ReportTable::TEXT],
@@ -76,7 +80,7 @@ class IncomeByProduct extends Report
             'amount' => ['Amount', ReportTable::MONEY],
         ], currency: $filters->currency);
         $table->chart = 'amount';
-        $table->rows = array_values($products);
+        $table->rows = $products;
 
         return (new ReportResult)->table($table->withTotals(['product' => 'Total']))
             ->note('Invoice lines before tax on invoices paid in these dates, including setup fees and discounts on the product\'s services. Lines that aren\'t for a service are grouped by what they are.');
