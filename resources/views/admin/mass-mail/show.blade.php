@@ -14,7 +14,7 @@
 
     <div class="grid gap-6 md:grid-cols-3">
         <div class="rounded-lg border border-ink-200 bg-white text-sm md:col-span-2">
-            <div class="prose prose-sm max-w-none px-4 py-3">{!! $html !!}</div>
+            <div class="prose-content px-4 py-3">{!! $html !!}</div>
         </div>
         <div class="h-fit rounded-lg border border-ink-200 bg-white p-4 text-sm">
             <h2 class="mb-2 font-semibold">Filters</h2>

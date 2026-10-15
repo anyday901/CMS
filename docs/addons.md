@@ -70,7 +70,7 @@ What each part does:
 - **`boot()`**: runs on every request while enabled. Listen to events here.
 - **`installed()`**: runs once after the first install, for seeding.
 
-Views use the theme's components, `<x-admin-layout>` and `<x-portal-layout>`.
+Views use the theme's components, `<x-admin-layout>` and `<x-portal-layout>`, and its Tailwind classes. Views under `app/Addons` are included in the CSS build; an add-on kept elsewhere (such as a Composer package) adds its views folder as an `@source` line in `resources/css/app.css` before `npm run build`.
 
 ## A worked example: project management
 

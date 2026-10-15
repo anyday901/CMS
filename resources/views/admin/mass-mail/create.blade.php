@@ -93,7 +93,7 @@
                 <p class="text-sm">This goes to <strong>{{ number_format($preview['count']) }} {{ Str::plural('client', $preview['count']) }}</strong>{{ $mail->marketing ? ' who agreed to marketing emails' : '' }}. Here's how it reads for {{ $preview['sample']['client']->fullName() }}:</p>
                 <div class="rounded-lg border border-ink-200 bg-white text-sm">
                     <p class="border-b border-ink-100 px-4 py-2"><span class="text-ink-500">Subject:</span> {{ $preview['sample']['subject'] }}</p>
-                    <div class="prose prose-sm max-w-none px-4 py-3">{!! App\Mail\EmailTemplates::html($preview['sample']['body']) !!}</div>
+                    <div class="prose-content px-4 py-3">{!! App\Mail\EmailTemplates::html($preview['sample']['body']) !!}</div>
                     @if ($preview['sample']['unsubscribe'])
                         <p class="border-t border-ink-100 px-4 py-2 text-xs text-ink-500">Headers: List-Unsubscribe and List-Unsubscribe-Post (one-click unsubscribe).</p>
                     @endif
