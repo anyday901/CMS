@@ -24,6 +24,7 @@ All of them are sent from the queue, so run a queue worker in production (`php a
 | `ticket.replied` | A client or guest replies to a ticket |
 | `ticket.answered` | Staff reply to a ticket (not internal notes) |
 | `staff.alert` | Something needs staff: a failed provisioning action, a payment dispute, a manual task, a server down |
+| `client.merged` | Staff merge one client account into another (`from_client_id`, `into_client_id`) |
 | `webhook.test` | **Send a test** on a webhook's page |
 
 Add-ons add their own, such as `project.created`; the webhook and chat forms list every event available.

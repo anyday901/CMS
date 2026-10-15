@@ -72,6 +72,21 @@ What each part does:
 
 Views use the theme's components, `<x-admin-layout>` and `<x-portal-layout>`.
 
+## A worked example: project management
+
+The project management add-on in `app/Addons/ProjectManagement` uses each part of this API:
+
+- `ProjectManagementAddon` has the key `projects` and is listed in `config/addons.php`.
+- `migrationsPath()` points at its own `database/migrations`, which create the `pm_` tables on install; uninstalling with its data drops them.
+- `viewsPath()` registers its `resources/views`, so controllers render `projects::admin.show` and `projects::portal.index` with the core layouts.
+- `routes()` uses `adminRoutes('projects', ...)` and `portalRoutes('projects', ...)` for `/admin/projects` and `/portal/projects`, with `can:` middleware inside (creating projects needs `manage-clients`, invoicing time needs `manage-billing`).
+- `settings()` declares the default hourly rate, whether invoiced time is taxed, whether clients see their projects in the portal, whether they see time logged, and the wording of invoice lines.
+- `adminLinks()` adds **Projects** to the admin menu; `portalLinks()` adds it to the portal only while the portal setting is on.
+- `boot()` defines `project.created`, `project.completed`, `project.task_completed` and `project.invoiced` for webhooks and chat, and listens to the core `client.merged` event to move a merged client's projects inside the merge.
+- It stays out of the billing core: unbilled time becomes a draft invoice through the public `App\Billing\InvoiceEditor`, and the link from time entries to invoice lines lives in its own table.
+
+In tests, install and enable it through `AddonManager`, then call `$manager->find('projects')->boot()`, since the app booted before it was enabled.
+
 ## The event hook system
 
 `App\Hooks\Hooks` is a singleton. Every core event (see the table in [webhooks.md](webhooks.md)) is fired through it as an `App\Hooks\HookEvent` with:
