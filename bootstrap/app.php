@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\BlockBannedIps;
+use App\Http\Middleware\EnsureAddonEnabled;
 use App\Http\Middleware\EnsureContactCan;
 use App\Http\Middleware\RecallPortalContact;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -8,6 +9,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['contact.can' => EnsureContactCan::class]);
         // A remembered contact is signed back in before routes check who is signed in.
         $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: RecallPortalContact::class);
+        // A disabled or uninstalled add-on answers 404 before its routes look up records in tables that may not exist.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnsureAddonEnabled::class);
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin*')
             ? route('admin.login')
             : route('portal.login'));
