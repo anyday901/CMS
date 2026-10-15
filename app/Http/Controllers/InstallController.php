@@ -42,13 +42,13 @@ class InstallController extends Controller
         ], ['database.regex' => 'Use letters, digits, dots, dashes and underscores in the database name.']);
 
         if ($validator->fails()) {
-            return $this->page($validator->errors(), $request->except('password'));
+            return $this->page($validator->errors(), $request->except('password'), step: 'database');
         }
 
         try {
             $this->installer->configureDatabase($validator->validated(), $request->root());
         } catch (RuntimeException $e) {
-            return $this->page(new MessageBag(['database' => $e->getMessage()]), $request->except('password'));
+            return $this->page(new MessageBag(['database' => $e->getMessage()]), $request->except('password'), step: 'database');
         }
 
         return $this->page(status: 'Connected, and the tables are set up. Now create your staff account.');
@@ -67,7 +67,7 @@ class InstallController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->page($validator->errors(), $request->except(['password', 'password_confirmation']));
+            return $this->page($validator->errors(), $request->except(['password', 'password_confirmation']), step: 'account');
         }
 
         $this->installer->finish(...$validator->safe()->only(['company', 'name', 'email', 'password']));
@@ -80,12 +80,13 @@ class InstallController extends Controller
         abort_if($this->installer->installed(), 404);
     }
 
-    private function page(?MessageBag $errors = null, array $old = [], ?string $status = null): Response
+    /** @param  string|null  $step  the step whose form had errors, shown again even if an earlier check now fails */
+    private function page(?MessageBag $errors = null, array $old = [], ?string $status = null, ?string $step = null): Response
     {
         $this->open();
 
         return response()->view('install.show', [
-            'step' => $this->installer->step(),
+            'step' => $step ?? $this->installer->step(),
             'requirements' => $this->installer->requirements(),
             'drivers' => Installer::DRIVERS,
             'installErrors' => $errors ?? new MessageBag,
