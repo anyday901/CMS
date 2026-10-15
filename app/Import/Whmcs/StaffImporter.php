@@ -28,13 +28,15 @@ class StaffImporter
     /**
      * The WHMCS admin permissions, by their id in tbladminperms, that each
      * ability here needs: a role gets the ability when it has all of them.
+     * The ids are one more than the permission's place in the list WHMCS's
+     * admin templates get, which counts from 0 (API Access, 80th there, is 81).
      */
     private const PERMISSIONS = [
-        'manage-staff' => [62 => 'Configure Administrators', 63 => 'Configure Admin Roles'],
-        'manage-settings' => [61 => 'Configure General Settings'],
-        'manage-clients' => [8 => 'Edit Clients Details', 11 => 'Edit Clients Products/Services'],
-        'manage-billing' => [28 => 'Add Transaction', 34 => 'Manage Invoice'],
-        'manage-tickets' => [104 => 'View Support Ticket'],
+        'manage-staff' => [64 => 'Configure Administrators', 65 => 'Configure Admin Roles'],
+        'manage-settings' => [63 => 'Configure General Settings'],
+        'manage-clients' => [9 => 'Edit Clients Details', 12 => 'Edit Clients Products/Services'],
+        'manage-billing' => [29 => 'Add Transaction', 35 => 'Manage Invoice'],
+        'manage-tickets' => [105 => 'View Support Ticket'],
     ];
 
     /** WHMCS's Full Administrator role, which every new install has. */

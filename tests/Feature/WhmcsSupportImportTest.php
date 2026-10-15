@@ -227,11 +227,11 @@ class WhmcsSupportImportTest extends TestCase
         $perms = fn (int $role, array $ids) => array_map(fn (int $id) => ['roleid' => $role, 'permid' => $id], $ids);
         $this->whmcs->table('tbladminperms')->insert([
             ...$perms(1, range(1, 135)),
-            ...$perms(2, [3, 8, 11, 28, 34, 41, 104]),
-            ...$perms(3, [41, 42, 104]),
-            ...$perms(4, [3, 8, 11, 104, 34]), // Manage Invoice without Add Transaction: no billing
+            ...$perms(2, [4, 9, 12, 29, 35, 42, 105]),
+            ...$perms(3, [42, 43, 105]),
+            ...$perms(4, [4, 9, 12, 105, 35]), // Manage Invoice without Add Transaction: no billing
             ...$perms(5, range(1, 135)),
-            ...$perms(6, [44]),
+            ...$perms(6, [45]),
         ]);
         $this->whmcs->table('tbladmins')->where('id', 1)->update(['roleid' => 3]);
         $this->whmcs->table('tbladmins')->where('id', 2)->update(['roleid' => 2]);
