@@ -127,6 +127,7 @@ class TicketMerger
                 'client_id' => $from->client_id,
                 'guest_name' => $from->guest_name,
                 'guest_email' => $from->guest_email,
+                'access_key' => $from->isGuest() ? Str::random(40) : null,
                 'department_id' => $attributes['department_id'],
                 'subject' => Str::limit(trim($attributes['subject']), 250, ''),
                 'priority' => $attributes['priority'],
@@ -151,7 +152,8 @@ class TicketMerger
             return $ticket;
         });
 
-        if ($notify) {
+        // A guest has no ticket list, so the email with its link is the only way they'd find it.
+        if ($notify || $ticket->isGuest()) {
             $this->desk->sendOpened($ticket);
         }
 

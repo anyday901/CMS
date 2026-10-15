@@ -128,14 +128,18 @@ class InboundMail
         return $this->finish(self::OPENED, "ticket #{$ticket->id} from ".($sender->client !== null ? $sender->email : "guest {$sender->email}"), $log, $ticket);
     }
 
-    /** Tickets the sender opened in the last hour, by email or otherwise. */
+    /**
+     * Tickets this address opened in the last hour. A guest's count includes
+     * the contact form; a client's counts only emails from this address, so
+     * other contacts on a busy account and its portal tickets don't use it up.
+     */
     private function openedLastHour(Sender $sender): int
     {
-        return Ticket::where('created_at', '>=', now()->subHour())
-            ->when($sender->client,
-                fn ($query, Client $client) => $query->where('client_id', $client->id),
-                fn ($query) => $query->whereNull('client_id')->where('guest_email', $sender->email))
-            ->count();
+        if ($sender->client !== null) {
+            return InboundEmail::where('from', $sender->email)->where('outcome', self::OPENED)->where('created_at', '>=', now()->subHour())->count();
+        }
+
+        return Ticket::whereNull('client_id')->where('guest_email', $sender->email)->where('created_at', '>=', now()->subHour())->count();
     }
 
     /**

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -56,12 +57,21 @@ return new class extends Migration
     {
         Schema::dropIfExists('content_translations');
         Schema::dropIfExists('inbound_emails');
+
+        // Earlier versions need a client on every ticket and rating, so guest ones can't stay.
+        DB::table('ticket_feedback')->whereNull('client_id')->delete();
+        DB::table('tickets')->whereNull('client_id')->delete();
+        Schema::table('ticket_feedback', function (Blueprint $table) {
+            $table->unsignedBigInteger('client_id')->nullable(false)->change();
+        });
+
         Schema::table('ticket_messages', function (Blueprint $table) {
             $table->dropColumn('guest');
         });
         Schema::table('tickets', function (Blueprint $table) {
             $table->dropIndex(['guest_email']);
             $table->dropColumn(['guest_name', 'guest_email', 'access_key']);
+            $table->unsignedBigInteger('client_id')->nullable(false)->change();
         });
     }
 };

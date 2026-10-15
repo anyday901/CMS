@@ -8,6 +8,7 @@ use App\Models\InboundEmail;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Tickets\InboundMail;
+use App\Tickets\TicketDesk;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -82,6 +83,16 @@ class TicketSpamFilterTest extends TestCase
 
         $this->travel(61)->minutes();
         $this->assertSame(InboundMail::OPENED, $this->handle('Four')[0]);
+    }
+
+    public function test_the_hourly_limit_counts_only_emails_from_that_address(): void
+    {
+        config(['tickets.spam.new_tickets_per_hour' => 1]);
+        $client = Client::sole();
+        app(TicketDesk::class)->open($client, Department::sole(), 'From the portal', 'Opened by someone else on the account');
+
+        $this->assertSame(InboundMail::OPENED, $this->handle('One')[0]);
+        $this->assertSame(InboundMail::SPAM, $this->handle('Two')[0]);
     }
 
     public function test_the_contact_form_drops_spam_quietly_and_logs_it(): void

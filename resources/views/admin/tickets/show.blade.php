@@ -41,7 +41,11 @@
                                 </select>
                             </label>
                         </div>
-                        <label for="split-notify" class="flex items-center gap-2"><input id="split-notify" type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->requesterFirstName() }} the new ticket number</label>
+                        @if ($ticket->isGuest())
+                            <p class="text-sm text-ink-600">{{ $ticket->requesterFirstName() }} is emailed a link to the new ticket, since guests have no ticket list to find it in.</p>
+                        @else
+                            <label for="split-notify" class="flex items-center gap-2"><input id="split-notify" type="checkbox" name="notify" value="1" @checked(old('notify'))> Email {{ $ticket->requesterFirstName() }} the new ticket number</label>
+                        @endif
                         <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">Split ticked messages</button>
                     </form>
                 </details>

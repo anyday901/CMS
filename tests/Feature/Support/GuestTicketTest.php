@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Support;
 
+use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Models\Client;
 use App\Models\Department;
@@ -12,6 +13,7 @@ use App\Models\TicketMessage;
 use App\Models\User;
 use App\Tickets\InboundMail;
 use App\Tickets\TicketDesk;
+use App\Tickets\TicketMerger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -188,6 +190,21 @@ class GuestTicketTest extends TestCase
         $this->assertSame($client->id, TicketMessage::sole()->client_id);
         $this->assertFalse(TicketMessage::sole()->guest);
         $this->get(route('tickets.guest.show', [$ticket, $key]))->assertNotFound();
+    }
+
+    public function test_a_split_guest_ticket_gets_its_own_link_emailed_to_the_guest(): void
+    {
+        $this->submit();
+        $ticket = Ticket::sole();
+        app(TicketDesk::class)->clientReply($ticket, 'A second question');
+        $moving = TicketMessage::latest('id')->first();
+
+        $split = app(TicketMerger::class)->split($ticket, [$moving->id], ['subject' => 'Second question', 'department_id' => $this->department->id, 'priority' => TicketPriority::Medium], User::factory()->create());
+
+        $this->assertTrue($split->hasAccessKey((string) $split->access_key));
+        $this->assertNotSame($ticket->access_key, $split->access_key);
+        $this->assertStringContainsString($split->guestUrl(), EmailLog::where('template', 'ticket_opened')->latest('id')->first()->body);
+        $this->get($split->guestUrl())->assertOk()->assertSee('A second question');
     }
 
     public function test_only_tickets_from_the_same_guest_address_can_be_merged(): void
