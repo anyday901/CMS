@@ -12,8 +12,8 @@
             }
         @endphp
         @foreach ($colours as $hex => $name)
-            <label class="flex items-center gap-1.5 rounded-full px-2 py-1 ring-1 ring-ink-200 has-[:checked]:ring-2 has-[:checked]:ring-brand-500">
-                <input type="radio" name="colour" value="{{ $hex }}" class="sr-only" @checked(old('colour', $group->colour ?? '#64748b') === $hex)>
+            <label for="colour-{{ $loop->index }}" class="flex items-center gap-1.5 rounded-full px-2 py-1 ring-1 ring-ink-200 has-[:checked]:ring-2 has-[:checked]:ring-brand-500">
+                <input id="colour-{{ $loop->index }}" type="radio" name="colour" value="{{ $hex }}" class="sr-only" @checked(old('colour', $group->colour ?? '#64748b') === $hex)>
                 <span class="size-3 rounded-full" style="background-color: {{ $hex }}" aria-hidden="true"></span>{{ $name }}
             </label>
         @endforeach

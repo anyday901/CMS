@@ -47,8 +47,8 @@
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">New device emails</legend>
             <input type="hidden" name="new_device_emails" value="0">
-            <label class="flex items-start gap-2">
-                <input type="checkbox" name="new_device_emails" value="1" class="mt-1" @checked(old('new_device_emails', $settings['new_device_emails']))>
+            <label for="new-device-emails" class="flex items-start gap-2">
+                <input id="new-device-emails" type="checkbox" name="new_device_emails" value="1" class="mt-1" @checked(old('new_device_emails', $settings['new_device_emails']))>
                 <span>Email clients and contacts when they sign in to the portal from a browser or device they haven't used before, with the time, browser and IP address, so they can act if it wasn't them. Change the wording in the <a href="{{ route('admin.email-templates.edit', 'new_device_login') }}" class="text-brand-600">New device sign-in</a> template.</span>
             </label>
         </fieldset>

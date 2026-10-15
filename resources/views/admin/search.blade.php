@@ -2,7 +2,7 @@
 <x-admin-layout title="Search">
     <form method="GET" action="{{ route('admin.search') }}" role="search" class="mb-6 flex max-w-2xl gap-2">
         <label for="search-page" class="sr-only">Search</label>
-        <input id="search-page" type="search" name="q" value="{{ $query }}" autofocus placeholder="Name, email, domain, invoice or ticket number" class="w-full rounded-full px-4 py-2 text-sm ring-1 ring-ink-300">
+        <input id="search-page" type="search" name="q" value="{{ $query }}" placeholder="Name, email, domain, invoice or ticket number" class="w-full rounded-full px-4 py-2 text-sm ring-1 ring-ink-300">
         <button class="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500">Search</button>
     </form>
 

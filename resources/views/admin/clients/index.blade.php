@@ -66,8 +66,8 @@
                 </select>
             </label>
             @foreach (['credit_balance' => 'Has credit balance', 'tax_exempt' => 'Tax exempt', 'marketing_emails' => 'Agreed to marketing emails'] as $field => $label)
-                <label class="block">{{ $label }}
-                    <select name="{{ $field }}" class="{{ $panelInput }}">
+                <label for="search-{{ $field }}" class="block">{{ $label }}
+                    <select id="search-{{ $field }}" name="{{ $field }}" class="{{ $panelInput }}">
                         @foreach ($yesNo as $value => $text)
                             <option value="{{ $value }}" @selected($search->get($field) === $value)>{{ $text }}</option>
                         @endforeach

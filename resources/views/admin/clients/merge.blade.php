@@ -51,9 +51,9 @@
                     @if ($client->credit_balance)<li>{{ Money::format($client->credit_balance, $client->currency) }} of credit is added to {{ $into->fullName() }}'s balance.</li>@endif
                     <li>{{ $client->fullName() }} can no longer sign in with {{ $client->email }}.</li>
                 </ul>
-                <label class="flex items-start gap-2"><input type="checkbox" name="keep_as_contact" value="1" class="mt-1" checked>
+                <label for="merge-keep-contact" class="flex items-start gap-2"><input id="merge-keep-contact" type="checkbox" name="keep_as_contact" value="1" class="mt-1" checked>
                     <span>Add {{ $client->fullName() }} ({{ $client->email }}) as a contact on {{ $into->fullName() }}'s account, without a portal login</span></label>
-                <label class="flex items-start gap-2"><input type="checkbox" name="confirm" value="1" class="mt-1">
+                <label for="merge-confirm" class="flex items-start gap-2"><input id="merge-confirm" type="checkbox" name="confirm" value="1" class="mt-1">
                     <span class="font-medium">I understand account #{{ $client->id }} is deleted and this can't be undone</span></label>
                 <div class="flex flex-wrap items-center gap-3">
                     <button class="rounded-md bg-red-700 px-3 py-1.5 font-medium text-white hover:bg-red-600">Merge and delete #{{ $client->id }}</button>
