@@ -110,8 +110,8 @@
                                         </td>
                                     @endforeach
                                     @if ($table->chart)
-                                        <td class="px-3 py-1.5" aria-hidden="true">
-                                            <div class="h-2.5 rounded-full bg-ink-100"><div class="h-2.5 rounded-full {{ ($row[$table->chart] ?? 0) < 0 ? 'bg-red-400' : 'bg-brand-500' }}" style="width: {{ $max > 0 ? round(abs($row[$table->chart] ?? 0) / $max * 100) : 0 }}%"></div></div>
+                                        <td class="px-3 py-1.5">
+                                            <div class="h-2.5 rounded-full bg-ink-100" aria-hidden="true"><div class="h-2.5 rounded-full {{ ($row[$table->chart] ?? 0) < 0 ? 'bg-red-400' : 'bg-brand-500' }}" style="width: {{ $max > 0 ? round(abs($row[$table->chart] ?? 0) / $max * 100) : 0 }}%"></div></div>
                                         </td>
                                     @endif
                                 </tr>

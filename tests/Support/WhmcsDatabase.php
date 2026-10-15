@@ -31,6 +31,8 @@ class WhmcsDatabase
     /** The VPS's monthly price. */
     private const PRICE = '13.00';
 
+    private const MONTHLY = '10.00';
+
     private const NOVEMBER = '2026-11-15';
 
     public static function create(): ConnectionInterface
@@ -524,7 +526,7 @@ class WhmcsDatabase
         ]);
         $db->table('tblhosting')->where('id', 40)->update(['orderid' => 900, 'promoid' => 5]);
         $db->table('tblhosting')->insert([
-            'id' => 41, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-02-01', 'domain' => 'old.example.com', 'amount' => '10.00',
+            'id' => 41, 'userid' => 7, 'packageid' => 3, 'regdate' => '2024-02-01', 'domain' => 'old.example.com', 'amount' => self::MONTHLY,
             'billingcycle' => 'Monthly', 'nextduedate' => '2025-03-01', 'termination_date' => '2025-02-20', 'domainstatus' => 'Cancelled', 'orderid' => 0, 'promoid' => 0,
         ]);
         $db->table('tblcancelrequests')->insert([
@@ -622,7 +624,7 @@ class WhmcsDatabase
         $db->table('tblservergroupsrel')->insert([['groupid' => 4, 'serverid' => 1], ['groupid' => 4, 'serverid' => 2]]);
 
         $db->table('tblproducts')->insert(['id' => 3, 'name' => 'VPS Small', 'description' => 'Fast<br>Cheap', 'tax' => '1', 'paytype' => 'recurring', 'servertype' => 'cpanel', 'configoption1' => 'gold', 'servergroup' => 4]);
-        $db->table('tblpricing')->insert(['type' => 'product', 'currency' => 1, 'relid' => 3, 'monthly' => '10.00', 'msetupfee' => '5.00', 'annually' => '100.00']);
+        $db->table('tblpricing')->insert(['type' => 'product', 'currency' => 1, 'relid' => 3, 'monthly' => self::MONTHLY, 'msetupfee' => '5.00', 'annually' => '100.00']);
 
         $db->table('tblproductconfiglinks')->insert(['gid' => 1, 'pid' => 3]);
         $db->table('tblproductconfigoptions')->insert(['id' => 11, 'gid' => 1, 'optionname' => 'ram|Memory', 'optiontype' => 1]);
@@ -653,7 +655,7 @@ class WhmcsDatabase
         // This month's renewal, unpaid, with part paid from credit.
         $db->table('tblinvoices')->insert([
             'id' => 101, 'userid' => 7, 'invoicenum' => 'INV-0042', 'date' => '2026-11-08', 'duedate' => self::NOVEMBER,
-            'subtotal' => self::PRICE, 'credit' => '3.00', 'total' => '10.00', 'status' => 'Unpaid',
+            'subtotal' => self::PRICE, 'credit' => '3.00', 'total' => self::MONTHLY, 'status' => 'Unpaid',
         ]);
         $db->table('tblinvoiceitems')->insert(['invoiceid' => 101, 'userid' => 7, 'type' => 'Hosting', 'relid' => 40, 'description' => 'VPS Small - vps1.example.com (15/11/2026 - 14/12/2026)', 'amount' => self::PRICE, 'taxed' => 1, 'duedate' => self::NOVEMBER]);
 

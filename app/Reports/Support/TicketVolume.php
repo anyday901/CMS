@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 /** Tickets opened and closed each month and in each department. */
 class TicketVolume extends Report
 {
+    private const COUNT = 'COUNT(*)';
+
     public function key(): string
     {
         return 'tickets-opened-and-closed';
@@ -48,10 +50,10 @@ class TicketVolume extends Report
 
         $month = Sql::month('created_at');
         $opened = $tickets()->whereBetween('created_at', $between)->groupBy(DB::raw($month))
-            ->selectRaw("{$month} as month, COUNT(*) as opened, SUM(CASE WHEN status != ? THEN 1 ELSE 0 END) as still_open", [$closed])
+            ->selectRaw("{$month} as month, ".self::COUNT.' as opened, SUM(CASE WHEN status != ? THEN 1 ELSE 0 END) as still_open', [$closed])
             ->get()->keyBy('month');
         $month = Sql::month('closed_at');
-        $closedBy = Sql::by($tickets()->whereBetween('closed_at', $between), $month, 'COUNT(*)');
+        $closedBy = Sql::by($tickets()->whereBetween('closed_at', $between), $month, self::COUNT);
 
         $table = new ReportTable([
             'month' => ['Month', ReportTable::MONTH],
@@ -70,9 +72,9 @@ class TicketVolume extends Report
             'closed' => ['Closed', ReportTable::NUMBER],
             'open_now' => ['Open now', ReportTable::NUMBER],
         ], 'By department');
-        $openedBy = Sql::by($tickets()->whereBetween('created_at', $between), 'department_id', 'COUNT(*)');
-        $closedIn = Sql::by($tickets()->whereBetween('closed_at', $between), 'department_id', 'COUNT(*)');
-        $openNow = Sql::by($tickets()->where('status', '!=', $closed), 'department_id', 'COUNT(*)');
+        $openedBy = Sql::by($tickets()->whereBetween('created_at', $between), 'department_id', self::COUNT);
+        $closedIn = Sql::by($tickets()->whereBetween('closed_at', $between), 'department_id', self::COUNT);
+        $openNow = Sql::by($tickets()->where('status', '!=', $closed), 'department_id', self::COUNT);
         foreach (DB::table('departments')->orderBy('name')->pluck('name', 'id') as $id => $name) {
             $departments->add(['department' => $name, 'opened' => (int) ($openedBy[$id] ?? 0), 'closed' => (int) ($closedIn[$id] ?? 0), 'open_now' => (int) ($openNow[$id] ?? 0)]);
         }

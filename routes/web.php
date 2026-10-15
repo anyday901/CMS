@@ -246,12 +246,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('orders', Admin\OrderController::class)->only(['index', 'show']);
         Route::get('invoices/{invoice}/pdf', [Admin\InvoiceController::class, 'pdf'])->name('invoices.pdf');
 
-        Route::middleware('can:view-reports')->prefix('reports')->name('reports.')->controller(Admin\ReportController::class)->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('{report}', 'show')->name('show');
-            Route::get('{report}/export', 'export')->name('export');
-        });
-
         Route::middleware('can:manage-tickets')->group(function () {
             Route::resource('canned-replies', Admin\CannedReplyController::class)->except(['show', 'create']);
             Route::get('tickets', [Admin\TicketController::class, 'index'])->name('tickets.index');
@@ -323,6 +317,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
         });
     });
+});
+
+// Kept outside the admin group above so that group stays readable; same login and two-factor checks.
+Route::prefix('admin/reports')->name('admin.reports.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:view-reports'])->controller(Admin\ReportController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('{report}', 'show')->name('show');
+    Route::get('{report}/export', 'export')->name('export');
 });
 
 // Every staff member's own login.

@@ -75,9 +75,10 @@ class TaxCollected extends Report
 
         foreach ($rows as $row) {
             $rate = (int) $row->tax_rate;
+            $taxName = $row->tax_name ?: 'Tax';
             $table->add([
                 'country' => $row->country ?: 'Unknown',
-                'tax_name' => $rate > 0 ? ($row->tax_name ?: 'Tax') : 'No tax',
+                'tax_name' => $rate > 0 ? $taxName : 'No tax',
                 'rate' => $rate / 100,
                 'invoices' => (int) $row->invoices,
                 'sales' => (int) $row->sales,

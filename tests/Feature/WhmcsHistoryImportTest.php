@@ -20,6 +20,8 @@ use Tests\TestCase;
 
 class WhmcsHistoryImportTest extends TestCase
 {
+    private const JANE = 'jane@example.com';
+
     use RefreshDatabase;
 
     private ConnectionInterface $whmcs;
@@ -32,7 +34,7 @@ class WhmcsHistoryImportTest extends TestCase
         $this->whmcs = WhmcsDatabase::create();
         WhmcsDatabase::seed($this->whmcs);
         WhmcsDatabase::seedHistory($this->whmcs);
-        $this->whmcs->table('tbladmins')->insert(['id' => 1, 'firstname' => 'Jane', 'lastname' => 'Admin', 'email' => 'jane@example.com']);
+        $this->whmcs->table('tbladmins')->insert(['id' => 1, 'firstname' => 'Jane', 'lastname' => 'Admin', 'email' => self::JANE]);
     }
 
     public function test_promotions_and_orders_keep_their_numbers_and_links(): void
@@ -87,7 +89,7 @@ class WhmcsHistoryImportTest extends TestCase
         $report = (new WhmcsImporter)->run($this->whmcs, dryRun: false);
 
         $this->assertSame(['found' => 4, 'imported' => 3, 'skipped' => 1], $report->counts()['Activity log']);
-        $jane = User::where('email', 'jane@example.com')->sole();
+        $jane = User::where('email', self::JANE)->sole();
 
         $accepted = Activity::where('description', 'Order Accepted - Order ID: 900')->sole();
         $this->assertSame(['staff', $jane->id, 'jane', 7, '203.0.113.9', '2024-01-15 08:31:00'], [$accepted->actor_type, $accepted->actor_id, $accepted->actor_name, $accepted->client_id, $accepted->ip_address, $accepted->created_at->toDateTimeString()]);
@@ -98,7 +100,7 @@ class WhmcsHistoryImportTest extends TestCase
     public function test_imported_history_shows_up_in_reports(): void
     {
         (new WhmcsImporter)->run($this->whmcs, dryRun: false);
-        $this->actingAs(User::where('email', 'jane@example.com')->sole(), 'web');
+        $this->actingAs(User::where('email', self::JANE)->sole(), 'web');
 
         $this->get('/admin/reports/promotion-usage?from=2024-01-01&to=2024-12-31')->assertOk()->assertSeeInOrder(['SPRING20', '20%, recurring', '1']);
         $this->get('/admin/reports/new-orders-and-clients?from=2024-01-01&to=2024-01-31')->assertOk()->assertSeeInOrder(['Jan 2024', '0', '1', '1']);

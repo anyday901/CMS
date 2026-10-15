@@ -10,6 +10,7 @@ use App\Reports\ReportRegistry;
 use App\Reports\ReportResult;
 use App\Reports\ReportTable;
 use App\Reports\Sql;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** Clients counted by their country or their client group, with what they paid in the dates. */
@@ -72,7 +73,7 @@ class ClientBreakdown extends Report
 
         foreach ($clients->sortByDesc('clients') as $key => $row) {
             $table->add([
-                'name' => $key === '' ? $this->blank() : ($this->by === self::GROUP ? ($names[$key] ?? 'Deleted group') : $key),
+                'name' => $this->label((string) $key, $names),
                 'clients' => (int) $row->clients,
                 'active' => (int) $row->active,
                 'new_clients' => (int) $row->new_clients,
@@ -88,5 +89,15 @@ class ClientBreakdown extends Report
     private function blank(): string
     {
         return $this->by === self::GROUP ? 'No group' : 'Unknown';
+    }
+
+    /** @param  Collection<int|string, string>  $names */
+    private function label(string $key, Collection $names): string
+    {
+        if ($key === '') {
+            return $this->blank();
+        }
+
+        return $this->by === self::GROUP ? ($names[$key] ?? 'Deleted group') : $key;
     }
 }

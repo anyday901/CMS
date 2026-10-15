@@ -201,34 +201,7 @@ class HistoryImporter
      */
     public function importCredit(array $balances): void
     {
-        $running = [];
-
-        if ($this->run->hasTables('tblcredit')) {
-            foreach ($this->run->table('tblcredit')->orderBy('date')->orderBy('id')->cursor() as $row) {
-                $this->run->report->found(self::CREDIT);
-                $client = (int) $row->clientid;
-
-                if (! isset($this->clients[$client])) {
-                    $this->run->report->skipped(self::CREDIT, "Credit log line {$row->id} belongs to client {$client}, which wasn't imported.");
-
-                    continue;
-                }
-
-                $amount = Whmcs::cents($row->amount ?? 0);
-                $running[$client] = ($running[$client] ?? 0) + $amount;
-                $this->run->queue('credit_entries', [
-                    'client_id' => $client,
-                    'amount' => $amount,
-                    'balance_after' => $running[$client],
-                    'description' => Str::limit(Whmcs::text($row->description ?? ''), 250, '') ?: 'Credit from WHMCS',
-                    'invoice_id' => isset($this->invoices[(int) ($row->relid ?? 0)]) ? (int) $row->relid : null,
-                    'created_at' => Whmcs::dateTime($row->date ?? null) ?? $this->run->now,
-                ]);
-                $this->run->report->imported(self::CREDIT);
-            }
-        }
-
-        $this->run->flush('credit_entries');
+        $running = $this->importCreditLog();
         $adjusted = 0;
 
         foreach ($balances as $client => $balance) {
@@ -251,6 +224,56 @@ class HistoryImporter
         if ($adjusted > 0) {
             $this->run->report->note(self::CREDIT, "For {$adjusted} client(s) the WHMCS credit log didn't add up to their credit balance, so a line dated today makes up the difference. Their balance here is the one WHMCS shows.");
         }
+    }
+
+    /**
+     * Queues the credit log lines and returns each client's balance at the
+     * end of the log.
+     *
+     * @return array<int, int>
+     */
+    private function importCreditLog(): array
+    {
+        $running = [];
+
+        if (! $this->run->hasTables('tblcredit')) {
+            return $running;
+        }
+
+        foreach ($this->run->table('tblcredit')->orderBy('date')->orderBy('id')->cursor() as $row) {
+            $this->run->report->found(self::CREDIT);
+            $client = (int) $row->clientid;
+
+            if (! isset($this->clients[$client])) {
+                $this->run->report->skipped(self::CREDIT, "Credit log line {$row->id} belongs to client {$client}, which wasn't imported.");
+
+                continue;
+            }
+
+            $amount = Whmcs::cents($row->amount ?? 0);
+            $running[$client] = ($running[$client] ?? 0) + $amount;
+            $this->run->queue('credit_entries', $this->creditEntry($row, $client, $amount, $running[$client]));
+            $this->run->report->imported(self::CREDIT);
+        }
+
+        $this->run->flush('credit_entries');
+
+        return $running;
+    }
+
+    /** @return array<string, mixed> */
+    private function creditEntry(object $row, int $client, int $amount, int $balance): array
+    {
+        $invoice = (int) ($row->relid ?? 0);
+
+        return [
+            'client_id' => $client,
+            'amount' => $amount,
+            'balance_after' => $balance,
+            'description' => Str::limit(Whmcs::text($row->description ?? ''), 250, '') ?: 'Credit from WHMCS',
+            'invoice_id' => isset($this->invoices[$invoice]) ? $invoice : null,
+            'created_at' => Whmcs::dateTime($row->date ?? null) ?? $this->run->now,
+        ];
     }
 
     /**
@@ -279,21 +302,9 @@ class HistoryImporter
                     continue;
                 }
 
-                $asked = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
-                $type = str_contains(strtolower((string) ($row->type ?? '')), 'immediate') ? CancellationRequest::IMMEDIATE : CancellationRequest::END_OF_PERIOD;
                 $ended = in_array($service->status, [ServiceStatus::Cancelled->value, ServiceStatus::Terminated->value], true);
                 $waiting += $ended ? 0 : 1;
-
-                $this->run->queue('cancellation_requests', [
-                    'service_id' => (int) $service->id,
-                    'type' => $type,
-                    'reason' => Whmcs::text($row->reason ?? '') ?: null,
-                    'status' => $ended ? CancellationRequest::COMPLETED : CancellationRequest::PENDING,
-                    'cancel_on' => Whmcs::day($type === CancellationRequest::END_OF_PERIOD && $service->next_due_date ? substr((string) $service->next_due_date, 0, 10) : substr($asked, 0, 10)),
-                    'completed_at' => $ended ? ($service->terminated_at ?? $asked) : null,
-                    'created_at' => $asked,
-                    'updated_at' => $this->run->now,
-                ]);
+                $this->run->queue('cancellation_requests', $this->cancellation($row, $service, $ended));
                 $this->run->report->imported(self::CANCELLATIONS);
             }
         });
@@ -301,6 +312,25 @@ class HistoryImporter
         if ($waiting > 0) {
             $this->run->report->note(self::CANCELLATIONS, "{$waiting} request(s) are for services WHMCS hadn't cancelled yet. They came over waiting, so those services won't renew and the billing run cancels them on their date. Withdraw any that shouldn't go ahead on the service's page before the first billing run.");
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function cancellation(object $row, object $service, bool $ended): array
+    {
+        $asked = Whmcs::dateTime($row->date ?? null) ?? $this->run->now;
+        $type = str_contains(strtolower((string) ($row->type ?? '')), 'immediate') ? CancellationRequest::IMMEDIATE : CancellationRequest::END_OF_PERIOD;
+        $from = $type === CancellationRequest::END_OF_PERIOD && $service->next_due_date ? (string) $service->next_due_date : $asked;
+
+        return [
+            'service_id' => (int) $service->id,
+            'type' => $type,
+            'reason' => Whmcs::text($row->reason ?? '') ?: null,
+            'status' => $ended ? CancellationRequest::COMPLETED : CancellationRequest::PENDING,
+            'cancel_on' => Whmcs::day(substr($from, 0, 10)),
+            'completed_at' => $ended ? ($service->terminated_at ?? $asked) : null,
+            'created_at' => $asked,
+            'updated_at' => $this->run->now,
+        ];
     }
 
     /** The WHMCS activity log, as it was, with who did each thing. */

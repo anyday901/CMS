@@ -26,6 +26,12 @@ use Tests\TestCase;
 
 class ReportsTest extends TestCase
 {
+    private const PAID_AT = '2026-09-10 09:00:00';
+
+    private const LATER_AT = '2026-09-20 10:00:00';
+
+    private const TWENTY = '$20.00';
+
     use RefreshDatabase;
 
     private Client $client;
@@ -68,7 +74,7 @@ class ReportsTest extends TestCase
         }
 
         $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id]);
-        $this->paidInvoice($service, 1000, '2026-09-10 09:00:00');
+        $this->paidInvoice($service, 1000, self::PAID_AT);
         $department = Department::create(['name' => 'Support']);
         $ticket = Ticket::create(['client_id' => $this->client->id, 'department_id' => $department->id, 'subject' => 'Help', 'status' => 'closed', 'priority' => 'medium', 'closed_at' => now()]);
         TicketMessage::create(['ticket_id' => $ticket->id, 'client_id' => $this->client->id, 'body' => 'Hi']);
@@ -105,22 +111,22 @@ class ReportsTest extends TestCase
     public function test_income_reports_count_payments_less_refunds_but_not_credit(): void
     {
         $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id]);
-        $invoice = $this->paidInvoice($service, 2000, '2026-09-10 09:00:00');
+        $invoice = $this->paidInvoice($service, 2000, self::PAID_AT);
         $this->paidInvoice($service, 2000, '2025-09-10 09:00:00');
-        Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'gateway' => 'paypal', 'currency' => 'USD', 'amount' => -500])->forceFill(['created_at' => '2026-09-20 10:00:00'])->save();
-        Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'gateway' => CreditApplier::GATEWAY, 'currency' => 'USD', 'amount' => 700])->forceFill(['created_at' => '2026-09-20 10:00:00'])->save();
-        Transaction::create(['client_id' => $this->client->id, 'gateway' => 'paypal', 'currency' => 'EUR', 'amount' => 9900])->forceFill(['created_at' => '2026-09-20 10:00:00'])->save();
+        Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'gateway' => 'paypal', 'currency' => 'USD', 'amount' => -500])->forceFill(['created_at' => self::LATER_AT])->save();
+        Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'gateway' => CreditApplier::GATEWAY, 'currency' => 'USD', 'amount' => 700])->forceFill(['created_at' => self::LATER_AT])->save();
+        Transaction::create(['client_id' => $this->client->id, 'gateway' => 'paypal', 'currency' => 'EUR', 'amount' => 9900])->forceFill(['created_at' => self::LATER_AT])->save();
 
         $this->get('/admin/reports/annual-income?from=2025-01-01&to=2026-12-31')->assertOk()
-            ->assertSeeInOrder(['2025', '$20.00', '2026', '$15.00', 'Total', '$35.00']);
+            ->assertSeeInOrder(['2025', self::TWENTY, '2026', '$15.00', 'Total', '$35.00']);
 
         $csv = $this->get('/admin/reports/monthly-transactions/export?from=2026-09-01&to=2026-09-30')->streamedContent();
         $this->assertStringContainsString("Month,Payments,\"Amount in\",Fees,Refunds,Balance\n2026-09,1,20.00,0.50,5.00,14.50", $csv);
 
         $this->get('/admin/reports/monthly-transactions?from=2026-09-01&to=2026-09-30&currency=EUR')->assertOk()->assertSee('€99.00');
 
-        $this->get('/admin/reports/top-clients?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['Ada Lovelace', '$20.00', '$5.00', '$15.00']);
-        $this->get('/admin/reports/income-by-product?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['VPS Small', '$20.00']);
+        $this->get('/admin/reports/top-clients?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['Ada Lovelace', self::TWENTY, '$5.00', '$15.00']);
+        $this->get('/admin/reports/income-by-product?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['VPS Small', self::TWENTY]);
     }
 
     public function test_the_forecast_steps_each_active_service_through_its_renewals(): void
@@ -169,7 +175,7 @@ class ReportsTest extends TestCase
     public function test_tax_is_grouped_by_country_and_rate_and_can_show_only_the_eu(): void
     {
         $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id]);
-        $this->paidInvoice($service, 1000, '2026-09-10 09:00:00', 190, 1900);
+        $this->paidInvoice($service, 1000, self::PAID_AT, 190, 1900);
         $american = Client::factory()->create(['country' => 'US']);
         $this->paidInvoice(Service::factory()->create(['client_id' => $american->id, 'product_id' => $this->product->id]), 5000, '2026-09-11 09:00:00');
 
@@ -196,7 +202,7 @@ class ReportsTest extends TestCase
         $promotion = Promotion::create(['code' => 'SAVE10', 'type' => Promotion::PERCENT, 'value' => 1000, 'recurring' => true]);
         $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id, 'promotion_id' => $promotion->id, 'status' => ServiceStatus::Suspended]);
         DB::table('services')->where('id', $service->id)->update(['suspension_reason' => 'Overdue on payment']);
-        $invoice = $this->paidInvoice($service, 900, '2026-09-10 09:00:00');
+        $invoice = $this->paidInvoice($service, 900, self::PAID_AT);
         Order::create(['client_id' => $this->client->id, 'invoice_id' => $invoice->id, 'status' => 'active', 'promotion_id' => $promotion->id, 'promotion_code' => 'SAVE10'])->forceFill(['created_at' => '2026-09-10 08:00:00'])->save();
         CancellationRequest::create(['service_id' => $service->id, 'type' => CancellationRequest::IMMEDIATE, 'reason' => 'Too expensive ', 'cancel_on' => '2026-09-10', 'status' => 'completed']);
         CancellationRequest::create(['service_id' => $service->id, 'type' => CancellationRequest::END_OF_PERIOD, 'reason' => 'too   expensive', 'cancel_on' => '2026-10-10', 'status' => 'withdrawn']);

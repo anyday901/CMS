@@ -12,6 +12,7 @@ use App\Reports\ReportResult;
 use App\Reports\ReportTable;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /** One client's invoices and payments in date order, with the balance after each. */
@@ -68,22 +69,12 @@ class ClientStatement extends Report
 
         $lines = collect();
         foreach ((clone $invoices)->whereBetween('issue_date', [$start->toDateString(), $filters->to->toDateString()])->get() as $invoice) {
-            $lines->push(['at' => "{$invoice->issue_date} 00:00:00", 'date' => $invoice->issue_date, 'type' => 'Invoice', 'reference' => "#{$invoice->number}", 'description' => 'Due '.CarbonImmutable::parse($invoice->due_date)->format('M j, Y'), 'debit' => (int) $invoice->total, 'credit' => 0, '_links' => ['reference' => route('admin.invoices.show', $invoice->id)]]);
+            $lines->push($this->invoiceLine($invoice));
         }
         $paid = (clone $payments)->whereBetween('created_at', $filters->between())->get();
         $numbers = DB::table('invoices')->whereIn('id', $paid->pluck('invoice_id')->filter())->pluck('number', 'id');
         foreach ($paid as $payment) {
-            $amount = (int) $payment->amount;
-            $lines->push([
-                'at' => (string) $payment->created_at,
-                'date' => substr((string) $payment->created_at, 0, 10),
-                'type' => $amount < 0 ? 'Refund' : ($payment->gateway === CreditApplier::GATEWAY ? 'Credit applied' : 'Payment'),
-                'reference' => $payment->invoice_id ? '#'.($numbers[$payment->invoice_id] ?? $payment->invoice_id) : '',
-                'description' => $payment->gateway === CreditApplier::GATEWAY ? 'From credit balance' : ucfirst((string) $payment->gateway).($payment->gateway_reference ? " {$payment->gateway_reference}" : ''),
-                'debit' => $amount < 0 ? -$amount : 0,
-                'credit' => max(0, $amount),
-                '_links' => $payment->invoice_id ? ['reference' => route('admin.invoices.show', $payment->invoice_id)] : [],
-            ]);
+            $lines->push($this->paymentLine($payment, $numbers));
         }
 
         $table = new ReportTable([
@@ -113,5 +104,56 @@ class ClientStatement extends Report
     public static function label(Client $client): string
     {
         return "#{$client->id} {$client->fullName()} ({$client->email})";
+    }
+
+    /** @return array<string, mixed> */
+    private function invoiceLine(object $invoice): array
+    {
+        return [
+            'at' => "{$invoice->issue_date} 00:00:00",
+            'date' => $invoice->issue_date,
+            'type' => 'Invoice',
+            'reference' => "#{$invoice->number}",
+            'description' => 'Due '.CarbonImmutable::parse($invoice->due_date)->format('M j, Y'),
+            'debit' => (int) $invoice->total,
+            'credit' => 0,
+            '_links' => ['reference' => route('admin.invoices.show', $invoice->id)],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, string>  $numbers  invoice id => invoice number
+     * @return array<string, mixed>
+     */
+    private function paymentLine(object $payment, Collection $numbers): array
+    {
+        $amount = (int) $payment->amount;
+        $fromCredit = $payment->gateway === CreditApplier::GATEWAY;
+
+        if ($amount < 0) {
+            $type = 'Refund';
+        } else {
+            $type = $fromCredit ? 'Credit applied' : 'Payment';
+        }
+
+        $reference = '';
+        $links = [];
+        if ($payment->invoice_id) {
+            $reference = '#'.($numbers[$payment->invoice_id] ?? $payment->invoice_id);
+            $links = ['reference' => route('admin.invoices.show', $payment->invoice_id)];
+        }
+
+        $gateway = ucfirst((string) $payment->gateway).($payment->gateway_reference ? " {$payment->gateway_reference}" : '');
+
+        return [
+            'at' => (string) $payment->created_at,
+            'date' => substr((string) $payment->created_at, 0, 10),
+            'type' => $type,
+            'reference' => $reference,
+            'description' => $fromCredit ? 'From credit balance' : $gateway,
+            'debit' => max(0, -$amount),
+            'credit' => max(0, $amount),
+            '_links' => $links,
+        ];
     }
 }
