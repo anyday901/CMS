@@ -18,7 +18,8 @@ class DownloadController extends Controller
 {
     /**
      * Largest upload, in KB (7.5 MB), under SonarCloud's 8,000,000 byte ceiling.
-     * PHP's upload_max_filesize and post_max_size must allow it too.
+     * PHP's upload_max_filesize and post_max_size must allow it too. The validation
+     * rule spells it out as a literal so SonarCloud can check it; keep the two in step.
      */
     public const MAX_KB = 7680;
 
@@ -89,7 +90,7 @@ class DownloadController extends Controller
             'download_category_id' => ['required', 'exists:download_categories,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
-            'file' => [$new ? 'required' : 'nullable', 'file', 'max:'.self::MAX_KB],
+            'file' => [$new ? 'required' : 'nullable', 'file', 'max:7680'],
             'product_ids' => ['array'],
             'product_ids.*' => ['exists:products,id'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:100000'],

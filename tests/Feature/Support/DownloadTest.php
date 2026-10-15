@@ -3,6 +3,7 @@
 namespace Tests\Feature\Support;
 
 use App\Enums\ServiceStatus;
+use App\Http\Controllers\Admin\DownloadController;
 use App\Models\Client;
 use App\Models\Download;
 use App\Models\DownloadCategory;
@@ -82,6 +83,8 @@ class DownloadTest extends TestCase
         $upload(7680 + 1)->assertSessionHasErrors('file');
         $upload(7680)->assertRedirect(self::ADMIN);
         $this->assertSame(7680 * 1024, Download::sole()->size);
+        // The rule repeats the limit as a literal for SonarCloud; the form shows the constant.
+        $this->assertSame(7680, DownloadController::MAX_KB);
     }
 
     public function test_who_can_download(): void
