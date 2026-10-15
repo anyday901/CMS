@@ -366,3 +366,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     Route::resource('staff', Admin\StaffController::class)->except('show')->parameters(['staff' => 'user']);
     Route::delete('staff/{user}/two-factor', [Admin\StaffController::class, 'resetTwoFactor'])->name('staff.two-factor.reset');
 });
+
+// Keys for the REST API (see docs/api.md).
+Route::prefix('admin/settings/api-keys')->name('admin.api-keys.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])
+    ->controller(Admin\ApiKeyController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('{apiKey}/edit', 'edit')->name('edit');
+        Route::put('{apiKey}', 'update')->name('update');
+        Route::post('{apiKey}/revoke', 'revoke')->name('revoke');
+        Route::delete('{apiKey}', 'destroy')->name('destroy');
+    });
