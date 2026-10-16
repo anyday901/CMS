@@ -19,7 +19,7 @@
             <label class="flex items-center gap-2"><input type="checkbox" name="options[{{ $option->id }}]" value="1" @checked((string) $value === '1')> {{ $option->name }}{{ $option->choices->first() ? $price($option->choices->first()) : '' }}</label>
         </div>
     @else
-        <label class="block">{{ $option->name }}{{ $option->choices->first() ? $price($option->choices->first()) : '' }}{{ $option->choices->first() && isset($cycleHint) && $option->choices->first()->priceFor($cycleHint) ? ' each' : '' }}
+        <label class="block">{{ $option->name }}{{ $option->choices->first() ? $price($option->choices->first()) : '' }}{{ $option->choices->first() && isset($cycleHint) && $option->choices->first()->priceFor($cycleHint) ? ' '.__('each') : '' }}
             <input type="number" name="options[{{ $option->id }}]" value="{{ $value ?? $option->min_quantity }}" min="{{ $option->min_quantity }}" @if ($option->max_quantity !== null) max="{{ $option->max_quantity }}" @endif class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
         </label>
     @endif

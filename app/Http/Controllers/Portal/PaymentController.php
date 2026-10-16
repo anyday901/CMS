@@ -38,8 +38,8 @@ class PaymentController extends Controller
         }
 
         session()->flash('status', $transaction
-            ? 'Thank you, your payment was received.'
-            : 'Thank you. PayPal is still processing your payment, and this invoice will update when it clears.');
+            ? __('Thank you, your payment was received.')
+            : __('Thank you. PayPal is still processing your payment, and this invoice will update when it clears.'));
 
         return response()->json(['redirect' => route('portal.invoices.show', $invoice)]);
     }
@@ -56,7 +56,7 @@ class PaymentController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        session()->flash('status', 'Thank you, your payment was received.');
+        session()->flash('status', __('Thank you, your payment was received.'));
 
         return response()->json(['redirect' => route('portal.invoices.show', $invoice)]);
     }
@@ -66,7 +66,7 @@ class PaymentController extends Controller
     {
         $invoice = $request->user('client')->invoices()->findOrFail($id);
 
-        abort_unless($invoice->status === InvoiceStatus::Unpaid && $invoice->balance() > 0, 409, 'This invoice has nothing left to pay.');
+        abort_unless($invoice->status === InvoiceStatus::Unpaid && $invoice->balance() > 0, 409, __('This invoice has nothing left to pay.'));
 
         return $invoice;
     }

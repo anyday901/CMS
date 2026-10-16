@@ -18,19 +18,23 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - A knowledge base with search, announcements (both translatable, knowledge base categories too), a network status page and a downloads area
 - Account security: two-factor authentication for clients and staff, contacts with their own logins and permissions (one login can reach several accounts, with remember-me), emails about logins from new devices, email verification, login history, failed login lockout, IP bans, CAPTCHA on public forms, and GDPR data export and anonymising
 - An importer for existing WHMCS installs
+- The portal and client emails in several languages (English, German, French and Spanish ship), with staff able to change any wording
+- Portal themes, template overrides and white-label settings (logo, colours, company details), and SMTP and other mail settings in the admin area
+- A web installer, one-click updates, database backups, maintenance mode and a system health page
+- A marketplace of add-ons and themes, a documentation site with a module developer guide, and a demo mode for a public demo instance
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
 
 ## Requirements
 
-- PHP 8.3 or newer with the bcmath, curl, intl, mbstring, mysql, sqlite3, xml and zip extensions
+- PHP 8.3 or newer with the bcmath, curl, gd, intl, mbstring, mysql, sqlite3, xml and zip extensions
 - Composer, and Node 20.19 or newer (Node 22 recommended)
 - MySQL 8 / MariaDB 10.6 or newer (SQLite works for local development)
 
 On Ubuntu 24.04:
 
 ```sh
-sudo apt install php8.3-cli php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring \
+sudo apt install php8.3-cli php8.3-bcmath php8.3-curl php8.3-gd php8.3-intl php8.3-mbstring \
   php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip unzip
 ```
 
@@ -54,13 +58,15 @@ php artisan admin:create
 php artisan serve
 ```
 
-Then open http://localhost:8000/admin and log in with the staff account you just created (it is an admin). To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
+Then open http://localhost:8000/admin and log in with the staff account you just created (it is an admin). Skip `admin:create` to try the web installer at `/install` instead; every page goes there until a staff account exists. `php artisan demo:reset --force` fills a development database with the demo data (it wipes it first). To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
 
 Run the tests with `php artisan test`.
 
 ## Installing on a server
 
-[docs/install.md](docs/install.md) walks through a production install on Ubuntu with Nginx, PHP-FPM, MariaDB, cron for the scheduler and a systemd queue worker, plus updates and backups. It also covers the included Docker Compose setup (`Dockerfile` and `docker-compose.yml`), which runs the app with Nginx, MariaDB, Redis, a queue worker and the scheduler.
+[docs/install.md](docs/install.md) walks through a production install on Ubuntu with Nginx, PHP-FPM, MariaDB, cron for the scheduler and a systemd queue worker, plus updates and backups. It also covers the included Docker Compose setup (`Dockerfile` and `docker-compose.yml`), which runs the app with Nginx, MariaDB, Redis, a queue worker and the scheduler. A release download (`cms.zip` from GitHub releases) has `vendor/` and the built assets, sets itself up with the web installer at `/install`, and updates with one click under **Settings > Updates**.
+
+The documentation is also a site, built from `docs/` with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`) and published to GitHub Pages; see [docs/release.md](docs/release.md#the-docs-site-and-the-marketplace-registry). The developer guide for modules, gateways, themes and translations starts at [docs/developers/index.md](docs/developers/index.md), and [docs/demo.md](docs/demo.md) sets up a public demo instance.
 
 ## Moving from WHMCS
 
@@ -150,7 +156,13 @@ Test with sandbox credentials first; both providers have sandbox accounts for fa
 
 ## Look and feel
 
-The admin area and client portal share one theme, Harbor, defined in `resources/css/app.css`. Views use `brand` colors for buttons and links and `ink` colors for text, borders and backgrounds, so changing those values (and the fonts and corner sizes next to them) restyles the whole app. Run `npm run build` after editing it. The Figtree and Bricolage Grotesque fonts come from npm and are served by the app itself.
+The admin area and client portal share one built-in theme, Harbor, defined in `resources/css/app.css`. Views use `brand` colors for buttons and links and `ink` colors for text, borders and backgrounds. The Figtree and Bricolage Grotesque fonts come from npm and are served by the app itself.
+
+**Settings > Appearance** picks the portal theme (Harbor, the Lighthouse example in `themes/lighthouse`, or one from the marketplace) and sets the white-label details: the logo, a brand colour, the company name, address, email and tax id, the admin area's name, and whether to show "Powered by CMS". A theme recolours the portal from two colours, can add a stylesheet and can replace any client-facing view; `themes/overrides/views` replaces views for your own site on top of any theme. The admin area always keeps the built-in look. See [docs/admin/appearance.md](docs/admin/appearance.md) and, for building themes, [docs/developers/themes.md](docs/developers/themes.md).
+
+### Languages
+
+The portal, store, public support pages and client emails come in the languages offered under **Settings > Languages**. Visitors get their browser's language and can pick another; signed-in clients keep theirs on their account (staff can set it on the client), and their emails use it. English, German, French and Spanish ship in `lang/`; **Settings > Portal text and translations** changes any string in any language, and **Email templates** has a tab per language. `php artisan lang:check` lists strings a translation is missing. See [docs/admin/languages.md](docs/admin/languages.md) and [docs/developers/translations.md](docs/developers/translations.md).
 
 ## Admin area
 
@@ -213,7 +225,7 @@ Each staff account has one role:
 | Admin | Everything, including staff, products, tax rules, departments, email templates, the email log, settings and the activity log |
 | Billing | Create and edit clients, services and invoices; record payments, apply credit and refund; handle tickets; see reports |
 | Support | Handle tickets; look at clients, services and invoices, and download invoice PDFs, without changing them |
-| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets, see reports |
+| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets, see reports, and the system (backups, updates, themes and marketplace packages, maintenance mode) |
 
 Every role can look at clients, services, invoices and tasks. A custom staff member with nothing ticked can only look.
 
@@ -271,6 +283,29 @@ Turn on the affiliate program under **Settings > Affiliates**. Clients get a ref
 ### Add-ons
 
 **Settings > Add-ons** installs, configures and enables optional modules. The **Project management** add-on ships with the app: projects for clients with tasks, time tracking and a timer, and billable time put on a draft invoice. Developers can write their own add-ons and listen to events with the hook system; see [docs/addons.md](docs/addons.md).
+
+### Mail settings
+
+**Settings > Mail** sets how email is sent (SMTP with server, port, security and login, Sendmail, or log only) and who it comes from, replacing the `MAIL_*` settings in `.env`. The SMTP password is stored encrypted. **Send a test email** checks the settings straight away. See [docs/admin/mail.md](docs/admin/mail.md).
+
+### System: health, maintenance, backups and updates
+
+Staff with the system ability (admins) get:
+
+- **Settings > System**: a health page checking PHP and its extensions, the database and migrations, the scheduler and queue, mail, storage, disk space, debug mode, HTTPS, backups and updates. `GET /health` answers 200 or 503 for uptime monitors (with `?token=` set to `HEALTH_TOKEN`, it lists each check).
+- **Settings > Maintenance**: takes the portal, store and public pages offline with a message, while staff keep working (and see the site).
+- **Settings > Backups**: database backups (MySQL, MariaDB or SQLite, as gzipped SQL, without `mysqldump`) on demand or every day or week, kept for a set number and optionally copied to another disk such as S3. `php artisan backup:run` and `php artisan backup:restore` do the same from the command line.
+- **Settings > Updates**: checks GitHub releases, shows the notes and installs an update with one click, with a checksum check, a database and file backup and automatic rollback. `php artisan cms:update` does it from the command line. Git checkouts and Docker images are updated as before.
+
+See [docs/admin/system.md](docs/admin/system.md).
+
+### Marketplace
+
+**Settings > Marketplace** installs add-ons and themes from a registry (by default the official one, built from `marketplace/` and published with the docs), checking each download's SHA-256, or from an uploaded zip. `MARKETPLACE_INSTALLS=false` allows browsing only. `php artisan marketplace:package` and `marketplace:registry` build packages and a registry. See [docs/admin/marketplace.md](docs/admin/marketplace.md) and [docs/developers/marketplace.md](docs/developers/marketplace.md).
+
+### Demo mode
+
+`DEMO_MODE=true` turns an install into a public demo: `php artisan demo:reset` fills it with a sample company, the logins are shown on the login pages, email goes to the log, staff, mail, backup, maintenance, update and marketplace changes are refused, and it resets itself every `DEMO_RESET_HOURS` hours. See [docs/demo.md](docs/demo.md).
 
 ### Settings
 
@@ -457,8 +492,16 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `SMS_PROVIDER` | (off) | `twilio`, `vonage` or `log`, with `SMS_FROM`; credentials are set under **Settings > SMS** |
 | `SMS_DEFAULT_COUNTRY_CODE` | `1` | Country calling code for client phone numbers written without + or 00 |
 | `AFFILIATES_ENABLED` | `false` | Run the affiliate program; its other settings are under **Settings > Affiliates** |
+| `THEME` | `harbor` | The portal theme; also under **Settings > Appearance**, with `BRANDING_COLOR`, `BRANDING_ADMIN_NAME` and `BRANDING_HIDE_POWERED_BY` |
+| `MAINTENANCE_MODE` | `false` | Show the maintenance page on the portal and store, with `MAINTENANCE_MESSAGE` |
+| `BACKUPS_SCHEDULE` | `daily` | `daily`, `weekly` or `off`, at `BACKUPS_TIME` (`01:30`), keeping `BACKUPS_KEEP` (`14`), copied to `BACKUPS_DISK` if set |
+| `INSTALLER_ENABLED` | `true` | Answer the web installer at `/install` until the first staff account exists |
+| `UPDATES_ENABLED` | `true` | Offer updates from the GitHub releases of `UPDATES_REPOSITORY` under **Settings > Updates** |
+| `MARKETPLACE_REGISTRY_URL` | the official registry | Where **Settings > Marketplace** lists packages from; `MARKETPLACE_INSTALLS=false` to only browse |
+| `HEALTH_TOKEN` | (none) | Token for the detailed `/health?token=...` |
+| `DEMO_MODE` | `false` | Run as a public demo instance; reset every `DEMO_RESET_HOURS` (`3`) |
 
-Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set, IP bans that have ended and devices unused for a year, webhook deliveries older than 30 days and texts older than 90 days. `php artisan affiliates:clear` approves affiliate commissions whose clearing days are up, every night. The security settings are on **Settings > Security**.
+Late fees are added once per invoice and are not taxed. Each reminder is sent once per invoice, and a reminder skipped on a missed night is sent on the next run. The late fee, tax-inclusive, invoice PDF, order review, activity log, inactive ticket, business hours, guest ticket and language settings can also be changed on the admin **Settings** page, which also has the ticket spam filter. The email and spam log is cleared of entries older than 90 days every night, and so are login history older than the days set, IP bans that have ended and devices unused for a year, webhook deliveries older than 30 days and texts older than 90 days. `php artisan affiliates:clear` approves affiliate commissions whose clearing days are up, every night. `php artisan backup:run --scheduled` backs up the database on the schedule set under **Settings > Backups**, and in demo mode `demo:reset` resets the demo. The security settings are on **Settings > Security**.
 
 ## License
 

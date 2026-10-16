@@ -1,0 +1,13 @@
+{
+    "key": "lighthouse",
+    "name": "Lighthouse",
+    "description": "Cool blue and slate with square corners. An example theme to copy when you make your own.",
+    "version": "1.0.0",
+    "author": "CMS",
+    "requires": "1.0.0",
+    "colors": {
+        "brand": "#2563eb",
+        "ink": "#475569"
+    },
+    "stylesheet": "theme.css"
+}

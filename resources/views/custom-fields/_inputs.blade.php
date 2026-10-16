@@ -11,12 +11,12 @@
             @if ($field->help)<span class="text-ink-500">{{ $field->help }}</span>@endif
         </div>
     @else
-        <label for="{{ $inputId }}" class="block {{ $field->type === 'textarea' ? ($wide ?? '') : '' }}">{{ $field->name }}@if ($field->required) <span class="text-ink-500">(required)</span>@endif
+        <label for="{{ $inputId }}" class="block {{ $field->type === 'textarea' ? ($wide ?? '') : '' }}">{{ $field->name }}@if ($field->required) <span class="text-ink-500">{{ __('(required)') }}</span>@endif
             @if ($field->type === 'textarea')
                 <textarea id="{{ $inputId }}" name="custom_fields[{{ $field->id }}]" rows="3" @required($field->required) class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">{{ $value }}</textarea>
             @elseif ($field->type === 'dropdown')
                 <select id="{{ $inputId }}" name="custom_fields[{{ $field->id }}]" @required($field->required) class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-                    <option value="">{{ $field->required ? 'Choose…' : 'None' }}</option>
+                    <option value="">{{ $field->required ? __('Choose…') : __('None') }}</option>
                     @foreach ($field->choices() as $choice)
                         <option value="{{ $choice }}" @selected($value === $choice)>{{ $choice }}</option>
                     @endforeach

@@ -55,6 +55,12 @@ abstract class Addon
         return null;
     }
 
+    /** A folder of JSON translation files (en.json, de.json, …) for the add-on's strings, merged in while it is installed. */
+    public function langPath(): ?string
+    {
+        return null;
+    }
+
     /** A folder of Blade views, used as "key::name". */
     public function viewsPath(): ?string
     {

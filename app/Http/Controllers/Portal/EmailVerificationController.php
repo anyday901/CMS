@@ -19,10 +19,10 @@ class EmailVerificationController extends Controller
         $route = auth('client')->check() ? 'portal.dashboard' : 'portal.login';
 
         if (! $this->verification->verify($client, $hash)) {
-            return redirect()->route($route)->withErrors(['email' => 'That link is for an email address the account no longer uses. Send a new one from the portal.']);
+            return redirect()->route($route)->withErrors(['email' => __('That link is for an email address the account no longer uses. Send a new one from the portal.')]);
         }
 
-        return redirect()->route($route)->with('status', 'Thanks, your email address is confirmed.');
+        return redirect()->route($route)->with('status', __('Thanks, your email address is confirmed.'));
     }
 
     public function resend(Request $request): RedirectResponse
@@ -30,11 +30,11 @@ class EmailVerificationController extends Controller
         $client = $request->user('client');
 
         if ($client->hasVerifiedEmail()) {
-            return back()->with('status', 'Your email address is already confirmed.');
+            return back()->with('status', __('Your email address is already confirmed.'));
         }
 
         $this->verification->send($client);
 
-        return back()->with('status', "We've sent a new link to {$client->email}.");
+        return back()->with('status', __("We've sent a new link to :email.", ['email' => $client->email]));
     }
 }

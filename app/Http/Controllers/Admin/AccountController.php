@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ManagesTwoFactor;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\LoginAttempt;
+use App\Support\Demo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class AccountController extends Controller
 
     public function password(Request $request): RedirectResponse
     {
+        Demo::refuse();
         $data = $request->validate([
             'current_password' => ['required', 'current_password:web'],
             'password' => ['required', 'confirmed', Password::min(12)],

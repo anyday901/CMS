@@ -9,6 +9,7 @@ use App\Models\LoginAttempt;
 use App\Models\ScheduledTaskRun;
 use App\Models\SmsLog;
 use App\Models\WebhookDelivery;
+use App\Support\Demo;
 use Illuminate\Console\Scheduling\Schedule;
 
 /**
@@ -34,6 +35,12 @@ class Scheduler
             ->description('Check that monitored servers answer');
         $schedule->command('affiliates:clear')->dailyAt('02:30')->withoutOverlapping()
             ->description('Approve affiliate commissions past their clearing days');
+        $schedule->command('backup:run', ['--scheduled'])->dailyAt(self::time((string) config('backups.time'), '01:30'))->withoutOverlapping()
+            ->description('Back up the database, when automatic backups are on under Settings > Backups');
+        if (Demo::enabled() && (int) config('demo.reset_hours') > 0) {
+            $schedule->command('demo:reset')->cron('0 */'.min(23, (int) config('demo.reset_hours')).' * * *')->withoutOverlapping()
+                ->description('Reset the demo data');
+        }
         $schedule->command('activity:prune')->dailyAt('03:15')
             ->description('Delete old activity log entries');
         $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class, WebhookDelivery::class, SmsLog::class]])->dailyAt('03:25')
@@ -43,8 +50,12 @@ class Scheduler
     /** The billing run's time of day, "HH:MM". */
     public static function billingRunTime(): string
     {
-        $time = (string) config('billing.run_time');
+        return self::time((string) config('billing.run_time'), self::BILLING_RUN_TIME);
+    }
 
-        return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time) ? $time : self::BILLING_RUN_TIME;
+    /** A saved "HH:MM", or the default when it isn't one. */
+    private static function time(string $time, string $default): string
+    {
+        return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time) ? $time : $default;
     }
 }

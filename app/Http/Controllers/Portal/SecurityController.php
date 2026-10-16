@@ -51,13 +51,13 @@ class SecurityController extends Controller
         ]);
 
         if (! Hash::check($data['current_password'], (string) $contact->password)) {
-            return back()->withErrors(['current_password' => 'That isn\'t your current password.']);
+            return back()->withErrors(['current_password' => __("That isn't your current password.")]);
         }
 
         $contact->forceFill(['password' => $data['password']])->save();
         Activity::record('Changed their portal password', $contact->client);
 
-        return back()->with('status', 'Your password is changed.');
+        return back()->with('status', __('Your password is changed.'));
     }
 
     protected function twoFactorAccount(): Model

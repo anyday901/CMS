@@ -40,7 +40,7 @@ class AuthController extends Controller
         if ($account === null) {
             $this->security->failed(LoginAttempt::PORTAL, $credentials['email'], $owner, $request);
 
-            throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);
+            throw ValidationException::withMessages(['email' => __('These credentials do not match our records.')]);
         }
 
         if ($account->hasTwoFactor()) {

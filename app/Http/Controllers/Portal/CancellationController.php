@@ -28,8 +28,8 @@ class CancellationController extends Controller
         }
 
         return redirect()->route('portal.services.show', $service)->with('status', $cancellation->status === CancellationRequest::COMPLETED
-            ? 'Your service has been cancelled.'
-            : "Your service will be cancelled on {$cancellation->cancel_on->format('M j, Y')}.");
+            ? __('Your service has been cancelled.')
+            : __('Your service will be cancelled on :date.', ['date' => $cancellation->cancel_on->translatedFormat('M j, Y')]));
     }
 
     public function destroy(Request $request, int $service): RedirectResponse
@@ -43,7 +43,7 @@ class CancellationController extends Controller
             throw ValidationException::withMessages(['cancellation' => $e->getMessage()]);
         }
 
-        return redirect()->route('portal.services.show', $service)->with('status', 'Your cancellation request has been withdrawn.');
+        return redirect()->route('portal.services.show', $service)->with('status', __('Your cancellation request has been withdrawn.'));
     }
 
     private function service(Request $request, int $id): Service

@@ -76,7 +76,7 @@ class ContentTranslationTest extends TestCase
         $this->get(route('kb.article', $this->article), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee(self::TITLE)->assertSee('lang="en"', false);
 
         $this->post(route('help.language'), ['language' => 'fr']);
-        $this->get(route('kb.index'))->assertOk()->assertSee(self::FRENCH_TITLE)->assertSee('<option value="fr" lang="fr" selected>French</option>', false);
+        $this->get(route('kb.index'))->assertOk()->assertSee(self::FRENCH_TITLE)->assertSee('<option value="fr" lang="fr" selected>Français</option>', false);
         $this->post(route('help.language'), ['language' => 'xx'])->assertSessionHasErrors('language');
     }
 
@@ -84,9 +84,9 @@ class ContentTranslationTest extends TestCase
     {
         $this->translate();
 
-        $this->get(route('kb.index', ['q' => 'oublié']), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee('1 result');
+        $this->get(route('kb.index', ['q' => 'oublié']), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee('1 résultat');
         $this->get(route('kb.index', ['q' => 'oublié']), ['Accept-Language' => 'en'])->assertOk()->assertSee('0 results');
-        $this->get(route('kb.index', ['q' => 'password']), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee('1 result');
+        $this->get(route('kb.index', ['q' => 'password']), ['Accept-Language' => self::FRENCH])->assertOk()->assertSee('1 résultat');
         $this->assertSame(self::FRENCH_TITLE, KbArticle::suggest('connexion')->first()?->title ?? 'none', 'Suggestions use the translation too.');
     }
 

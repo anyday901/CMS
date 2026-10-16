@@ -1,0 +1,9 @@
+/* Sunrise: softer, rounder panels over the colours set in theme.json. */
+:root {
+    --radius-md: 1rem;
+    --radius-lg: 1.75rem;
+}
+
+.harbor-backdrop {
+    background-image: radial-gradient(circle at top left, var(--color-brand-100), transparent 60%), linear-gradient(var(--color-ink-50), var(--color-ink-100));
+}

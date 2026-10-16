@@ -1,0 +1,17 @@
+/*
+ * Lighthouse: loaded after the app's CSS on client-facing pages. The brand
+ * and ink colours come from theme.json; this file only changes shapes.
+ */
+:root {
+    --radius-md: 0.25rem;
+    --radius-lg: 0.5rem;
+}
+
+.harbor-backdrop {
+    background-image: linear-gradient(160deg, var(--color-brand-50), var(--color-ink-100));
+}
+
+nav[aria-label] {
+    border-bottom-width: 2px;
+    border-bottom-color: var(--color-brand-600);
+}

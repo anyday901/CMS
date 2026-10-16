@@ -36,12 +36,12 @@ class AffiliateController extends Controller
     public function store(Request $request, AffiliateProgram $program, Referrals $referrals): RedirectResponse
     {
         if (! $program->enabled() || ! $program->selfSignUp()) {
-            return back()->withErrors(['affiliate' => 'Joining the affiliate program isn\'t open at the moment. Please contact us if you\'d like to join.']);
+            return back()->withErrors(['affiliate' => __("Joining the affiliate program isn't open at the moment. Please contact us if you'd like to join.")]);
         }
 
         $referrals->join($request->user('client'));
 
-        return redirect()->route('portal.affiliates.show')->with('status', 'Welcome to the affiliate program. Share your link to start earning.');
+        return redirect()->route('portal.affiliates.show')->with('status', __('Welcome to the affiliate program. Share your link to start earning.'));
     }
 
     public function payout(Request $request, Payouts $payouts): RedirectResponse
@@ -56,6 +56,6 @@ class AffiliateController extends Controller
             return back()->withErrors(['payout' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Thanks, we\'ve got your payout request for '.Money::format($payout->amount, $payout->currency).'. You\'ll see here when it\'s paid.');
+        return back()->with('status', __("Thanks, we've got your payout request for :amount. You'll see here when it's paid.", ['amount' => Money::format($payout->amount, $payout->currency)]));
     }
 }

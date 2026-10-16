@@ -10,7 +10,7 @@ enum StaffRole: string
     case Custom = 'custom';
 
     /** Abilities checked with Gate / the "can" middleware. */
-    public const ABILITIES = ['manage-staff', 'manage-settings', 'manage-clients', 'manage-billing', 'manage-tickets', 'view-reports'];
+    public const ABILITIES = ['manage-staff', 'manage-settings', 'manage-clients', 'manage-billing', 'manage-tickets', 'view-reports', 'manage-system'];
 
     /** What each ability lets staff do, for the staff form. */
     public static function abilityLabel(string $ability): string
@@ -22,6 +22,7 @@ enum StaffRole: string
             'manage-billing' => 'Create and edit invoices, record payments, apply credit and refund',
             'manage-tickets' => 'Answer, assign and close support tickets',
             'view-reports' => 'See reports on income, sales, invoices, tax, clients and support, and download them as CSV',
+            'manage-system' => 'Back up the database, install updates, themes and marketplace packages, and turn maintenance mode on or off',
             default => $ability,
         };
     }

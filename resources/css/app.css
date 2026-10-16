@@ -6,6 +6,8 @@
 @source '../../storage/framework/views/*.php';
 /* Add-ons keep their views beside their code. */
 @source '../../app/Addons/**/*.blade.php';
+/* Themes and this site's template overrides. */
+@source '../../themes/**/*.blade.php';
 
 /*
  * Harbor theme. Views use `brand` (sea green) for actions and links and `ink`

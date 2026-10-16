@@ -1,0 +1,90 @@
+site_name: CMS documentation
+site_description: Documentation for CMS, a free, self-hosted billing, client portal and support platform.
+site_url: https://anyday901.github.io/CMS/
+repo_url: https://github.com/anyday901/CMS
+repo_name: anyday901/CMS
+edit_uri: edit/main/docs/
+copyright: CMS is free software under the AGPL-3.0-or-later license.
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installing: install.md
+      - Running a demo instance: demo.md
+  - Admin guide:
+      - Appearance and white-label: admin/appearance.md
+      - Languages: admin/languages.md
+      - Mail settings: admin/mail.md
+      - Health, maintenance, backups and updates: admin/system.md
+      - Marketplace: admin/marketplace.md
+  - Integrations:
+      - REST API: api.md
+      - Webhooks and notifications: webhooks.md
+      - Software licensing: licensing.md
+  - Developer guide:
+      - Overview: developers/index.md
+      - Add-ons: addons.md
+      - Event hooks: developers/hooks.md
+      - Payment gateways: developers/gateways.md
+      - Provisioning modules: developers/provisioning.md
+      - SMS providers: developers/sms.md
+      - Themes: developers/themes.md
+      - Translations: developers/translations.md
+      - Marketplace packages: developers/marketplace.md
+  - Project:
+      - Product spec: spec.md
+      - Releasing: release.md

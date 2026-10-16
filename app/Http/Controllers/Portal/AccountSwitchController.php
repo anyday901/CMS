@@ -43,6 +43,6 @@ class AccountSwitchController extends Controller
             Activity::record('Switched to this account in the portal', $contact->client);
         }
 
-        return redirect()->intended(route('portal.dashboard'))->with('status', "You're now in {$contact->accountName()}.");
+        return redirect()->intended(route('portal.dashboard'))->with('status', __("You're now in :account.", ['account' => $contact->accountName()]));
     }
 }

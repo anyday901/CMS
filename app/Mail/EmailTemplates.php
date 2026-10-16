@@ -3,6 +3,8 @@
 namespace App\Mail;
 
 use App\Models\EmailTemplate;
+use App\Models\EmailTemplateTranslation;
+use App\Support\Language;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -162,19 +164,22 @@ class EmailTemplates
 
     /**
      * The subject and Markdown body with placeholders filled in, or null when
-     * staff turned the template off.
+     * staff turned the template off. In another language than the main one it
+     * uses staff's translation, else the one CMS ships (lang/{locale}/emails.php),
+     * else the main language.
      *
      * @param  array<string, string|int|null>  $values
      * @return array{subject: string, body: string}|null
      */
-    public static function render(string $key, array $values): ?array
+    public static function render(string $key, array $values, ?string $locale = null): ?array
     {
-        $default = self::definition($key);
         $saved = EmailTemplate::find($key);
 
         if ($saved && ! $saved->enabled) {
             return null;
         }
+
+        $wording = self::wording($key, $locale ?? Language::main(), $saved);
 
         $fill = fn (string $text) => preg_replace_callback(
             '/\{([a-z_]+)\}/',
@@ -183,9 +188,61 @@ class EmailTemplates
         );
 
         return [
-            'subject' => Str::limit(str_replace(["\r", "\n"], ' ', $fill($saved->subject ?? $default['subject'])), 250, ''),
-            'body' => $fill($saved->body ?? $default['body']),
+            'subject' => Str::limit(str_replace(["\r", "\n"], ' ', $fill($wording['subject'])), 250, ''),
+            'body' => $fill($wording['body']),
         ];
+    }
+
+    /**
+     * The unfilled subject and body of a template in a language.
+     *
+     * @return array{subject: string, body: string, source: string} source: saved, shipped or main
+     */
+    public static function wording(string $key, string $locale, ?EmailTemplate $saved = null): array
+    {
+        $default = self::definition($key);
+        $saved ??= EmailTemplate::find($key);
+        $main = ['subject' => $saved->subject ?? $default['subject'], 'body' => $saved->body ?? $default['body']];
+
+        if ($locale === Language::main()) {
+            // A main language other than English starts from the shipped translation until staff edit it.
+            $shipped = $saved === null ? self::shipped($key, $locale) : null;
+
+            $source = $shipped ? 'shipped' : 'main';
+
+            return ($shipped ?? $main) + ['source' => $saved ? 'saved' : $source];
+        }
+
+        $translation = EmailTemplateTranslation::where('template', $key)->where('locale', $locale)->first();
+        if ($translation) {
+            return ['subject' => $translation->subject, 'body' => $translation->body, 'source' => 'saved'];
+        }
+
+        $shipped = self::shipped($key, $locale);
+
+        return $shipped ? $shipped + ['source' => 'shipped'] : $main + ['source' => 'main'];
+    }
+
+    /**
+     * The translation CMS ships for a template, from lang/{locale}/emails.php.
+     *
+     * @return array{subject: string, body: string}|null
+     */
+    public static function shipped(string $key, string $locale): ?array
+    {
+        static $files = [];
+
+        if (! preg_match('/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/', $locale)) {
+            return null;
+        }
+
+        $file = lang_path($locale.'/emails.php');
+        $files[$file] ??= is_file($file) ? (array) require $file : [];
+        $entry = $files[$file][$key] ?? null;
+
+        return is_array($entry) && is_string($entry['subject'] ?? null) && is_string($entry['body'] ?? null)
+            ? ['subject' => $entry['subject'], 'body' => $entry['body']]
+            : null;
     }
 
     /** Markdown to HTML. Raw HTML in the template or in filled-in values is shown as text. */

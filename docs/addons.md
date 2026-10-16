@@ -4,7 +4,7 @@ Add-ons are optional modules that staff install, configure and enable under **Se
 
 ## Installing an add-on
 
-1. Make its class available: list it in `config/addons.php` under `available`, or, from a Composer package's service provider, call `App\Addons\AddonManager::register(MyAddon::class)`.
+1. Make its class available: install it from **Settings > Marketplace** (or upload its zip there; see [Marketplace packages](developers/marketplace.md)), list it in `config/addons.php` under `available`, or, from a Composer package's service provider, call `App\Addons\AddonManager::register(MyAddon::class)`.
 2. Under **Settings > Add-ons**, click **Install**. This runs the add-on's database migrations; it starts disabled.
 3. Fill in its settings under **Configure**, then **Enable** it. Its pages and menu links appear at once.
 
@@ -39,6 +39,7 @@ class StatusAddon extends Addon
 
     public function migrationsPath(): ?string { return __DIR__.'/../database/migrations'; }
     public function viewsPath(): ?string { return __DIR__.'/../resources/views'; }   // status::board
+    public function langPath(): ?string { return __DIR__.'/../lang'; }               // en.json, de.json, ...
 
     public function routes(): void
     {
@@ -65,6 +66,7 @@ What each part does:
 
 - **`settings()`**: fields shown under Configure. Types are `text`, `textarea`, `number`, `checkbox`, `select` (with `options`) and `secret` (not shown again; a blank field keeps it). Add `help`, `default` and Laravel validation `rules`. Read a value with `$this->setting('title')`. Settings are stored encrypted.
 - **`migrationsPath()`**: normal Laravel migrations, run on install and update. Prefix your tables so they can't clash with the core's.
+- **`langPath()`**: a folder of JSON translation files for the add-on's `__()` strings, merged in while it is installed. See [Translations](developers/translations.md).
 - **`routes()`**: always registered, so `php artisan route:cache` works; while the add-on is disabled its routes answer 404. `adminRoutes($path, ...)` adds staff login and two-factor checks under `/admin/{path}` with names `admin.{key}.*`; `portalRoutes($path, ...)` does the same for signed-in clients under `/portal/{path}` with names `portal.{key}.*`. Check abilities with the `can:` middleware as the core does.
 - **`adminLinks()` / `portalLinks()`**: menu links while enabled. Portal links show to the account holder, not to contacts.
 - **`boot()`**: runs on every request while enabled. Listen to events here.

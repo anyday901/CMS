@@ -1,0 +1,13 @@
+{
+    "key": "sunrise",
+    "name": "Sunrise",
+    "description": "Warm coral and stone, with soft rounded panels. A marketplace example theme with colours and a stylesheet only.",
+    "version": "1.0.0",
+    "author": "CMS",
+    "requires": "1.0.0",
+    "colors": {
+        "brand": "#e0573f",
+        "ink": "#57534e"
+    },
+    "stylesheet": "theme.css"
+}

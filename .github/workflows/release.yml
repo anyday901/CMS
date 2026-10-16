@@ -1,0 +1,77 @@
+name: Release
+
+# Pushing a version tag (v1.2.3) builds cms.zip, with vendor/ and the built
+# assets, and its checksum, and attaches both to the GitHub release for that
+# tag. Settings > Updates installs from them.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, mbstring, zip, intl, gd
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Check the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "$TAG isn't a version tag such as v1.2.3." >&2
+            exit 1
+          fi
+
+      - name: Build the release folder
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/cms
+          git archive --format=tar HEAD | tar -x -C dist/cms
+          cd dist/cms
+          echo "${TAG#v}" > VERSION
+          composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction --no-progress
+          npm ci --ignore-scripts
+          npm run build
+          rm -rf node_modules tests .github docs marketplace mkdocs.yml requirements-docs.txt phpunit.xml
+
+      - name: Zip it
+        run: |
+          cd dist
+          zip -qr -X cms.zip cms
+          sha256sum cms.zip > cms.zip.sha256
+          cat cms.zip.sha256
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes $([[ "$TAG" == *-* ]] && echo --prerelease)
+          fi
+          gh release upload "$TAG" dist/cms.zip dist/cms.zip.sha256 --repo "$GITHUB_REPOSITORY" --clobber

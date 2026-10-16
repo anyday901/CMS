@@ -6,7 +6,7 @@ Status: draft for Corey's review. Assumptions are marked **(assumed)**.
 
 A free, self-hosted billing and client management app that can fully replace WHMCS for Corey's business (about 2,500 active clients) and then be published as open source.
 
-Beyond v1, the aim is a direct open source rival to WHMCS: the same breadth of features (ordering, domains, control panel modules, knowledge base, reports, API and so on), so any WHMCS user can switch. v1 stays narrow so Corey can switch first; the parity roadmap is milestones 5 to 12 in [TODO.md](../TODO.md).
+Beyond v1, the aim is a direct open source rival to WHMCS: the same breadth of features (ordering, domains, control panel modules, knowledge base, reports, API and so on), so any WHMCS user can switch. v1 stays narrow so Corey can switch first; the parity roadmap is milestones 5 to 12 in [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 
 ## Stack
 
@@ -83,7 +83,9 @@ Parts of milestone 10 (clients and security) are in too: two-factor authenticati
 
 Parts of milestone 11 (reports and automation) are in too: a Reports area with income, sales, invoice, tax, client and support reports, each with dates, currency and CSV export, behind a reports permission; the WHMCS import brings over the history they read (orders, promotions, the credit log, cancellation requests and the activity log); an automation settings page with every billing run day in one place; a cron status page; mass mail to filtered clients; staff notifications to Slack, Discord or Teams and by SMS; a REST API with keys and permissions; outgoing webhooks and an event hook system for plugins; an add-on module system (with project management as the first add-on); and affiliates.
 
-Still to come in milestone 5: fraud checks on new orders. See [TODO.md](../TODO.md).
+Milestone 12 (platform and community) is in as well: translations of the portal and client emails, portal themes and template overrides, white-label and mail settings in the admin area, a web installer and one-click updater, maintenance mode and a system health page, database backups, a documentation site with a module developer guide, a demo mode, and a marketplace of add-ons and themes. Publishing the docs site, the marketplace registry and a hosted demo are steps for Corey (see [Releasing](release.md)).
+
+Still to come in milestone 5: fraud checks on new orders. See [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 
 ## Out of scope for v1 (planned after v1)
 These come after the switchover, as part of WHMCS parity:
@@ -97,7 +99,7 @@ These come after the switchover, as part of WHMCS parity:
 2. Billing core: clients, products, services, invoices, recurring engine, client portal, PayPal.
 3. Venmo and Cash App, provisioning (manual and webhook), tickets, email.
 4. WHMCS importer, a side-by-side billing cycle on Corey's data, then switchover and public release.
-5. to 12. WHMCS parity: ordering and cart, billing, domains, provisioning modules, support, clients and security, reports and integrations, platform and community. See [TODO.md](../TODO.md).
+5. to 12. WHMCS parity: ordering and cart, billing, domains, provisioning modules, support, clients and security, reports and integrations, platform and community. See [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 
 ## Open questions for Corey
 - AGPL-3.0 or MIT.

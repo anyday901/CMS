@@ -1,6 +1,6 @@
 # Releasing
 
-Releases follow [Semantic Versioning](https://semver.org/) and are tagged `vX.Y.Z` on `main`. [CHANGELOG.md](../CHANGELOG.md) collects changes under **Unreleased** as they are merged.
+Releases follow [Semantic Versioning](https://semver.org/) and are tagged `vX.Y.Z` on `main`. [CHANGELOG.md](https://github.com/anyday901/CMS/blob/main/CHANGELOG.md) collects changes under **Unreleased** as they are merged.
 
 ## v1.0.0 checklist
 
@@ -13,7 +13,7 @@ Before tagging:
 - [ ] Run a side-by-side billing cycle with `php artisan whmcs:compare` and resolve every line that differs.
 - [ ] Test PayPal, Venmo and Cash App with real sandbox accounts, then one small live payment each.
 - [ ] Switch Corey's business over and run it for at least one full billing cycle.
-- [ ] Decide which of the remaining milestone 2 to 4 items in [TODO.md](../TODO.md) are needed for 1.0 (client 2FA, client sign-up and ordering, Harbor colors on PDFs, Corey's custom provisioning module) and which move to 1.1.
+- [ ] Decide which of the remaining milestone 2 to 4 items in [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md) are needed for 1.0 (client 2FA, client sign-up and ordering, Harbor colors on PDFs, Corey's custom provisioning module) and which move to 1.1.
 - [ ] Remove the "Status: early development" note from the README.
 - [ ] Install from scratch with [docs/install.md](install.md) and with Docker Compose, following the steps exactly.
 - [ ] CI and SonarCloud green on `main`.
@@ -30,7 +30,21 @@ Before tagging:
    git push origin v1.0.0
    ```
 
-4. Create a GitHub release from the tag, with that version's changelog section as the notes, and mark it as the latest release.
+4. The **Release** workflow (`.github/workflows/release.yml`) runs on the tag: it builds `cms.zip` (the code with `vendor/`, the built assets and a `VERSION` file holding the version), and its checksum `cms.zip.sha256`, creates the GitHub release if there isn't one yet, and attaches both. Edit the release so its notes are that version's changelog section, and mark it as the latest release. **Settings > Updates** on existing installs then offers it, showing those notes. A tag with a suffix, such as `v1.1.0-beta.1`, is marked as a pre-release.
 5. Tell people: the README, the docs and any announcement link to the release and to [docs/install.md](install.md).
 
 Steps 3 to 5 are public and can't be taken back, so they wait for Corey's go-ahead.
+
+## The docs site and the marketplace registry
+
+The **Docs and marketplace** workflow (`.github/workflows/docs.yml`) builds this documentation with MkDocs (`mkdocs build --strict`) and the marketplace registry with `php artisan marketplace:registry` on every pull request, so broken links or packages fail CI. On `main` it publishes both to GitHub Pages, at `https://anyday901.github.io/CMS/` and `https://anyday901.github.io/CMS/marketplace/registry.json`, once publishing is switched on:
+
+1. In the repository's **Settings > Pages**, set **Source** to **GitHub Actions**.
+2. In **Settings > Secrets and variables > Actions > Variables**, add `DOCS_DEPLOY` with the value `true`.
+3. Re-run the workflow on `main`, or merge anything.
+
+To preview the docs locally: `pip install -r requirements-docs.txt && mkdocs serve`.
+
+## The demo instance
+
+A public demo runs on its own install with `DEMO_MODE=true`; see [Running a demo instance](demo.md).

@@ -10,7 +10,9 @@ use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Service;
 use App\Models\Ticket;
+use App\Support\Language;
 use App\Support\Money;
+use Illuminate\Support\Traits\Localizable;
 
 /**
  * Sends template emails to clients: fills in the template, writes the email
@@ -20,6 +22,8 @@ use App\Support\Money;
  */
 class ClientMailer
 {
+    use Localizable;
+
     /** @param  array<string, string|int|null>  $values */
     public function send(Client $client, string $template, array $values = [], ?Invoice $invoice = null, ?Ticket $ticket = null): ?EmailLog
     {
@@ -27,6 +31,13 @@ class ClientMailer
             return null;
         }
 
+        // Dates and amounts are written in the client's language too.
+        return $this->withLocale(Language::forClient($client), fn () => $this->sendToClient($client, $template, $values, $invoice, $ticket));
+    }
+
+    /** @param  array<string, string|int|null>  $values */
+    private function sendToClient(Client $client, string $template, array $values, ?Invoice $invoice, ?Ticket $ticket): ?EmailLog
+    {
         $definition = EmailTemplates::definition($template);
         $values = array_merge($this->common($client), $invoice ? $this->invoiceValues($invoice) : [], $ticket ? $this->ticketValues($ticket) : [], $values);
 
@@ -56,21 +67,22 @@ class ClientMailer
             return null;
         }
 
-        $values = array_merge([
+        // A guest gets the language they wrote in from the contact form, else the main one.
+        $locale = in_array(app()->getLocale(), Language::all(), true) ? app()->getLocale() : Language::main();
+
+        return $this->withLocale($locale, fn () => $this->deliver($template, array_merge([
             'client_first_name' => $ticket->requesterFirstName(),
             'client_name' => $ticket->requesterName(),
             'company_name' => config('billing.company.name'),
             'portal_url' => $ticket->guestUrl(),
-        ], $this->ticketValues($ticket), $values);
-
-        return $this->deliver($template, $values, $ticket->guest_email, [
+        ], $this->ticketValues($ticket), $values), $ticket->guest_email, [
             'client_id' => null,
             'invoice_id' => null,
             'ticket_id' => $ticket->id,
             'cc' => null,
             'attach_invoice_pdf' => false,
             'reply_to' => $ticket->department->email,
-        ]);
+        ]));
     }
 
     /**
@@ -84,7 +96,7 @@ class ClientMailer
     {
         $client = $contact->client;
 
-        return $this->deliver($template, array_merge($this->common($client), [
+        return $this->withLocale(Language::forClient($client), fn () => $this->deliver($template, array_merge($this->common($client), [
             'client_first_name' => $contact->first_name,
             'client_name' => $contact->fullName(),
             'account_name' => $client->company ?: $client->fullName(),
@@ -95,7 +107,7 @@ class ClientMailer
             'cc' => null,
             'attach_invoice_pdf' => false,
             'reply_to' => null,
-        ]);
+        ]));
     }
 
     /**
@@ -107,7 +119,7 @@ class ClientMailer
     private function deliver(string $template, array $values, string $to, array $log): ?EmailLog
     {
         $definition = EmailTemplates::definition($template);
-        $rendered = EmailTemplates::render($template, $values);
+        $rendered = EmailTemplates::render($template, $values, app()->getLocale());
 
         if ($rendered === null) {
             return null;
@@ -135,14 +147,14 @@ class ClientMailer
         $order->loadMissing(['client', 'invoice', 'services' => fn ($query) => $query->with(['product', 'parent.product'])->orderBy('id')]);
         $currency = $order->invoice->currency ?? $order->client->currency;
 
-        return $this->send($order->client, 'order_confirmation', [
+        return $this->withLocale(Language::forClient($order->client), fn () => $this->send($order->client, 'order_confirmation', [
             'order_number' => $order->id,
-            'order_date' => $order->created_at->format('M j, Y'),
+            'order_date' => $order->created_at->translatedFormat('M j, Y'),
             'order_items' => $order->services->map(fn (Service $service) => '- '.$service->description()
-                .($service->billing_cycle->isRecurring() ? ', '.strtolower($service->billing_cycle->label()) : '')
-                .($service->parent ? " (add-on for {$service->parent->description()})" : ''))->join("\n"),
+                .($service->billing_cycle->isRecurring() ? ', '.mb_strtolower(__($service->billing_cycle->label())) : '')
+                .($service->parent ? ' '.__('(add-on for :service)', ['service' => $service->parent->description()]) : ''))->join("\n"),
             'order_total' => Money::format($order->invoice->total ?? 0, $currency),
-        ], $order->invoice);
+        ], $order->invoice));
     }
 
     /**
@@ -177,7 +189,7 @@ class ClientMailer
             'invoice_number' => $invoice->number,
             'invoice_total' => Money::format($invoice->total, $invoice->currency),
             'invoice_balance' => Money::format($invoice->balance(), $invoice->currency),
-            'invoice_due_date' => $invoice->due_date->format('M j, Y'),
+            'invoice_due_date' => $invoice->due_date->translatedFormat('M j, Y'),
             'invoice_url' => route('portal.invoices.show', $invoice),
         ];
     }

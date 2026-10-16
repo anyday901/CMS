@@ -4,14 +4,21 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name') }} Admin</title>
+    <title>{{ $title ? $title.' · ' : '' }}{{ App\Support\Branding::adminName() }} Admin</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('partials.theme-head', ['admin' => true])
 </head>
 <body class="min-h-screen bg-ink-50 text-ink-900 antialiased {{ auth()->check() ? '' : 'harbor-backdrop' }}">
+    @if (App\Support\Demo::enabled())
+        <div class="bg-brand-700 px-4 py-2 text-center text-sm text-white">This is a demo. Look around and change anything; it resets every few hours, and no email is sent.</div>
+    @endif
+    @if (config('maintenance.enabled') && auth()->check())
+        <div class="bg-sun-300/60 px-4 py-2 text-center text-sm text-amber-900">Maintenance mode is on: visitors see the maintenance notice. <a href="{{ route('admin.maintenance.edit') }}" class="font-medium underline">Turn it off</a></div>
+    @endif
     @auth
         <nav class="border-b border-ink-200 bg-white" aria-label="Admin">
             <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
-                <a href="{{ route('admin.dashboard') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</a>
+                <a href="{{ route('admin.dashboard') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold">@if ($logo = App\Support\Branding::logoUrl())<img src="{{ $logo }}" alt="" class="h-7 w-auto max-w-40 object-contain">@else<span class="brand-mark"></span>@endif{{ App\Support\Branding::adminName() }}</a>
                 @php
                     $settings = auth()->user()->can('manage-settings');
                     $links = array_filter([
@@ -30,6 +37,7 @@
                         'admin.activity.index' => $settings ? 'Activity' : null,
                         'admin.emails.index' => $settings ? 'Emails' : null,
                         'admin.settings.edit' => $settings ? 'Settings' : null,
+                        'admin.system.health' => ! $settings && auth()->user()->can('manage-system') ? 'System' : null,
                         'admin.staff.index' => auth()->user()->can('manage-staff') ? 'Staff' : null,
                     ] + app(App\Addons\AddonManager::class)->adminLinks(auth()->user()));
                 @endphp
@@ -37,7 +45,7 @@
                     // Pages that light up a menu item besides its own.
                     $alsoActive = [
                         'admin.clients.index' => ['admin.mass-mail.*'],
-                        'admin.settings.edit' => ['admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
+                        'admin.settings.edit' => ['admin.mail.*', 'admin.appearance.*', 'admin.languages.*', 'admin.system.*', 'admin.maintenance.*', 'admin.backups.*', 'admin.updates.*', 'admin.marketplace.*', 'admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
                         'admin.kb.index' => ['admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*'],
                     ];
                 @endphp

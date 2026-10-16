@@ -2,6 +2,9 @@
     <div class="mx-auto mt-16 max-w-sm rounded-3xl bg-white p-7 shadow-[0_10px_30px_-12px_rgb(14_124_107/0.35)]">
         <div class="mb-4 flex items-center gap-2 font-display text-base font-extrabold"><span class="brand-mark"></span>{{ config('app.name') }}</div>
         <h1 class="mb-6 text-2xl">Staff log in</h1>
+        @if (App\Support\Demo::enabled())
+            <p class="mb-4 rounded-md bg-brand-50 px-3 py-2 text-sm text-brand-800">Demo login: <strong>{{ config('demo.staff_email') }}</strong>, password <strong>{{ config('demo.password') }}</strong>.</p>
+        @endif
         <form method="POST" action="{{ route('admin.login') }}" class="space-y-4">
             @csrf
             <label class="block text-sm">Email

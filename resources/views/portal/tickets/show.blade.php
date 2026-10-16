@@ -1,4 +1,4 @@
-<x-portal-layout :title="'Ticket #'.$ticket->id">
+<x-portal-layout :title="__('Ticket #:id', ['id' => $ticket->id])">
     @include('tickets._conversation', ['urls' => [
         'close' => route('portal.tickets.close', $ticket),
         'reply' => route('portal.tickets.reply', $ticket),

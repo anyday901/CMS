@@ -52,7 +52,7 @@ class ServiceAccountController extends Controller
         } catch (ModuleError $e) {
             report($e);
 
-            return back()->withErrors(['account' => 'The control panel couldn\'t log you in just now. Use the address and password below, or try again in a few minutes.']);
+            return back()->withErrors(['account' => __("The control panel couldn't log you in just now. Use the address and password below, or try again in a few minutes.")]);
         }
 
         Activity::record("Logged in to the control panel of {$service->description()}", $service);
@@ -71,13 +71,13 @@ class ServiceAccountController extends Controller
 
         $data = $request->validate([
             'password' => ['required', 'string', 'max:64', 'confirmed', 'regex:/^\S+$/', Password::min(10)->letters()->mixedCase()->numbers()],
-        ], ['password.regex' => 'The password can\'t contain spaces.']);
+        ], ['password.regex' => __("The password can't contain spaces.")]);
 
         $service->forceFill(['new_password' => $data['password']])->save();
         Activity::record("Asked for a new password on {$service->description()}", $service);
         $provisioner->queue($service, 'change_password');
 
-        return back()->with('status', 'Your new password is being set. Your old one keeps working until it is.');
+        return back()->with('status', __('Your new password is being set. Your old one keeps working until it is.'));
     }
 
     /** Wipes the account and sets it up again from the product's template. */
@@ -85,12 +85,12 @@ class ServiceAccountController extends Controller
     {
         $service = $this->service($request, $service);
         abort_unless(self::abilities($service, $this->modules)['canReinstall'], 403);
-        $request->validate(['confirm' => ['accepted']], ['confirm.accepted' => 'Tick the box to confirm everything on it will be erased.']);
+        $request->validate(['confirm' => ['accepted']], ['confirm.accepted' => __('Tick the box to confirm everything on it will be erased.')]);
 
         Activity::record("Asked to reinstall {$service->description()}", $service);
         $provisioner->queue($service, 'reinstall');
 
-        return back()->with('status', 'Reinstalling. It can take a few minutes; this page shows when it\'s done.');
+        return back()->with('status', __("Reinstalling. It can take a few minutes; this page shows when it's done."));
     }
 
     /** Frees the license from where it was installed, so it can be installed somewhere else. */
@@ -102,7 +102,7 @@ class ServiceAccountController extends Controller
         $service->license->reissue();
         Activity::record("Reissued the license of {$service->description()}", $service);
 
-        return back()->with('status', 'License reissued. It locks to the next place it is installed.');
+        return back()->with('status', __('License reissued. It locks to the next place it is installed.'));
     }
 
     private function service(Request $request, int $id): Service

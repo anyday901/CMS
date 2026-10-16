@@ -64,6 +64,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Public v1.0.0 release (waits on the switchover and Corey's go-ahead)
 - [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)
 - [x] Clear SonarCloud's upload size alert on downloads (php:S5693)
+- [x] Clear SonarCloud's code smells on the platform features (dedicated exceptions, constants, smaller methods)
 
 ## Milestone 5: Ordering and cart
 - [x] Public product catalogue with product groups
@@ -194,15 +195,19 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Check the WHMCS affiliate import against a real WHMCS database (table and setting names written from WHMCS's schema without a live copy), and import per-product commissions
 
 ## Milestone 12: Platform and community
-- [ ] Translations (multi-language portal and emails)
-- [ ] Portal themes and template overrides
-- [ ] White-label settings (logo, colors, company details in the admin area)
-- [ ] SMTP and other mail settings in the admin area
-- [ ] Web installer and one-click updater
-- [ ] Maintenance mode and system health page
-- [ ] Database backups from the admin area
-- [ ] Documentation site, module developer guide and demo instance
-- [ ] Module and theme marketplace
+- [x] Translations (multi-language portal and emails)
+- [x] Portal themes and template overrides
+- [x] White-label settings (logo, colors, company details in the admin area)
+- [x] SMTP and other mail settings in the admin area
+- [x] Web installer and one-click updater
+- [x] Maintenance mode and system health page
+- [x] Database backups from the admin area
+- [x] Documentation site, module developer guide and demo instance
+- [x] Module and theme marketplace
+- [ ] Publish the docs site and marketplace registry (turn on GitHub Pages and set DOCS_DEPLOY=true; see docs/release.md)
+- [ ] Host a public demo instance (DEMO_MODE=true; see docs/demo.md)
+- [ ] Try the one-click updater against a real tagged release
+- [ ] Translate the remaining English-only portal text: cart and upgrade errors, promotion and affiliate summaries, tax labels, usage and duration labels, CAPTCHA and rating widgets, and Laravel's validation and pagination messages
 
 ## Open questions
 - AGPL-3.0 or MIT license (AGPL assumed for now).

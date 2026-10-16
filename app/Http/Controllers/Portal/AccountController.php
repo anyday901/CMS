@@ -62,10 +62,10 @@ class AccountController extends Controller
         if ($emailChanged) {
             $verification->send($client);
 
-            return back()->with('status', "Your details are saved. We've sent a link to {$client->email} to confirm it's yours.");
+            return back()->with('status', __("Your details are saved. We've sent a link to :email to confirm it's yours.", ['email' => $client->email]));
         }
 
-        return back()->with('status', 'Your details are saved.');
+        return back()->with('status', __('Your details are saved.'));
     }
 
     /** The account holder downloads everything kept about their account. */
@@ -93,7 +93,7 @@ class AccountController extends Controller
             Activity::record($client->sms_notifications ? 'Agreed to account texts' : 'Turned off account texts', $client);
         }
 
-        return back()->with('status', $client->marketing_emails ? "Thanks, we'll email you news and offers." : "You won't get news and offers by email.");
+        return back()->with('status', $client->marketing_emails ? __("Thanks, we'll email you news and offers.") : __("You won't get news and offers by email."));
     }
 
     public function password(Request $request): RedirectResponse
@@ -106,6 +106,6 @@ class AccountController extends Controller
         $request->user('client')->update(['password' => $data['password']]);
         Activity::record('Changed their portal password', $request->user('client'));
 
-        return back()->with('status', 'Your password is changed.');
+        return back()->with('status', __('Your password is changed.'));
     }
 }
