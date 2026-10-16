@@ -2,6 +2,8 @@
 
 namespace App\Billing;
 
+use App\Domains\DomainLine;
+use App\Domains\DomainOrders;
 use App\Enums\BillingCycle;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
@@ -27,6 +29,7 @@ class OrderService
         private CreditApplier $credit,
         private ConfigurableOptions $options,
         private PaymentRecorder $payments,
+        private DomainOrders $domains,
     ) {}
 
     /**
@@ -53,8 +56,10 @@ class OrderService
      * $invoice true the services start pending and activate when that
      * invoice is paid (at once when there is nothing to pay). With $invoice
      * false they start active and the renewal run invoices them from $start.
+     * Domains go on the same invoice and are registered once it's paid.
      *
      * @param  list<OrderLine>  $lines
+     * @param  list<DomainLine>  $domains  Only with $invoice true.
      * @return array{services: list<Service>, invoice: ?Invoice}
      */
     public function place(
@@ -64,10 +69,11 @@ class OrderService
         bool $invoice = true,
         ?Promotion $promotion = null,
         ?Order $order = null,
+        array $domains = [],
     ): array {
         $priced = $this->priceAll($lines, $client->currency);
 
-        $result = DB::transaction(function () use ($client, $priced, $start, $invoice, $promotion, $order) {
+        $result = DB::transaction(function () use ($client, $priced, $start, $invoice, $promotion, $order, $domains) {
             // Serializes a client's orders, so two at once can't both take a product's free trial.
             Client::lockForUpdate()->find($client->id);
             $first = $invoice ? Invoice::create([
@@ -81,6 +87,9 @@ class OrderService
             $order?->update(['invoice_id' => $first?->id]);
 
             $services = $this->createServices($client, $priced, $start, $first, $promotion, $order);
+            if ($first !== null && $domains !== []) {
+                $this->domains->addToInvoice($client, $first, $domains, $order, $start);
+            }
 
             return ['services' => $services, 'invoice' => $first?->recalculate()];
         });

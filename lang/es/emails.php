@@ -69,4 +69,24 @@ return [
         'subject' => '¿Qué tal lo hicimos con el ticket n.º {ticket_id}?',
         'body' => "Hola, {client_first_name}:\n\nSu ticket «{ticket_subject}» ya está cerrado. ¿Podría decirnos qué tal lo hicimos? Solo le llevará unos segundos y nos ayuda a mejorar.\n\n[Valorar nuestro soporte]({feedback_url})\n\nGracias,\n{company_name}",
     ],
+    'domain_registered' => [
+        'subject' => '{domain} está registrado',
+        'body' => "Hola, {client_first_name}:\n\nBuenas noticias: {domain} ya está registrado a tu nombre hasta el {expiry_date}.\n\nPuedes cambiar sus servidores de nombres, los datos de contacto y más en el portal.\n\n[Gestionar {domain}]({domain_url})\n\nGracias,\n{company_name}",
+    ],
+    'domain_transferred' => [
+        'subject' => '{domain} ya está con nosotros',
+        'body' => "Hola, {client_first_name}:\n\nLa transferencia de {domain} ha terminado. Ahora se renueva con nosotros y vence el {expiry_date}.\n\n[Gestionar {domain}]({domain_url})\n\nGracias,\n{company_name}",
+    ],
+    'domain_renewed' => [
+        'subject' => '{domain} está renovado hasta el {expiry_date}',
+        'body' => "Hola, {client_first_name}:\n\n{domain} está renovado y ahora vence el {expiry_date}.\n\n[Gestionar {domain}]({domain_url})\n\nGracias,\n{company_name}",
+    ],
+    'domain_renewal_reminder' => [
+        'subject' => '{domain} vence en {days_left} días',
+        'body' => "Hola, {client_first_name}:\n\n{domain} vence el {expiry_date}. {renewal_note}\n\nRenovarlo por {renewal_years} año(s) cuesta {renewal_amount}.\n\n[Renovar {domain}]({domain_url})\n\nGracias,\n{company_name}",
+    ],
+    'domain_expired' => [
+        'subject' => '{domain} ha vencido',
+        'body' => "Hola, {client_first_name}:\n\n{domain} venció el {expiry_date}. Es posible que los sitios web y el correo que lo usan dejen de funcionar.\n\nLa mayoría de los dominios aún se pueden renovar poco después de vencer, así que renuévalo ahora si quieres conservarlo.\n\n[Renovar {domain}]({domain_url})\n\nGracias,\n{company_name}",
+    ],
 ];

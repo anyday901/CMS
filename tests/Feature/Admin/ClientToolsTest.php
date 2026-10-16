@@ -151,7 +151,7 @@ class ClientToolsTest extends TestCase
         $ticket = app(TicketDesk::class)->open($grace, Department::create(['name' => 'Support']), self::TICKET, 'Help');
 
         $this->get('/admin/search?q=ada+lovelace')->assertOk()->assertSee(self::ADA)->assertDontSee(self::GRACE);
-        $this->get('/admin/search?q=engines.example')->assertSee(self::ADA)->assertSee('Services and domains')->assertSee(route('admin.services.show', $service));
+        $this->get('/admin/search?q=engines.example')->assertSee(self::ADA)->assertSee('Services')->assertSee(route('admin.services.show', $service));
         $this->get('/admin/search?q=ledger')->assertSee(self::GRACE);
         $this->get('/admin/search?q=compiler')->assertSee(self::TICKET)->assertSee('1 result');
         $this->get('/admin/search?q='.$invoice->number)->assertSee(route('admin.invoices.show', $invoice));

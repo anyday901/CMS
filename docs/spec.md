@@ -85,11 +85,12 @@ Parts of milestone 11 (reports and automation) are in too: a Reports area with i
 
 Milestone 12 (platform and community) is in as well: translations of the portal and client emails, portal themes and template overrides, white-label and mail settings in the admin area, a web installer and one-click updater, maintenance mode and a system health page, database backups, a documentation site with a module developer guide, a demo mode, and a marketplace of add-ons and themes. Publishing the docs site, the marketplace registry and a hosted demo are steps for Corey (see [Releasing](release.md)).
 
+Milestone 7 (domains) is in too: domain registration, transfer and renewal orders in the store and cart, TLD pricing per term and currency, availability checks and a WHOIS lookup, a registrar module interface with Enom, Namecheap, OpenSRS and ResellerClub modules (not yet tried against live accounts), a nightly sync of expiry dates and statuses, nameserver, DNS, contact, ID protection and transfer lock management in the portal, and renewal invoices, reminders, expiry notices and auto-renew. See [Domains](admin/domains.md).
+
 Still to come in milestone 5: fraud checks on new orders. See [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 
 ## Out of scope for v1 (planned after v1)
 These come after the switchover, as part of WHMCS parity:
-- Domain registration and registrar modules.
 - Control panel modules.
 - Quotes, multi-currency, multi-language.
 - Marketplace for third-party modules.

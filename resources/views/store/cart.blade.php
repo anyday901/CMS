@@ -10,8 +10,8 @@
         </div>
     @endforeach
 
-    @if ($quote->rows === [])
-        <p class="text-sm text-ink-500">{{ __('Your cart is empty.') }} <a href="{{ route('store.index') }}" class="text-brand-600">{{ __('Browse products') }}</a></p>
+    @if ($quote->isEmpty())
+        <p class="text-sm text-ink-500">{{ __('Your cart is empty.') }} <a href="{{ route('store.index') }}" class="text-brand-600">{{ __('Browse products') }}</a>@if (App\Models\Tld::sold()->exists()) · <a href="{{ route('domains.index') }}" class="text-brand-600">{{ __('Find a domain') }}</a>@endif</p>
     @else
         @include('store._summary', ['removable' => true])
 

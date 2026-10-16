@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\Domain;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Service;
@@ -14,7 +15,7 @@ use Illuminate\Support\Collection;
 
 /**
  * The admin search box: one query across clients (and their contacts),
- * services and domains, invoices, orders and tickets. Numbers match ids and
+ * services, domains, invoices, orders and tickets. Numbers match ids and
  * invoice, order and ticket numbers exactly; words match names, emails,
  * domains and subjects. Each section is limited, and staff only see the
  * sections their role can open.
@@ -58,6 +59,7 @@ class GlobalSearch
         $sections = [
             'clients' => $this->clients(),
             'services' => $this->services(),
+            'domains' => $this->domains(),
             'invoices' => $this->invoices(),
             'orders' => $this->orders(),
         ];
@@ -88,7 +90,17 @@ class GlobalSearch
             ->orderBy('last_name')->orderBy('first_name');
     }
 
-    /** Services and domains by domain or label, control panel username, product name or number. */
+    /** Registered and transferred domains by name or number. */
+    private function domains(): Builder
+    {
+        return Domain::with('client')
+            ->where(fn (Builder $query) => $query
+                ->where('name', 'like', $this->like)
+                ->when($this->number, fn (Builder $query, int $id) => $query->orWhere('id', $id)))
+            ->orderBy('name');
+    }
+
+    /** Services by domain or label, control panel username, product name or number. */
     private function services(): Builder
     {
         return Service::with(['product', 'client'])

@@ -5,7 +5,7 @@
     <p class="mb-6 max-w-2xl text-sm text-ink-600">For a client with two accounts. Everything on this account moves to the one you pick, and this account (#{{ $client->id }}, {{ $client->email }}) is deleted. Its details are kept in a note on the other account.</p>
 
     <div class="mb-6 grid max-w-3xl gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm sm:grid-cols-3">
-        @foreach (['services' => 'Services', 'invoices' => 'Invoices', 'orders' => 'Orders', 'tickets' => 'Tickets', 'contacts' => 'Contacts', 'notes' => 'Notes'] as $key => $label)
+        @foreach (['services' => 'Services', 'domains' => 'Domains', 'invoices' => 'Invoices', 'orders' => 'Orders', 'tickets' => 'Tickets', 'contacts' => 'Contacts', 'notes' => 'Notes'] as $key => $label)
             <div><div class="text-ink-500">{{ $label }}</div><span class="font-semibold">{{ $counts[$key] }}</span></div>
         @endforeach
         <div><div class="text-ink-500">Credit balance</div><span class="font-semibold">{{ Money::format($client->credit_balance, $client->currency) }}</span></div>

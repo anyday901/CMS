@@ -101,14 +101,18 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Client groups with discounts and their own settings
 
 ## Milestone 7: Domains
-- [ ] Domain registration, transfer and renewal orders
-- [ ] TLD pricing per term and currency
-- [ ] Domain availability and WHOIS lookup
-- [ ] Registrar module interface
-- [ ] First registrar modules (e.g. Enom, ResellerClub, Namecheap, OpenSRS)
-- [ ] Domain sync of expiry dates and statuses
-- [ ] Nameserver, DNS, contact and ID protection management in the portal
-- [ ] Domain renewal reminders and auto-renew
+- [x] Domain registration, transfer and renewal orders
+- [x] TLD pricing per term and currency
+- [x] Domain availability and WHOIS lookup
+- [x] Registrar module interface
+- [x] First registrar modules (e.g. Enom, ResellerClub, Namecheap, OpenSRS)
+- [x] Domain sync of expiry dates and statuses
+- [x] Nameserver, DNS, contact and ID protection management in the portal
+- [x] Domain renewal reminders and auto-renew
+- [ ] Try the Enom, Namecheap, OpenSRS and ResellerClub modules against live (or test environment) reseller accounts
+- [ ] Import domains, TLD pricing and registrar settings from WHMCS
+- [ ] Domains in the REST API, webhooks and reports
+- [ ] Translate the new domain pages in the portal and store (their emails are translated)
 
 ## Milestone 8: Provisioning modules
 - [x] Servers and server groups, with fill-up and least-used assignment
@@ -166,7 +170,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Client notes and admin to-do list
 - [x] Advanced search on the admin clients list, hiding closed clients by default
 - [x] Client groups (and a client group filter on the clients search)
-- [x] Global search across clients, services, invoices, domains and tickets (domains are searched on services until domain registration exists)
+- [x] Global search across clients, services, invoices, domains and tickets 
 - [x] Merge two client accounts
 - [x] Marketing email opt-in and opt-out
 - [ ] An account holder reaching other accounts with their own login too (WHMCS 8 users who own one client and are users of another)
