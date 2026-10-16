@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\WhmcsModule;
 use App\Provisioning\ModuleRegistry;
+use App\Provisioning\Provisioner;
 use App\Provisioning\Whmcs\WhmcsSsoServerModule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -209,6 +210,18 @@ class WhmcsModuleTest extends TestCase
 
         $GLOBALS['demopanel_replies']['TestConnection'] = ['success' => false, 'error' => 'Bad login'];
         $this->assertSame([false, 'Bad login'], [($r = $module->testConnection($server))->ok, $r->message]);
+    }
+
+    public function test_a_new_password_reaches_the_module_and_is_kept_when_it_works(): void
+    {
+        [$service] = $this->demopanelService();
+        $service->forceFill(['provisioned_at' => now(), 'username' => 'example', 'password' => 'OldPass1!', 'new_password' => 'NewPass2!'])->save();
+
+        app(Provisioner::class)->queue($service, 'change_password');
+
+        [$function, $params] = end($GLOBALS['demopanel_calls']);
+        $this->assertSame(['ChangePassword', 'NewPass2!'], [$function, $params['password']]);
+        $this->assertSame(['NewPass2!', null], [$service->refresh()->password, $service->new_password]);
     }
 
     public function test_a_service_on_another_modules_server_isnt_touched(): void

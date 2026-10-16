@@ -97,7 +97,7 @@ class WhmcsProvisioningModule implements ChangesPackage, ChangesPassword, Provis
         try {
             $server = $this->server($service);
             $this->prepare($service, $server);
-            $result = $this->call($function, Params::forService($this->record, $service->refresh(), $server, $this->defaultPortFor($server)));
+            $result = $this->call($function, Params::forService($this->record, $service, $server, $this->defaultPortFor($server)));
         } catch (ModuleError $e) {
             return ProvisioningResult::failed($e->getMessage());
         }
