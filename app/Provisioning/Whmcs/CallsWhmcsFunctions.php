@@ -59,7 +59,7 @@ trait CallsWhmcsFunctions
         return $this->action($service, 'ChangePassword');
     }
 
-    public function canChangePassword(Service $service): bool
+    public function canChangePassword(Service $service): bool // NOSONAR: the ChangesPassword interface's signature
     {
         return $this->hasFunction('ChangePassword');
     }

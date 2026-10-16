@@ -34,15 +34,14 @@ trait ManagesWhmcsServers
 
         try {
             $result = $this->call('TestConnection', Params::forServer($server, $this->defaultPortFor($server)));
+            $connected = is_array($result) && ($result['success'] ?? false);
+            $message = $connected ? 'Connected.' : self::message($result, 'error', 'The connection test failed.');
         } catch (ModuleError $e) {
-            return ProvisioningResult::failed($e->getMessage());
+            $connected = false;
+            $message = $e->getMessage();
         }
 
-        if (is_array($result) && ($result['success'] ?? false)) {
-            return ProvisioningResult::ok('Connected.');
-        }
-
-        return ProvisioningResult::failed(self::message($result, 'error', 'The connection test failed.'));
+        return $connected ? ProvisioningResult::ok($message) : ProvisioningResult::failed($message);
     }
 
     public function loginDetails(Service $service): array

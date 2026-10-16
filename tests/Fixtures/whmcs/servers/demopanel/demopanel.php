@@ -10,12 +10,12 @@ if (! defined('WHMCS')) {
     exit('This file cannot be accessed directly');
 }
 
-function demopanel_MetaData()
+function demopanel_MetaData() // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return ['DisplayName' => 'Demo Panel', 'APIVersion' => '1.1', 'RequiresServer' => true, 'DefaultSSLPort' => '2222', 'DefaultNonSSLPort' => '2221'];
 }
 
-function demopanel_ConfigOptions()
+function demopanel_ConfigOptions() // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return [
         'Package Name' => ['Type' => 'text', 'Size' => '25', 'Default' => 'basic', 'Description' => 'The <b>package</b> on the panel'],
@@ -25,7 +25,7 @@ function demopanel_ConfigOptions()
     ];
 }
 
-function demopanel_reply(string $function, array $params)
+function demopanel_reply(string $function, array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     $GLOBALS['demopanel_calls'][] = [$function, $params];
     $reply = $GLOBALS['demopanel_replies'][$function] ?? 'success';
@@ -37,7 +37,7 @@ function demopanel_reply(string $function, array $params)
     return $reply;
 }
 
-function demopanel_CreateAccount(array $params)
+function demopanel_CreateAccount(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     if ($params['configoption1'] === '') {
         return 'The product has no package';
@@ -50,42 +50,42 @@ function demopanel_CreateAccount(array $params)
     return demopanel_reply('CreateAccount', $params);
 }
 
-function demopanel_SuspendAccount(array $params)
+function demopanel_SuspendAccount(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return demopanel_reply('SuspendAccount', $params);
 }
 
-function demopanel_TerminateAccount(array $params)
+function demopanel_TerminateAccount(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return demopanel_reply('TerminateAccount', $params);
 }
 
-function demopanel_ChangePassword(array $params)
+function demopanel_ChangePassword(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return demopanel_reply('ChangePassword', $params);
 }
 
-function demopanel_TestConnection(array $params)
+function demopanel_TestConnection(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return demopanel_reply('TestConnection', $params);
 }
 
-function demopanel_ServiceSingleSignOn(array $params)
+function demopanel_ServiceSingleSignOn(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return demopanel_reply('ServiceSingleSignOn', $params);
 }
 
-function demopanel_AdminCustomButtonArray()
+function demopanel_AdminCustomButtonArray() // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return ['Reboot' => 'reboot'];
 }
 
-function demopanel_reboot(array $params)
+function demopanel_reboot(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return 'success';
 }
 
-function demopanel_ClientArea(array $params)
+function demopanel_ClientArea(array $params) // NOSONAR: WHMCS names module functions {module}_{Function}
 {
     return ['templatefile' => 'clientarea'];
 }
