@@ -246,7 +246,9 @@ class ModuleConverter
         $body = implode("\n", array_map(fn (array $method) => $method['code'], $parts['methods']));
         $uses = ["use {$base};"];
 
-        foreach (['DB::' => DB::class, 'Schema::' => Schema::class] as $marker => $facade) {
+        foreach ([DB::class, Schema::class] as $facade) {
+            $marker = class_basename($facade).'::';
+
             if (str_contains($body, $marker) || str_contains(implode("\n", $parts['top']), $marker)) {
                 $uses[] = "use {$facade};";
             }
