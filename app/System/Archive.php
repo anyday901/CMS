@@ -3,7 +3,6 @@
 namespace App\System;
 
 use Illuminate\Support\Facades\File;
-use RuntimeException;
 use ZipArchive;
 
 /** Unpacks zip files from releases and the marketplace without letting an entry write outside its folder. */
@@ -17,7 +16,7 @@ final class Archive
         $zip = new ZipArchive;
 
         if ($zip->open($zipPath) !== true) {
-            throw new RuntimeException('That isn\'t a zip file, or it is damaged.');
+            throw new ArchiveException('That isn\'t a zip file, or it is damaged.');
         }
 
         try {
@@ -30,7 +29,7 @@ final class Archive
                 $total += (int) $stat['size'];
 
                 if ($total > $maxBytes) {
-                    throw new RuntimeException('The zip unpacks to more than '.intdiv($maxBytes, 1024 * 1024).' MB.');
+                    throw new ArchiveException('The zip unpacks to more than '.intdiv($maxBytes, 1024 * 1024).' MB.');
                 }
 
                 if ($name !== null) {
@@ -54,7 +53,7 @@ final class Archive
                 $out = fopen($target, 'wb');
 
                 if ($in === false || $out === false) {
-                    throw new RuntimeException("Can't unpack {$name}.");
+                    throw new ArchiveException("Can't unpack {$name}.");
                 }
 
                 stream_copy_to_stream($in, $out);
@@ -80,7 +79,7 @@ final class Archive
 
         if (str_starts_with($name, '/') || preg_match('/^[a-zA-Z]:/', $name) || str_contains($name, "\0")
             || in_array('..', explode('/', $name), true)) {
-            throw new RuntimeException("The zip has an unsafe path in it ({$name}), so it wasn't unpacked.");
+            throw new ArchiveException("The zip has an unsafe path in it ({$name}), so it wasn't unpacked.");
         }
 
         $name = (string) preg_replace('#^(\./)+#', '', (string) preg_replace('#/+#', '/', $name));

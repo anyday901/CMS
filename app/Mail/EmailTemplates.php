@@ -208,7 +208,9 @@ class EmailTemplates
             // A main language other than English starts from the shipped translation until staff edit it.
             $shipped = $saved === null ? self::shipped($key, $locale) : null;
 
-            return ($shipped ?? $main) + ['source' => $saved ? 'saved' : ($shipped ? 'shipped' : 'main')];
+            $source = $shipped ? 'shipped' : 'main';
+
+            return ($shipped ?? $main) + ['source' => $saved ? 'saved' : $source];
         }
 
         $translation = EmailTemplateTranslation::where('template', $key)->where('locale', $locale)->first();

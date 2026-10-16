@@ -5,7 +5,6 @@ namespace App\System\Backups;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use PDO;
-use RuntimeException;
 
 /**
  * Writes the whole database as SQL, gzipped, without mysqldump: table
@@ -36,12 +35,12 @@ class DatabaseDumper
         $driver = $this->connection->getDriverName();
 
         if (! self::supports($driver)) {
-            throw new RuntimeException("Backups from the admin area work with MySQL, MariaDB and SQLite. This database uses {$driver}; back it up with its own tools, such as pg_dump.");
+            throw new BackupFailed("Backups from the admin area work with MySQL, MariaDB and SQLite. This database uses {$driver}; back it up with its own tools, such as pg_dump.");
         }
 
         $out = gzopen($path, 'wb6');
         if ($out === false) {
-            throw new RuntimeException("Can't write {$path}.");
+            throw new BackupFailed("Can't write {$path}.");
         }
         $this->out = $out;
 

@@ -64,6 +64,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Public v1.0.0 release (waits on the switchover and Corey's go-ahead)
 - [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)
 - [x] Clear SonarCloud's upload size alert on downloads (php:S5693)
+- [x] Clear SonarCloud's code smells on the platform features (dedicated exceptions, constants, smaller methods)
 
 ## Milestone 5: Ordering and cart
 - [x] Public product catalogue with product groups

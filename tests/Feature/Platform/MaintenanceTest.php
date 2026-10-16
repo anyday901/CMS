@@ -17,6 +17,8 @@ class MaintenanceTest extends TestCase
 
     private const MESSAGE = 'Moving to a new data centre until 10pm.';
 
+    private const STORE = '/store';
+
     public function test_staff_turn_maintenance_mode_on_and_visitors_see_the_notice(): void
     {
         $staff = User::factory()->create();
@@ -24,11 +26,11 @@ class MaintenanceTest extends TestCase
         $this->assertTrue(Activity::where('description', 'Turned maintenance mode on')->exists());
 
         // Staff still see the portal, with a reminder.
-        $this->get('/store')->assertOk()->assertSee('Maintenance mode is on.');
+        $this->get(self::STORE)->assertOk()->assertSee('Maintenance mode is on.');
         $this->get('/admin')->assertOk()->assertSee('Maintenance mode is on: visitors see the maintenance notice.');
 
         auth('web')->logout();
-        $this->get('/store')->assertStatus(503)->assertSee(self::MESSAGE)->assertHeader('Retry-After', '600');
+        $this->get(self::STORE)->assertStatus(503)->assertSee(self::MESSAGE)->assertHeader('Retry-After', '600');
         $this->get('/portal/login')->assertStatus(503);
         $this->get('/knowledgebase')->assertStatus(503);
 
@@ -42,7 +44,7 @@ class MaintenanceTest extends TestCase
     {
         Settings::save(['maintenance.enabled' => true, 'help.languages' => ['de']]);
 
-        $this->get('/store', ['Accept-Language' => 'de'])->assertStatus(503)->assertSee('Wir sind gleich zurück');
+        $this->get(self::STORE, ['Accept-Language' => 'de'])->assertStatus(503)->assertSee('Wir sind gleich zurück');
     }
 
     public function test_turning_it_off_opens_the_portal_again(): void
@@ -51,7 +53,7 @@ class MaintenanceTest extends TestCase
         $this->actingAs(User::factory()->create())->put(self::URL, ['enabled' => '0'])->assertSessionHas('status', 'Maintenance mode is off.');
         auth('web')->logout();
 
-        $this->get('/store')->assertOk();
+        $this->get(self::STORE)->assertOk();
     }
 
     public function test_maintenance_mode_needs_the_system_permission(): void

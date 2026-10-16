@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -118,7 +117,7 @@ class BackupManager
     {
         $in = gzopen($this->file($name), 'rb');
         if ($in === false) {
-            throw new RuntimeException("Can't read {$name}.");
+            throw new BackupFailed("Can't read {$name}.");
         }
 
         $statements = 0;

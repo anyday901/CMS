@@ -18,31 +18,36 @@ class UpdateCms extends Command
     {
         $release = $checker->latest(fresh: true);
 
+        if ($release === null || ! Version::newer($release['version'])) {
+            return $this->nothingToDo($release);
+        }
+
+        $this->info("Version {$release['version']} is out; this is ".Version::current().". Release notes: {$release['url']}");
+
+        return $this->option('check') ? self::SUCCESS : $this->install($release, $updater);
+    }
+
+    private function nothingToDo(?array $release): int
+    {
         if ($release === null) {
             $this->error('Couldn\'t reach the releases on GitHub ('.config('updates.repository').').');
 
             return self::FAILURE;
         }
 
-        if (! Version::newer($release['version'])) {
-            $this->info('CMS '.Version::current().' is up to date.');
+        $this->info('CMS '.Version::current().' is up to date.');
 
-            return self::SUCCESS;
-        }
+        return self::SUCCESS;
+    }
 
-        $this->info("Version {$release['version']} is out; this is ".Version::current().". Release notes: {$release['url']}");
-
-        if ($this->option('check')) {
-            return self::SUCCESS;
-        }
-
-        if ($blocker = $updater->blocker()) {
+    private function install(array $release, Updater $updater): int
+    {
+        $blocker = $updater->blocker();
+        if ($blocker) {
             $this->error($blocker);
-
-            return self::FAILURE;
         }
 
-        if (! $this->option('force') && ! $this->confirm('Update now? The site is in maintenance mode for a minute or so.', true)) {
+        if ($blocker || (! $this->option('force') && ! $this->confirm('Update now? The site is in maintenance mode for a minute or so.', true))) {
             return self::FAILURE;
         }
 

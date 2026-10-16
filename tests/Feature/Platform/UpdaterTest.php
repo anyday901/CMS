@@ -33,6 +33,16 @@ class UpdaterTest extends TestCase
 
     private const APP_FILE = '/app/Thing.php';
 
+    private const VERSION_FILE = '/VERSION';
+
+    private const AUTOLOAD = '/vendor/autoload.php';
+
+    private const OLD_CODE = 'old code';
+
+    private const REMOVED = '/app/Console/Commands/Removed.php';
+
+    private const NEW_VERSION = '9.1.0';
+
     private string $root;
 
     private string $zip;
@@ -47,17 +57,17 @@ class UpdaterTest extends TestCase
 
         // The install being updated.
         $this->write('/artisan', 'old artisan');
-        $this->write('/VERSION', '9.0.0');
-        $this->write('/vendor/autoload.php', 'old vendor');
+        $this->write(self::VERSION_FILE, '9.0.0');
+        $this->write(self::AUTOLOAD, 'old vendor');
         $this->write('/vendor/old-package/file.php', 'stale');
-        $this->write(self::APP_FILE, 'old code');
+        $this->write(self::APP_FILE, self::OLD_CODE);
         $this->write('/.env', 'APP_KEY=keep-me');
         $this->write('/storage/app/upload.txt', 'client upload');
         $this->write('/themes/overrides/views/portal/dashboard.blade.php', 'my override');
-        $this->write('/app/Console/Commands/Removed.php', 'a command the new release dropped');
+        $this->write(self::REMOVED, 'a command the new release dropped');
         $this->write('/public/favicon-custom.png', 'the site\'s own file');
 
-        $this->zip = $this->release('9.1.0');
+        $this->zip = $this->release(self::NEW_VERSION);
     }
 
     protected function tearDown(): void
@@ -124,20 +134,20 @@ class UpdaterTest extends TestCase
     {
         Process::fake();
         $release = $this->fakeRelease();
-        $this->assertSame('9.1.0', $release['version']);
+        $this->assertSame(self::NEW_VERSION, $release['version']);
 
         $this->updater()->update($release);
 
         $this->assertSame('new code', file_get_contents($this->root.self::APP_FILE));
         $this->assertSame('added', file_get_contents($this->root.'/app/Added.php'));
-        $this->assertSame('9.1.0', file_get_contents($this->root.'/VERSION'));
-        $this->assertSame('new vendor', file_get_contents($this->root.'/vendor/autoload.php'));
+        $this->assertSame(self::NEW_VERSION, file_get_contents($this->root.self::VERSION_FILE));
+        $this->assertSame('new vendor', file_get_contents($this->root.self::AUTOLOAD));
         $this->assertFileDoesNotExist($this->root.'/vendor/old-package/file.php', 'vendor is swapped whole.');
         $this->assertSame('APP_KEY=keep-me', file_get_contents($this->root.'/.env'));
         $this->assertSame('client upload', file_get_contents($this->root.'/storage/app/upload.txt'));
         $this->assertSame('my override', file_get_contents($this->root.'/themes/overrides/views/portal/dashboard.blade.php'));
         $this->assertCount(0, glob($this->root.'/vendor.old-*'));
-        $this->assertFileDoesNotExist($this->root.'/app/Console/Commands/Removed.php', 'CMS\'s own files the release dropped are deleted.');
+        $this->assertFileDoesNotExist($this->root.self::REMOVED, 'CMS\'s own files the release dropped are deleted.');
         $this->assertFileExists($this->root.'/public/favicon-custom.png');
 
         Process::assertRan(fn (PendingProcess $process) => in_array('migrate', (array) $process->command, true) && $process->path === $this->root);
@@ -155,7 +165,7 @@ class UpdaterTest extends TestCase
 
         $this->expectsProblemRuntime(fn () => $this->updater()->update($release), 'doesn\'t match its checksum');
 
-        $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
+        $this->assertSame(self::OLD_CODE, file_get_contents($this->root.self::APP_FILE));
         Process::assertNothingRan();
         $this->assertSame('failed', app(UpdateStatus::class)->read()['state']);
     }
@@ -170,11 +180,11 @@ class UpdaterTest extends TestCase
 
         $this->expectsProblemRuntime(fn () => $this->updater()->update($release), 'php artisan migrate failed');
 
-        $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
-        $this->assertSame('old vendor', file_get_contents($this->root.'/vendor/autoload.php'));
-        $this->assertSame('9.0.0', file_get_contents($this->root.'/VERSION'));
+        $this->assertSame(self::OLD_CODE, file_get_contents($this->root.self::APP_FILE));
+        $this->assertSame('old vendor', file_get_contents($this->root.self::AUTOLOAD));
+        $this->assertSame('9.0.0', file_get_contents($this->root.self::VERSION_FILE));
         $this->assertFileDoesNotExist($this->root.'/app/Added.php', 'Files the release added are removed again.');
-        $this->assertFileExists($this->root.'/app/Console/Commands/Removed.php');
+        $this->assertFileExists($this->root.self::REMOVED);
         Process::assertRan(fn (PendingProcess $process) => in_array('up', (array) $process->command, true));
     }
 
@@ -190,13 +200,13 @@ class UpdaterTest extends TestCase
 
         $this->expectsProblemRuntime(fn () => $this->updater($backups)->update($release), 'php artisan optimize:clear failed');
 
-        $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
+        $this->assertSame(self::OLD_CODE, file_get_contents($this->root.self::APP_FILE));
     }
 
     public function test_the_update_job_says_so_when_github_cant_be_reached(): void
     {
         Http::fake([self::RELEASES => Http::response('', 502)]);
-        app(UpdateStatus::class)->start('9.1.0');
+        app(UpdateStatus::class)->start(self::NEW_VERSION);
 
         RunUpdate::dispatchSync();
 
@@ -207,11 +217,11 @@ class UpdaterTest extends TestCase
     public function test_a_download_of_another_version_is_refused(): void
     {
         Process::fake();
-        $this->zip = $this->release('9.1.0', '9.0.5');
+        $this->zip = $this->release(self::NEW_VERSION, '9.0.5');
         $release = $this->fakeRelease();
 
         $this->expectsProblemRuntime(fn () => $this->updater()->update($release), 'says it is version 9.0.5');
-        $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
+        $this->assertSame(self::OLD_CODE, file_get_contents($this->root.self::APP_FILE));
     }
 
     public function test_git_checkouts_update_with_git(): void

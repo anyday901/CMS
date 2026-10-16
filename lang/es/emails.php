@@ -1,5 +1,7 @@
 <?php
 
+use App\Mail\EmailTemplates;
+
 /*
  * Spanish wording for the client emails in App\Mail\EmailTemplates.
  * Keep every {placeholder}; ticket subjects must keep "[Ticket #{ticket_id}]",
@@ -52,15 +54,15 @@ return [
         'body' => "Hola, {client_first_name}:\n\nAlguien acaba de iniciar sesión en su cuenta desde un dispositivo que no habíamos visto antes:\n\n- Cuándo: {login_time}\n- Navegador: {login_browser}\n- Dirección IP: {login_ip}\n\nSi ha sido usted, no tiene que hacer nada.\n\nSi no, [restablezca su contraseña]({password_url}) de inmediato y active la verificación en dos pasos en Seguridad, dentro del portal.\n\n{company_name}",
     ],
     'ticket_opened' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Hola, {client_first_name}:\n\nHemos recibido su solicitud y le responderemos pronto. Puede responder a este correo para añadir más información.\n\n[Ver el ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_reply' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Hola, {client_first_name}:\n\n{staff_name} ha respondido a su ticket:\n\n{reply}\n\n[Ver el ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_auto_closed' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Hola, {client_first_name}:\n\nNo hemos tenido noticias suyas en {inactive_hours} horas, así que hemos cerrado este ticket. Si todavía necesita ayuda, responda a este correo o al ticket y se volverá a abrir.\n\n[Ver el ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_feedback' => [

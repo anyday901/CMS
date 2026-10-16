@@ -4,7 +4,6 @@ namespace App\Marketplace;
 
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use ZipArchive;
 
 /** Zips a package folder for the marketplace, and builds the registry from marketplace/. */
@@ -13,13 +12,16 @@ class PackageBuilder
     /** Left out of package zips. */
     private const SKIP = ['.git', '.github', 'node_modules', '.DS_Store', 'tests'];
 
+    /** Where package folders sit in the source, and their zips in the output. */
+    private const PACKAGES = '/packages/';
+
     /** Zips the folder (its manifest at the top level) and returns the zip's SHA-256. */
     public function zip(string $folder, string $output): string
     {
         $folder = rtrim($folder, '/');
 
         if (Manifest::read($folder) === null) {
-            throw new RuntimeException("{$folder} has no valid addon.json or theme.json.");
+            throw new PackageException("{$folder} has no valid addon.json or theme.json.");
         }
 
         @mkdir(dirname($output), 0755, true);
@@ -27,7 +29,7 @@ class PackageBuilder
         $zip = new ZipArchive;
 
         if ($zip->open($output, ZipArchive::CREATE) !== true) {
-            throw new RuntimeException("Can't write {$output}.");
+            throw new PackageException("Can't write {$output}.");
         }
 
         $files = [];
@@ -62,27 +64,27 @@ class PackageBuilder
         $listing = json_decode((string) @file_get_contents($source.'/registry.json'), true);
 
         if (! is_array($listing) || ! is_array($listing['packages'] ?? null)) {
-            throw new RuntimeException("{$source}/registry.json has no packages list.");
+            throw new PackageException("{$source}/registry.json has no packages list.");
         }
 
         $packages = [];
 
         foreach ($listing['packages'] as $entry) {
-            $folder = $source.'/packages/'.($entry['key'] ?? '');
+            $folder = $source.self::PACKAGES.($entry['key'] ?? '');
             $manifest = Manifest::read($folder);
 
             if ($manifest === null || $manifest['key'] !== ($entry['key'] ?? null) || $manifest['type'] !== ($entry['type'] ?? null)) {
-                throw new RuntimeException('marketplace/packages/'.($entry['key'] ?? '?').' is missing, or its manifest doesn\'t match registry.json.');
+                throw new PackageException('marketplace'.self::PACKAGES.($entry['key'] ?? '?').' is missing, or its manifest doesn\'t match registry.json.');
             }
 
             $name = "{$manifest['key']}-{$manifest['version']}.zip";
-            $sha256 = $this->zip($folder, $output.'/packages/'.$name);
+            $sha256 = $this->zip($folder, $output.self::PACKAGES.$name);
 
             $packages[] = array_merge($entry, [
                 'name' => $entry['name'] ?? $manifest['name'],
                 'version' => $manifest['version'],
                 'requires' => $manifest['requires'],
-                'download_url' => rtrim($baseUrl, '/').'/packages/'.$name,
+                'download_url' => rtrim($baseUrl, '/').self::PACKAGES.$name,
                 'sha256' => $sha256,
             ]);
         }

@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use Symfony\Component\Process\PhpExecutableFinder;
 use Throwable;
 use ZipArchive;
@@ -34,6 +33,9 @@ class Updater
      * linger. Elsewhere (public/, themes/) files are only added or replaced.
      */
     private const SYNCED = ['app', 'config', 'database/factories', 'database/migrations', 'database/seeders', 'lang', 'resources', 'routes'];
+
+    /** Added to a file's name while it is being copied in. */
+    private const PARTIAL = '.updating';
 
     private string $root;
 
@@ -78,7 +80,7 @@ class Updater
 
         try {
             if (blank($release['download_url']) || blank($release['checksum_url'])) {
-                throw new RuntimeException("Release {$version} has no ".config('updates.asset').' or checksum to download.');
+                throw new UpdateFailed("Release {$version} has no ".config('updates.asset').' or checksum to download.');
             }
 
             $this->status->step('Downloading '.$version);
@@ -155,7 +157,7 @@ class Updater
         if (! preg_match('/^[a-f0-9]{64}$/', $expected) || ! hash_equals($expected, hash_file('sha256', $zip))) {
             @unlink($zip);
 
-            throw new RuntimeException('The download doesn\'t match its checksum, so it wasn\'t installed. Try again later.');
+            throw new UpdateFailed('The download doesn\'t match its checksum, so it wasn\'t installed. Try again later.');
         }
 
         return $zip;
@@ -170,12 +172,12 @@ class Updater
         $source = is_file($staging.'/artisan') ? $staging : collect(File::directories($staging))->first(fn (string $dir) => is_file($dir.'/artisan'));
 
         if ($source === null || ! is_file($source.'/vendor/autoload.php')) {
-            throw new RuntimeException('The download isn\'t a complete CMS release (it has no artisan or vendor folder).');
+            throw new UpdateFailed('The download isn\'t a complete CMS release (it has no artisan or vendor folder).');
         }
 
         $packaged = is_file($source.'/VERSION') ? trim((string) file_get_contents($source.'/VERSION')) : '';
         if (Version::clean($packaged) !== Version::clean($version)) {
-            throw new RuntimeException("The download says it is version {$packaged}, not {$version}.");
+            throw new UpdateFailed("The download says it is version {$packaged}, not {$version}.");
         }
 
         return $source;
@@ -188,7 +190,7 @@ class Updater
         $zip = new ZipArchive;
 
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException("Can't write {$path}.");
+            throw new UpdateFailed("Can't write {$path}.");
         }
 
         foreach ($this->files($this->root, [...self::PRESERVE, ...self::SWAP]) as $relative) {
@@ -208,19 +210,8 @@ class Updater
     private function install(string $source): void
     {
         foreach (self::SWAP as $folder) {
-            if (! is_dir($source.'/'.$folder)) {
-                continue;
-            }
-
-            $old = $this->root.'/'.$folder.'.old-'.time();
-            if (is_dir($this->root.'/'.$folder)) {
-                if (! rename($this->root.'/'.$folder, $old)) {
-                    throw new RuntimeException("Can't move {$folder} aside.");
-                }
-                $this->swapped[$folder] = $old;
-            }
-            if (! @rename($source.'/'.$folder, $this->root.'/'.$folder) && ! File::copyDirectory($source.'/'.$folder, $this->root.'/'.$folder)) {
-                throw new RuntimeException("Can't copy the new {$folder} into place.");
+            if (is_dir($source.'/'.$folder)) {
+                $this->swapFolder($source, $folder);
             }
         }
 
@@ -229,17 +220,10 @@ class Updater
         $incoming = $this->files($source, $skip);
 
         foreach ($incoming as $relative) {
-            $target = $this->root.'/'.$relative;
-            File::ensureDirectoryExists(dirname($target));
             if (! isset($current[$relative])) {
                 $this->added[] = $relative;
             }
-            // Copy then rename, so PHP never reads a half-written file.
-            if (! copy($source.'/'.$relative, $target.'.updating') || ! rename($target.'.updating', $target)) {
-                @unlink($target.'.updating');
-
-                throw new RuntimeException("Can't write {$relative}.");
-            }
+            $this->copyFile($source, $relative);
         }
 
         // The snapshot has these, so a rollback brings them back.
@@ -248,6 +232,38 @@ class Updater
             if (! isset($incoming[$relative]) && $this->skipped($relative, self::SYNCED)) {
                 @unlink($this->root.'/'.$relative);
             }
+        }
+    }
+
+    /** Moves the current folder aside and puts the release's in its place. */
+    private function swapFolder(string $source, string $folder): void
+    {
+        $current = $this->root.'/'.$folder;
+
+        if (is_dir($current)) {
+            $old = $current.'.old-'.time();
+            if (! rename($current, $old)) {
+                throw new UpdateFailed("Can't move {$folder} aside.");
+            }
+            $this->swapped[$folder] = $old;
+        }
+
+        if (! @rename($source.'/'.$folder, $current) && ! File::copyDirectory($source.'/'.$folder, $current)) {
+            throw new UpdateFailed("Can't copy the new {$folder} into place.");
+        }
+    }
+
+    /** Copies then renames, so PHP never reads a half-written file. */
+    private function copyFile(string $source, string $relative): void
+    {
+        $target = $this->root.'/'.$relative;
+        $partial = $target.self::PARTIAL;
+        File::ensureDirectoryExists(dirname($target));
+
+        if (! copy($source.'/'.$relative, $partial) || ! rename($partial, $target)) {
+            @unlink($partial);
+
+            throw new UpdateFailed("Can't write {$relative}.");
         }
     }
 
@@ -315,7 +331,7 @@ class Updater
         $result = Process::path($this->root)->timeout(1800)->run([$php, 'artisan', ...$arguments, '--no-interaction']);
 
         if ($result->failed()) {
-            throw new RuntimeException('php artisan '.$arguments[0].' failed: '.trim($result->errorOutput() ?: $result->output()));
+            throw new UpdateFailed('php artisan '.$arguments[0].' failed: '.trim($result->errorOutput() ?: $result->output()));
         }
     }
 }

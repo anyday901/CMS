@@ -20,39 +20,42 @@ final class Manifest
     public static function read(string $folder, ?string $type = null): ?array
     {
         foreach ($type ? [$type] : [self::ADDON, self::THEME] as $kind) {
-            $file = $folder.'/'.$kind.'.json';
-
-            if (! is_file($file)) {
-                continue;
+            if (is_file($folder.'/'.$kind.'.json')) {
+                return self::parse($kind, (string) file_get_contents($folder.'/'.$kind.'.json'));
             }
-
-            $data = json_decode((string) file_get_contents($file), true);
-            if (! is_array($data) || ! is_string($data['key'] ?? null) || ! preg_match(self::KEY, $data['key']) || in_array($data['key'], self::RESERVED, true)) {
-                return null;
-            }
-
-            $manifest = [
-                'type' => $kind,
-                'key' => $data['key'],
-                'name' => (string) ($data['name'] ?? $data['key']),
-                'version' => (string) ($data['version'] ?? ''),
-                'requires' => isset($data['requires']) ? (string) $data['requires'] : null,
-            ];
-
-            if ($kind === self::THEME) {
-                return $manifest;
-            }
-
-            $class = $data['class'] ?? null;
-            $autoload = array_filter((array) ($data['autoload']['psr-4'] ?? []), fn ($folder, $prefix) => is_string($folder) && is_string($prefix) && str_ends_with($prefix, '\\') && ! str_contains($folder, '..'), ARRAY_FILTER_USE_BOTH);
-
-            // The class has to sit under one of the package's own namespaces, and never under the app's.
-            $owned = is_string($class) && collect(array_keys($autoload))->contains(fn (string $prefix) => str_starts_with($class, $prefix));
-            $core = collect(array_keys($autoload))->contains(fn (string $prefix) => str_starts_with($prefix, 'App\\') || str_starts_with($prefix, 'Illuminate\\') || str_starts_with($prefix, 'Database\\'));
-
-            return $owned && ! $core ? $manifest + ['class' => $class, 'autoload' => $autoload] : null;
         }
 
         return null;
+    }
+
+    private static function parse(string $kind, string $json): ?array
+    {
+        $data = json_decode($json, true);
+        if (! is_array($data) || ! is_string($data['key'] ?? null) || ! preg_match(self::KEY, $data['key']) || in_array($data['key'], self::RESERVED, true)) {
+            return null;
+        }
+
+        $manifest = [
+            'type' => $kind,
+            'key' => $data['key'],
+            'name' => (string) ($data['name'] ?? $data['key']),
+            'version' => (string) ($data['version'] ?? ''),
+            'requires' => isset($data['requires']) ? (string) $data['requires'] : null,
+        ];
+
+        return $kind === self::THEME ? $manifest : self::addon($manifest, $data);
+    }
+
+    /** An add-on also names its class, which has to sit under one of the package's own namespaces, and never under the app's. */
+    private static function addon(array $manifest, array $data): ?array
+    {
+        $class = $data['class'] ?? null;
+        $autoload = array_filter((array) ($data['autoload']['psr-4'] ?? []), fn ($folder, $prefix) => is_string($folder) && is_string($prefix) && str_ends_with($prefix, '\\') && ! str_contains($folder, '..'), ARRAY_FILTER_USE_BOTH);
+        $prefixes = collect(array_keys($autoload));
+
+        $owned = is_string($class) && $prefixes->contains(fn (string $prefix) => str_starts_with($class, $prefix));
+        $core = $prefixes->contains(fn (string $prefix) => str_starts_with($prefix, 'App\\') || str_starts_with($prefix, 'Illuminate\\') || str_starts_with($prefix, 'Database\\'));
+
+        return $owned && ! $core ? $manifest + ['class' => $class, 'autoload' => $autoload] : null;
     }
 }

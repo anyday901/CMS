@@ -2,8 +2,6 @@
 
 namespace App\System;
 
-use RuntimeException;
-
 /** Reads and changes the .env file, for the web installer. */
 class EnvFile
 {
@@ -34,7 +32,7 @@ class EnvFile
 
         foreach ($values as $key => $value) {
             if (! preg_match('/^[A-Z][A-Z0-9_]*$/', $key)) {
-                throw new RuntimeException("{$key} isn't a setting name.");
+                throw new EnvFileException("{$key} isn't a setting name.");
             }
 
             $line = $key.'='.self::format($value);
@@ -46,7 +44,7 @@ class EnvFile
         }
 
         if (file_put_contents($this->path, $contents) === false) {
-            throw new RuntimeException("Can't write {$this->path}.");
+            throw new EnvFileException("Can't write {$this->path}.");
         }
     }
 

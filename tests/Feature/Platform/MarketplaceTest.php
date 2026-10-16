@@ -20,6 +20,14 @@ class MarketplaceTest extends TestCase
 
     private const BASE = 'https://market.example.com';
 
+    private const INSTALL = self::URL.'/install';
+
+    private const UPLOAD = self::URL.'/upload';
+
+    private const APPEARANCE = '/admin/settings/appearance';
+
+    private const ZIP = 'application/zip';
+
     private string $root;
 
     protected function setUp(): void
@@ -59,17 +67,17 @@ class MarketplaceTest extends TestCase
     {
         $this->get(self::URL)->assertOk()->assertSee('Status board')->assertSee('Sunrise');
 
-        $this->from(self::URL)->post(self::URL.'/install', ['type' => 'theme', 'key' => 'sunrise'])
+        $this->from(self::URL)->post(self::INSTALL, ['type' => 'theme', 'key' => 'sunrise'])
             ->assertRedirect(self::URL)->assertSessionHas('status', 'Sunrise 1.0.0 is installed. Pick it under Appearance to use it.');
 
         $this->assertFileExists($this->root.'/themes/sunrise/theme.json');
-        $this->get('/admin/settings/appearance')->assertSee('Sunrise');
+        $this->get(self::APPEARANCE)->assertSee('Sunrise');
         $this->get(self::URL)->assertSee('Installed');
     }
 
     public function test_an_add_on_is_installed_and_then_shows_under_add_ons(): void
     {
-        $this->from(self::URL)->post(self::URL.'/install', ['type' => 'addon', 'key' => 'status-board'])->assertSessionHasNoErrors();
+        $this->from(self::URL)->post(self::INSTALL, ['type' => 'addon', 'key' => 'status-board'])->assertSessionHasNoErrors();
 
         $this->assertFileExists($this->root.'/addons/status-board/src/StatusBoardAddon.php');
         $this->assertTrue(app(AddonManager::class)->available()->has('status-board'));
@@ -84,7 +92,7 @@ class MarketplaceTest extends TestCase
         $registry['packages'][1]['sha256'] = str_repeat('a', 64);
         file_put_contents($this->root.'/site/registry.json', json_encode($registry));
 
-        $this->from(self::URL)->post(self::URL.'/install', ['type' => 'theme', 'key' => 'sunrise'])
+        $this->from(self::URL)->post(self::INSTALL, ['type' => 'theme', 'key' => 'sunrise'])
             ->assertSessionHasErrors(['marketplace' => 'The download doesn\'t match the checksum in the marketplace, so it wasn\'t installed.']);
         $this->assertDirectoryDoesNotExist($this->root.'/themes/sunrise');
     }
@@ -93,14 +101,14 @@ class MarketplaceTest extends TestCase
     {
         $zip = $this->root.'/site/packages/sunrise-1.0.0.zip';
 
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($zip, 'sunrise.zip', 'application/zip', null, true)])
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => new UploadedFile($zip, 'sunrise.zip', self::ZIP, null, true)])
             ->assertSessionHasNoErrors();
         $this->assertFileExists($this->root.'/themes/sunrise/assets/theme.css');
 
         // The active theme can't be removed.
-        $this->put('/admin/settings/appearance', ['theme' => 'sunrise', 'company_name' => 'Example Hosting']);
+        $this->put(self::APPEARANCE, ['theme' => 'sunrise', 'company_name' => 'Example Hosting']);
         $this->delete(self::URL.'/theme/sunrise')->assertSessionHasErrors('marketplace');
-        $this->put('/admin/settings/appearance', ['theme' => 'harbor', 'company_name' => 'Example Hosting']);
+        $this->put(self::APPEARANCE, ['theme' => 'harbor', 'company_name' => 'Example Hosting']);
         $this->delete(self::URL.'/theme/sunrise')->assertSessionHas('status', 'Removed.');
         $this->delete(self::URL.'/theme/lighthouse')->assertSessionHasErrors('marketplace');
     }
@@ -108,20 +116,20 @@ class MarketplaceTest extends TestCase
     public function test_packages_that_escape_their_folder_or_lack_a_manifest_are_refused(): void
     {
         $evil = $this->zip('evil.zip', ['theme.json' => '{"key":"evil","name":"Evil","version":"1.0.0"}', '../../escaped.txt' => 'x']);
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($evil, 'evil.zip', 'application/zip', null, true)])->assertSessionHasErrors('package');
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => new UploadedFile($evil, 'evil.zip', self::ZIP, null, true)])->assertSessionHasErrors('package');
         $this->assertFileDoesNotExist($this->root.'/escaped.txt');
         $this->assertDirectoryDoesNotExist($this->root.'/themes/evil');
 
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => UploadedFile::fake()->create('big.zip', 7681, 'application/zip')])->assertSessionHasErrors('package');
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => UploadedFile::fake()->create('big.zip', 7681, self::ZIP)])->assertSessionHasErrors('package');
 
         $empty = $this->zip('empty.zip', ['readme.txt' => 'Nothing here']);
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($empty, 'empty.zip', 'application/zip', null, true)])->assertSessionHasErrors('package');
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => new UploadedFile($empty, 'empty.zip', self::ZIP, null, true)])->assertSessionHasErrors('package');
 
         $reserved = $this->zip('harbor.zip', ['theme.json' => '{"key":"harbor","name":"Fake Harbor","version":"1.0.0"}']);
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($reserved, 'harbor.zip', 'application/zip', null, true)])->assertSessionHasErrors('package');
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => new UploadedFile($reserved, 'harbor.zip', self::ZIP, null, true)])->assertSessionHasErrors('package');
 
         $hijack = $this->zip('hijack.zip', ['addon.json' => '{"key":"hijack","name":"Hijack","version":"1.0.0","class":"App\\\\Hijack","autoload":{"psr-4":{"App\\\\":"src/"}}}']);
-        $this->from(self::URL)->post(self::URL.'/upload', ['package' => new UploadedFile($hijack, 'hijack.zip', 'application/zip', null, true)])->assertSessionHasErrors('package');
+        $this->from(self::URL)->post(self::UPLOAD, ['package' => new UploadedFile($hijack, 'hijack.zip', self::ZIP, null, true)])->assertSessionHasErrors('package');
         $this->assertDirectoryDoesNotExist($this->root.'/addons/hijack');
     }
 
@@ -129,7 +137,7 @@ class MarketplaceTest extends TestCase
     {
         config(['marketplace.installs' => false]);
 
-        $this->post(self::URL.'/install', ['type' => 'theme', 'key' => 'sunrise'])->assertForbidden();
+        $this->post(self::INSTALL, ['type' => 'theme', 'key' => 'sunrise'])->assertForbidden();
         $this->get(self::URL)->assertOk()->assertSee('Sunrise');
     }
 

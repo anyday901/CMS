@@ -9,7 +9,9 @@ final class Version
     {
         $file = base_path('VERSION');
 
-        return is_file($file) ? trim((string) file_get_contents($file)) ?: '0.0.0' : '0.0.0';
+        $version = is_file($file) ? trim((string) file_get_contents($file)) : '';
+
+        return $version ?: '0.0.0';
     }
 
     /** "v1.2.0" -> "1.2.0". */

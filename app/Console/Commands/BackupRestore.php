@@ -14,25 +14,9 @@ class BackupRestore extends Command
 
     public function handle(BackupManager $backups): int
     {
-        $names = $backups->all()->pluck('name');
+        $name = $this->pick($backups);
 
-        if ($names->isEmpty()) {
-            $this->error("There are no backups in {$backups->path()}.");
-
-            return self::FAILURE;
-        }
-
-        $name = $this->argument('file') ?? $this->choice('Which backup?', $names->all(), 0);
-
-        try {
-            $backups->file($name);
-        } catch (InvalidArgumentException $e) {
-            $this->error($e->getMessage());
-
-            return self::FAILURE;
-        }
-
-        if (! $this->option('force') && ! $this->confirm("Replace everything in the database with {$name}? Anything since that backup is lost.")) {
+        if ($name === null || (! $this->option('force') && ! $this->confirm("Replace everything in the database with {$name}? Anything since that backup is lost."))) {
             return self::FAILURE;
         }
 
@@ -48,5 +32,29 @@ class BackupRestore extends Command
         $this->info("Restored {$name} ({$count} statements). Run php artisan migrate if it came from an older version.");
 
         return self::SUCCESS;
+    }
+
+    /** The backup named on the command line, or picked from a list; null (with an error shown) when there is none. */
+    private function pick(BackupManager $backups): ?string
+    {
+        $names = $backups->all()->pluck('name');
+
+        if ($names->isEmpty()) {
+            $this->error("There are no backups in {$backups->path()}.");
+
+            return null;
+        }
+
+        $name = $this->argument('file') ?? $this->choice('Which backup?', $names->all(), 0);
+
+        try {
+            $backups->file($name);
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+
+            return null;
+        }
+
+        return $name;
     }
 }

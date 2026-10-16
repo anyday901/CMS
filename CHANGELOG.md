@@ -149,6 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module settings can set a shortest length for text (`'min'`).
 
 ### Changed
+- The installer, updater, backups and marketplace now throw their own exception types (`InstallFailed`, `UpdateFailed`, `BackupFailed`, `PackageException`, `ArchiveException`, `EnvFileException`, all `RuntimeException`s), and their longest methods are split up, clearing SonarCloud's code smells on the platform work.
 - Late fees moved from **Settings** to **Settings > Automation**, with the other billing run days.
 - A contact's login email can now be another account's contact's: it's the same person, with one login. It still can't be a client's own email.
 - Changing a contact's email gives them a new login and a new invitation, instead of keeping the old password.

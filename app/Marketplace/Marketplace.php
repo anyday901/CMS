@@ -17,6 +17,9 @@ class Marketplace
 {
     private const CACHE_KEY = 'marketplace.registry';
 
+    /** The registry, downloads and homepages must all use it. */
+    private const HTTPS = 'https://';
+
     public function __construct(private PackageInstaller $installer, private ThemeManager $themes, private AddonManager $addons) {}
 
     public static function installsAllowed(): bool
@@ -89,7 +92,7 @@ class Marketplace
     /** Downloads a package from the registry, checks its checksum and installs it. */
     public function install(string $type, string $key): array
     {
-        $package = $this->find($type, $key) ?? throw new RuntimeException('That package isn\'t in the marketplace.');
+        $package = $this->find($type, $key) ?? throw new PackageException('That package isn\'t in the marketplace.');
         $zip = storage_path('app/marketplace/download-'.Str::random(12).'.zip');
 
         try {
@@ -97,7 +100,7 @@ class Marketplace
             Http::timeout(120)->sink($zip)->get($package['download_url'])->throw();
 
             if (! hash_equals($package['sha256'], hash_file('sha256', $zip))) {
-                throw new RuntimeException('The download doesn\'t match the checksum in the marketplace, so it wasn\'t installed.');
+                throw new PackageException('The download doesn\'t match the checksum in the marketplace, so it wasn\'t installed.');
             }
 
             return $this->installer->install($zip, ['type' => $type, 'key' => $key], 'the marketplace');
@@ -108,27 +111,17 @@ class Marketplace
 
     private function fetch(): ?array
     {
-        $url = (string) config('marketplace.registry_url');
+        $packages = $this->registry();
 
-        if (! str_starts_with($url, 'https://')) {
+        if ($packages === null) {
             return null;
         }
 
-        try {
-            $response = Http::acceptJson()->timeout(10)->get($url);
-        } catch (Throwable) {
-            return null;
-        }
-
-        if (! $response->successful() || ! is_array($response->json('packages'))) {
-            return null;
-        }
-
-        return collect($response->json('packages'))
+        return collect($packages)
             ->filter(fn ($package) => is_array($package)
                 && in_array($package['type'] ?? null, [Manifest::ADDON, Manifest::THEME], true)
                 && is_string($package['key'] ?? null) && preg_match(Manifest::KEY, $package['key'])
-                && is_string($package['download_url'] ?? null) && str_starts_with($package['download_url'], 'https://')
+                && is_string($package['download_url'] ?? null) && str_starts_with($package['download_url'], self::HTTPS)
                 && is_string($package['sha256'] ?? null) && preg_match('/^[a-f0-9]{64}$/', $package['sha256']))
             ->map(fn (array $package) => [
                 'type' => $package['type'],
@@ -136,7 +129,7 @@ class Marketplace
                 'name' => Str::limit((string) ($package['name'] ?? $package['key']), 80),
                 'description' => Str::limit((string) ($package['description'] ?? ''), 500),
                 'author' => Str::limit((string) ($package['author'] ?? ''), 80),
-                'homepage' => is_string($package['homepage'] ?? null) && str_starts_with($package['homepage'], 'https://') ? $package['homepage'] : null,
+                'homepage' => is_string($package['homepage'] ?? null) && str_starts_with($package['homepage'], self::HTTPS) ? $package['homepage'] : null,
                 'version' => (string) ($package['version'] ?? ''),
                 'requires' => isset($package['requires']) ? (string) $package['requires'] : null,
                 'compatible' => Version::satisfies($package['requires'] ?? null),
@@ -146,5 +139,23 @@ class Marketplace
             ->sortBy(fn (array $package) => [$package['type'], strtolower($package['name'])])
             ->values()
             ->all();
+    }
+
+    /** The registry's raw packages list, or null when it can't be read. */
+    private function registry(): ?array
+    {
+        $url = (string) config('marketplace.registry_url');
+
+        if (! str_starts_with($url, self::HTTPS)) {
+            return null;
+        }
+
+        try {
+            $packages = Http::acceptJson()->timeout(10)->get($url)->throw()->json('packages');
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($packages) ? $packages : null;
     }
 }

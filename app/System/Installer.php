@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -100,26 +99,16 @@ class Installer
      *
      * @param  array{driver: string, host?: string|null, port?: int|string|null, database: string, username?: string|null, password?: string|null}  $db
      *
-     * @throws RuntimeException when it can't connect or migrate
+     * @throws InstallFailed when it can't connect or migrate
      */
     public function configureDatabase(array $db, string $url): void
     {
         $driver = $db['driver'];
-        $connection = $driver === 'sqlite'
-            ? ['driver' => 'sqlite', 'database' => $this->sqlitePath($db['database']), 'prefix' => '', 'foreign_key_constraints' => true]
-            : array_merge((array) config("database.connections.{$driver}"), [
-                'host' => $db['host'] ?: '127.0.0.1',
-                'port' => (int) ($db['port'] ?: 3306),
-                'database' => $db['database'],
-                'username' => $db['username'] ?? '',
-                'password' => $db['password'] ?? '',
-                'url' => null,
-            ]);
+        $connection = $this->connectionFor($db);
 
-        if ($driver === 'sqlite' && ! is_file($connection['database'])) {
-            if (! is_writable(dirname($connection['database'])) || ! touch($connection['database'])) {
-                throw new RuntimeException("Can't create the database file {$connection['database']}.");
-            }
+        if ($driver === 'sqlite' && ! is_file($connection['database'])
+            && (! is_writable(dirname($connection['database'])) || ! touch($connection['database']))) {
+            throw new InstallFailed("Can't create the database file {$connection['database']}.");
         }
 
         $previous = config("database.connections.{$driver}");
@@ -132,7 +121,7 @@ class Installer
             config(["database.connections.{$driver}" => $previous]);
             DB::purge($driver);
 
-            throw new RuntimeException('Couldn\'t connect to the database: '.$e->getMessage());
+            throw new InstallFailed('Couldn\'t connect to the database: '.$e->getMessage());
         }
 
         config(['database.default' => $driver]);
@@ -151,17 +140,38 @@ class Installer
         ], fn ($value) => $value !== null));
 
         if (Artisan::call('migrate', ['--force' => true]) !== 0) {
-            throw new RuntimeException('Creating the tables failed: '.trim(Artisan::output()));
+            throw new InstallFailed('Creating the tables failed: '.trim(Artisan::output()));
         }
 
         Artisan::call('config:clear');
+    }
+
+    /**
+     * The connection settings to try, from what was typed in.
+     *
+     * @param  array{driver: string, host?: string|null, port?: int|string|null, database: string, username?: string|null, password?: string|null}  $db
+     */
+    private function connectionFor(array $db): array
+    {
+        if ($db['driver'] === 'sqlite') {
+            return ['driver' => 'sqlite', 'database' => $this->sqlitePath($db['database']), 'prefix' => '', 'foreign_key_constraints' => true];
+        }
+
+        return array_merge((array) config("database.connections.{$db['driver']}"), [
+            'host' => $db['host'] ?: '127.0.0.1',
+            'port' => (int) ($db['port'] ?: 3306),
+            'database' => $db['database'],
+            'username' => $db['username'] ?? '',
+            'password' => $db['password'] ?? '',
+            'url' => null,
+        ]);
     }
 
     /** Creates the first staff account and the company name, and closes the installer. */
     public function finish(string $company, string $name, string $email, string $password): User
     {
         if ($this->hasStaff()) {
-            throw new RuntimeException('Setup is already finished.');
+            throw new InstallFailed('Setup is already finished.');
         }
 
         $user = User::create([
@@ -215,6 +225,10 @@ class Installer
     /** A bare file name goes in database/; a full path is used as it is. */
     private function sqlitePath(string $database): string
     {
-        return str_contains($database, '/') ? $database : database_path($database ?: 'database.sqlite');
+        if (str_contains($database, '/')) {
+            return $database;
+        }
+
+        return database_path($database ?: 'database.sqlite');
     }
 }

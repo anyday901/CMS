@@ -98,7 +98,9 @@ class AppearanceController extends Controller
     {
         $file = $request->file('logo');
         $extension = strtolower($file->getClientOriginalExtension());
-        $extension = in_array($extension, Branding::LOGO_TYPES, true) ? $extension : ($file->guessExtension() ?: 'png');
+        if (! in_array($extension, Branding::LOGO_TYPES, true)) {
+            $extension = $file->guessExtension() ?: 'png';
+        }
 
         if ($old = Branding::logoPath()) {
             Storage::disk(Branding::DISK)->delete($old);

@@ -78,14 +78,15 @@ final class Language
             return $all[0];
         }
 
-        $picked = request()->hasSession() ? request()->session()->get(self::SESSION_KEY) : null;
-        if (is_string($picked) && in_array($picked, $all, true)) {
-            return $picked;
-        }
-
-        $client = request()->hasSession() ? auth('client')->user() : null;
-        if ($client?->language !== null && in_array($client->language, $all, true)) {
-            return $client->language;
+        $choices = [
+            fn () => request()->hasSession() ? request()->session()->get(self::SESSION_KEY) : null,
+            fn () => request()->hasSession() ? auth('client')->user()?->language : null,
+        ];
+        foreach ($choices as $choice) {
+            $code = $choice();
+            if (is_string($code) && in_array($code, $all, true)) {
+                return $code;
+            }
         }
 
         // Symfony writes locales with underscores and returns the first one when nothing matches.

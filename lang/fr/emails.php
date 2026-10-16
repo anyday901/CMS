@@ -1,5 +1,7 @@
 <?php
 
+use App\Mail\EmailTemplates;
+
 /*
  * French wording for the client emails in App\Mail\EmailTemplates.
  * Keep every {placeholder}; ticket subjects must keep "[Ticket #{ticket_id}]",
@@ -52,15 +54,15 @@ return [
         'body' => "Bonjour {client_first_name},\n\nQuelqu’un vient de se connecter à votre compte depuis un appareil que nous ne connaissions pas :\n\n- Quand : {login_time}\n- Navigateur : {login_browser}\n- Adresse IP : {login_ip}\n\nSi c’était vous, vous n’avez rien à faire.\n\nSinon, [réinitialisez votre mot de passe]({password_url}) sans attendre et activez l’authentification à deux facteurs dans la rubrique Sécurité du portail.\n\n{company_name}",
     ],
     'ticket_opened' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Bonjour {client_first_name},\n\nNous avons bien reçu votre demande et vous répondrons rapidement. Vous pouvez répondre à cet e-mail pour la compléter.\n\n[Consulter le ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_reply' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Bonjour {client_first_name},\n\n{staff_name} a répondu à votre ticket :\n\n{reply}\n\n[Consulter le ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_auto_closed' => [
-        'subject' => '[Ticket #{ticket_id}] {ticket_subject}',
+        'subject' => EmailTemplates::TICKET_SUBJECT,
         'body' => "Bonjour {client_first_name},\n\nSans nouvelles de votre part depuis {inactive_hours} heures, nous avons fermé ce ticket. Si vous avez encore besoin d’aide, répondez simplement à cet e-mail ou au ticket, et il sera rouvert.\n\n[Consulter le ticket]({ticket_url})\n\n{company_name}",
     ],
     'ticket_feedback' => [

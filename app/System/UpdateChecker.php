@@ -43,16 +43,13 @@ class UpdateChecker
         $url = rtrim((string) config('updates.api_url'), '/').'/repos/'.config('updates.repository').'/releases/latest';
 
         try {
-            $response = Http::acceptJson()->withHeaders(['User-Agent' => 'CMS/'.Version::current()])->timeout(10)->get($url);
+            $response = Http::acceptJson()->withHeaders(['User-Agent' => 'CMS/'.Version::current()])->timeout(10)->get($url)->throw();
         } catch (Throwable) {
             return null;
         }
 
-        if (! $response->successful() || ! is_string($response->json('tag_name'))) {
-            return null;
-        }
-
-        $version = Version::clean($response->json('tag_name'));
+        $tag = $response->json('tag_name');
+        $version = is_string($tag) ? Version::clean($tag) : '';
 
         // Only plain version numbers, such as 1.2.0 or 1.3.0-beta.1, count as releases.
         if (! preg_match('/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/', $version)) {

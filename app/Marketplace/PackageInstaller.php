@@ -9,7 +9,6 @@ use App\System\Version;
 use App\Themes\ThemeManager;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -35,14 +34,14 @@ class PackageInstaller
         try {
             Archive::extract($zip, $staging, self::MAX_BYTES);
             $root = $this->root($staging);
-            $manifest = Manifest::read($root) ?? throw new RuntimeException('The package has no valid addon.json or theme.json. See the marketplace guide in the docs.');
+            $manifest = Manifest::read($root) ?? throw new PackageException('The package has no valid addon.json or theme.json. See the marketplace guide in the docs.');
 
             if (isset($expected['type']) && $expected['type'] !== $manifest['type'] || isset($expected['key']) && $expected['key'] !== $manifest['key']) {
-                throw new RuntimeException("The download is {$manifest['type']} \"{$manifest['key']}\", not what the marketplace listed.");
+                throw new PackageException("The download is {$manifest['type']} \"{$manifest['key']}\", not what the marketplace listed.");
             }
 
             if (! Version::satisfies($manifest['requires'])) {
-                throw new RuntimeException("{$manifest['name']} needs CMS {$manifest['requires']} or newer; this is ".Version::current().'.');
+                throw new PackageException("{$manifest['name']} needs CMS {$manifest['requires']} or newer; this is ".Version::current().'.');
             }
 
             $this->move($root, $this->target($manifest['type'], $manifest['key']));
@@ -64,15 +63,15 @@ class PackageInstaller
         $manifest = is_dir($folder) ? Manifest::read($folder, $type) : null;
 
         if ($manifest === null) {
-            throw new RuntimeException('That package isn\'t installed from the marketplace.');
+            throw new PackageException('That package isn\'t installed from the marketplace.');
         }
 
         if ($type === Manifest::THEME && $this->themes->active()->key === $key) {
-            throw new RuntimeException('That theme is in use. Pick another one under Appearance first.');
+            throw new PackageException('That theme is in use. Pick another one under Appearance first.');
         }
 
         if ($type === Manifest::ADDON && $this->addons->isInstalled($this->addonKey($manifest))) {
-            throw new RuntimeException('Uninstall the add-on under Add-ons first.');
+            throw new PackageException('Uninstall the add-on under Add-ons first.');
         }
 
         File::deleteDirectory($folder);
@@ -84,13 +83,13 @@ class PackageInstaller
     public function target(string $type, string $key): string
     {
         if (! preg_match(Manifest::KEY, $key) || in_array($key, Manifest::RESERVED, true)) {
-            throw new RuntimeException("{$key} isn't a package name.");
+            throw new PackageException("{$key} isn't a package name.");
         }
 
         return match ($type) {
             Manifest::ADDON => rtrim((string) config('marketplace.addons_path'), '/').'/'.$key,
             Manifest::THEME => $this->themes->path().'/'.$key,
-            default => throw new RuntimeException("{$type} isn't a kind of package."),
+            default => throw new PackageException("{$type} isn't a kind of package."),
         };
     }
 
@@ -118,7 +117,7 @@ class PackageInstaller
 
         try {
             if (! @rename($from, $to)) {
-                File::copyDirectory($from, $to) || throw new RuntimeException("Can't write {$to}.");
+                File::copyDirectory($from, $to) || throw new PackageException("Can't write {$to}.");
             }
         } catch (Throwable $e) {
             File::deleteDirectory($to);
