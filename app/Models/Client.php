@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasAffiliateProgram;
 use App\Models\Concerns\HasTwoFactor;
+use App\Models\Concerns\OwnsServices;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,7 +15,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasAffiliateProgram, HasFactory, HasTwoFactor, Notifiable;
+    use HasAffiliateProgram, HasFactory, HasTwoFactor, Notifiable, OwnsServices;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -78,21 +79,6 @@ class Client extends Authenticatable
     public function todos(): HasMany
     {
         return $this->hasMany(Todo::class);
-    }
-
-    public function orders(): HasMany
-    {
-        return $this->hasMany(Order::class);
-    }
-
-    public function services(): HasMany
-    {
-        return $this->hasMany(Service::class);
-    }
-
-    public function domains(): HasMany
-    {
-        return $this->hasMany(Domain::class);
     }
 
     public function invoices(): HasMany

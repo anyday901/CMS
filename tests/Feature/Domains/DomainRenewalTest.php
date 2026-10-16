@@ -14,6 +14,7 @@ use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Tld;
+use App\Privacy\ClientAnonymiser;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -25,6 +26,10 @@ class DomainRenewalTest extends TestCase
     use DomainSetup, RefreshDatabase;
 
     private const EXPIRY = '2026-11-10';
+
+    private const EARLIER_EXPIRY = '2026-11-01';
+
+    private const RENEWED_EXPIRY = '2027-11-10';
 
     private const REMINDER = 'domain_renewal_reminder';
 
@@ -53,7 +58,7 @@ class DomainRenewalTest extends TestCase
     public function test_auto_renewing_domains_are_invoiced_before_expiry_once(): void
     {
         $domain = $this->domain();
-        $second = $this->domain(['name' => 'second.com', 'expiry_date' => '2026-11-01', 'next_due_date' => '2026-11-01', 'recurring_amount' => 1800]);
+        $second = $this->domain(['name' => 'second.com', 'expiry_date' => self::EARLIER_EXPIRY, 'next_due_date' => self::EARLIER_EXPIRY, 'recurring_amount' => 1800]);
         $this->domain(['name' => 'manual.com', 'auto_renew' => false]);
         $this->domain(['name' => 'later.com', 'expiry_date' => '2027-01-01', 'next_due_date' => '2027-01-01']);
 
@@ -61,7 +66,7 @@ class DomainRenewalTest extends TestCase
 
         $invoice = Invoice::sole();
         $this->assertSame(1500 + 1800, $invoice->total);
-        $this->assertSame('2026-11-01', $invoice->due_date->toDateString());
+        $this->assertSame(self::EARLIER_EXPIRY, $invoice->due_date->toDateString());
         $this->assertSame([$domain->id, $second->id], $invoice->items->pluck('domain_id')->sort()->values()->all());
         $this->assertSame('Domain renewal: example.com, 1 year (11/10/2026 - 11/09/2027)', $invoice->items->firstWhere('domain_id', $domain->id)->description);
         $this->assertTrue(EmailLog::where('template', 'invoice_created')->exists());
@@ -79,9 +84,28 @@ class DomainRenewalTest extends TestCase
 
         $domain->refresh();
         $this->assertSame([['renew', 'example.com', 1]], $this->registrar->calls);
-        $this->assertSame('2027-11-10', $domain->expiry_date->toDateString());
-        $this->assertSame('2027-11-10', $domain->next_due_date->toDateString());
+        $this->assertSame(self::RENEWED_EXPIRY, $domain->expiry_date->toDateString());
+        $this->assertSame(self::RENEWED_EXPIRY, $domain->next_due_date->toDateString());
         $this->assertTrue(EmailLog::where('template', 'domain_renewed')->exists());
+    }
+
+    public function test_a_renewal_with_nothing_to_pay_is_settled_and_renewed(): void
+    {
+        $domain = $this->domain(['recurring_amount' => 0]);
+
+        app(DomainRenewals::class)->generate(today());
+
+        $this->assertSame(InvoiceStatus::Paid, Invoice::sole()->status);
+        $this->assertSame([['renew', 'example.com', 1]], $this->registrar->calls);
+        $this->assertSame(self::RENEWED_EXPIRY, $domain->refresh()->expiry_date->toDateString());
+    }
+
+    public function test_clients_with_expired_domains_cant_be_anonymised(): void
+    {
+        $this->domain(['status' => DomainStatus::Expired]);
+        $this->client->update(['status' => 'closed']);
+
+        $this->assertSame("Cancel the client's domains first, or move them to another account.", app(ClientAnonymiser::class)->problem($this->client->refresh()));
     }
 
     public function test_clients_renew_from_the_portal_for_another_term(): void
@@ -163,13 +187,13 @@ class DomainRenewalTest extends TestCase
     public function test_the_sync_takes_expiry_dates_renewed_elsewhere(): void
     {
         $domain = $this->domain();
-        $this->registrar->info = new DomainInfo(DomainInfo::ACTIVE, CarbonImmutable::parse('2027-11-10'), [], false, true);
+        $this->registrar->info = new DomainInfo(DomainInfo::ACTIVE, CarbonImmutable::parse(self::RENEWED_EXPIRY), [], false, true);
 
         $this->assertSame(['synced' => 1, 'failed' => 0], app(DomainSync::class)->run());
 
         $domain->refresh();
-        $this->assertSame('2027-11-10', $domain->expiry_date->toDateString());
-        $this->assertSame('2027-11-10', $domain->next_due_date->toDateString());
+        $this->assertSame(self::RENEWED_EXPIRY, $domain->expiry_date->toDateString());
+        $this->assertSame(self::RENEWED_EXPIRY, $domain->next_due_date->toDateString());
         $this->assertFalse($domain->locked);
         $this->assertTrue($domain->id_protection);
         $this->assertNotNull($domain->synced_at);

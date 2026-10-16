@@ -27,6 +27,8 @@ class RegistrarActions
 
     public const FAILED = 'failed';
 
+    private const DATE_FORMAT = 'M j, Y';
+
     public function __construct(private RegistrarRegistry $registrars, private ClientMailer $mailer) {}
 
     /** Queues an action; $years defaults to the domain's term. */
@@ -95,10 +97,11 @@ class RegistrarActions
             'next_due_date' => $expiry,
         ])->save();
 
+        $until = $expiry->format(self::DATE_FORMAT);
         Activity::record(match ($action) {
-            'register' => "Registered {$domain->name} until {$expiry->format('M j, Y')}",
-            'transfer' => "Transferred {$domain->name} in, expiring {$expiry->format('M j, Y')}",
-            default => "Renewed {$domain->name} for {$years} year(s), until {$expiry->format('M j, Y')}",
+            'register' => "Registered {$domain->name} until {$until}",
+            'transfer' => "Transferred {$domain->name} in, expiring {$until}",
+            default => "Renewed {$domain->name} for {$years} year(s), until {$until}",
         }, $domain);
 
         $this->email($domain, match ($action) {
@@ -145,7 +148,7 @@ class RegistrarActions
     {
         return [
             'domain' => $domain->name,
-            'expiry_date' => $domain->expiry_date?->translatedFormat('M j, Y') ?? '',
+            'expiry_date' => $domain->expiry_date?->translatedFormat(self::DATE_FORMAT) ?? '',
             'renewal_amount' => Money::format($domain->recurring_amount, $domain->client->currency),
             'renewal_years' => (string) $domain->years,
             'domain_url' => route('portal.domains.show', $domain),

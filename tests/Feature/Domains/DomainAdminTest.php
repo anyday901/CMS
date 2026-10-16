@@ -41,15 +41,17 @@ class DomainAdminTest extends TestCase
             'extension' => '.CO.UK', 'registrar' => 'fake', 'active' => '1', 'id_protection' => '1',
             'prices' => ['USD' => [
                 1 => ['register' => '8.99', 'transfer' => '7.50', 'renew' => '9.99', 'id_protection' => ''],
-                2 => ['register' => '', 'transfer' => '', 'renew' => '', 'id_protection' => ''],
+                2 => ['register' => '17.00', 'transfer' => '14.00', 'renew' => '19.00', 'id_protection' => ''],
             ]],
         ])->assertSessionHasNoErrors()->assertRedirect();
 
         $tld = Tld::sole();
         $this->assertSame('co.uk', $tld->extension);
         $this->assertTrue($tld->id_protection);
-        $price = $tld->prices()->sole();
+        $price = $tld->priceFor('USD', 1);
         $this->assertSame([899, 750, 999, 0], [$price->register, $price->transfer, $price->renew, $price->id_protection]);
+        // Transfers add one year, so only the 1 year term has a transfer price.
+        $this->assertNull($tld->priceFor('USD', 2)->transfer);
         $this->get(route('admin.tlds.index'))->assertSee('.co.uk')->assertSee('$8.99');
     }
 

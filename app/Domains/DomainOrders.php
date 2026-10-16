@@ -38,6 +38,9 @@ class DomainOrders
         $name = $parsed->full();
         $type = in_array($data['type'] ?? null, [Domain::REGISTER, Domain::TRANSFER], true) ? $data['type'] : Domain::REGISTER;
         $years = (int) ($data['years'] ?? 1);
+        if ($type === Domain::TRANSFER && $years !== 1) {
+            throw new InvalidArgumentException(__('Transfers are for 1 year: the registrar adds a year to :name.', ['name' => $name]));
+        }
         $price = $tld->priceFor($currency, $years);
 
         if ($price?->{$type} === null) {

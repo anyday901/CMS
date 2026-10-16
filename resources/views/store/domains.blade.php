@@ -5,7 +5,7 @@
 
     <form method="GET" action="{{ route('domains.index') }}" role="search" class="mb-8 flex max-w-2xl flex-wrap gap-2 text-sm">
         <label for="domain-search" class="sr-only">{{ __('Domain name') }}</label>
-        <input id="domain-search" name="domain" value="{{ $search }}" required maxlength="253" placeholder="example.com" autofocus class="min-w-0 grow rounded-full bg-white px-4 py-2.5 ring-1 ring-ink-300">
+        <input id="domain-search" name="domain" value="{{ $search }}" required maxlength="253" placeholder="example.com" class="min-w-0 grow rounded-full bg-white px-4 py-2.5 ring-1 ring-ink-300">
         <input type="hidden" name="type" value="{{ $transfer ? 'transfer' : 'register' }}">
         <button class="rounded-full bg-brand-600 px-5 py-2.5 font-medium text-white hover:bg-brand-500">{{ $transfer ? __('Check transfer') : __('Search') }}</button>
         <p class="w-full text-ink-500">

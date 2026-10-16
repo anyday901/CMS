@@ -24,22 +24,17 @@ class Whois
     public function lookup(string $name, ?Tld $tld = null): WhoisResult
     {
         $base = $this->rdapServer($name);
+        $error = "No WHOIS service is known for {$name}.";
 
         if ($base !== null) {
             try {
                 return $this->rdap($name, $base);
             } catch (ConnectionException|RegistrarError $e) {
-                if (blank($tld?->whois_server)) {
-                    return new WhoisResult($name, null, error: $e->getMessage());
-                }
+                $error = $e->getMessage();
             }
         }
 
-        if (filled($tld?->whois_server)) {
-            return $this->port43($name, $tld);
-        }
-
-        return new WhoisResult($name, null, error: "No WHOIS service is known for {$name}.");
+        return filled($tld?->whois_server) ? $this->port43($name, $tld) : new WhoisResult($name, null, error: $error);
     }
 
     /** The RDAP base URL for the name's extension, from IANA's list (kept for a day). */
@@ -101,8 +96,17 @@ class Whois
             'Updated' => (string) $events->get('last changed'),
             'Status' => implode(', ', (array) ($record['status'] ?? [])),
             'Nameservers' => collect($record['nameservers'] ?? [])->map(fn ($ns) => strtolower((string) ($ns['ldhName'] ?? '')))->filter()->join(', '),
-            'DNSSEC' => isset($record['secureDNS']['delegationSigned']) ? ($record['secureDNS']['delegationSigned'] ? 'Signed' : 'Unsigned') : '',
+            'DNSSEC' => self::dnssec($record['secureDNS']['delegationSigned'] ?? null),
         ], fn ($value) => $value !== '');
+    }
+
+    private static function dnssec(mixed $signed): string
+    {
+        if ($signed === null) {
+            return '';
+        }
+
+        return $signed ? 'Signed' : 'Unsigned';
     }
 
     private function port43(string $name, Tld $tld): WhoisResult

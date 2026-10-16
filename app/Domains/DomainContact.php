@@ -82,10 +82,7 @@ final readonly class DomainContact
     {
         $phone = trim($this->phone);
 
-        if ($phone === '') {
-            return '';
-        }
-        if (preg_match('/^\+(\d{1,3})\.(\d{4,14})$/', $phone)) {
+        if ($phone === '' || preg_match('/^\+(\d{1,3})\.(\d{4,14})$/', $phone)) {
             return $phone;
         }
 

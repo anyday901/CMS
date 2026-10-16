@@ -123,35 +123,45 @@ class TldController extends Controller
      */
     private function savePrices(Tld $tld, Request $request): void
     {
-        $grid = (array) $request->input('prices', []);
         $kept = [];
 
-        foreach ($grid as $currency => $terms) {
+        foreach ((array) $request->input('prices', []) as $currency => $terms) {
             if (! preg_match('/^[A-Z]{3}$/', (string) $currency)) {
                 continue;
             }
             foreach ((array) $terms as $years => $row) {
-                $years = (int) $years;
-                if (! in_array($years, self::TERMS, true)) {
-                    continue;
+                $amounts = in_array((int) $years, self::TERMS, true) ? self::rowAmounts((string) $currency, (int) $years, (array) $row) : null;
+                if ($amounts !== null) {
+                    $kept[] = $tld->prices()->updateOrCreate(['currency' => $currency, 'years' => (int) $years], [...$amounts, 'id_protection' => $amounts['id_protection'] ?? 0])->id;
                 }
-                $amounts = [];
-                foreach ([...TldPrice::TYPES, 'id_protection'] as $type) {
-                    $value = trim((string) ($row[$type] ?? ''));
-                    try {
-                        $amounts[$type] = $value === '' ? null : Money::parse($value);
-                    } catch (InvalidArgumentException) {
-                        throw ValidationException::withMessages(["prices.{$currency}.{$years}.{$type}" => "{$value} isn't an amount ({$currency}, {$years} year(s), {$type})."]);
-                    }
-                }
-                if ($amounts['register'] === null && $amounts['transfer'] === null && $amounts['renew'] === null) {
-                    continue;
-                }
-                $price = $tld->prices()->updateOrCreate(['currency' => $currency, 'years' => $years], [...$amounts, 'id_protection' => $amounts['id_protection'] ?? 0]);
-                $kept[] = $price->id;
             }
         }
 
         $tld->prices()->whereNotIn('id', $kept)->delete();
+    }
+
+    /**
+     * One term's amounts in cents, or null when it has no register, transfer or renew price.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, int|null>|null
+     */
+    private static function rowAmounts(string $currency, int $years, array $row): ?array
+    {
+        $amounts = [];
+        foreach ([...TldPrice::TYPES, 'id_protection'] as $type) {
+            $value = trim((string) ($row[$type] ?? ''));
+            try {
+                $amounts[$type] = $value === '' ? null : Money::parse($value);
+            } catch (InvalidArgumentException) {
+                throw ValidationException::withMessages(["prices.{$currency}.{$years}.{$type}" => "{$value} isn't an amount ({$currency}, {$years} year(s), {$type})."]);
+            }
+        }
+        if ($years !== 1) {
+            // A transfer adds one year at the registrar, so only the 1 year term is sold.
+            $amounts['transfer'] = null;
+        }
+
+        return $amounts['register'] === null && $amounts['transfer'] === null && $amounts['renew'] === null ? null : $amounts;
     }
 }

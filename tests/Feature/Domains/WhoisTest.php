@@ -17,6 +17,8 @@ class WhoisTest extends TestCase
 
     private const RDAP = 'https://rdap.example-registry.test/';
 
+    private const REGISTRAR = 'Example Registrar, Inc.';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,7 +29,7 @@ class WhoisTest extends TestCase
                 'ldhName' => 'TAKEN.COM',
                 'status' => ['client transfer prohibited'],
                 'events' => [['eventAction' => 'registration', 'eventDate' => '1999-03-15T05:00:00Z'], ['eventAction' => 'expiration', 'eventDate' => '2027-03-15T04:00:00Z']],
-                'entities' => [['roles' => ['registrar'], 'vcardArray' => ['vcard', [['version', [], 'text', '4.0'], ['fn', [], 'text', 'Example Registrar, Inc.']]]]],
+                'entities' => [['roles' => ['registrar'], 'vcardArray' => ['vcard', [['version', [], 'text', '4.0'], ['fn', [], 'text', self::REGISTRAR]]]]],
                 'nameservers' => [['ldhName' => 'NS1.EXAMPLE.NET'], ['ldhName' => 'NS2.EXAMPLE.NET']],
                 'secureDNS' => ['delegationSigned' => false],
             ]),
@@ -40,7 +42,7 @@ class WhoisTest extends TestCase
         $result = app(Whois::class)->lookup('taken.com');
 
         $this->assertFalse($result->available);
-        $this->assertSame('Example Registrar, Inc.', $result->fields['Registrar']);
+        $this->assertSame(self::REGISTRAR, $result->fields['Registrar']);
         $this->assertSame('2027-03-15', $result->fields['Expires']);
         $this->assertSame('ns1.example.net, ns2.example.net', $result->fields['Nameservers']);
         $this->assertSame('Unsigned', $result->fields['DNSSEC']);
@@ -49,7 +51,7 @@ class WhoisTest extends TestCase
 
     public function test_the_store_whois_page(): void
     {
-        $this->get(route('domains.whois', ['domain' => 'Taken.com']))->assertOk()->assertSee('Example Registrar, Inc.')->assertSee('ns1.example.net');
+        $this->get(route('domains.whois', ['domain' => 'Taken.com']))->assertOk()->assertSee(self::REGISTRAR)->assertSee('ns1.example.net');
         $this->get(route('domains.whois', ['domain' => 'not a domain']))->assertOk()->assertSee("isn't a domain name");
     }
 

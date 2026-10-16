@@ -6,6 +6,7 @@ use App\Domains\DnsRecord;
 use App\Domains\DomainInfo;
 use App\Domains\RegistrarError;
 use App\Domains\Registrars\OpenSrs;
+use App\Domains\Registrars\OpenSrsApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -37,22 +38,22 @@ class OpenSrsTest extends TestCase
     private function fake(array $replies): void
     {
         Http::fake(function (Request $request) use ($replies) {
-            $sent = OpenSrs::decode($request->body());
+            $sent = OpenSrsApi::decode($request->body());
             $key = $sent['action'] === 'GET' ? 'GET:'.$sent['attributes']['type'] : $sent['action'];
             $reply = $replies[$key] ?? [];
             $reply = is_callable($reply) ? $reply($sent) : $reply;
 
-            return Http::response(OpenSrs::encode($reply + ['protocol' => 'XCP', 'action' => 'REPLY', 'is_success' => '1', 'response_code' => '200', 'response_text' => 'Command successful']));
+            return Http::response(OpenSrsApi::encode($reply + ['protocol' => 'XCP', 'action' => 'REPLY', 'is_success' => '1', 'response_code' => '200', 'response_text' => 'Command successful']));
         });
     }
 
     /** @return array<string, mixed> the data block of the first request for $action */
     private function sent(string $action): array
     {
-        $found = Http::recorded(fn (Request $request) => OpenSrs::decode($request->body())['action'] === $action)->first();
+        $found = Http::recorded(fn (Request $request) => OpenSrsApi::decode($request->body())['action'] === $action)->first();
         $this->assertNotNull($found, "No {$action} request was sent.");
 
-        return OpenSrs::decode($found[0]->body());
+        return OpenSrsApi::decode($found[0]->body());
     }
 
     public function test_requests_are_signed_ops_envelopes(): void
@@ -65,27 +66,27 @@ class OpenSrsTest extends TestCase
 
         Http::assertSent(fn (Request $request) => $request->url() === self::TEST_URL
             && $request->header('X-Username')[0] === 'reseller'
-            && $request->header('X-Signature')[0] === OpenSrs::signature($request->body(), 'key-1')
+            && $request->header('X-Signature')[0] === OpenSrsApi::signature($request->body(), 'key-1')
             && str_contains($request->body(), '<!DOCTYPE OPS_envelope'));
     }
 
     public function test_the_signature_follows_the_opensrs_scheme(): void
     {
-        $this->assertSame('e78b8474bd86482772205adb7f056c33', OpenSrs::signature('<data/>', 'key-1'));
+        $this->assertSame('e78b8474bd86482772205adb7f056c33', OpenSrsApi::signature('<data/>', 'key-1'));
     }
 
     public function test_the_envelope_round_trips_nested_data(): void
     {
         $data = ['action' => 'SW_REGISTER', 'attributes' => ['nameserver_list' => [['sortorder' => '1', 'name' => 'ns1.a.test']], 'contact_set' => ['owner' => ['first_name' => 'Ada & Co']]]];
 
-        $this->assertSame($data, OpenSrs::decode(OpenSrs::encode($data)));
+        $this->assertSame($data, OpenSrsApi::decode(OpenSrsApi::encode($data)));
     }
 
     public function test_replies_with_external_entities_are_not_expanded(): void
     {
         $body = '<?xml version="1.0"?><!DOCTYPE OPS_envelope [<!ENTITY x SYSTEM "file:///etc/passwd">]><OPS_envelope><body><data_block><dt_assoc><item key="response_text">&x;</item></dt_assoc></data_block></body></OPS_envelope>';
 
-        $this->assertStringNotContainsString('root:', (string) (OpenSrs::decode($body)['response_text'] ?? ''));
+        $this->assertStringNotContainsString('root:', (string) (OpenSrsApi::decode($body)['response_text'] ?? ''));
     }
 
     public function test_registration_sends_contacts_nameservers_and_a_kept_profile(): void

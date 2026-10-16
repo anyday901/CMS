@@ -105,6 +105,14 @@ class NamecheapTest extends TestCase
         $this->assertSame('4242', $domain->registrarValue('whoisguard_id'));
     }
 
+    public function test_a_domain_stays_active_on_its_expiry_day(): void
+    {
+        $this->travelTo(now()->setDate(2027, 3, 15)->setTime(4, 10));
+        $this->fake(['namecheap.domains.getInfo' => '<DomainGetInfoResult Status="Ok"><DomainDetails><ExpiredDate>03/15/2027</ExpiredDate></DomainDetails></DomainGetInfoResult>']);
+
+        $this->assertSame(DomainInfo::ACTIVE, $this->namecheap->info($this->moduleDomain('namecheap'), self::CREDENTIALS)->status);
+    }
+
     public function test_a_domain_not_in_the_account_is_gone(): void
     {
         $this->refuse('2019166', 'Domain not found');

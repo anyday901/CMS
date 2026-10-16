@@ -10,19 +10,11 @@ use App\Domains\Registrar;
 use App\Domains\RegistrarError;
 use App\Domains\RegistrarResult;
 use App\Models\Domain;
-use Carbon\CarbonImmutable;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
-use SimpleXMLElement;
 
 /** Enom's reseller API (interface.asp), with XML replies. */
 class Enom implements ManagesDns, Registrar
 {
     use XmlReplies;
-
-    private const LIVE = 'https://reseller.enom.com/interface.asp';
-
-    private const TEST = 'https://resellertest.enom.com/interface.asp';
 
     private const CONTACT_TYPES = ['Registrant', 'Admin', 'Tech', 'AuxBilling'];
 
@@ -55,7 +47,7 @@ class Enom implements ManagesDns, Registrar
     {
         $answers = [];
         foreach (array_chunk($names, 30) as $chunk) {
-            $xml = $this->call('Check', ['DomainList' => implode(',', $chunk)], $credentials);
+            $xml = EnomApi::call('Check', ['DomainList' => implode(',', $chunk)], $credentials);
             $count = (int) $this->text($xml, '/interface-response/DomainCount');
             for ($i = 1; $i <= max($count, count($chunk)); $i++) {
                 $name = strtolower((string) $this->text($xml, "/interface-response/Domain{$i}"));
@@ -71,10 +63,10 @@ class Enom implements ManagesDns, Registrar
 
     public function register(Domain $domain, array $credentials): RegistrarResult
     {
-        $xml = $this->call('Purchase', $this->names($domain) + [
+        $xml = EnomApi::call('Purchase', $this->names($domain) + [
             'NumYears' => $domain->years,
             'IgnoreNSFail' => 'Yes',
-        ] + $this->nameserverParams($domain->nameservers ?? []) + $this->contactParams($domain->registrant(), self::CONTACT_TYPES), $credentials);
+        ] + EnomApi::nameservers($domain->nameservers ?? []) + EnomApi::contacts($domain->registrant(), self::CONTACT_TYPES), $credentials);
 
         $result = RegistrarResult::done(data: ['order_id' => $this->text($xml, '/interface-response/OrderID')]);
         if ($domain->id_protection) {
@@ -86,7 +78,7 @@ class Enom implements ManagesDns, Registrar
 
     public function transfer(Domain $domain, array $credentials): RegistrarResult
     {
-        $xml = $this->call('TP_CreateOrder', [
+        $xml = EnomApi::call('TP_CreateOrder', [
             'OrderType' => 'Autoverification',
             'DomainCount' => 1,
             'SLD1' => $domain->sld(),
@@ -100,7 +92,7 @@ class Enom implements ManagesDns, Registrar
 
     public function renew(Domain $domain, int $years, array $credentials): RegistrarResult
     {
-        $xml = $this->call('Extend', $this->names($domain) + ['NumYears' => $years], $credentials);
+        $xml = EnomApi::call('Extend', $this->names($domain) + ['NumYears' => $years], $credentials);
 
         return RegistrarResult::done(data: ['order_id' => $this->text($xml, '/interface-response/OrderID')]);
     }
@@ -108,7 +100,7 @@ class Enom implements ManagesDns, Registrar
     public function info(Domain $domain, array $credentials): DomainInfo
     {
         try {
-            $xml = $this->call('GetDomainInfo', $this->names($domain), $credentials);
+            $xml = EnomApi::call('GetDomainInfo', $this->names($domain), $credentials);
         } catch (RegistrarError $e) {
             if (preg_match('/not found|not in your account|doesn\'t belong|does not belong/i', $e->getMessage())) {
                 return new DomainInfo($domain->status->value === 'pending_transfer' ? DomainInfo::PENDING_TRANSFER : DomainInfo::GONE);
@@ -116,14 +108,14 @@ class Enom implements ManagesDns, Registrar
             throw $e;
         }
 
-        $expiry = $this->date($this->text($xml, '//GetDomainInfo/status/expiration'));
+        $expiry = EnomApi::date($this->text($xml, '//GetDomainInfo/status/expiration'));
         $state = strtolower((string) $this->text($xml, '//GetDomainInfo/status/registrationstatus'));
         $nameservers = array_map(fn ($ns) => strtolower(trim((string) $ns)), $xml->xpath("//services/entry[@name='dnsserver']//dns") ?: []);
 
         return new DomainInfo(
             match (true) {
                 str_contains($state, 'expired') => DomainInfo::EXPIRED,
-                $expiry !== null && $expiry->isPast() => DomainInfo::EXPIRED,
+                $expiry !== null && $expiry->lt(today()) => DomainInfo::EXPIRED,
                 default => DomainInfo::ACTIVE,
             },
             $expiry,
@@ -135,7 +127,7 @@ class Enom implements ManagesDns, Registrar
     private function lock(Domain $domain, array $credentials): ?bool
     {
         try {
-            $value = $this->text($this->call('GetRegLock', $this->names($domain), $credentials), '/interface-response/reg-lock');
+            $value = $this->text(EnomApi::call('GetRegLock', $this->names($domain), $credentials), '/interface-response/reg-lock');
         } catch (RegistrarError) {
             return null;
         }
@@ -145,12 +137,12 @@ class Enom implements ManagesDns, Registrar
 
     public function setNameservers(Domain $domain, array $nameservers, array $credentials): void
     {
-        $this->call('ModifyNS', $this->names($domain) + $this->nameserverParams($nameservers), $credentials);
+        EnomApi::call('ModifyNS', $this->names($domain) + EnomApi::nameservers($nameservers), $credentials);
     }
 
     public function contact(Domain $domain, array $credentials): DomainContact
     {
-        $xml = $this->call('GetContacts', $this->names($domain), $credentials);
+        $xml = EnomApi::call('GetContacts', $this->names($domain), $credentials);
         $field = fn (string $name) => (string) $this->text($xml, "//GetContacts/Registrant/Registrant{$name}");
 
         return DomainContact::fromArray([
@@ -170,35 +162,35 @@ class Enom implements ManagesDns, Registrar
 
     public function setContact(Domain $domain, DomainContact $contact, array $credentials): void
     {
-        $this->call('Contacts', $this->names($domain) + ['ContactType' => 'REGISTRANT'] + $this->contactParams($contact, ['Registrant']), $credentials);
+        EnomApi::call('Contacts', $this->names($domain) + ['ContactType' => 'REGISTRANT'] + EnomApi::contacts($contact, ['Registrant']), $credentials);
     }
 
     public function setIdProtection(Domain $domain, bool $on, array $credentials): void
     {
-        $this->call($on ? 'EnableServices' : 'DisableServices', $this->names($domain) + ['Service' => 'WPPS'], $credentials);
+        EnomApi::call($on ? 'EnableServices' : 'DisableServices', $this->names($domain) + ['Service' => 'WPPS'], $credentials);
     }
 
     public function setLock(Domain $domain, bool $locked, array $credentials): void
     {
-        $this->call('SetRegLock', $this->names($domain) + ['UnlockRegistrar' => $locked ? 0 : 1], $credentials);
+        EnomApi::call('SetRegLock', $this->names($domain) + ['UnlockRegistrar' => $locked ? 0 : 1], $credentials);
     }
 
     public function eppCode(Domain $domain, array $credentials): ?string
     {
         // Enom resets the code and emails it to the registrant rather than returning it.
-        $this->call('SynchAuthInfo', $this->names($domain) + ['EmailEPP' => 'True', 'RunSynchAutoInfo' => 'True'], $credentials);
+        EnomApi::call('SynchAuthInfo', $this->names($domain) + ['EmailEPP' => 'True', 'RunSynchAutoInfo' => 'True'], $credentials);
 
         return null;
     }
 
     public function testConnection(array $credentials): void
     {
-        $this->call('GetBalance', [], $credentials);
+        EnomApi::call('GetBalance', [], $credentials);
     }
 
     public function dnsRecords(Domain $domain, array $credentials): array
     {
-        $xml = $this->call('GetHosts', $this->names($domain), $credentials);
+        $xml = EnomApi::call('GetHosts', $this->names($domain), $credentials);
         $records = [];
         foreach ($xml->xpath('//host') ?: [] as $host) {
             $type = strtoupper(trim((string) $host->type));
@@ -223,88 +215,12 @@ class Enom implements ManagesDns, Registrar
             }
         }
 
-        $this->call('SetHosts', $params, $credentials);
+        EnomApi::call('SetHosts', $params, $credentials);
     }
 
     /** @return array{SLD: string, TLD: string} */
     private function names(Domain $domain): array
     {
         return [self::SLD => $domain->sld(), self::TLD => $domain->extension()];
-    }
-
-    /** @param  list<string>  $nameservers */
-    private function nameserverParams(array $nameservers): array
-    {
-        $params = [];
-        foreach (array_values($nameservers) as $i => $nameserver) {
-            $params['NS'.($i + 1)] = $nameserver;
-        }
-
-        return $params;
-    }
-
-    /** @param  list<string>  $types */
-    private function contactParams(DomainContact $contact, array $types): array
-    {
-        $params = [];
-        foreach ($types as $type) {
-            $params += [
-                "{$type}FirstName" => $contact->firstName,
-                "{$type}LastName" => $contact->lastName,
-                "{$type}OrganizationName" => $contact->company,
-                "{$type}Address1" => $contact->address1,
-                "{$type}Address2" => $contact->address2,
-                "{$type}City" => $contact->city,
-                "{$type}StateProvince" => $contact->state,
-                "{$type}PostalCode" => $contact->postcode,
-                "{$type}Country" => $contact->country,
-                "{$type}EmailAddress" => $contact->email,
-                "{$type}Phone" => $contact->registrarPhone(),
-            ];
-        }
-
-        return $params;
-    }
-
-    private function date(?string $value): ?CarbonImmutable
-    {
-        if (blank($value)) {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($value)->startOfDay();
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /** @param  array<string, string|int>  $params */
-    private function call(string $command, array $params, array $credentials): SimpleXMLElement
-    {
-        try {
-            $response = Http::timeout(30)->asForm()->post(! empty($credentials['test_mode']) ? self::TEST : self::LIVE, [
-                'uid' => $credentials['username'] ?? '',
-                'pw' => $credentials['api_token'] ?? '',
-                'command' => $command,
-                'responsetype' => 'xml',
-            ] + $params);
-        } catch (ConnectionException $e) {
-            throw new RegistrarError("Enom couldn't be reached: {$e->getMessage()}");
-        }
-
-        if (! $response->successful()) {
-            throw new RegistrarError("Enom answered HTTP {$response->status()} to {$command}.");
-        }
-
-        $xml = $this->xml($response->body(), self::NAME);
-
-        if ((int) $this->text($xml, '/interface-response/ErrCount') > 0) {
-            $errors = array_map(fn ($error) => trim((string) $error), $xml->xpath('/interface-response/errors/*') ?: []);
-
-            throw new RegistrarError('Enom refused '.$command.': '.(implode(' ', array_filter($errors)) ?: 'no reason given'));
-        }
-
-        return $xml;
     }
 }

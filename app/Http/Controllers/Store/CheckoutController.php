@@ -11,6 +11,7 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\CustomField;
+use App\Models\Order;
 use App\Ordering\Cart;
 use App\Ordering\Checkout;
 use App\Security\Captcha;
@@ -74,12 +75,22 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->withErrors(['cart' => $e->getMessage()]);
         }
 
+        return $this->placed($order);
+    }
+
+    /** Sends the client to pay the order's invoice or, when nothing is due, to what is being set up. */
+    private function placed(Order $order): RedirectResponse
+    {
         $invoice = $order->invoice;
 
-        return $invoice->status === InvoiceStatus::Unpaid
-            ? redirect()->route('portal.invoices.show', $invoice)->with('status', __('Thanks for your order. Pay this invoice to get started.'))
-            : redirect()->route($order->services()->exists() || ! $order->domains()->exists() ? 'portal.services.index' : 'portal.domains.index')
-                ->with('status', __('Thanks for your order. Nothing is due, so your services are being set up.'));
+        if ($invoice->status === InvoiceStatus::Unpaid) {
+            return redirect()->route('portal.invoices.show', $invoice)->with('status', __('Thanks for your order. Pay this invoice to get started.'));
+        }
+
+        $onlyDomains = ! $order->services()->exists() && $order->domains()->exists();
+
+        return redirect()->route($onlyDomains ? 'portal.domains.index' : 'portal.services.index')
+            ->with('status', __('Thanks for your order. Nothing is due, so your services are being set up.'));
     }
 
     /** Sends a client who already has an account to log in, then back here. */

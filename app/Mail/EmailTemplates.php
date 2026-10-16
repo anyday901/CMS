@@ -157,6 +157,14 @@ class EmailTemplates
                 'body' => "Hello {client_first_name},\n\nYour ticket \"{ticket_subject}\" is now closed. Could you tell us how we did? It takes a few seconds and helps us improve.\n\n[Rate our support]({feedback_url})\n\nThank you,\n{company_name}",
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department', 'feedback_url'],
             ],
+            ...self::domainDefinitions(),
+        ];
+    }
+
+    /** @return array<string, array{name: string, description: string, subject: string, body: string, placeholders: list<string>, contacts?: string}> */
+    private static function domainDefinitions(): array
+    {
+        return [
             'domain_registered' => [
                 'name' => 'Domain registered',
                 'description' => 'Sent when the registrar has registered a domain the client ordered.',

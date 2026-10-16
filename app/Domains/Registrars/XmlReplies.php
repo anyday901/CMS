@@ -8,7 +8,7 @@ use SimpleXMLElement;
 /** Reads registrars' XML replies safely: no external entities, default namespaces dropped. */
 trait XmlReplies
 {
-    protected function xml(string $body, string $registrar): SimpleXMLElement
+    protected static function xml(string $body, string $registrar): SimpleXMLElement
     {
         // A default namespace would hide every element from plain XPath.
         $body = preg_replace('/\sxmlns="[^"]*"/', '', $body, 1);
@@ -25,7 +25,7 @@ trait XmlReplies
     }
 
     /** The text of the first element at an XPath, or null. */
-    protected function text(SimpleXMLElement $xml, string $path): ?string
+    protected static function text(SimpleXMLElement $xml, string $path): ?string
     {
         $found = $xml->xpath($path);
 

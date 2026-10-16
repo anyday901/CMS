@@ -83,6 +83,12 @@ class DomainController extends Controller
         return view('admin.domains.create', ['client' => $client, 'tlds' => Tld::orderBy('extension')->get(), 'registrars' => $this->registrars->all()]);
     }
 
+    /** The TLD's renewal price for the term, 0 when the extension isn't sold. */
+    private static function listRenewal(?Tld $tld, Client $client, int $years): int
+    {
+        return $tld ? (int) DomainOrders::renewalAmount($tld->load('prices'), $client->currency, $years) : 0;
+    }
+
     public function store(Request $request, Client $client): RedirectResponse
     {
         $data = $this->validated($request);
@@ -100,7 +106,7 @@ class DomainController extends Controller
             'type' => Domain::REGISTER,
             'status' => $data['status'],
             'years' => (int) $data['years'],
-            'recurring_amount' => isset($data['recurring_amount']) ? Money::parse($data['recurring_amount']) : ($tld ? (int) DomainOrders::renewalAmount($tld->load('prices'), $client->currency, (int) $data['years']) : 0),
+            'recurring_amount' => isset($data['recurring_amount']) ? Money::parse($data['recurring_amount']) : self::listRenewal($tld, $client, (int) $data['years']),
             'registration_date' => $data['registration_date'] ?? null,
             'expiry_date' => $data['expiry_date'] ?? null,
             'next_due_date' => $data['expiry_date'] ?? null,

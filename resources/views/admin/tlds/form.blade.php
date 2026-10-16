@@ -39,7 +39,7 @@
 
         <fieldset>
             <legend class="mb-1 font-semibold">Prices</legend>
-            <p class="mb-3 text-ink-600">Leave a term blank to not sell it. ID protection is charged per term on top, and 0 makes it free. Transfers are usually sold for 1 year.</p>
+            <p class="mb-3 text-ink-600">Leave a term blank to not sell it. ID protection is charged per term on top, and 0 makes it free. Transfers are sold for 1 year only, since the registrar adds one year to the domain.</p>
             @foreach ($currencies as $currency)
                 <div class="mb-4 overflow-x-auto">
                     <table class="min-w-full">
@@ -52,6 +52,10 @@
                                     <td class="py-1 pr-3">{{ $years }} year{{ $years === 1 ? '' : 's' }}</td>
                                     @foreach (['register', 'transfer', 'renew', 'id_protection'] as $type)
                                         @php $value = old("prices.{$currency}.{$years}.{$type}", $price && $price->{$type} !== null ? App\Support\Money::toInput($price->{$type}) : ''); @endphp
+                                        @if ($type === 'transfer' && $years !== 1)
+                                            <td class="py-1 pr-3 text-ink-400">—</td>
+                                            @continue
+                                        @endif
                                         <td class="py-1 pr-3"><label class="sr-only" for="price-{{ $currency }}-{{ $years }}-{{ $type }}">{{ $currency }} {{ $years }} year {{ $type }}</label>
                                             <input id="price-{{ $currency }}-{{ $years }}-{{ $type }}" name="prices[{{ $currency }}][{{ $years }}][{{ $type }}]" value="{{ $value }}" inputmode="decimal" class="w-28 rounded-md px-2 py-1.5 ring-1 ring-ink-300"></td>
                                     @endforeach

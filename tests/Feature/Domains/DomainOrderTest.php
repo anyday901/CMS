@@ -129,7 +129,7 @@ class DomainOrderTest extends TestCase
         $this->post(route('domains.cart'), ['name' => self::NAME, 'type' => Domain::REGISTER, 'years' => 3])
             ->assertSessionHasErrors(['name' => ".com domains aren't sold for 3 year(s) in USD."]);
         $this->post(route('domains.cart'), ['name' => self::NAME, 'type' => Domain::TRANSFER, 'years' => 2, 'epp_code' => 'X'])
-            ->assertSessionHasErrors(['name' => "Transfers of .com domains for 2 year(s) aren't sold in USD."]);
+            ->assertSessionHasErrors(['name' => 'Transfers are for 1 year: the registrar adds a year to example.com.']);
         $this->post(route('domains.cart'), ['name' => self::NAME, 'type' => Domain::TRANSFER, 'years' => 1])
             ->assertSessionHasErrors(['name' => 'Enter the EPP code for example.com. Its current registrar gives it to you.']);
     }

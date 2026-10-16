@@ -3,6 +3,7 @@
 namespace App\Domains;
 
 use App\Billing\CreditApplier;
+use App\Billing\PaymentRecorder;
 use App\Enums\DomainStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
@@ -27,7 +28,7 @@ use InvalidArgumentException;
  */
 class DomainRenewals
 {
-    public function __construct(private CreditApplier $credit, private RegistrarActions $actions) {}
+    public function __construct(private CreditApplier $credit, private RegistrarActions $actions, private PaymentRecorder $payments) {}
 
     /** @return Collection<int, Invoice> */
     public function generate(CarbonInterface $today): Collection
@@ -188,6 +189,8 @@ class DomainRenewals
     private function issue(Invoice $invoice): void
     {
         $this->credit->applyIfEnabled($invoice);
+        // A renewal with nothing to pay (a free TLD, or paid from credit) is settled now, so it still renews.
+        $this->payments->settleIfNothingDue($invoice);
         InvoiceIssued::dispatch($invoice->refresh());
     }
 }

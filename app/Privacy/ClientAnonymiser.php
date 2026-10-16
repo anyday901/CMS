@@ -40,7 +40,7 @@ class ClientAnonymiser
             $client->isAnonymised() => 'This client is already anonymised.',
             $client->status !== ClientStatus::Closed => 'Close the account first. Only closed accounts can be anonymised.',
             $client->services()->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])->exists() => 'Terminate or cancel the client\'s services first.',
-            $client->domains()->whereIn('status', [DomainStatus::Pending, DomainStatus::PendingTransfer, DomainStatus::Active])->exists() => 'Cancel the client\'s domains first, or move them to another account.',
+            $client->domains()->whereIn('status', [DomainStatus::Pending, DomainStatus::PendingTransfer, DomainStatus::Active, DomainStatus::Expired])->exists() => 'Cancel the client\'s domains first, or move them to another account.',
             default => null,
         };
     }
