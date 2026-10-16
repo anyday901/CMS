@@ -6,6 +6,7 @@ use App\Models\ScheduledTaskRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class HealthTest extends TestCase
@@ -54,6 +55,15 @@ class HealthTest extends TestCase
 
         $this->getJson('/health?token=wrong')->assertJsonMissingPath('checks');
         $this->getJson('/health?token=secret-token')->assertJsonPath('checks.database', 'ok')->assertJsonPath('checks.scheduler', 'problem');
+    }
+
+    public function test_a_check_that_throws_is_reported_as_a_problem(): void
+    {
+        config(['app.health_token' => 'secret']);
+        Schema::drop('scheduled_task_runs');
+
+        $this->getJson('/health?token=secret')->assertStatus(503)->assertJsonPath('checks.scheduler', 'problem');
+        $this->actingAs(User::factory()->create())->get('/admin/settings/system')->assertOk()->assertSee('Couldn&#039;t check this', false);
     }
 
     public function test_debug_mode_in_production_is_a_problem(): void

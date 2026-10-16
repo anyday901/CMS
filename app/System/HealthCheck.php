@@ -9,6 +9,7 @@ use App\System\Backups\BackupManager;
 use App\System\Backups\DatabaseDumper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -35,26 +36,27 @@ class HealthCheck
     /**
      * @return list<array{key: string, label: string, status: string, detail: string}>
      */
+    /** Each check: its method and key, and its label. */
+    private const CHECKS = [
+        'php' => 'PHP version', 'extensions' => 'PHP extensions', 'database' => 'Database', 'migrations' => 'Database tables',
+        'scheduler' => 'Cron and scheduler', 'queue' => 'Queue', 'mail' => 'Email', 'storage' => 'Folders', 'disk' => 'Disk space',
+        'debug' => 'Debug mode', 'https' => 'HTTPS', 'backups' => 'Backups', 'maintenance' => 'Maintenance mode', 'updates' => 'Updates',
+    ];
+
     public function run(bool $checkUpdates = true): array
     {
-        $checks = [
-            $this->php(),
-            $this->extensions(),
-            $this->database(),
-            $this->migrations(),
-            $this->scheduler(),
-            $this->queue(),
-            $this->mail(),
-            $this->storage(),
-            $this->disk(),
-            $this->debug(),
-            $this->https(),
-            $this->backups(),
-            $this->maintenance(),
-        ];
+        $checks = [];
+        foreach (self::CHECKS as $key => $label) {
+            if ($key === 'updates' && ! $checkUpdates) {
+                continue;
+            }
 
-        if ($checkUpdates) {
-            $checks[] = $this->updates();
+            // A check that throws (say, the database went away) is a problem, not a broken health page.
+            try {
+                $checks[] = $this->{$key}();
+            } catch (Throwable $e) {
+                $checks[] = $this->check($key, $label, self::PROBLEM, 'Couldn\'t check this: '.Str::limit($e->getMessage(), 200));
+            }
         }
 
         return array_values(array_filter($checks));

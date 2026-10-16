@@ -45,13 +45,42 @@ class DatabaseDumper
         }
         $this->out = $out;
 
+        $snapshot = $this->beginSnapshot($driver);
+
         try {
             $this->line('-- CMS database backup, '.now()->toIso8601String().', '.config('app.name'));
 
             return $driver === 'sqlite' ? $this->sqlite() : $this->mysql();
         } finally {
+            if ($snapshot) {
+                $this->connection->getPdo()->exec('COMMIT');
+            }
             gzclose($this->out);
         }
+    }
+
+    /**
+     * Reads every table from one consistent snapshot, as mysqldump
+     * --single-transaction does, so rows written while the backup runs can't
+     * leave a child row in it without its parent. Skipped inside a
+     * transaction that's already open, which sees one snapshot anyway.
+     */
+    private function beginSnapshot(string $driver): bool
+    {
+        if ($this->connection->transactionLevel() > 0) {
+            return false;
+        }
+
+        $pdo = $this->connection->getPdo();
+
+        if ($driver === 'sqlite') {
+            $pdo->exec('BEGIN');
+        } else {
+            $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+        }
+
+        return true;
     }
 
     private function mysql(): int

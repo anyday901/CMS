@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Platform;
 
+use App\Jobs\RunUpdate;
 use App\Models\Activity;
 use App\Models\User;
 use App\System\Backups\BackupManager;
@@ -13,6 +14,7 @@ use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Mockery;
 use RuntimeException;
 use Tests\TestCase;
 use ZipArchive;
@@ -52,6 +54,8 @@ class UpdaterTest extends TestCase
         $this->write('/.env', 'APP_KEY=keep-me');
         $this->write('/storage/app/upload.txt', 'client upload');
         $this->write('/themes/overrides/views/portal/dashboard.blade.php', 'my override');
+        $this->write('/app/Console/Commands/Removed.php', 'a command the new release dropped');
+        $this->write('/public/favicon-custom.png', 'the site\'s own file');
 
         $this->zip = $this->release('9.1.0');
     }
@@ -111,9 +115,9 @@ class UpdaterTest extends TestCase
         return app(UpdateChecker::class)->latest(fresh: true);
     }
 
-    private function updater(): Updater
+    private function updater(?BackupManager $backups = null): Updater
     {
-        return new Updater(app(BackupManager::class), app(UpdateStatus::class), $this->root);
+        return new Updater($backups ?? app(BackupManager::class), app(UpdateStatus::class), $this->root);
     }
 
     public function test_an_update_replaces_the_code_and_keeps_settings_uploads_and_overrides(): void
@@ -133,6 +137,8 @@ class UpdaterTest extends TestCase
         $this->assertSame('client upload', file_get_contents($this->root.'/storage/app/upload.txt'));
         $this->assertSame('my override', file_get_contents($this->root.'/themes/overrides/views/portal/dashboard.blade.php'));
         $this->assertCount(0, glob($this->root.'/vendor.old-*'));
+        $this->assertFileDoesNotExist($this->root.'/app/Console/Commands/Removed.php', 'CMS\'s own files the release dropped are deleted.');
+        $this->assertFileExists($this->root.'/public/favicon-custom.png');
 
         Process::assertRan(fn (PendingProcess $process) => in_array('migrate', (array) $process->command, true) && $process->path === $this->root);
         Process::assertRan(fn (PendingProcess $process) => in_array('down', (array) $process->command, true));
@@ -167,7 +173,35 @@ class UpdaterTest extends TestCase
         $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
         $this->assertSame('old vendor', file_get_contents($this->root.'/vendor/autoload.php'));
         $this->assertSame('9.0.0', file_get_contents($this->root.'/VERSION'));
+        $this->assertFileDoesNotExist($this->root.'/app/Added.php', 'Files the release added are removed again.');
+        $this->assertFileExists($this->root.'/app/Console/Commands/Removed.php');
         Process::assertRan(fn (PendingProcess $process) => in_array('up', (array) $process->command, true));
+    }
+
+    public function test_a_failure_after_migrating_puts_the_database_back_too(): void
+    {
+        Process::fake([
+            '*optimize:clear*' => Process::result('', 'Permission denied', 1),
+            '*' => Process::result(),
+        ]);
+        $release = $this->fakeRelease();
+        $backups = Mockery::mock(app(BackupManager::class));
+        $backups->shouldReceive('restore')->once()->andReturn(0);
+
+        $this->expectsProblemRuntime(fn () => $this->updater($backups)->update($release), 'php artisan optimize:clear failed');
+
+        $this->assertSame('old code', file_get_contents($this->root.self::APP_FILE));
+    }
+
+    public function test_the_update_job_says_so_when_github_cant_be_reached(): void
+    {
+        Http::fake([self::RELEASES => Http::response('', 502)]);
+        app(UpdateStatus::class)->start('9.1.0');
+
+        RunUpdate::dispatchSync();
+
+        $this->assertSame('failed', app(UpdateStatus::class)->read()['state']);
+        $this->assertFalse(app(UpdateStatus::class)->running());
     }
 
     public function test_a_download_of_another_version_is_refused(): void

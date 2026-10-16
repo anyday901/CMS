@@ -28,7 +28,20 @@ class Updater
     /** Folders swapped whole rather than copied over, so nothing stale is left in them. */
     private const SWAP = ['vendor', 'public/build'];
 
+    /**
+     * Folders that hold only CMS's own code: a file in them that the release
+     * doesn't have is deleted, so a removed command, migration or route can't
+     * linger. Elsewhere (public/, themes/) files are only added or replaced.
+     */
+    private const SYNCED = ['app', 'config', 'database/factories', 'database/migrations', 'database/seeders', 'lang', 'resources', 'routes'];
+
     private string $root;
+
+    /** @var array<string, string> folders swapped so far in this update => where the old one was moved */
+    private array $swapped = [];
+
+    /** @var list<string> files this update added, which a rollback deletes */
+    private array $added = [];
 
     public function __construct(private BackupManager $backups, private UpdateStatus $status, ?string $root = null)
     {
@@ -54,8 +67,9 @@ class Updater
         $work = storage_path('app/updates');
         $staging = $work.'/staging-'.$version;
         $previous = Version::current();
-        $swapped = [];
-        $migrating = false;
+        $this->swapped = [];
+        $this->added = [];
+        $restoreDatabase = false;
         $backup = null;
         $down = false;
 
@@ -84,21 +98,21 @@ class Updater
 
             try {
                 $this->status->step('Copying the new files');
-                $swapped = $this->install($source);
+                $this->install($source);
 
+                // From here on, a failure puts the database back too: the old code can't run on the new tables.
                 $this->status->step('Updating the database');
-                $migrating = true;
+                $restoreDatabase = true;
                 $this->artisan(['migrate', '--force']);
-                $migrating = false;
                 $this->artisan(['optimize:clear']);
             } catch (Throwable $e) {
                 $this->status->step('Something went wrong; putting the old version back');
-                $this->rollback($before, $swapped, $migrating ? $backup : null);
+                $this->rollback($before, $restoreDatabase ? $backup : null);
 
                 throw $e;
             }
 
-            foreach ($swapped as $old) {
+            foreach ($this->swapped as $old) {
                 File::deleteDirectory($old);
             }
 
@@ -187,14 +201,12 @@ class Updater
     }
 
     /**
-     * Swaps in the new vendor and build folders and copies everything else over.
-     *
-     * @return array<string, string> swapped folder => where the old one was moved
+     * Swaps in the new vendor and build folders, copies everything else over
+     * and deletes CMS's own files the release no longer has. What it has done
+     * so far is kept in $swapped and $added, so a rollback can undo it.
      */
-    private function install(string $source): array
+    private function install(string $source): void
     {
-        $swapped = [];
-
         foreach (self::SWAP as $folder) {
             if (! is_dir($source.'/'.$folder)) {
                 continue;
@@ -202,31 +214,52 @@ class Updater
 
             $old = $this->root.'/'.$folder.'.old-'.time();
             if (is_dir($this->root.'/'.$folder)) {
-                rename($this->root.'/'.$folder, $old);
-                $swapped[$folder] = $old;
+                if (! rename($this->root.'/'.$folder, $old)) {
+                    throw new RuntimeException("Can't move {$folder} aside.");
+                }
+                $this->swapped[$folder] = $old;
             }
-            if (! @rename($source.'/'.$folder, $this->root.'/'.$folder)) {
-                File::copyDirectory($source.'/'.$folder, $this->root.'/'.$folder);
+            if (! @rename($source.'/'.$folder, $this->root.'/'.$folder) && ! File::copyDirectory($source.'/'.$folder, $this->root.'/'.$folder)) {
+                throw new RuntimeException("Can't copy the new {$folder} into place.");
             }
         }
 
-        foreach ($this->files($source, [...self::PRESERVE, ...self::SWAP]) as $relative) {
+        $skip = [...self::PRESERVE, ...self::SWAP];
+        $current = array_flip($this->files($this->root, $skip));
+        $incoming = $this->files($source, $skip);
+
+        foreach ($incoming as $relative) {
             $target = $this->root.'/'.$relative;
             File::ensureDirectoryExists(dirname($target));
+            if (! isset($current[$relative])) {
+                $this->added[] = $relative;
+            }
             // Copy then rename, so PHP never reads a half-written file.
-            copy($source.'/'.$relative, $target.'.updating');
-            rename($target.'.updating', $target);
+            if (! copy($source.'/'.$relative, $target.'.updating') || ! rename($target.'.updating', $target)) {
+                @unlink($target.'.updating');
+
+                throw new RuntimeException("Can't write {$relative}.");
+            }
         }
 
-        return $swapped;
+        // The snapshot has these, so a rollback brings them back.
+        $incoming = array_flip($incoming);
+        foreach (array_keys($current) as $relative) {
+            if (! isset($incoming[$relative]) && $this->skipped($relative, self::SYNCED)) {
+                @unlink($this->root.'/'.$relative);
+            }
+        }
     }
 
-    /** @param  array<string, string>  $swapped */
-    private function rollback(string $before, array $swapped, ?string $backup): void
+    private function rollback(string $before, ?string $backup): void
     {
-        foreach ($swapped as $folder => $old) {
+        foreach ($this->swapped as $folder => $old) {
             File::deleteDirectory($this->root.'/'.$folder);
             rename($old, $this->root.'/'.$folder);
+        }
+
+        foreach ($this->added as $relative) {
+            @unlink($this->root.'/'.$relative);
         }
 
         Archive::extract($before, $this->root);
