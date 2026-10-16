@@ -65,8 +65,13 @@ class OpenSrsTest extends TestCase
 
         Http::assertSent(fn (Request $request) => $request->url() === self::TEST_URL
             && $request->header('X-Username')[0] === 'reseller'
-            && $request->header('X-Signature')[0] === md5(md5($request->body().'key-1').'key-1')
+            && $request->header('X-Signature')[0] === OpenSrs::signature($request->body(), 'key-1')
             && str_contains($request->body(), '<!DOCTYPE OPS_envelope'));
+    }
+
+    public function test_the_signature_follows_the_opensrs_scheme(): void
+    {
+        $this->assertSame('e78b8474bd86482772205adb7f056c33', OpenSrs::signature('<data/>', 'key-1'));
     }
 
     public function test_the_envelope_round_trips_nested_data(): void

@@ -299,7 +299,7 @@ class OpenSrs implements ManagesDns, Registrar
         try {
             $response = Http::timeout(30)->withHeaders([
                 'X-Username' => (string) ($credentials['username'] ?? ''),
-                'X-Signature' => md5(md5($xml.$key).$key),
+                'X-Signature' => self::signature($xml, $key),
             ])->withBody($xml, 'text/xml')->post(! empty($credentials['test_mode']) ? self::TEST : self::LIVE);
         } catch (ConnectionException $e) {
             throw new RegistrarError("OpenSRS couldn't be reached: {$e->getMessage()}");
@@ -316,6 +316,16 @@ class OpenSrs implements ManagesDns, Registrar
         }
 
         return $reply;
+    }
+
+    /**
+     * The X-Signature header OpenSRS requires: md5(md5(body + key) + key).
+     * The algorithm is fixed by the OpenSRS API; it authenticates the request
+     * over HTTPS and doesn't store or protect any secret.
+     */
+    public static function signature(string $body, string $key): string
+    {
+        return md5(md5($body.$key).$key); // NOSONAR: the OpenSRS API mandates this signature scheme.
     }
 
     /** The OPS envelope around a data block. */
