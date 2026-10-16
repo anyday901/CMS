@@ -14,6 +14,7 @@ use App\Provisioning\ModuleRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use ParseError;
 use PhpToken;
@@ -245,7 +246,7 @@ class ModuleConverter
         $body = implode("\n", array_map(fn (array $method) => $method['code'], $parts['methods']));
         $uses = ["use {$base};"];
 
-        foreach (['DB::' => 'Illuminate\Support\Facades\DB', 'Schema::' => 'Illuminate\Support\Facades\Schema'] as $marker => $facade) {
+        foreach (['DB::' => DB::class, 'Schema::' => Schema::class] as $marker => $facade) {
             if (str_contains($body, $marker) || str_contains(implode("\n", $parts['top']), $marker)) {
                 $uses[] = "use {$facade};";
             }
