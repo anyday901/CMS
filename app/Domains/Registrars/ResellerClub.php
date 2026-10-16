@@ -388,7 +388,7 @@ class ResellerClub implements ManagesDns, Registrar
         try {
             $request = Http::timeout(30)->acceptJson();
             $response = $method === 'GET'
-                ? $request->get("{$url}?{$query}")
+                ? $request->withOptions(['query' => $query])->get($url)
                 : $request->withBody($query, 'application/x-www-form-urlencoded')->post($url);
         } catch (ConnectionException $e) {
             throw new RegistrarError("ResellerClub couldn't be reached: {$e->getMessage()}");

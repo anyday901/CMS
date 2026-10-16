@@ -71,7 +71,10 @@ class Whois
 
     private function rdap(string $name, string $base): WhoisResult
     {
-        $response = Http::timeout(self::TIMEOUT)->accept('application/rdap+json')->get($base.'domain/'.rawurlencode($name));
+        // The name goes in as a URL template parameter, so it is encoded and can't change the host or path.
+        $response = Http::timeout(self::TIMEOUT)->accept('application/rdap+json')
+            ->withUrlParameters(['base' => rtrim($base, '/'), 'name' => $name])
+            ->get('{+base}/domain/{name}');
 
         if ($response->status() === 404) {
             return new WhoisResult($name, true);
