@@ -188,14 +188,31 @@ class ModuleConverter
                 $name .= '_setting';
             }
 
-            for ($candidate = $name, $n = 2; in_array($candidate, $names, true); $n++) {
-                $candidate = "{$name}_{$n}";
-            }
-
-            $names[$position] = $candidate;
+            $names[$position] = self::firstFree(
+                fn (int $n) => $n === 1 ? $name : "{$name}_{$n}",
+                fn (string $candidate) => in_array($candidate, $names, true),
+            );
         }
 
         return $names;
+    }
+
+    /**
+     * The first name the candidate callback gives, counting from 1, that
+     * isn't taken.
+     *
+     * @param  callable(int): string  $candidate
+     * @param  callable(string): bool  $taken
+     */
+    private static function firstFree(callable $candidate, callable $taken): string
+    {
+        $n = 1;
+
+        do {
+            $name = $candidate($n++);
+        } while ($taken($name));
+
+        return $name;
     }
 
     /**
@@ -217,10 +234,15 @@ class ModuleConverter
             $method = $actions[$suffix] ?? Str::camel($function);
 
             if (! isset($actions[$suffix])) {
-                for ($candidate = $method, $n = 2; in_array(strtolower($candidate), $taken, true) || in_array(strtolower($candidate), array_map('strtolower', $actions), true); $n++) {
-                    $candidate = $method.($n === 2 ? 'Helper' : 'Helper'.$n);
-                }
-                $method = $candidate;
+                $base = $method;
+                $method = self::firstFree(
+                    fn (int $n) => match ($n) {
+                        1 => $base,
+                        2 => $base.'Helper',
+                        default => $base.'Helper'.$n,
+                    },
+                    fn (string $candidate) => in_array(strtolower($candidate), [...$taken, ...array_map('strtolower', $actions)], true),
+                );
             }
 
             $methods[$suffix] = $method;
@@ -293,7 +315,7 @@ class ModuleConverter
         return $header.implode("\n", $uses)."\n\n"
             .($parts['top'] === [] ? '' : implode("\n\n", $parts['top'])."\n\n")
             ."class {$class} extends ".class_basename($base)."\n{\n"
-            .implode("\n\n", array_map(self::indent(...), $members))
+            .implode("\n\n", array_map(fn (string $member) => self::indent($member), $members))
             ."\n}\n";
     }
 

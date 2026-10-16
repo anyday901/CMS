@@ -38,9 +38,11 @@ trait ManagesWhmcsServers
             return ProvisioningResult::failed($e->getMessage());
         }
 
-        return is_array($result) && ($result['success'] ?? false)
-            ? ProvisioningResult::ok('Connected.')
-            : ProvisioningResult::failed(is_array($result) && filled($result['error'] ?? null) ? (string) $result['error'] : 'The connection test failed.');
+        if (is_array($result) && ($result['success'] ?? false)) {
+            return ProvisioningResult::ok('Connected.');
+        }
+
+        return ProvisioningResult::failed(self::message($result, 'error', 'The connection test failed.'));
     }
 
     public function loginDetails(Service $service): array
@@ -90,6 +92,14 @@ trait ManagesWhmcsServers
 
         return is_string($url) && str_starts_with($url, 'http')
             ? $url
-            : throw new ModuleError(is_array($result) && filled($result['errorMsg'] ?? null) ? (string) $result['errorMsg'] : 'The module didn\'t return a login address.');
+            : throw new ModuleError(self::message($result, 'errorMsg', 'The module didn\'t return a login address.'));
+    }
+
+    /** The error message a WHMCS function returned under the key, or the fallback. */
+    private static function message(mixed $result, string $key, string $fallback): string
+    {
+        $message = is_array($result) ? ($result[$key] ?? null) : null;
+
+        return filled($message) ? (string) $message : $fallback;
     }
 }

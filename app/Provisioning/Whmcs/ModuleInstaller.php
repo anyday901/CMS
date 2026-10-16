@@ -144,7 +144,12 @@ class ModuleInstaller
         if ($pick !== null) {
             $others = $modules->reject(fn (SplFileInfo $file) => $file === $pick)
                 ->map(fn (SplFileInfo $file) => dirname($file->getRelativePathname()));
-            $notes = $others->isEmpty() ? [] : ['The zip also had '.$others->join(', ').', which '.($others->count() === 1 ? 'wasn\'t' : 'weren\'t').' installed: only the server module is used.'];
+            $notes = [];
+
+            if ($others->isNotEmpty()) {
+                $were = $others->count() === 1 ? 'wasn\'t' : 'weren\'t';
+                $notes[] = 'The zip also had '.$others->join(', ').", which {$were} installed: only the server module is used.";
+            }
 
             return [$pick->getPath(), $this->name($pick->getFilenameWithoutExtension()), $notes];
         }

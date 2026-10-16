@@ -96,12 +96,10 @@ class ServerImporter
             return null;
         }
 
-        if (str_starts_with($module, WhmcsModules::PREFIX)) {
-            return $this->uploadedModuleProduct($row, $module, []);
-        }
+        $names = self::uploadedSettingNames($module);
 
-        if ($converted = app(ConvertedModules::class)->find($module)) {
-            return $this->uploadedModuleProduct($row, $module, $converted['settings']);
+        if ($names !== null) {
+            return $this->uploadedModuleProduct($row, $module, $names);
         }
 
         $setting = self::PACKAGE_SETTING[$module] ?? null;
@@ -119,6 +117,21 @@ class ServerImporter
             'module_config' => $config === [] ? null : json_encode($config),
             'server_group_id' => $this->groups[(int) ($row->servergroup ?? 0)] ?? null,
         ];
+    }
+
+    /**
+     * The setting names of an uploaded or converted module, in configoption
+     * order, or null for a module that comes with the app.
+     *
+     * @return array<int, string>|null
+     */
+    private static function uploadedSettingNames(string $module): ?array
+    {
+        if (str_starts_with($module, WhmcsModules::PREFIX)) {
+            return [];
+        }
+
+        return app(ConvertedModules::class)->find($module)['settings'] ?? null;
     }
 
     /**

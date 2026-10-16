@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Provisioning\Converted\ConvertedModule;
+use App\Provisioning\Whmcs\ModuleUploadException;
 use Illuminate\Console\Command;
-use RuntimeException;
 use Throwable;
 
 /** Loads a module converted from WHMCS and prints its key as JSON. Run in its own process before the module is put in place. */
@@ -25,7 +25,7 @@ class WhmcsCheckConverted extends Command
             $module = new $class;
 
             if (! $module instanceof ConvertedModule) {
-                throw new RuntimeException("{$class} isn't a converted module.");
+                throw new ModuleUploadException("{$class} isn't a converted module.");
             }
 
             $this->line((string) json_encode(['key' => $module->key(), 'label' => $module->label(), 'settings' => array_keys($module->configFields())]));

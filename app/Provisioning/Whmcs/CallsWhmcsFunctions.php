@@ -65,16 +65,16 @@ trait CallsWhmcsFunctions
     }
 
     /** The service's server for an action, or null for modules without one. @throws ModuleError */
-    protected function server(Service $service): ?Server
+    protected function server(Service $service): ?Server // NOSONAR: a hook that ManagesWhmcsServers overrides
     {
         return null;
     }
 
     /** Called before an action runs, e.g. to give a new service its login. @throws ModuleError */
-    protected function prepare(Service $service, ?Server $server): void {}
+    protected function prepare(Service $service, ?Server $server): void {} // NOSONAR: a hook that ManagesWhmcsServers overrides
 
     /** The port the module is told when the server doesn't set one. */
-    protected function defaultPortFor(?Server $server): int
+    protected function defaultPortFor(?Server $server): int // NOSONAR: a hook that ManagesWhmcsServers overrides
     {
         return 443;
     }

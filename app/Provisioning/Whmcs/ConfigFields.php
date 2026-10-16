@@ -25,25 +25,12 @@ final class ConfigFields
             $option = is_array($option) ? $option : [];
             $field = ['label' => self::text($option['FriendlyName'] ?? $label) ?: "Setting {$position}"];
             $help = self::text($option['Description'] ?? '');
-            $default = $option['Default'] ?? null;
 
             if ($help !== '') {
                 $field['help'] = $help;
             }
 
-            switch (strtolower((string) ($option['Type'] ?? 'text'))) {
-                case 'yesno':
-                    $field += ['type' => 'select', 'options' => ['' => 'No', 'on' => 'Yes']];
-                    $default = $default === true || in_array(strtolower((string) $default), ['on', 'yes', '1', 'true'], true) ? 'on' : null;
-                    break;
-                case 'dropdown':
-                case 'radio':
-                    $field += ['type' => 'select', 'options' => self::choices($option['Options'] ?? [])];
-                    break;
-                case 'textarea':
-                    $field['type'] = 'textarea';
-                    break;
-            }
+            [$field, $default] = self::typed($field, $option);
 
             if (is_scalar($default) && (string) $default !== '') {
                 $field['default'] = (string) $default;
@@ -53,6 +40,29 @@ final class ConfigFields
         }
 
         return $fields;
+    }
+
+    /**
+     * The field with the input type of the option, and the option's default
+     * as the field saves it.
+     *
+     * @param  array<string, mixed>  $field
+     * @param  array<string, mixed>  $option
+     * @return array{array<string, mixed>, mixed}
+     */
+    private static function typed(array $field, array $option): array
+    {
+        $default = $option['Default'] ?? null;
+
+        return match (strtolower((string) ($option['Type'] ?? 'text'))) {
+            'yesno' => [
+                $field + ['type' => 'select', 'options' => ['' => 'No', 'on' => 'Yes']],
+                $default === true || in_array(strtolower((string) $default), ['on', 'yes', '1', 'true'], true) ? 'on' : null,
+            ],
+            'dropdown', 'radio' => [$field + ['type' => 'select', 'options' => self::choices($option['Options'] ?? [])], $default],
+            'textarea' => [$field + ['type' => 'textarea'], $default],
+            default => [$field, $default],
+        };
     }
 
     /** "a,b,c", a list, or value => label. @return array<string, string> */

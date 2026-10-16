@@ -35,8 +35,47 @@ final class ModuleInspector
      */
     public static function inspect(string $folder, string $name): array
     {
-        $main = "{$folder}/{$name}.php";
         $report = ['kind' => 'unknown', 'functions' => [], 'unsupported' => [], 'warnings' => [], 'blockers' => []];
+        $sources = self::sources($folder);
+        $encoded = array_keys(array_filter($sources, self::encoded(...)));
+
+        if ($encoded !== []) {
+            $report['blockers'][] = 'It is encoded (with ionCube or similar), so its code can\'t be read or checked: '.self::few($encoded).'. Ask its developer for an unencoded copy.';
+
+            return $report;
+        }
+
+        [$functions, $report['blockers']] = self::parse($sources, $name);
+        $endings = self::endings($functions, $name);
+        $report['kind'] = self::kind($endings);
+        $blocker = self::notServer($folder, $name, $report['kind']);
+
+        if ($blocker !== null) {
+            $report['blockers'][] = $blocker;
+
+            return $report;
+        }
+
+        $supported = array_map('strtolower', self::SUPPORTED);
+
+        foreach ($endings as $ending) {
+            $known = array_search(strtolower($ending), $supported, true);
+
+            if ($known === false) {
+                $report['unsupported'][] = $ending;
+            } else {
+                $report['functions'][] = self::SUPPORTED[$known];
+            }
+        }
+
+        $report['warnings'] = self::warnings($folder, $sources);
+
+        return $report;
+    }
+
+    /** @return array<string, string> the module's PHP files by path */
+    private static function sources(string $folder): array
+    {
         $sources = [];
 
         foreach (File::allFiles($folder) as $file) {
@@ -46,21 +85,25 @@ final class ModuleInspector
             }
         }
 
-        $encoded = array_keys(array_filter($sources, self::encoded(...)));
+        return $sources;
+    }
 
-        if ($encoded !== []) {
-            $report['blockers'][] = 'It is encoded (with ionCube or similar), so its code can\'t be read or checked: '.self::few($encoded).'. Ask its developer for an unencoded copy.';
-
-            return $report;
-        }
-
+    /**
+     * The functions of the main file, and a blocker for each file with a PHP error.
+     *
+     * @param  array<string, string>  $sources
+     * @return array{list<string>, list<string>}
+     */
+    private static function parse(array $sources, string $name): array
+    {
         $functions = [];
+        $blockers = [];
 
         foreach ($sources as $path => $source) {
             try {
                 $found = self::functions($source);
             } catch (ParseError $e) {
-                $report['blockers'][] = "{$path} has a PHP error on line {$e->getLine()}: {$e->getMessage()}.";
+                $blockers[] = "{$path} has a PHP error on line {$e->getLine()}: {$e->getMessage()}.";
 
                 continue;
             }
@@ -70,12 +113,12 @@ final class ModuleInspector
             }
         }
 
-        if (! is_file($main)) {
-            $report['blockers'][] = "There is no {$name}.php in the module.";
+        return [$functions, $blockers];
+    }
 
-            return $report;
-        }
-
+    /** @param  list<string>  $functions @return list<string> the names after "{name}_" of the module's functions */
+    private static function endings(array $functions, string $name): array
+    {
         $prefix = strtolower($name).'_';
         $endings = [];
 
@@ -85,26 +128,18 @@ final class ModuleInspector
             }
         }
 
-        $report['kind'] = self::kind($endings);
+        return $endings;
+    }
 
-        if ($report['kind'] !== 'server') {
-            $report['blockers'][] = $report['kind'] === 'unknown'
-                ? "{$name}.php has no {$name}_CreateAccount function, so it isn't a WHMCS server module."
-                : "It is a WHMCS {$report['kind']} module. Only server (provisioning) modules can be uploaded so far.";
-
-            return $report;
-        }
-
-        $supported = array_map('strtolower', self::SUPPORTED);
-
-        foreach ($endings as $ending) {
-            $known = array_search(strtolower($ending), $supported, true);
-            $known === false ? $report['unsupported'][] = $ending : $report['functions'][] = self::SUPPORTED[$known];
-        }
-
-        $report['warnings'] = self::warnings($folder, $sources);
-
-        return $report;
+    /** Why the module can't be used as a server module, or null if it can. */
+    private static function notServer(string $folder, string $name, string $kind): ?string
+    {
+        return match (true) {
+            ! is_file("{$folder}/{$name}.php") => "There is no {$name}.php in the module.",
+            $kind === 'unknown' => "{$name}.php has no {$name}_CreateAccount function, so it isn't a WHMCS server module.",
+            $kind !== 'server' => "It is a WHMCS {$kind} module. Only server (provisioning) modules can be uploaded so far.",
+            default => null,
+        };
     }
 
     /** The names of functions declared in the code. @throws ParseError */
@@ -116,24 +151,48 @@ final class ModuleInspector
         $classDepth = [];
 
         foreach ($tokens as $i => $token) {
-            if ($token === '{' || (is_array($token) && in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true))) {
-                $depth++;
-            } elseif ($token === '}') {
-                $depth--;
-                if ($classDepth !== [] && end($classDepth) === $depth) {
-                    array_pop($classDepth);
-                }
-            } elseif (is_array($token) && in_array($token[0], [T_CLASS, T_TRAIT, T_INTERFACE, T_ENUM], true) && ! self::afterDoubleColon($tokens, $i)) {
+            $depth += self::depthChange($token);
+            $function = $classDepth === [] ? self::functionName($tokens, $i) : null;
+
+            if ($token === '}' && $classDepth !== [] && end($classDepth) === $depth) {
+                array_pop($classDepth);
+            } elseif (self::opensClass($tokens, $i)) {
                 $classDepth[] = $depth;
-            } elseif (is_array($token) && $token[0] === T_FUNCTION && $classDepth === []) {
-                $next = self::nextToken($tokens, $i);
-                if (is_array($next) && $next[0] === T_STRING) {
-                    $names[] = $next[1];
-                }
+            } elseif ($function !== null) {
+                $names[] = $function;
             }
         }
 
         return $names;
+    }
+
+    private static function depthChange(mixed $token): int
+    {
+        return match (true) {
+            $token === '{', is_array($token) && in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true) => 1,
+            $token === '}' => -1,
+            default => 0,
+        };
+    }
+
+    /** Whether the token at $i starts a class, trait, interface or enum. */
+    private static function opensClass(array $tokens, int $i): bool
+    {
+        return is_array($tokens[$i])
+            && in_array($tokens[$i][0], [T_CLASS, T_TRAIT, T_INTERFACE, T_ENUM], true)
+            && ! self::afterDoubleColon($tokens, $i);
+    }
+
+    /** The name of the function declared at $i, or null. */
+    private static function functionName(array $tokens, int $i): ?string
+    {
+        if (! is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) {
+            return null;
+        }
+
+        $next = self::nextToken($tokens, $i);
+
+        return is_array($next) && $next[0] === T_STRING ? $next[1] : null;
     }
 
     /** Whether the token follows "::", as in Foo::class. */

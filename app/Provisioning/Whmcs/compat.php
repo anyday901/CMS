@@ -47,13 +47,13 @@ namespace {
         WhmcsLog::moduleCall($module, $action, $request, $response, $processed, $replace);
     }
 
-    function logActivity($message, $userId = 0): void
+    function logActivity($message, $userId = 0): void // NOSONAR: WHMCS's signature
     {
         WhmcsLog::activity($message);
     }
 
     /** WHMCS's internal API isn't here; modules get the error WHMCS gives for an unknown command. */
-    function localAPI($command, $values = [], $adminUser = ''): array
+    function localAPI($command, $values = [], $adminUser = ''): array // NOSONAR: WHMCS's signature
     {
         return ['result' => 'error', 'message' => "The WHMCS API command {$command} isn't available in CMS."];
     }

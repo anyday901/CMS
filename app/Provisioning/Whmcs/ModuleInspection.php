@@ -54,9 +54,8 @@ final class ModuleInspection
             return $json;
         }
 
-        $error = is_array($json) && is_string($json['error'] ?? null)
-            ? $json['error']
-            : (Str::limit(trim(strip_tags($result->errorOutput() ?: $output)), 500) ?: 'PHP stopped without saying why');
+        $error = is_array($json) && is_string($json['error'] ?? null) ? $json['error'] : null;
+        $error ??= Str::limit(trim(strip_tags($result->errorOutput() ?: $output)), 500) ?: 'PHP stopped without saying why';
 
         throw new ModuleUploadException("The module failed when it was loaded: {$error}");
     }

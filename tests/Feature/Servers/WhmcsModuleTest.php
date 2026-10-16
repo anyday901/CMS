@@ -34,7 +34,15 @@ class WhmcsModuleTest extends TestCase
 
     private const FIXTURE = __DIR__.'/../../Fixtures/whmcs/servers';
 
-    private const META = ['display_name' => 'Demo Panel', 'requires_server' => true, 'ports' => ['secure' => 2222, 'plain' => 2221], 'config_fields' => []];
+    private const MAIN_FILE = '/demopanel/demopanel.php';
+
+    private const DISPLAY_NAME = 'Demo Panel';
+
+    private const EMPTY_FILE = '<?php';
+
+    private const NEW_PASSWORD = 'NewPass2!';
+
+    private const META = ['display_name' => self::DISPLAY_NAME, 'requires_server' => true, 'ports' => ['secure' => 2222, 'plain' => 2221], 'config_fields' => []];
 
     private const SERVER_CODE = '<?php function %s_CreateAccount($params) { return "success"; } function %s_SuspendAccount($params) { return "success"; }';
 
@@ -65,12 +73,12 @@ class WhmcsModuleTest extends TestCase
 
     public function test_an_uploaded_php_file_is_checked_and_stays_off_until_enabled(): void
     {
-        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.'/demopanel/demopanel.php'))
+        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.self::MAIN_FILE))
             ->assertSessionHasNoErrors()->assertSessionHas('status', 'demopanel is uploaded. Read its check below, then enable it.');
 
         $module = WhmcsModule::sole();
         $this->assertFalse($module->enabled);
-        $this->assertFileExists($this->root.'/demopanel/demopanel.php');
+        $this->assertFileExists($this->root.self::MAIN_FILE);
         $this->assertSame(['MetaData', 'ConfigOptions', 'CreateAccount', 'SuspendAccount', 'TerminateAccount', 'ChangePassword', 'TestConnection', 'ServiceSingleSignOn'], $module->report['functions']);
         $this->assertSame(['reply', 'AdminCustomButtonArray', 'reboot', 'ClientArea'], $module->report['unsupported']);
         $this->assertSame([], $module->report['warnings']);
@@ -110,13 +118,13 @@ class WhmcsModuleTest extends TestCase
     public function test_modules_that_cant_work_here_are_refused_with_the_reason(): void
     {
         $cases = [
-            ['gw.zip', ['modules/gateways/gw.php' => '<?php function gw_config() {} function gw_link($p) {}', 'modules/gateways/callback/gw.php' => '<?php'], 'That is a WHMCS payment gateway module.'],
+            ['gw.zip', ['modules/gateways/gw.php' => '<?php function gw_config() {} function gw_link($p) {}', 'modules/gateways/callback/gw.php' => self::EMPTY_FILE], 'That is a WHMCS payment gateway module.'],
             ['notes.php', '<?php function notes_config() { return []; } function notes_activate() {} function notes_output($vars) {}', 'It is a WHMCS add-on module. Only server (provisioning) modules can be uploaded so far.'],
             ['reg.php', '<?php function reg_getConfigArray() {} function reg_RegisterDomain($p) {}', 'It is a WHMCS registrar module.'],
             ['locked.php', "<?php //0046b\nif(!extension_loaded('ionCube Loader')){die('The ionCube Loader is needed');}", 'It is encoded (with ionCube or similar)'],
             ['broken.php', '<?php function broken_CreateAccount($p) { return "success" }', 'broken.php has a PHP error on line 1'],
             ['helper.php', '<?php function something_else() {}', 'helper.php has no helper_CreateAccount function'],
-            ['my-panel.php', '<?php', '"my-panel" isn\'t a WHMCS module name.'],
+            ['my-panel.php', self::EMPTY_FILE, '"my-panel" isn\'t a WHMCS module name.'],
             ['two.zip', ['servers/one/one.php' => sprintf(self::SERVER_CODE, 'one', 'one'), 'servers/two/two.php' => sprintf(self::SERVER_CODE, 'two', 'two')], 'The zip has more than one module (one, two).'],
             ['readme.txt', 'hello', 'The module field must have one of the following extensions'],
         ];
@@ -132,15 +140,15 @@ class WhmcsModuleTest extends TestCase
 
     public function test_enabling_loads_the_module_in_its_own_process_and_offers_it_on_products(): void
     {
-        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.'/demopanel/demopanel.php'));
+        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.self::MAIN_FILE));
         Process::fake(['*' => Process::result(json_encode([...self::META, 'config_fields' => ['configoption1' => ['label' => 'Package Name', 'default' => 'basic']]]))]);
 
         $this->post(self::URL.'/'.WhmcsModule::sole()->id.'/enable')->assertSessionHasNoErrors();
 
-        Process::assertRan(fn ($process) => array_slice($process->command, 1, 2) === ['artisan', 'whmcs:inspect-module'] && $process->command[3] === $this->root.'/demopanel/demopanel.php');
+        Process::assertRan(fn ($process) => array_slice($process->command, 1, 2) === ['artisan', 'whmcs:inspect-module'] && $process->command[3] === $this->root.self::MAIN_FILE);
         $module = WhmcsModule::sole();
         $this->assertTrue($module->enabled);
-        $this->assertSame('Demo Panel', $module->display_name);
+        $this->assertSame(self::DISPLAY_NAME, $module->display_name);
 
         $wrapped = app(ModuleRegistry::class)->find('whmcs_demopanel');
         $this->assertInstanceOf(WhmcsSsoServerModule::class, $wrapped);
@@ -150,7 +158,7 @@ class WhmcsModuleTest extends TestCase
 
     public function test_a_module_that_fails_to_load_isnt_enabled(): void
     {
-        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.'/demopanel/demopanel.php'));
+        $this->upload('demopanel.php', (string) file_get_contents(self::FIXTURE.self::MAIN_FILE));
         Process::fake(['*' => Process::result('', 'PHP Fatal error:  Uncaught Error: Undefined constant "ROOTDIR"', 255)]);
 
         $this->post(self::URL.'/'.WhmcsModule::sole()->id.'/enable')->assertSessionHasErrors('whmcs_module');
@@ -161,10 +169,10 @@ class WhmcsModuleTest extends TestCase
 
     public function test_the_inspect_command_reads_metadata_and_config_options(): void
     {
-        $this->assertSame(0, Artisan::call('whmcs:inspect-module', ['file' => self::fixture().'/demopanel/demopanel.php']));
+        $this->assertSame(0, Artisan::call('whmcs:inspect-module', ['file' => self::fixture().self::MAIN_FILE]));
 
         $this->assertSame([
-            'display_name' => 'Demo Panel',
+            'display_name' => self::DISPLAY_NAME,
             'requires_server' => true,
             'ports' => ['secure' => 2222, 'plain' => 2221],
             'config_fields' => [
@@ -222,13 +230,13 @@ class WhmcsModuleTest extends TestCase
     public function test_a_new_password_reaches_the_module_and_is_kept_when_it_works(): void
     {
         [$service] = $this->demopanelService();
-        $service->forceFill(['provisioned_at' => now(), 'username' => 'example', 'password' => 'OldPass1!', 'new_password' => 'NewPass2!'])->save();
+        $service->forceFill(['provisioned_at' => now(), 'username' => 'example', 'password' => 'OldPass1!', 'new_password' => self::NEW_PASSWORD])->save();
 
         app(Provisioner::class)->queue($service, 'change_password');
 
         [$function, $params] = end($GLOBALS['demopanel_calls']);
-        $this->assertSame(['ChangePassword', 'NewPass2!'], [$function, $params['password']]);
-        $this->assertSame(['NewPass2!', null], [$service->refresh()->password, $service->new_password]);
+        $this->assertSame(['ChangePassword', self::NEW_PASSWORD], [$function, $params['password']]);
+        $this->assertSame([self::NEW_PASSWORD, null], [$service->refresh()->password, $service->new_password]);
     }
 
     public function test_a_service_on_another_modules_server_isnt_touched(): void
@@ -299,7 +307,7 @@ class WhmcsModuleTest extends TestCase
         // The converted module runs the copied code with the same $params, settings by name too.
         $module = app(ModuleRegistry::class)->find('demopanel');
         $this->assertInstanceOf(ConvertedSsoServerModule::class, $module);
-        $this->assertSame('Demo Panel', $module->label());
+        $this->assertSame(self::DISPLAY_NAME, $module->label());
         $this->assertTrue($module->create($service->refresh())->ok);
         [$function, $params] = end($GLOBALS['demopanel_calls']);
         $this->assertSame(['CreateAccount', 'gold', 'gold', 'demopanel', 2222], [$function, $params['package_name'], $params['configoption1'], $params['moduletype'], $params['serverport']]);
@@ -350,7 +358,7 @@ class WhmcsModuleTest extends TestCase
         config(['provisioning.whmcs_uploads' => false]);
 
         $this->get(self::URL)->assertOk()->assertSee('WHMCS_MODULE_UPLOADS=false');
-        $this->upload('demopanel.php', '<?php')->assertForbidden();
+        $this->upload('demopanel.php', self::EMPTY_FILE)->assertForbidden();
     }
 
     public function test_the_whmcs_import_puts_products_and_servers_on_a_converted_module(): void
@@ -400,8 +408,8 @@ class WhmcsModuleTest extends TestCase
     {
         $fixture = self::fixture();
         config(['provisioning.whmcs_modules_path' => $fixture]);
-        Artisan::call('whmcs:inspect-module', ['file' => $fixture.'/demopanel/demopanel.php']);
-        WhmcsModule::create(['name' => 'demopanel', 'display_name' => 'Demo Panel', 'enabled' => true, 'meta' => json_decode(trim(Artisan::output()), true),
+        Artisan::call('whmcs:inspect-module', ['file' => $fixture.self::MAIN_FILE]);
+        WhmcsModule::create(['name' => 'demopanel', 'display_name' => self::DISPLAY_NAME, 'enabled' => true, 'meta' => json_decode(trim(Artisan::output()), true),
             'report' => ModuleInspector::inspect($fixture.'/demopanel', 'demopanel')]);
         $server = Server::factory()->create(['name' => 'panel1', 'module' => 'whmcs_demopanel', 'hostname' => 'panel1.example.test', 'ip_address' => '203.0.113.9', 'username' => 'root', 'password' => 'serverpass', 'api_token' => 'HASH', 'port' => null]);
         $product = Product::factory()->create(['module' => 'whmcs_demopanel', 'module_config' => ['configoption1' => 'gold', 'configoption2' => 'on']]);

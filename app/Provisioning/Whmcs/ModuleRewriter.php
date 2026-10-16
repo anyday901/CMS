@@ -29,6 +29,11 @@ final class ModuleRewriter
 
     private const CLOSES = ['}', ')', ']'];
 
+    private const THIS = '$this->';
+
+    /** WHMCS's log functions => the ConvertedModule methods that replace them. */
+    private const LOG_METHODS = ['logmodulecall' => 'logModuleCall', 'logactivity' => 'logActivity'];
+
     private string $prefix;
 
     /**
@@ -55,57 +60,48 @@ final class ModuleRewriter
         $result = ['uses' => [], 'top' => [], 'methods' => []];
 
         foreach ($this->statements($tokens) as [$comments, $statement]) {
-            $first = $this->significant($statement, 0);
-            $text = $this->text($statement);
+            $this->add($result, $comments, $statement);
+        }
 
-            if ($first === null) {
-                continue;
+        return $result;
+    }
+
+    /**
+     * Adds a top-level statement to the parts of the class.
+     *
+     * @param  array{uses: list<string>, top: list<string>, methods: list<array{name: string, function: string, code: string}>}  $result
+     * @param  list<PhpToken>  $statement
+     */
+    private function add(array &$result, string $comments, array $statement): void
+    {
+        $first = $this->significant($statement, 0);
+        $text = $this->text($statement);
+
+        if ($first === null || ($first->is(T_IF) && preg_match('/defined\s*\(\s*[\'"]WHMCS[\'"]\s*\)/i', $text))) {
+            return;
+        }
+
+        if ($first->is(T_NAMESPACE)) {
+            throw new ModuleUploadException("{$this->name}.php declares a namespace, so it can't be converted. Use the module as it is.");
+        }
+
+        $function = $first->is(T_FUNCTION) ? $this->significant($statement, array_search($first, $statement, true) + 1) : null;
+
+        if ($first->is(T_USE)) {
+            if (! preg_match('/WHMCS\\\\Database\\\\Capsule\s*;/i', $text)) {
+                $result['uses'][] = trim($text);
             }
-
-            if ($first->is(T_NAMESPACE)) {
-                throw new ModuleUploadException("{$this->name}.php declares a namespace, so it can't be converted. Use the module as it is.");
-            }
-
-            if ($first->is(T_USE)) {
-                if (! preg_match('/WHMCS\\\\Database\\\\Capsule\s*;/i', $text)) {
-                    $result['uses'][] = trim($text);
-                }
-
-                continue;
-            }
-
-            if ($first->is(T_IF) && preg_match('/defined\s*\(\s*[\'"]WHMCS[\'"]\s*\)/i', $text)) {
-                continue;
-            }
-
-            $function = $first->is(T_FUNCTION) ? $this->significant($statement, array_search($first, $statement, true) + 1) : null;
-
-            if ($function?->is(T_STRING) && str_starts_with(strtolower($function->text), $this->prefix)) {
-                $suffix = substr($function->text, strlen($this->prefix));
-
-                if (! isset($this->methods[strtolower($suffix)])) {
-                    throw new ModuleUploadException("{$function->text} has no method name. Upload the module again, then convert it.");
-                }
-
-                $result['methods'][] = [
-                    'name' => $this->methods[strtolower($suffix)],
-                    'function' => $suffix,
-                    'code' => $comments.$this->method($statement, $function),
-                ];
-
-                continue;
-            }
-
+        } elseif ($function?->is(T_STRING) && str_starts_with(strtolower($function->text), $this->prefix)) {
+            $result['methods'][] = $this->method($comments, $statement, $function);
+        } else {
             $code = $this->body($statement);
 
-            if (str_contains($code, '$this->')) {
+            if (str_contains($code, self::THIS)) {
                 throw new ModuleUploadException("Code outside the functions of {$this->name}.php calls the module's functions, so it can't be converted. Use the module as it is.");
             }
 
             $result['top'][] = $comments.$code;
         }
-
-        return $result;
     }
 
     /**
@@ -120,70 +116,93 @@ final class ModuleRewriter
         $statements = [];
         $comments = '';
         $count = count($tokens);
+        $i = 0;
 
-        for ($i = 0; $i < $count; $i++) {
+        while ($i < $count) {
             $token = $tokens[$i];
 
-            if ($token->is([T_OPEN_TAG, T_CLOSE_TAG, T_WHITESPACE])) {
-                continue;
-            }
-
-            if ($token->is(T_INLINE_HTML)) {
-                if (trim($token->text) !== '') {
-                    throw new ModuleUploadException("{$this->name}.php has HTML outside its PHP code, so it can't be converted. Use the module as it is.");
-                }
-
-                continue;
-            }
-
-            if ($token->is([T_COMMENT, T_DOC_COMMENT])) {
+            if ($this->outsideCode($token)) {
+                $i++;
+            } elseif ($token->is([T_COMMENT, T_DOC_COMMENT])) {
                 $comments .= $token->text.(str_ends_with($token->text, "\n") ? '' : "\n");
-
-                continue;
+                $i++;
+            } else {
+                $end = $this->statementEnd($tokens, $i);
+                $statements[] = [$comments, array_slice($tokens, $i, $end - $i + 1)];
+                $comments = '';
+                $i = $end + 1;
             }
-
-            $block = $token->is(self::BLOCKS);
-            $depth = 0;
-            $statement = [];
-
-            for (; $i < $count; $i++) {
-                $current = $tokens[$i];
-                $statement[] = $current;
-
-                if (in_array($current->text, self::OPENS, true) || $current->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES, T_ATTRIBUTE])) {
-                    $depth++;
-                } elseif (in_array($current->text, self::CLOSES, true)) {
-                    $depth--;
-                }
-
-                if ($depth === 0 && ($current->text === ';' || $current->is(T_CLOSE_TAG))) {
-                    break;
-                }
-
-                if ($depth === 0 && $block && $current->text === '}') {
-                    $next = $this->significant($tokens, $i + 1);
-
-                    if (! $next?->is(self::CONTINUES)) {
-                        break;
-                    }
-                }
-            }
-
-            $statements[] = [$comments, $statement];
-            $comments = '';
         }
 
         return $statements;
     }
 
-    /** A method from a function statement: its header renamed, its body rewritten. @param  list<PhpToken>  $statement */
-    private function method(array $statement, PhpToken $function): string
+    /** Whether the token is outside any statement: PHP tags, whitespace, or blank text between tags. */
+    private function outsideCode(PhpToken $token): bool
     {
-        $suffix = strtolower(substr($function->text, strlen($this->prefix)));
-        $visibility = in_array($this->methods[$suffix], ConvertedModule::METHODS, true) ? 'protected' : 'private';
+        if ($token->is(T_INLINE_HTML) && trim($token->text) !== '') {
+            throw new ModuleUploadException("{$this->name}.php has HTML outside its PHP code, so it can't be converted. Use the module as it is.");
+        }
+
+        return $token->is([T_OPEN_TAG, T_CLOSE_TAG, T_WHITESPACE, T_INLINE_HTML]);
+    }
+
+    /** The index of the last token of the statement starting at $start. @param  list<PhpToken>  $tokens */
+    private function statementEnd(array $tokens, int $start): int
+    {
+        $block = $tokens[$start]->is(self::BLOCKS);
+        $depth = 0;
+        $count = count($tokens);
+
+        for ($i = $start; $i < $count; $i++) {
+            $depth += $this->depthChange($tokens[$i]);
+
+            if ($depth === 0 && $this->endsStatement($tokens, $i, $block)) {
+                return $i;
+            }
+        }
+
+        return $count - 1;
+    }
+
+    private function depthChange(PhpToken $token): int
+    {
+        return match (true) {
+            in_array($token->text, self::OPENS, true), $token->is([T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES, T_ATTRIBUTE]) => 1,
+            in_array($token->text, self::CLOSES, true) => -1,
+            default => 0,
+        };
+    }
+
+    /** Whether the token at $i, at depth 0, ends its statement. @param  list<PhpToken>  $tokens */
+    private function endsStatement(array $tokens, int $i, bool $block): bool
+    {
+        $token = $tokens[$i];
+
+        return $token->text === ';'
+            || $token->is(T_CLOSE_TAG)
+            || ($block && $token->text === '}' && ! $this->significant($tokens, $i + 1)?->is(self::CONTINUES));
+    }
+
+    /**
+     * A method from a function statement: its header renamed, its body rewritten.
+     *
+     * @param  list<PhpToken>  $statement
+     * @return array{name: string, function: string, code: string}
+     */
+    private function method(string $comments, array $statement, PhpToken $function): array
+    {
+        $suffix = substr($function->text, strlen($this->prefix));
+        $name = $this->methods[strtolower($suffix)]
+            ?? throw new ModuleUploadException("{$function->text} has no method name. Upload the module again, then convert it.");
+        $visibility = in_array($name, ConvertedModule::METHODS, true) ? 'protected' : 'private';
         $start = array_search($function, $statement, true);
 
-        return "{$visibility} function {$this->methods[$suffix]}".$this->body(array_slice($statement, $start + 1));
+        return [
+            'name' => $name,
+            'function' => $suffix,
+            'code' => $comments."{$visibility} function {$name}".$this->body(array_slice($statement, $start + 1)),
+        ];
     }
 
     /** The code of the tokens with the rewrites applied. @param  list<PhpToken>  $tokens */
@@ -191,30 +210,71 @@ final class ModuleRewriter
     {
         $out = '';
         $count = count($tokens);
+        $i = 0;
 
-        for ($i = 0; $i < $count; $i++) {
-            $token = $tokens[$i];
-            $previous = $this->significantBefore($tokens, $i);
-            $next = $this->significant($tokens, $i + 1);
-            $called = $next?->text === '(' && ! $previous?->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NEW, T_CONST]);
-            $name = ltrim($token->text, '\\');
-
-            if ($token->is([T_STRING, T_NAME_FULLY_QUALIFIED]) && $called && str_starts_with(strtolower($name), $this->prefix) && isset($this->methods[strtolower(substr($name, strlen($this->prefix)))])) {
-                $out .= '$this->'.$this->methods[strtolower(substr($name, strlen($this->prefix)))];
-            } elseif ($token->is([T_STRING, T_NAME_FULLY_QUALIFIED]) && $called && in_array(strtolower($name), ['logmodulecall', 'logactivity'], true)) {
-                $out .= '$this->'.(strtolower($name) === 'logactivity' ? 'logActivity' : 'logModuleCall');
-            } elseif ($this->isCapsule($token) && $next?->is(T_DOUBLE_COLON)) {
-                $schema = $this->schemaCall($tokens, $i);
-                $out .= $schema === null ? 'DB' : 'Schema::';
-                $i = $schema ?? $i;
-            } elseif ($token->is(T_CONSTANT_ENCAPSED_STRING) && $previous?->text === '[' && preg_match('/^([\'"])configoption(\d+)\1$/', $token->text, $match) && isset($this->settings[(int) $match[2]])) {
-                $out .= "'{$this->settings[(int) $match[2]]}'";
-            } else {
-                $out .= $token->text;
-            }
+        while ($i < $count) {
+            [$code, $i] = $this->rewriteAt($tokens, $i);
+            $out .= $code;
         }
 
         return $out;
+    }
+
+    /**
+     * The code for the token at $i, rewritten if it needs to be.
+     *
+     * @param  list<PhpToken>  $tokens
+     * @return array{string, int} the code and the index of the next token
+     */
+    private function rewriteAt(array $tokens, int $i): array
+    {
+        $token = $tokens[$i];
+
+        if ($this->isCapsule($token) && $this->significant($tokens, $i + 1)?->is(T_DOUBLE_COLON)) {
+            $schema = $this->schemaCall($tokens, $i);
+
+            return $schema === null ? ['DB', $i + 1] : ['Schema::', $schema + 1];
+        }
+
+        return [$this->call($tokens, $i) ?? $this->settingKey($tokens, $i) ?? $token->text, $i + 1];
+    }
+
+    /** "$this->method" for a call to one of the module's functions or to WHMCS's log functions, otherwise null. @param  list<PhpToken>  $tokens */
+    private function call(array $tokens, int $i): ?string
+    {
+        $token = $tokens[$i];
+        $previous = $this->significantBefore($tokens, $i);
+
+        if (! $token->is([T_STRING, T_NAME_FULLY_QUALIFIED])
+            || $this->significant($tokens, $i + 1)?->text !== '('
+            || $previous?->is([T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NEW, T_CONST])) {
+            return null;
+        }
+
+        $name = strtolower(ltrim($token->text, '\\'));
+        $method = self::LOG_METHODS[$name] ?? null;
+
+        if (str_starts_with($name, $this->prefix)) {
+            $method = $this->methods[substr($name, strlen($this->prefix))] ?? $method;
+        }
+
+        return $method === null ? null : self::THIS.$method;
+    }
+
+    /** The setting name for a 'configoptionN' array key, otherwise null. @param  list<PhpToken>  $tokens */
+    private function settingKey(array $tokens, int $i): ?string
+    {
+        $token = $tokens[$i];
+
+        if (! $token->is(T_CONSTANT_ENCAPSED_STRING)
+            || $this->significantBefore($tokens, $i)?->text !== '['
+            || ! preg_match('/^([\'"])configoption(\d+)\1$/', $token->text, $match)) {
+            return null;
+        }
+
+        $setting = $this->settings[(int) $match[2]] ?? null;
+
+        return $setting === null ? null : "'{$setting}'";
     }
 
     private function isCapsule(PhpToken $token): bool
@@ -227,8 +287,9 @@ final class ModuleRewriter
     private function schemaCall(array $tokens, int $i): ?int
     {
         $expected = ['::', 'schema', '(', ')', '->'];
+        $k = 0;
 
-        for ($j = $i + 1, $k = 0; $k < count($expected) && $j < count($tokens); $j++) {
+        for ($j = $i + 1; $j < count($tokens); $j++) {
             if ($tokens[$j]->is(T_WHITESPACE)) {
                 continue;
             }
@@ -237,10 +298,12 @@ final class ModuleRewriter
                 return null;
             }
 
-            $k++;
+            if (++$k === count($expected)) {
+                return $j;
+            }
         }
 
-        return $k === count($expected) ? $j - 1 : null;
+        return null;
     }
 
     /** @param  list<PhpToken>  $tokens */
