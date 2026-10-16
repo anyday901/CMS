@@ -67,6 +67,7 @@ nav:
       - Running a demo instance: demo.md
   - Admin guide:
       - Appearance and white-label: admin/appearance.md
+      - Domains: admin/domains.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
       - Health, maintenance, backups and updates: admin/system.md
@@ -81,6 +82,7 @@ nav:
       - Event hooks: developers/hooks.md
       - Payment gateways: developers/gateways.md
       - Provisioning modules: developers/provisioning.md
+      - Registrar modules: developers/registrars.md
       - SMS providers: developers/sms.md
       - Themes: developers/themes.md
       - Translations: developers/translations.md

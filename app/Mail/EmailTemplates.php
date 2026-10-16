@@ -24,6 +24,9 @@ class EmailTemplates
     /** Templates that carry an invoice, and get its PDF attached when that setting is on. */
     public const INVOICE_TEMPLATES = ['invoice_created', 'order_invoice'];
 
+    /** Placeholders of every domain email. */
+    public const DOMAIN_PLACEHOLDERS = ['domain', 'expiry_date', 'renewal_amount', 'renewal_years', 'domain_url'];
+
     /** Put at the top of emails clients can reply to; everything below it is dropped from the reply. */
     public const REPLY_MARKER = '-- Reply above this line --';
 
@@ -153,6 +156,43 @@ class EmailTemplates
                 'subject' => 'How did we do with ticket #{ticket_id}?',
                 'body' => "Hello {client_first_name},\n\nYour ticket \"{ticket_subject}\" is now closed. Could you tell us how we did? It takes a few seconds and helps us improve.\n\n[Rate our support]({feedback_url})\n\nThank you,\n{company_name}",
                 'placeholders' => ['ticket_id', 'ticket_subject', 'ticket_url', 'department', 'feedback_url'],
+            ],
+            'domain_registered' => [
+                'name' => 'Domain registered',
+                'description' => 'Sent when the registrar has registered a domain the client ordered.',
+                'subject' => '{domain} is registered',
+                'body' => "Hello {client_first_name},\n\nGood news: {domain} is now registered to you, until {expiry_date}.\n\nYou can change its nameservers, contact details and more in the portal.\n\n[Manage {domain}]({domain_url})\n\nThank you,\n{company_name}",
+                'placeholders' => self::DOMAIN_PLACEHOLDERS,
+            ],
+            'domain_transferred' => [
+                'name' => 'Domain transfer finished',
+                'description' => 'Sent when a domain the client transferred to you has arrived at the registrar.',
+                'subject' => '{domain} has moved to us',
+                'body' => "Hello {client_first_name},\n\nThe transfer of {domain} is finished. It now renews with us, and expires on {expiry_date}.\n\n[Manage {domain}]({domain_url})\n\nThank you,\n{company_name}",
+                'placeholders' => self::DOMAIN_PLACEHOLDERS,
+            ],
+            'domain_renewed' => [
+                'name' => 'Domain renewed',
+                'description' => 'Sent when the registrar has renewed a domain after its renewal invoice was paid.',
+                'subject' => '{domain} is renewed until {expiry_date}',
+                'body' => "Hello {client_first_name},\n\n{domain} is renewed and now expires on {expiry_date}.\n\n[Manage {domain}]({domain_url})\n\nThank you,\n{company_name}",
+                'placeholders' => self::DOMAIN_PLACEHOLDERS,
+            ],
+            'domain_renewal_reminder' => [
+                'name' => 'Domain renewal reminder',
+                'description' => 'Sent by the nightly domain run when a domain is within each number of days set under Settings > Domains of expiring, unless its renewal is already paid.',
+                'subject' => '{domain} expires in {days_left} days',
+                'body' => "Hello {client_first_name},\n\n{domain} expires on {expiry_date}. {renewal_note}\n\nRenewing for {renewal_years} year(s) costs {renewal_amount}.\n\n[Renew {domain}]({domain_url})\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => [...self::DOMAIN_PLACEHOLDERS, 'days_left', 'renewal_note'],
+            ],
+            'domain_expired' => [
+                'name' => 'Domain expired',
+                'description' => 'Sent once when a domain passes its expiry date without being renewed.',
+                'subject' => '{domain} has expired',
+                'body' => "Hello {client_first_name},\n\n{domain} expired on {expiry_date}. Websites and email using it may stop working.\n\nMost domains can still be renewed for a short time after they expire, so renew it now if you want to keep it.\n\n[Renew {domain}]({domain_url})\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => self::DOMAIN_PLACEHOLDERS,
             ],
         ];
     }

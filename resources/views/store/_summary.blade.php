@@ -37,6 +37,26 @@
                     @endif
                 </tr>
             @endforeach
+            @foreach ($quote->domains as $key => $domain)
+                <tr>
+                    <td class="px-4 py-3">
+                        <div class="font-medium">{{ $domain->type === 'transfer' ? __('Domain transfer') : __('Domain registration') }} <span class="font-normal text-ink-500">({{ $domain->name }})</span></div>
+                        <div class="text-ink-500">{{ trans_choice(':count year|:count years', $domain->years) }}@if ($domain->idProtection), {{ __('with ID protection') }}@endif</div>
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right">
+                        {{ Money::format($domain->amount, $quote->currency) }}
+                        <div class="text-ink-500">{{ __('Renews at :amount', ['amount' => Money::format($domain->renewal, $quote->currency)]) }}</div>
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right">{{ Money::format($domain->amount, $quote->currency) }}</td>
+                    @if ($removable)
+                        <td class="px-4 py-3 text-right">
+                            <form method="POST" action="{{ route('cart.destroy', $key) }}">@csrf @method('DELETE')
+                                <button class="text-red-600 hover:underline">{{ __('Remove') }}</button>
+                            </form>
+                        </td>
+                    @endif
+                </tr>
+            @endforeach
         </tbody>
         <tfoot class="border-t border-ink-200">
             @if ($quote->discount())

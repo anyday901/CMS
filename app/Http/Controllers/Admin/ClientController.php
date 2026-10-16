@@ -104,6 +104,7 @@ class ClientController extends Controller
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
             'invoices' => fn ($q) => $q->latest('issue_date')->latest('id'),
+            'domains' => fn ($q) => $q->orderBy('name'),
         ]);
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();

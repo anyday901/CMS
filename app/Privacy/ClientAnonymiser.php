@@ -3,6 +3,7 @@
 namespace App\Privacy;
 
 use App\Enums\ClientStatus;
+use App\Enums\DomainStatus;
 use App\Enums\ServiceStatus;
 use App\Models\Activity;
 use App\Models\Affiliate;
@@ -39,6 +40,7 @@ class ClientAnonymiser
             $client->isAnonymised() => 'This client is already anonymised.',
             $client->status !== ClientStatus::Closed => 'Close the account first. Only closed accounts can be anonymised.',
             $client->services()->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])->exists() => 'Terminate or cancel the client\'s services first.',
+            $client->domains()->whereIn('status', [DomainStatus::Pending, DomainStatus::PendingTransfer, DomainStatus::Active])->exists() => 'Cancel the client\'s domains first, or move them to another account.',
             default => null,
         };
     }
@@ -87,6 +89,7 @@ class ClientAnonymiser
                 DB::table($table)->whereIn('email', $emails)->delete();
             }
             $client->orders()->update(['ip_address' => null]);
+            $client->domains()->update(['contact' => null, 'epp_code' => null]);
             $client->services()->update(['custom_fields' => null, 'username' => null, 'password' => null, 'new_password' => null]);
             CancellationRequest::whereIn('service_id', $client->services()->select('id'))->update(['reason' => null]);
 

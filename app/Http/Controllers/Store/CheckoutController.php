@@ -30,7 +30,7 @@ class CheckoutController extends Controller
     {
         $quote = $this->checkout->quote($this->cart, $request->user('client'));
 
-        if ($quote->rows === [] || $quote->errors !== []) {
+        if ($quote->isEmpty() || $quote->errors !== []) {
             return redirect()->route('cart.index');
         }
 
@@ -49,7 +49,7 @@ class CheckoutController extends Controller
 
         $quote = $this->checkout->quote($this->cart, $client);
 
-        if ($quote->rows === [] || $quote->errors !== [] || $quote->promotionError !== null) {
+        if ($quote->isEmpty() || $quote->errors !== [] || $quote->promotionError !== null) {
             return $quote->promotionError ?? __('Check your cart and try again.');
         }
 
@@ -78,7 +78,8 @@ class CheckoutController extends Controller
 
         return $invoice->status === InvoiceStatus::Unpaid
             ? redirect()->route('portal.invoices.show', $invoice)->with('status', __('Thanks for your order. Pay this invoice to get started.'))
-            : redirect()->route('portal.services.index')->with('status', __('Thanks for your order. Nothing is due, so your services are being set up.'));
+            : redirect()->route($order->services()->exists() || ! $order->domains()->exists() ? 'portal.services.index' : 'portal.domains.index')
+                ->with('status', __('Thanks for your order. Nothing is due, so your services are being set up.'));
     }
 
     /** Sends a client who already has an account to log in, then back here. */

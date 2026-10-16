@@ -90,6 +90,11 @@ class Client extends Authenticatable
         return $this->hasMany(Service::class);
     }
 
+    public function domains(): HasMany
+    {
+        return $this->hasMany(Domain::class);
+    }
+
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);

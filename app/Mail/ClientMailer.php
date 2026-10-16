@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Jobs\SendLoggedEmail;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\Domain;
 use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -144,15 +145,19 @@ class ClientMailer
     /** Confirms a store order to the client, with what they ordered and its invoice. */
     public function orderConfirmation(Order $order): ?EmailLog
     {
-        $order->loadMissing(['client', 'invoice', 'services' => fn ($query) => $query->with(['product', 'parent.product'])->orderBy('id')]);
+        $order->loadMissing(['client', 'invoice', 'services' => fn ($query) => $query->with(['product', 'parent.product'])->orderBy('id'), 'domains' => fn ($query) => $query->orderBy('id')]);
         $currency = $order->invoice->currency ?? $order->client->currency;
 
         return $this->withLocale(Language::forClient($order->client), fn () => $this->send($order->client, 'order_confirmation', [
             'order_number' => $order->id,
             'order_date' => $order->created_at->translatedFormat('M j, Y'),
-            'order_items' => $order->services->map(fn (Service $service) => '- '.$service->description()
+            'order_items' => $order->services->toBase()->map(fn (Service $service) => '- '.$service->description()
                 .($service->billing_cycle->isRecurring() ? ', '.mb_strtolower(__($service->billing_cycle->label())) : '')
-                .($service->parent ? ' '.__('(add-on for :service)', ['service' => $service->parent->description()]) : ''))->join("\n"),
+                .($service->parent ? ' '.__('(add-on for :service)', ['service' => $service->parent->description()]) : ''))
+                ->merge($order->domains->toBase()->map(fn (Domain $domain) => '- '.($domain->type === Domain::TRANSFER
+                    ? __('Transfer of :domain, :years year(s)', ['domain' => $domain->name, 'years' => $domain->years])
+                    : __('Registration of :domain, :years year(s)', ['domain' => $domain->name, 'years' => $domain->years]))))
+                ->join("\n"),
             'order_total' => Money::format($order->invoice->total ?? 0, $currency),
         ], $order->invoice));
     }

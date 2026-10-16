@@ -22,6 +22,11 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Domains</legend>
+            <p class="text-ink-600">The extensions you sell and their prices, registrar credentials, default nameservers, renewal invoices and reminders. <a href="{{ route('admin.tlds.index') }}" class="text-brand-600">TLDs and pricing</a> · <a href="{{ route('admin.domain-settings.edit') }}" class="text-brand-600">Registrars and domain settings</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Integrations</legend>
             <p class="text-ink-600">Optional modules, and telling other systems and people when things happen. <a href="{{ route('admin.addons.index') }}" class="text-brand-600">Add-ons</a> · <a href="{{ route('admin.webhooks.index') }}" class="text-brand-600">Webhooks</a> · <a href="{{ route('admin.chat-channels.index') }}" class="text-brand-600">Chat notifications</a> · <a href="{{ route('admin.sms.edit') }}" class="text-brand-600">SMS</a> · <a href="{{ route('admin.api-keys.index') }}" class="text-brand-600">API keys</a> · <a href="{{ route('admin.affiliates.settings') }}" class="text-brand-600">Affiliates</a>.</p>
         </fieldset>

@@ -42,6 +42,11 @@ class Order extends Model
         return $this->hasMany(Service::class);
     }
 
+    public function domains(): HasMany
+    {
+        return $this->hasMany(Domain::class);
+    }
+
     /** The staff member who accepted, cancelled or flagged the order. */
     public function reviewer(): BelongsTo
     {

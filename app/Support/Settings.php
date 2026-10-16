@@ -97,19 +97,24 @@ class Settings
         'backups.time',
         'backups.keep',
         'backups.disk',
+        'domains.credentials',
+        'domains.nameservers',
+        'domains.invoice_days_before_expiry',
+        'domains.reminder_days',
+        'domains.auto_renew_default',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled', 'domains.auto_renew_default'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
         'billing.reminder_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
-        'sms.staff_numbers', 'sms.staff_events', 'sms.client_events',
+        'sms.staff_numbers', 'sms.staff_events', 'sms.client_events', 'domains.nameservers', 'domains.reminder_days',
     ];
 
     /** Saved encrypted, read back decrypted. */
-    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials', 'mail.mailers.smtp.password'];
+    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials', 'mail.mailers.smtp.password', 'domains.credentials'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

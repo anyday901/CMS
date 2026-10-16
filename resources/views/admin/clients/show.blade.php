@@ -145,6 +145,33 @@
         </div>
     @endif
 
+    @if ($client->domains->isNotEmpty() || App\Models\Tld::exists())
+        <div class="mb-3 flex items-center gap-3">
+            <h2 class="text-lg font-semibold">Domains</h2>
+            @can('manage-clients')<a href="{{ route('admin.domains.create', $client) }}" class="text-sm text-brand-600">Add domain</a>@endcan
+        </div>
+        @if ($client->domains->isEmpty())
+            <p class="mb-8 text-sm text-ink-500">No domains yet.</p>
+        @else
+            <div class="mb-8 overflow-x-auto rounded-lg border border-ink-200 bg-white">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Domain</th><th class="px-4 py-2">Expires</th><th class="px-4 py-2 text-right">Renewal</th><th class="px-4 py-2">Auto-renew</th><th class="px-4 py-2">Status</th></tr></thead>
+                    <tbody class="divide-y divide-ink-100">
+                        @foreach ($client->domains as $domain)
+                            <tr>
+                                <td class="px-4 py-2"><a href="{{ route('admin.domains.show', $domain) }}" class="text-brand-600">{{ $domain->name }}</a></td>
+                                <td class="px-4 py-2">{{ $domain->expiry_date?->format('M j, Y') ?? '—' }}</td>
+                                <td class="px-4 py-2 text-right">{{ Money::format($domain->recurring_amount, $client->currency) }} / {{ $domain->years }} yr</td>
+                                <td class="px-4 py-2">{{ $domain->auto_renew ? 'On' : 'Off' }}</td>
+                                <td class="px-4 py-2"><x-status-badge :status="$domain->status">{{ $domain->status->label() }}</x-status-badge></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    @endif
+
     @if ($orders->isNotEmpty())
         <h2 class="mb-3 text-lg font-semibold">Orders</h2>
         @include('admin.orders._table')

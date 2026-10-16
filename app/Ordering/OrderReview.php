@@ -4,6 +4,8 @@ namespace App\Ordering;
 
 use App\Billing\InvoiceCanceller;
 use App\Billing\ServiceLifecycle;
+use App\Domains\DomainRenewals;
+use App\Enums\DomainStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\OrderStatus;
 use App\Enums\ServiceStatus;
@@ -22,11 +24,12 @@ class OrderReview
 {
     private const STATUS = 'status';
 
-    public function __construct(private ServiceLifecycle $lifecycle, private InvoiceCanceller $invoices) {}
+    public function __construct(private ServiceLifecycle $lifecycle, private InvoiceCanceller $invoices, private DomainRenewals $domains) {}
 
     /**
      * Accepts a pending order. Services of a paid order held for review are
-     * activated now; the rest activate when the invoice is paid, as usual.
+     * activated now, and its domains sent to the registrar; the rest wait for
+     * the invoice to be paid, as usual.
      */
     public function accept(Order $order, User $staff): void
     {
@@ -46,6 +49,9 @@ class OrderReview
             if ($invoice?->status === InvoiceStatus::Paid) {
                 foreach ($order->services()->where(self::STATUS, ServiceStatus::Pending)->orderBy('id')->get() as $service) {
                     $this->lifecycle->activate($service);
+                }
+                foreach ($order->domains()->where(self::STATUS, DomainStatus::Pending)->orderBy('id')->get() as $domain) {
+                    $this->domains->start($domain);
                 }
             }
         });
@@ -86,6 +92,7 @@ class OrderReview
                 $this->invoices->cancel($invoice);
             }
             $this->stopServices($services);
+            $this->cancelDomains($order, $fraud);
             $this->giveBack($order, $services->pluck('product_id')->all());
 
             $this->close($order, $fraud ? OrderStatus::Fraud : OrderStatus::Cancelled, $staff);
@@ -130,6 +137,15 @@ class OrderReview
                 ServiceStatus::Active, ServiceStatus::Suspended => $this->lifecycle->terminate($service),
                 default => null,
             };
+        }
+    }
+
+    /** Domains not registered yet are cancelled; registered ones stay, since a registration can't be undone. */
+    private function cancelDomains(Order $order, bool $fraud): void
+    {
+        foreach ($order->domains()->where(self::STATUS, DomainStatus::Pending)->get() as $domain) {
+            $domain->update([self::STATUS => $fraud ? DomainStatus::Fraud : DomainStatus::Cancelled]);
+            Activity::record("Cancelled {$domain->name}", $domain);
         }
     }
 

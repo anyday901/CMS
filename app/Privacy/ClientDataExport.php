@@ -9,6 +9,7 @@ use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\CreditEntry;
+use App\Models\Domain;
 use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -62,6 +63,9 @@ class ClientDataExport
             ]) + [
                 'cancellation_requests' => $service->cancellationRequests()->get()->map(fn (CancellationRequest $request) => $this->only($request, ['type', 'reason', 'status', 'cancel_on', 'created_at']))->all(),
             ])->all(),
+            'domains' => $client->domains()->orderBy('id')->get()->map(fn (Domain $domain) => $this->only($domain, [
+                'name', 'type', 'status', 'years', 'recurring_amount', 'registration_date', 'expiry_date', 'next_due_date', 'auto_renew', 'id_protection', 'nameservers', 'contact', 'created_at',
+            ]))->all(),
             'orders' => $client->orders->map(fn (Order $order) => $this->only($order, ['id', 'status', 'promotion_code', 'ip_address', 'created_at']))->all(),
             'invoices' => $client->invoices->map(fn (Invoice $invoice) => $this->only($invoice, [
                 'number', 'status', 'currency', 'issue_date', 'due_date', 'subtotal', 'tax', 'total', 'paid_at',

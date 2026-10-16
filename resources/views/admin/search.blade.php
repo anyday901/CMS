@@ -11,7 +11,7 @@
     @else
         @php
             $found = collect($results)->sum('total');
-            $labels = ['clients' => 'Clients', 'services' => 'Services and domains', 'invoices' => 'Invoices', 'orders' => 'Orders', 'tickets' => 'Tickets'];
+            $labels = ['clients' => 'Clients', 'services' => 'Services', 'domains' => 'Domains', 'invoices' => 'Invoices', 'orders' => 'Orders', 'tickets' => 'Tickets'];
         @endphp
         <h1 class="mb-1 text-2xl font-semibold">{{ $found }} {{ Str::plural('result', $found) }} for “{{ $query }}”</h1>
         @if ($found > 0)
@@ -59,6 +59,23 @@
                                             <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $service->client) }}" class="text-brand-600">{{ $service->client->fullName() }}</a></td>
                                             <td class="px-4 py-2">{{ $service->next_due_date?->format('M j, Y') ?? '—' }}</td>
                                             <td class="px-4 py-2"><x-status-badge :status="$service->status" /></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @break
+                    @case('domains')
+                        <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Domain</th><th class="px-4 py-2">Client</th><th class="px-4 py-2">Expires</th><th class="px-4 py-2">Status</th></tr></thead>
+                                <tbody class="divide-y divide-ink-100">
+                                    @foreach ($section['items'] as $domain)
+                                        <tr>
+                                            <td class="px-4 py-2"><a href="{{ route('admin.domains.show', $domain) }}" class="text-brand-600">{{ $domain->name }}</a></td>
+                                            <td class="px-4 py-2"><a href="{{ route('admin.clients.show', $domain->client) }}" class="text-brand-600">{{ $domain->client->fullName() }}</a></td>
+                                            <td class="px-4 py-2">{{ $domain->expiry_date?->format('M j, Y') ?? '—' }}</td>
+                                            <td class="px-4 py-2"><x-status-badge :status="$domain->status">{{ $domain->status->label() }}</x-status-badge></td>
                                         </tr>
                                     @endforeach
                                 </tbody>

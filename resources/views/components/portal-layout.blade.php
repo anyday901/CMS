@@ -38,6 +38,7 @@
                 @foreach (array_filter([
                     'portal.dashboard' => __('Home'),
                     'portal.services.index' => App\Auth\PortalContact::allows('services') ? __('Services') : null,
+                    'portal.domains.index' => App\Auth\PortalContact::allows('services') && (App\Models\Tld::exists() || auth('client')->user()->domains()->exists()) ? __('Domains') : null,
                     'portal.invoices.index' => App\Auth\PortalContact::allows('billing') ? __('Invoices') : null,
                     'portal.tickets.index' => App\Auth\PortalContact::allows('support') ? __('Support') : null,
                     'portal.account.edit' => $portalContact ? null : __('Account'),
@@ -65,6 +66,9 @@
             <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
                 <a href="{{ route('store.index') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold">@if ($logo = App\Support\Branding::logoUrl())<img src="{{ $logo }}" alt="{{ App\Support\Branding::companyName() }}" class="h-8 w-auto max-w-48 object-contain">@else<span class="brand-mark"></span>{{ App\Support\Branding::companyName() }}@endif</a>
                 <a href="{{ route('store.index') }}" class="text-sm {{ request()->routeIs('store.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ __('Products') }}</a>
+                @if (App\Models\Tld::sold()->exists())
+                    <a href="{{ route('domains.index') }}" class="text-sm {{ request()->routeIs('domains.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ __('Domains') }}</a>
+                @endif
                 <a href="{{ route('cart.index') }}" class="text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $cartCount ? __('Cart (:count)', ['count' => $cartCount]) : __('Cart') }}</a>
                 <a href="{{ route('kb.index') }}" class="text-sm {{ request()->routeIs(...App\Http\Controllers\Help\KnowledgebaseController::HELP_ROUTES) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ __('Help') }}</a>
                 <a href="{{ route('portal.login') }}" class="ml-auto rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">{{ __('Log in') }}</a>
