@@ -3,7 +3,7 @@
 <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
     <table class="min-w-full text-sm">
         <thead class="bg-ink-50 text-left text-ink-500">
-            <tr><th class="px-4 py-2">{{ __('Item') }}</th><th class="px-4 py-2 text-right">{{ __('Price') }}</th><th class="px-4 py-2 text-right">{{ __('Due today') }}</th>@if ($removable)<th class="px-4 py-2"></th>@endif</tr>
+            <tr><th class="px-4 py-2">{{ __('Item') }}</th><th class="px-4 py-2 text-right">{{ __('Price') }}</th><th class="px-4 py-2 text-right">{{ __('Due today') }}</th>@if ($removable)<th class="px-4 py-2"><span class="sr-only">{{ __('Remove') }}</span></th>@endif</tr>
         </thead>
         <tbody class="divide-y divide-ink-100">
             @foreach ($quote->rows as $i => $row)
