@@ -35,8 +35,7 @@ namespace WHMCS\Database {
 }
 
 namespace {
-    use App\Models\Activity;
-    use Illuminate\Support\Facades\Log;
+    use App\Provisioning\Whmcs\WhmcsLog;
 
     if (! defined('WHMCS')) {
         define('WHMCS', true);
@@ -45,14 +44,12 @@ namespace {
     /** WHMCS's module log: written to the app log, with $replace values masked. */
     function logModuleCall($module, $action, $request, $response, $processed = '', $replace = []): void
     {
-        $mask = fn (mixed $value) => str_replace(array_filter(array_map('strval', (array) $replace)), '***', is_scalar($value) ? (string) $value : (string) json_encode($value));
-
-        Log::debug("WHMCS module {$module}: {$action}", ['request' => $mask($request), 'response' => $mask($response), 'processed' => $mask($processed)]);
+        WhmcsLog::moduleCall($module, $action, $request, $response, $processed, $replace);
     }
 
     function logActivity($message, $userId = 0): void
     {
-        Activity::record('WHMCS module: '.$message);
+        WhmcsLog::activity($message);
     }
 
     /** WHMCS's internal API isn't here; modules get the error WHMCS gives for an unknown command. */

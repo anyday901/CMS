@@ -39,6 +39,19 @@ For modules that use servers, **Orders ask for a domain name** decides whether t
 
 A module used by a product or a server can't be turned off or removed.
 
+## Converting to a CMS module
+
+Once an enabled module works, **Convert to a CMS module** turns it into a CMS module class, so it can be kept with your site and changed like the built-in modules. The conversion is mechanical:
+
+- each `mypanel_Function` becomes a method of a `MypanelModule` class: `CreateAccount` becomes `createAccount`, `SuspendAccount`, `UnsuspendAccount` and `TerminateAccount` keep their names, `ChangePassword` becomes `changeAccountPassword`, `ChangePackage` `changeAccountPackage`, `TestConnection` `checkConnection` and `ServiceSingleSignOn` `singleSignOn`. The module's other functions become private methods, and calls between them become `$this->method(...)`;
+- the settings get names from their labels (`Plan` becomes `plan`), so `$params['configoption1']` becomes `$params['plan']`. `configoption1` to `configoption24` are still passed too;
+- `WHMCS\Database\Capsule` becomes Laravel's `DB` (and `Schema` for `Capsule::schema()`), `logModuleCall` and `logActivity` become the class's own methods, and the `defined('WHMCS')` guard is dropped;
+- the module's name, settings, ports and **Orders ask for a domain name** become methods of the class.
+
+The code inside the functions is copied as it is, so anything the upload check warned about (such as reading `tblhosting` or calling `localAPI`) still needs a person to rewrite it; the class's header lists those warnings. A module whose main file declares a namespace, or has code outside its functions that calls them, can't be converted and keeps working as an uploaded module.
+
+Before anything changes, the new class is loaded in a separate PHP process. Then products on the module move to the converted one with their settings renamed, servers move with them, and the uploaded WHMCS module is removed. Converted modules are kept in `extensions/modules/{name}` (`CONVERTED_MODULES_PATH`): the class, the module's other files, and a `module.json`. **Download** gives you that folder as a zip, to keep in version control or copy to another install's `extensions/modules`. A converted module used by a product or a server can't be removed.
+
 ## What the module gets
 
 Each action calls the module's function with the `$params` WHMCS would pass:
@@ -58,4 +71,4 @@ Each action calls the module's function with the `$params` WHMCS would pass:
 
 ## The WHMCS import
 
-Upload and enable your WHMCS modules before importing from WHMCS. Products and servers on a module enabled here then come over on it, with the product's module settings as they were, and services keep their server and login. An uploaded module is used before CMS's own module of the same name.
+Upload and enable (or convert) your WHMCS modules before importing from WHMCS. Products and servers on a module enabled or converted here then come over on it, with the product's module settings (by name, for a converted module), and services keep their server and login. An uploaded or converted module is used before CMS's own module of the same name.

@@ -39,6 +39,10 @@ function demopanel_reply(string $function, array $params)
 
 function demopanel_CreateAccount(array $params)
 {
+    if ($params['configoption1'] === '') {
+        return 'The product has no package';
+    }
+
     echo 'Output that WHMCS throws away';
     Capsule::table('mod_demopanel')->insert(['service_id' => $params['serviceid'], 'username' => $params['username']]);
     logModuleCall('demopanel', 'CreateAccount', $params, 'created', '', [$params['password']]);

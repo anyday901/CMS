@@ -3,13 +3,14 @@
 namespace App\Import\Whmcs;
 
 use App\Models\ServerGroup;
+use App\Provisioning\Converted\ConvertedModules;
 use App\Provisioning\Whmcs\ConfigFields;
 use App\Provisioning\Whmcs\WhmcsModules;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Servers and server groups, the module settings of products on cPanel,
- * Plesk, DirectAdmin, Proxmox and WHMCS modules uploaded here, and each
+ * Plesk, DirectAdmin, Proxmox and WHMCS modules uploaded or converted here, and each
  * service's server and login.
  * Passwords are encrypted in WHMCS; with its encryption hash they come over,
  * without it they are left for staff to enter.
@@ -43,7 +44,7 @@ class ServerImporter
     {
         $type = strtolower(trim((string) $type));
 
-        if ($uploaded = app(WhmcsModules::class)->keyFor($type)) {
+        if ($uploaded = app(WhmcsModules::class)->keyFor($type) ?? app(ConvertedModules::class)->forWhmcsName($type)['key'] ?? null) {
             return $uploaded;
         }
 
@@ -57,7 +58,8 @@ class ServerImporter
     /** Whether a product's module (this app's key) is one the importer puts services on servers for. */
     private static function serverModule(?string $module): bool
     {
-        return $module !== null && (str_starts_with($module, WhmcsModules::PREFIX) || in_array($module, ['cpanel', 'plesk', 'directadmin', 'proxmox'], true));
+        return $module !== null && (str_starts_with($module, WhmcsModules::PREFIX) || in_array($module, ['cpanel', 'plesk', 'directadmin', 'proxmox'], true)
+            || app(ConvertedModules::class)->find($module) !== null);
     }
 
     public function import(): void
@@ -95,7 +97,11 @@ class ServerImporter
         }
 
         if (str_starts_with($module, WhmcsModules::PREFIX)) {
-            return $this->uploadedModuleProduct($row, $module);
+            return $this->uploadedModuleProduct($row, $module, []);
+        }
+
+        if ($converted = app(ConvertedModules::class)->find($module)) {
+            return $this->uploadedModuleProduct($row, $module, $converted['settings']);
         }
 
         $setting = self::PACKAGE_SETTING[$module] ?? null;
@@ -117,11 +123,13 @@ class ServerImporter
 
     /**
      * A product on an uploaded WHMCS module keeps its module settings as they
-     * were: configoption1 to configoption24.
+     * were: configoption1 to configoption24, or for a module converted from
+     * one, under the names $names gives them.
      *
+     * @param  array<string, string>  $names  configoptionN => setting name
      * @return array{module: string, module_config: ?string, server_group_id: ?int}
      */
-    private function uploadedModuleProduct(object $row, string $module): array
+    private function uploadedModuleProduct(object $row, string $module, array $names): array
     {
         $config = [];
 
@@ -129,11 +137,11 @@ class ServerImporter
             $value = trim(Whmcs::text($row->{"configoption{$i}"} ?? ''));
 
             if ($value !== '') {
-                $config["configoption{$i}"] = $value;
+                $config[$names["configoption{$i}"] ?? "configoption{$i}"] = $value;
             }
         }
 
-        $this->run->report->note('Products', '"'.Whmcs::text($row->name)."\" uses the uploaded WHMCS module {$row->servertype}, with its settings as they were.");
+        $this->run->report->note('Products', '"'.Whmcs::text($row->name)."\" uses the WHMCS module {$row->servertype} brought over to CMS ({$module}), with its settings.");
 
         return [
             'module' => $module,

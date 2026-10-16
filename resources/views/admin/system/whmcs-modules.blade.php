@@ -4,7 +4,7 @@
         <a href="{{ route('admin.settings.edit') }}" class="ml-auto text-sm text-brand-600">Back to settings</a>
     </div>
     @include('admin.system._nav')
-    <p class="mb-4 max-w-3xl text-sm text-ink-600">Upload a WHMCS server (provisioning) module and use it on products like the built-in ones. CMS hands it the same details WHMCS would and runs its create, suspend, unsuspend, terminate, password, package, connection test and single sign-on functions. Each upload is checked first, and a new module stays off until you enable it. A module runs with full access to your data, like the rest of CMS, so only upload ones you trust.</p>
+    <p class="mb-4 max-w-3xl text-sm text-ink-600">Upload a WHMCS server (provisioning) module and use it on products like the built-in ones. CMS hands it the same details WHMCS would and runs its create, suspend, unsuspend, terminate, password, package, connection test and single sign-on functions. Each upload is checked first, and a new module stays off until you enable it. Once a module works, <strong>Convert to a CMS module</strong> turns it into a CMS module class you can keep and edit, with named settings; the code inside its functions is copied as it is. A module runs with full access to your data, like the rest of CMS, so only upload ones you trust.</p>
 
     @forelse ($modules as $module)
         @php($report = $module->report)
@@ -52,6 +52,12 @@
                         <button class="rounded-full bg-brand-600 px-3 py-1 font-medium text-white hover:bg-brand-500">Enable</button>
                     </form>
                 @endif
+                @if ($module->enabled && $uploads)
+                    <form method="POST" action="{{ route('admin.whmcs-modules.convert', $module) }}" onsubmit="return confirm('Convert {{ $module->display_name }} into a CMS module? Its products and servers move to the new module, and the uploaded WHMCS module is removed.')">
+                        @csrf
+                        <button class="rounded-full bg-white px-3 py-1 font-medium ring-1 ring-ink-300 hover:bg-ink-50">Convert to a CMS module</button>
+                    </form>
+                @endif
                 @if (($module->meta['requires_server'] ?? true))
                     <form method="POST" action="{{ route('admin.whmcs-modules.update', $module) }}" class="flex items-center gap-2">
                         @csrf @method('PUT')
@@ -78,6 +84,28 @@
     @empty
         <p class="mb-6 text-sm text-ink-600">No WHMCS modules uploaded yet.</p>
     @endforelse
+
+    @if ($converted->isNotEmpty())
+        <h2 class="mb-2 mt-8 text-lg font-semibold">Converted modules</h2>
+        <p class="mb-4 max-w-3xl text-sm text-ink-600">WHMCS modules converted into CMS module classes, in extensions/modules. Download one to keep its code with your site, or to change it like any other module.</p>
+        @foreach ($converted as $manifest)
+            <article class="mb-3 flex max-w-4xl flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+                <div>
+                    <p class="font-semibold">{{ $manifest['class'] }}</p>
+                    <p class="text-xs text-ink-500">{{ $manifest['key'] }} · from the WHMCS module {{ $manifest['whmcs_name'] }}@if (! empty($manifest['converted_at'])) · converted {{ \Illuminate\Support\Carbon::parse($manifest['converted_at'])->toFormattedDateString() }}@endif</p>
+                </div>
+                <a href="{{ route('admin.converted-modules.download', $manifest['key']) }}" class="ml-auto text-brand-600">Download</a>
+                @if ($convertedInUse($manifest['key']))
+                    <span class="text-xs text-ink-500">In use by products or servers</span>
+                @else
+                    <form method="POST" action="{{ route('admin.converted-modules.destroy', $manifest['key']) }}" onsubmit="return confirm('Remove this converted module and its files?')">
+                        @csrf @method('DELETE')
+                        <button class="text-red-700">Remove</button>
+                    </form>
+                @endif
+            </article>
+        @endforeach
+    @endif
 
     @if ($uploads)
         <form method="POST" action="{{ route('admin.whmcs-modules.store') }}" enctype="multipart/form-data" class="mt-6 max-w-2xl space-y-3 rounded-lg border border-ink-200 bg-white p-6 text-sm">

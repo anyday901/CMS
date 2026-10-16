@@ -4,24 +4,31 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\WhmcsModule;
+use App\Provisioning\Converted\ConvertedModules;
+use App\Provisioning\Whmcs\ModuleConverter;
 use App\Provisioning\Whmcs\ModuleInstaller;
 use App\Provisioning\Whmcs\ModuleUploadException;
 use App\Provisioning\Whmcs\WhmcsModules;
 use App\Support\Demo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use ZipArchive;
 
-/** Settings > WHMCS modules: upload WHMCS server modules, read the check of each, and turn them on. */
+/** Settings > WHMCS modules: upload WHMCS server modules, read the check of each, turn them on, and convert them into CMS modules. */
 class WhmcsModuleController extends Controller
 {
-    public function __construct(private ModuleInstaller $installer, private WhmcsModules $modules) {}
+    public function __construct(private ModuleInstaller $installer, private WhmcsModules $modules, private ModuleConverter $converter, private ConvertedModules $converted) {}
 
     public function index(): View
     {
         return view('admin.system.whmcs-modules', [
             'modules' => WhmcsModule::orderBy('name')->get(),
             'inUse' => fn (WhmcsModule $module) => $this->modules->inUse($module),
+            'converted' => collect($this->converted->manifests())->sortBy('key')->values(),
+            'convertedInUse' => fn (string $key) => $this->converted->inUse($key),
             'uploads' => self::uploadsAllowed(),
         ]);
     }
@@ -72,6 +79,41 @@ class WhmcsModuleController extends Controller
     public function destroy(WhmcsModule $module): RedirectResponse
     {
         return $this->attempt(fn () => $this->installer->remove($module), "{$module->name} is removed.");
+    }
+
+    public function convert(WhmcsModule $module): RedirectResponse
+    {
+        $this->guard();
+
+        try {
+            $converted = $this->converter->convert($module);
+        } catch (ModuleUploadException $e) {
+            return back()->withErrors(['whmcs_module' => $e->getMessage()]);
+        }
+
+        return back()->with('status', "{$module->display_name} is now the {$converted['class']} module, and its products and servers use it. Download it to keep the code with your site.");
+    }
+
+    /** The converted module's folder as a zip. */
+    public function download(string $key): BinaryFileResponse
+    {
+        $manifest = $this->converted->find($key) ?? abort(404);
+        $zip = tempnam(sys_get_temp_dir(), 'module').'.zip';
+        $archive = new ZipArchive;
+        $archive->open($zip, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        foreach (File::allFiles($manifest['folder']) as $file) {
+            $archive->addFile($file->getPathname(), $key.'/'.$file->getRelativePathname());
+        }
+
+        $archive->close();
+
+        return response()->download($zip, "{$key}.zip")->deleteFileAfterSend();
+    }
+
+    public function destroyConverted(string $key): RedirectResponse
+    {
+        return $this->attempt(fn () => $this->converter->remove($key), "The converted module {$key} is removed.");
     }
 
     public static function uploadsAllowed(): bool

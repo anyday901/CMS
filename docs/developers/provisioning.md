@@ -2,7 +2,7 @@
 
 A provisioning module sets up and manages a service somewhere else: a control panel, a VPS host, a licensing server, your own API. Staff choose a module on a product and fill in its settings there; from then on, every service of that product is created, suspended, unsuspended and terminated through the module as its status changes.
 
-The code is in `app/Provisioning`, and the built-in modules in `app/Provisioning/Modules`. Modules written for WHMCS can be uploaded instead of rewritten; see [WHMCS modules](../admin/whmcs-modules.md).
+The code is in `app/Provisioning`, and the built-in modules in `app/Provisioning/Modules`. Modules written for WHMCS can be uploaded instead of rewritten, and converted into a class that extends `App\Provisioning\Converted\ConvertedModule`; see [WHMCS modules](../admin/whmcs-modules.md).
 
 | Module | Key | Class | What it shows |
 |---|---|---|---|

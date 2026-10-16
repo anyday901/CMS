@@ -59,5 +59,8 @@ Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', Require
         Route::post('whmcs-modules/{module}/enable', [Admin\WhmcsModuleController::class, 'enable'])->middleware('throttle:10,1')->name('whmcs-modules.enable');
         Route::post('whmcs-modules/{module}/disable', [Admin\WhmcsModuleController::class, 'disable'])->name('whmcs-modules.disable');
         Route::delete('whmcs-modules/{module}', [Admin\WhmcsModuleController::class, 'destroy'])->name('whmcs-modules.destroy');
+        Route::post('whmcs-modules/{module}/convert', [Admin\WhmcsModuleController::class, 'convert'])->middleware('throttle:10,1')->name('whmcs-modules.convert');
+        Route::get('converted-modules/{key}/download', [Admin\WhmcsModuleController::class, 'download'])->where('key', '[a-z][a-z0-9_]*')->name('converted-modules.download');
+        Route::delete('converted-modules/{key}', [Admin\WhmcsModuleController::class, 'destroyConverted'])->where('key', '[a-z][a-z0-9_]*')->name('converted-modules.destroy');
     });
 });

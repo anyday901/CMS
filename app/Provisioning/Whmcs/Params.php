@@ -2,21 +2,21 @@
 
 namespace App\Provisioning\Whmcs;
 
-use App\Models\Product;
 use App\Models\ProductOption;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceOption;
-use App\Models\WhmcsModule;
 
 /** The $params array WHMCS passes to a server module's functions, built from this app's records. */
 final class Params
 {
-    /** @return array<string, mixed> */
-    public static function forService(WhmcsModule $module, Service $service, ?Server $server, int $defaultPort): array
+    /**
+     * @param  array<string, string>  $settings  the product's module settings as $params entries (see configOptions())
+     * @return array<string, mixed>
+     */
+    public static function forService(string $moduleType, Service $service, ?Server $server, int $defaultPort, array $settings): array
     {
         $client = $service->client;
-        $product = $service->product;
 
         return [
             'accountid' => $service->id,
@@ -30,10 +30,10 @@ final class Params
             'status' => ucfirst($service->status->value),
             'type' => 'hostingaccount',
             'producttype' => 'hostingaccount',
-            'moduletype' => $module->name,
+            'moduletype' => $moduleType,
             'dedicatedip' => (string) ($service->provisioning_data['ip'] ?? ''),
             'assignedips' => '',
-            ...self::configOptions($product),
+            ...$settings,
             'customfields' => $service->customFieldsByName(),
             'configoptions' => $service->options->loadMissing(['option', 'choice'])
                 ->mapWithKeys(fn (ServiceOption $chosen) => [$chosen->option->name => match ($chosen->option->type) {
@@ -81,13 +81,21 @@ final class Params
         ];
     }
 
-    /** configoption1 to configoption24, '' where the product sets nothing. @return array<string, string> */
-    private static function configOptions(Product $product): array
+    /**
+     * configoption1 to configoption24 from a product's module settings, ''
+     * where it sets nothing. $names maps a position to the setting's name
+     * for modules converted from WHMCS, which save settings by name.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<int, string>  $names
+     * @return array<string, string>
+     */
+    public static function configOptions(array $config, array $names = []): array
     {
         $options = [];
 
         for ($i = 1; $i <= ConfigFields::MAX; $i++) {
-            $options["configoption{$i}"] = (string) ($product->module_config["configoption{$i}"] ?? '');
+            $options["configoption{$i}"] = (string) ($config[$names[$i] ?? "configoption{$i}"] ?? '');
         }
 
         return $options;

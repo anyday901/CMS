@@ -9,8 +9,10 @@ use App\Models\Server;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\WhmcsModule;
+use App\Provisioning\Converted\ConvertedSsoServerModule;
 use App\Provisioning\ModuleRegistry;
 use App\Provisioning\Provisioner;
+use App\Provisioning\Whmcs\ModuleInspector;
 use App\Provisioning\Whmcs\WhmcsSsoServerModule;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,12 +40,17 @@ class WhmcsModuleTest extends TestCase
 
     private string $root;
 
+    private string $converted;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->root = sys_get_temp_dir().'/cms-whmcs-modules-'.uniqid();
-        config(['provisioning.whmcs_modules_path' => $this->root]);
+        // Converted classes are loaded once per test run, so they are always written to the same place.
+        $this->converted = sys_get_temp_dir().'/cms-converted-modules-fixture';
+        File::deleteDirectory($this->converted);
+        config(['provisioning.whmcs_modules_path' => $this->root, 'provisioning.converted_modules_path' => $this->converted]);
         $GLOBALS['demopanel_calls'] = [];
         $GLOBALS['demopanel_replies'] = [];
         $this->actingAs(User::factory()->create());
@@ -198,10 +205,10 @@ class WhmcsModuleTest extends TestCase
         $GLOBALS['demopanel_replies']['SuspendAccount'] = 'Account not found on the panel';
         $this->assertSame([false, 'Account not found on the panel'], [($r = $module->suspend($service))->ok, $r->message]);
         $GLOBALS['demopanel_replies']['TerminateAccount'] = new RuntimeException('Connection refused');
-        $this->assertSame([false, 'The WHMCS module failed in TerminateAccount: Connection refused'], [($r = $module->terminate($service))->ok, $r->message]);
+        $this->assertSame([false, 'The module failed in TerminateAccount: Connection refused'], [($r = $module->terminate($service))->ok, $r->message]);
 
         // Functions the module doesn't have change nothing.
-        $this->assertSame([true, 'The WHMCS module has no UnsuspendAccount function, so nothing was changed on the server.'], [($r = $module->unsuspend($service))->ok, $r->message]);
+        $this->assertSame([true, 'The module has no UnsuspendAccount function, so nothing was changed on the server.'], [($r = $module->unsuspend($service))->ok, $r->message]);
         $this->assertTrue($module->canChangePassword($service));
         $this->assertTrue($module->changePassword($service)->ok);
 
@@ -252,12 +259,122 @@ class WhmcsModuleTest extends TestCase
         $this->assertSame(0, WhmcsModule::count());
     }
 
+    public function test_converting_writes_a_cms_module_and_moves_products_and_servers_to_it(): void
+    {
+        [$service, $server] = $this->demopanelService();
+        Schema::create('mod_demopanel', function (Blueprint $table) {
+            $table->unsignedBigInteger('service_id');
+            $table->string('username');
+        });
+        Process::fake(['*' => Process::result('{"key":"demopanel"}')]);
+
+        $this->post(self::URL.'/'.WhmcsModule::sole()->id.'/convert')->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'Demo Panel is now the DemopanelModule module, and its products and servers use it. Download it to keep the code with your site.');
+
+        Process::assertRan(fn ($process) => array_slice($process->command, 2) === ['whmcs:check-converted', $process->command[3], 'DemopanelModule']);
+        $code = (string) file_get_contents($this->converted.'/demopanel/DemopanelModule.php');
+        foreach ([
+            'class DemopanelModule extends ConvertedSsoServerModule',
+            "public function configFields(): array\n    {\n        return [\n            'package_name' => [",
+            'protected function createAccount(array $params)',
+            "if (\$params['package_name'] === '') {",
+            "DB::table('mod_demopanel')->insert(",
+            '$this->logModuleCall(\'demopanel\', \'CreateAccount\'',
+            "return \$this->reply('CreateAccount', \$params);",
+            'protected function changeAccountPassword(array $params)',
+            'protected function singleSignOn(array $params)',
+            "// WHMCS's ClientArea: CMS doesn't call it.\n    private function clientArea(array \$params)",
+        ] as $expected) {
+            $this->assertStringContainsString($expected, $code);
+        }
+        $this->assertStringNotContainsString('Capsule', $code);
+        $this->assertStringNotContainsString("defined('WHMCS')", $code);
+
+        // Products and servers moved over, with settings by name; the WHMCS module is gone.
+        $this->assertSame(['demopanel', ['package_name' => 'gold', 'shell_access' => 'on']], [$service->product->refresh()->module, $service->product->module_config]);
+        $this->assertSame('demopanel', $server->refresh()->module);
+        $this->assertSame(0, WhmcsModule::count());
+        $this->assertDirectoryDoesNotExist(sys_get_temp_dir().'/cms-whmcs-module-fixture/demopanel');
+
+        // The converted module runs the copied code with the same $params, settings by name too.
+        $module = app(ModuleRegistry::class)->find('demopanel');
+        $this->assertInstanceOf(ConvertedSsoServerModule::class, $module);
+        $this->assertSame('Demo Panel', $module->label());
+        $this->assertTrue($module->create($service->refresh())->ok);
+        [$function, $params] = end($GLOBALS['demopanel_calls']);
+        $this->assertSame(['CreateAccount', 'gold', 'gold', 'demopanel', 2222], [$function, $params['package_name'], $params['configoption1'], $params['moduletype'], $params['serverport']]);
+        $this->assertDatabaseHas('mod_demopanel', ['service_id' => $service->id]);
+        $GLOBALS['demopanel_replies']['ServiceSingleSignOn'] = ['success' => true, 'redirectTo' => 'https://panel1.example.test/sso'];
+        $this->assertSame('https://panel1.example.test/sso', $module->loginUrl($service, '198.51.100.1'));
+
+        // The class loads on its own, as the check before it was put in place does.
+        $this->assertSame(0, Artisan::call('whmcs:check-converted', ['file' => $this->converted.'/demopanel/DemopanelModule.php', 'class' => 'DemopanelModule']));
+        $this->assertSame('demopanel', json_decode(trim(Artisan::output()), true)['key']);
+
+        $this->get(self::URL)->assertSee('Converted modules')->assertSee('DemopanelModule')->assertSee('In use by products or servers');
+        $this->get('/admin/products/'.$service->product_id.'/edit')->assertOk()->assertSee('Demo Panel: Package Name')->assertSee('value="gold"', false);
+        $download = $this->get('/admin/settings/converted-modules/demopanel/download')->assertOk();
+        $zip = new ZipArchive;
+        $zip->open($download->baseResponse->getFile()->getPathname());
+        $this->assertNotFalse($zip->locateName('demopanel/DemopanelModule.php'));
+        $this->assertNotFalse($zip->locateName('demopanel/module.json'));
+        $zip->close();
+
+        $this->delete('/admin/settings/converted-modules/demopanel')->assertSessionHasErrors('whmcs_module');
+        $this->assertDirectoryExists($this->converted.'/demopanel');
+    }
+
+    public function test_modules_that_cant_be_rewritten_or_arent_enabled_arent_converted(): void
+    {
+        $this->demopanelService();
+        $module = WhmcsModule::sole();
+        $module->update(['enabled' => false]);
+
+        $this->post(self::URL."/{$module->id}/convert")->assertSessionHasErrors('whmcs_module');
+        $this->assertSame('Enable the module before converting it, so CMS knows its settings.', session('errors')->first('whmcs_module'));
+
+        $folder = $this->root.'/spaced';
+        File::ensureDirectoryExists($folder);
+        File::put("{$folder}/spaced.php", "<?php\nnamespace Vendor\\Spaced;\nfunction spaced_CreateAccount(\$p) { return 'success'; }");
+        config(['provisioning.whmcs_modules_path' => $this->root]);
+        $spaced = WhmcsModule::create(['name' => 'spaced', 'display_name' => 'Spaced', 'enabled' => true, 'meta' => self::META, 'report' => ['functions' => ['CreateAccount']]]);
+
+        $this->post(self::URL."/{$spaced->id}/convert")->assertSessionHasErrors('whmcs_module');
+        $this->assertStringContainsString('declares a namespace, so it can\'t be converted', session('errors')->first('whmcs_module'));
+        $this->assertSame([], File::glob($this->converted.'/*'));
+        $this->assertTrue($spaced->refresh()->enabled);
+    }
+
     public function test_uploads_can_be_turned_off(): void
     {
         config(['provisioning.whmcs_uploads' => false]);
 
         $this->get(self::URL)->assertOk()->assertSee('WHMCS_MODULE_UPLOADS=false');
         $this->upload('demopanel.php', '<?php')->assertForbidden();
+    }
+
+    public function test_the_whmcs_import_puts_products_and_servers_on_a_converted_module(): void
+    {
+        File::ensureDirectoryExists($this->converted.'/theirpanel');
+        File::put($this->converted.'/theirpanel/module.json', json_encode(['key' => 'theirpanel', 'class' => 'TheirpanelModule', 'file' => 'TheirpanelModule.php', 'whmcs_name' => 'cpanel', 'settings' => ['configoption1' => 'package']]));
+        File::put($this->converted.'/theirpanel/TheirpanelModule.php', '<?php class TheirpanelModule extends App\Provisioning\Converted\ConvertedServerModule {
+            public function key(): string { return "theirpanel"; }
+            public function label(): string { return "Their panel"; }
+            public function whmcsName(): string { return "cpanel"; }
+            public function configFields(): array { return ["package" => ["label" => "Package"]]; }
+            public function settingPositions(): array { return [1 => "package"]; }
+            public function defaultPort(bool $secure): int { return 2087; }
+            public function needsDomain(): bool { return true; }
+            protected function createAccount(array $params) { return "success"; }
+        }');
+        $whmcs = WhmcsDatabase::create();
+        WhmcsDatabase::seed($whmcs);
+
+        (new WhmcsImporter(null, WhmcsDatabase::HASH))->run($whmcs, dryRun: false);
+
+        $this->assertSame('theirpanel', Server::sole()->module);
+        $this->assertSame(['theirpanel', ['package' => 'gold']], [Product::sole()->module, Product::sole()->module_config]);
+        $this->assertSame(Server::sole()->id, Service::findOrFail(40)->server_id);
     }
 
     public function test_the_whmcs_import_puts_products_and_servers_on_an_uploaded_module(): void
@@ -281,9 +398,11 @@ class WhmcsModuleTest extends TestCase
      */
     private function demopanelService(): array
     {
-        config(['provisioning.whmcs_modules_path' => self::fixture()]);
-        WhmcsModule::create(['name' => 'demopanel', 'display_name' => 'Demo Panel', 'enabled' => true, 'meta' => self::META,
-            'report' => ['functions' => ['MetaData', 'ConfigOptions', 'CreateAccount', 'SuspendAccount', 'TerminateAccount', 'ChangePassword', 'TestConnection', 'ServiceSingleSignOn']]]);
+        $fixture = self::fixture();
+        config(['provisioning.whmcs_modules_path' => $fixture]);
+        Artisan::call('whmcs:inspect-module', ['file' => $fixture.'/demopanel/demopanel.php']);
+        WhmcsModule::create(['name' => 'demopanel', 'display_name' => 'Demo Panel', 'enabled' => true, 'meta' => json_decode(trim(Artisan::output()), true),
+            'report' => ModuleInspector::inspect($fixture.'/demopanel', 'demopanel')]);
         $server = Server::factory()->create(['name' => 'panel1', 'module' => 'whmcs_demopanel', 'hostname' => 'panel1.example.test', 'ip_address' => '203.0.113.9', 'username' => 'root', 'password' => 'serverpass', 'api_token' => 'HASH', 'port' => null]);
         $product = Product::factory()->create(['module' => 'whmcs_demopanel', 'module_config' => ['configoption1' => 'gold', 'configoption2' => 'on']]);
         $client = Client::factory()->create(['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.test']);

@@ -31,4 +31,7 @@ return [
     // data, so set WHMCS_MODULE_UPLOADS=false to turn uploading off.
     'whmcs_modules_path' => env('WHMCS_MODULES_PATH', base_path('extensions/whmcs/servers')),
     'whmcs_uploads' => (bool) env('WHMCS_MODULE_UPLOADS', true),
+
+    // Modules converted from uploaded WHMCS modules, one folder each.
+    'converted_modules_path' => env('CONVERTED_MODULES_PATH', base_path('extensions/modules')),
 ];
