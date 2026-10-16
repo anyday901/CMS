@@ -49,7 +49,7 @@ final class ExtensionAddons
                 if (str_starts_with($class, $prefix)) {
                     $file = $folder.'/'.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
                     if (is_file($file)) {
-                        require $file;
+                        require_once $file;
                     }
 
                     return;

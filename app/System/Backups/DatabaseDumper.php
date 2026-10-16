@@ -98,7 +98,7 @@ class DatabaseDumper
             $this->line('');
             $this->line("DROP TABLE IF EXISTS {$quoted};");
             $this->line(str_replace("\n", ' ', (string) ($create['Create Table'] ?? array_values($create)[1])).';');
-            $this->rows($table, $quoted, fn (string $column) => '`'.str_replace('`', '``', $column).'`', mysql: true);
+            $this->rows($quoted, fn (string $column) => '`'.str_replace('`', '``', $column).'`', mysql: true);
         }
 
         $this->line('SET FOREIGN_KEY_CHECKS=1;');
@@ -121,7 +121,7 @@ class DatabaseDumper
             $this->line('');
             $this->line("DROP TABLE IF EXISTS {$quoted};");
             $this->line(str_replace(["\r", "\n"], ' ', $table->sql).';');
-            $this->rows($table->name, $quoted, fn (string $column) => '"'.str_replace('"', '""', $column).'"', mysql: false);
+            $this->rows($quoted, fn (string $column) => '"'.str_replace('"', '""', $column).'"', mysql: false);
         }
 
         foreach ($objects->where('type', '!=', 'table') as $object) {
@@ -134,7 +134,7 @@ class DatabaseDumper
     }
 
     /** @param  callable(string): string  $quoteColumn */
-    private function rows(string $table, string $quoted, callable $quoteColumn, bool $mysql): void
+    private function rows(string $quoted, callable $quoteColumn, bool $mysql): void
     {
         $pdo = $this->connection->getPdo();
 
@@ -191,7 +191,7 @@ class DatabaseDumper
         }
 
         // SQLite strings have no escapes, so line breaks are joined in with char().
-        return collect(preg_split('/(\r|\n)/', $value, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY))
+        return collect(preg_split('/([\r\n])/', $value, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY))
             ->map(fn (string $part) => match ($part) {
                 "\r" => 'char(13)',
                 "\n" => 'char(10)',
