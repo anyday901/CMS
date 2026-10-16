@@ -331,6 +331,10 @@ These modules come with the app:
 
 The cPanel, Plesk, DirectAdmin and Proxmox modules were built from the vendors' API documentation and tested against mocked replies, not yet against live servers. Try them on a test server before selling with them.
 
+#### WHMCS modules
+
+**Settings > WHMCS modules** runs WHMCS server modules. Upload the module's PHP file or a zip of it (its folder, or WHMCS's `modules` folder), read the check of what will and won't work, enable it, and choose it on products. CMS calls its `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `ChangePackage`, `ChangePassword`, `TestConnection` and `ServiceSingleSignOn` with the `$params` WHMCS would pass. Gateway, registrar and add-on modules, encoded (ionCube) modules, and code that reads WHMCS's own tables or calls `localAPI` don't work. Enable your modules before importing from WHMCS so products and servers on them come over. `WHMCS_MODULE_UPLOADS=false` turns uploading off. See [docs/admin/whmcs-modules.md](docs/admin/whmcs-modules.md).
+
 #### Servers
 
 Modules that set services up on servers use the servers under **Products > Servers**. Add each one with its module, host name, port (blank for the module's usual one), login and the most accounts it should hold; the password and API token are encrypted with the app key, and **Test connection** logs in with them. Untick **Active** to stop new accounts going on a server. A server can't be deleted while services are on it, or while an ended service's terminate is still waiting or failed, since removing that account needs the server's login.

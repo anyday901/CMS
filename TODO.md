@@ -132,6 +132,10 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Automatic copies for Plesk (Plesk Migrator) and DirectAdmin moves, and for moves between modules
 - [ ] Import WHMCS licensing add-on licenses
 - [x] Client-facing server status page (with Network status in milestone 9)
+- [x] Upload WHMCS server modules and run them through a compatibility layer (Settings > WHMCS modules)
+- [ ] Try uploaded WHMCS server modules against real modules and live servers (tested with a sample module written like WHMCS's)
+- [ ] Run uploaded WHMCS registrar modules (once the registrar module interface is in), payment gateways and add-on modules
+- [ ] Custom buttons and client area output of uploaded WHMCS modules
 
 ## Milestone 9: Support parity
 - [x] Knowledge base with categories and search

@@ -52,5 +52,12 @@ Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', Require
         Route::post('marketplace/install', [Admin\MarketplaceController::class, 'install'])->middleware('throttle:10,1')->name('marketplace.install');
         Route::post('marketplace/upload', [Admin\MarketplaceController::class, 'upload'])->middleware('throttle:10,1')->name('marketplace.upload');
         Route::delete('marketplace/{type}/{key}', [Admin\MarketplaceController::class, 'destroy'])->whereIn('type', ['addon', 'theme'])->name('marketplace.destroy');
+
+        Route::get('whmcs-modules', [Admin\WhmcsModuleController::class, 'index'])->name('whmcs-modules.index');
+        Route::post('whmcs-modules', [Admin\WhmcsModuleController::class, 'store'])->middleware('throttle:10,1')->name('whmcs-modules.store');
+        Route::put('whmcs-modules/{module}', [Admin\WhmcsModuleController::class, 'update'])->name('whmcs-modules.update');
+        Route::post('whmcs-modules/{module}/enable', [Admin\WhmcsModuleController::class, 'enable'])->middleware('throttle:10,1')->name('whmcs-modules.enable');
+        Route::post('whmcs-modules/{module}/disable', [Admin\WhmcsModuleController::class, 'disable'])->name('whmcs-modules.disable');
+        Route::delete('whmcs-modules/{module}', [Admin\WhmcsModuleController::class, 'destroy'])->name('whmcs-modules.destroy');
     });
 });

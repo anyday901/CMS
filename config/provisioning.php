@@ -25,4 +25,10 @@ return [
         Licensing::class,
         // App\Provisioning\Modules\MyPanel::class,
     ],
+
+    // WHMCS server modules uploaded under Settings > WHMCS modules are kept
+    // here, one folder each. Uploaded modules run with full access to your
+    // data, so set WHMCS_MODULE_UPLOADS=false to turn uploading off.
+    'whmcs_modules_path' => env('WHMCS_MODULES_PATH', base_path('extensions/whmcs/servers')),
+    'whmcs_uploads' => (bool) env('WHMCS_MODULE_UPLOADS', true),
 ];
