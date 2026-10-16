@@ -23,15 +23,15 @@
         @csrf @method('PUT')
         <div class="overflow-hidden rounded-lg border border-ink-200 bg-white">
             <table class="w-full table-fixed">
-                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="w-1/3 px-4 py-2 font-normal">English</th><th class="w-1/3 px-4 py-2 font-normal">{{ $locale === 'en' ? 'As shipped' : 'CMS translation' }}</th><th class="px-4 py-2 font-normal">Your wording</th></tr></thead>
+                <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="w-1/3 px-4 py-2 font-normal">English</th><th class="w-1/3 px-4 py-2 font-normal">{{ $locale === 'en' ? 'As shipped' : 'CMS translation' }}</th><th id="your-wording" class="px-4 py-2 font-normal">Your wording</th></tr></thead>
                 <tbody class="divide-y divide-ink-100 align-top">
                     @forelse ($rows as $i => $row)
                         <tr>
-                            <td class="px-4 py-2 break-words">{{ $row['key'] }}</td>
+                            <td id="string-{{ $i }}" class="px-4 py-2 break-words">{{ $row['key'] }}</td>
                             <td class="px-4 py-2 break-words text-ink-600">{{ $locale === 'en' ? $row['key'] : ($row['shipped'] ?? '—') }}</td>
                             <td class="px-4 py-2">
                                 <input type="hidden" name="rows[{{ $i }}][key]" value="{{ $row['key'] }}">
-                                <textarea name="rows[{{ $i }}][value]" rows="{{ strlen($row['key']) > 80 ? 3 : 1 }}" aria-label="Your wording for: {{ $row['key'] }}" class="block w-full rounded-md px-2 py-1 ring-1 ring-ink-300">{{ $row['override'] }}</textarea>
+                                <textarea name="rows[{{ $i }}][value]" rows="{{ strlen($row['key']) > 80 ? 3 : 1 }}" aria-labelledby="your-wording string-{{ $i }}" class="block w-full rounded-md px-2 py-1 ring-1 ring-ink-300">{{ $row['override'] }}</textarea>
                             </td>
                         </tr>
                     @empty

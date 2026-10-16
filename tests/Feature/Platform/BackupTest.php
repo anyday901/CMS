@@ -80,7 +80,7 @@ class BackupTest extends TestCase
         config(['backups.keep' => 2, 'backups.disk' => 's3-backups']);
         $backups = app(BackupManager::class);
 
-        foreach (range(1, 3) as $i) {
+        for ($made = 0; $made < 3; $made++) {
             $names[] = $backups->create();
             $this->travel(1)->seconds();
         }

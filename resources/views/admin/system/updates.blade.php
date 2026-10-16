@@ -8,7 +8,7 @@
     @if ($status)
         <div @class(['mb-6 rounded-md px-4 py-3 text-sm', 'bg-sun-300/40 text-amber-900' => $status['state'] === 'running', 'bg-green-50 text-green-800' => $status['state'] === 'done', 'bg-red-50 text-red-800' => $status['state'] === 'failed'])>
             @if ($running)
-                <meta http-equiv="refresh" content="5">
+                <script>setTimeout(() => window.location.reload(), 5000);</script>
                 Updating to {{ $status['version'] }}: {{ $status['step'] }}…
             @elseif ($status['state'] === 'done')
                 {{ $status['message'] }} ({{ now()->parse($status['finished_at'])->diffForHumans() }})
