@@ -5,6 +5,8 @@ namespace App\Ordering;
 use App\Billing\OrderChoices;
 use App\Billing\OrderLine;
 use App\Billing\OrderService;
+use App\Domains\DomainLine;
+use App\Domains\DomainOrders;
 use App\Enums\BillingCycle;
 use App\Enums\ServiceStatus;
 use App\Events\OrderPlaced;
@@ -20,7 +22,7 @@ use InvalidArgumentException;
 /** Prices the cart and turns it into an order with one invoice. */
 class Checkout
 {
-    public function __construct(private OrderService $orders) {}
+    public function __construct(private OrderService $orders, private DomainOrders $domainOrders) {}
 
     public static function currencyFor(?Client $client): string
     {
@@ -31,6 +33,7 @@ class Checkout
     {
         $currency = self::currencyFor($client);
         ['lines' => $lines, 'keys' => $keys, 'errors' => $errors] = $this->resolve($cart, $client);
+        ['domains' => $domains, 'errors' => $domainErrors] = $this->resolveDomains($cart, $currency);
 
         $promotion = null;
         $promotionError = null;
@@ -58,12 +61,12 @@ class Checkout
             ];
         }
 
-        return new CartQuote($currency, $rows, $errors, $promotion, $promotionError);
+        return new CartQuote($currency, $rows, $errors + $domainErrors, $promotion, $promotionError, $domains);
     }
 
     /**
-     * Places the order: one service per product and add-on, all on one
-     * invoice, with the promotion code's use counted.
+     * Places the order: one service per product and add-on, and one pending
+     * domain per domain, all on one invoice, with the promotion code's use counted.
      *
      * @return array{order: Order, services: list<Service>}
      *
@@ -72,15 +75,17 @@ class Checkout
     public function place(Cart $cart, Client $client, ?string $ip = null): array
     {
         ['lines' => $lines, 'errors' => $errors] = $this->resolve($cart, $client);
+        ['domains' => $domains, 'errors' => $domainErrors] = $this->resolveDomains($cart, $client->currency);
+        $errors += $domainErrors;
 
         if ($errors !== []) {
             throw new InvalidArgumentException(reset($errors));
         }
-        if ($lines === []) {
+        if ($lines === [] && $domains === []) {
             throw new InvalidArgumentException('Your cart is empty.');
         }
 
-        $result = DB::transaction(function () use ($cart, $client, $lines, $ip) {
+        $result = DB::transaction(function () use ($cart, $client, $lines, $domains, $ip) {
             $promotion = null;
             if ($cart->promotionCode() !== null) {
                 // Locked so two checkouts can't both take the last use.
@@ -99,7 +104,7 @@ class Checkout
                 'promotion_code' => $promotion?->code,
                 'ip_address' => $ip,
             ]);
-            $placed = $this->orders->place($client, $lines, today(), true, $promotion, $order);
+            $placed = $this->orders->place($client, $lines, today(), true, $promotion, $order, array_values($domains));
             Activity::record("Placed order #{$order->id}", $order, array_filter(['promotion_code' => $promotion?->code]));
 
             return ['order' => $order, 'services' => $placed['services']];
@@ -140,6 +145,28 @@ class Checkout
             $product->stock_quantity > 0 => "Only {$product->stock_quantity} of {$product->name} left in stock.",
             default => "{$product->name} is out of stock.",
         };
+    }
+
+    /**
+     * Prices the cart's domains. A domain that can't be ordered now is left
+     * out with an error under its cart key.
+     *
+     * @return array{domains: array<string, DomainLine>, errors: array<string, string>}
+     */
+    public function resolveDomains(Cart $cart, string $currency): array
+    {
+        $domains = [];
+        $errors = [];
+
+        foreach ($cart->domains() as $key => $data) {
+            try {
+                $domains[$key] = $this->domainOrders->line($data, $currency);
+            } catch (InvalidArgumentException $e) {
+                $errors[$key] = $e->getMessage();
+            }
+        }
+
+        return ['domains' => $domains, 'errors' => $errors];
     }
 
     /** @param  list<OrderLine>  $lines */

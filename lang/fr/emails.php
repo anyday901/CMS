@@ -69,4 +69,24 @@ return [
         'subject' => 'Qu’avez-vous pensé de notre aide pour le ticket n° {ticket_id} ?',
         'body' => "Bonjour {client_first_name},\n\nVotre ticket « {ticket_subject} » est maintenant fermé. Pourriez-vous nous dire ce que vous avez pensé de notre aide ? Cela ne prend que quelques secondes et nous aide à nous améliorer.\n\n[Évaluer notre support]({feedback_url})\n\nMerci,\n{company_name}",
     ],
+    'domain_registered' => [
+        'subject' => '{domain} est enregistré',
+        'body' => "Bonjour {client_first_name},\n\nBonne nouvelle : {domain} est maintenant enregistré à votre nom jusqu'au {expiry_date}.\n\nVous pouvez modifier ses serveurs de noms, ses coordonnées et plus encore dans le portail.\n\n[Gérer {domain}]({domain_url})\n\nMerci,\n{company_name}",
+    ],
+    'domain_transferred' => [
+        'subject' => '{domain} est maintenant chez nous',
+        'body' => "Bonjour {client_first_name},\n\nLe transfert de {domain} est terminé. Il se renouvelle désormais chez nous et expire le {expiry_date}.\n\n[Gérer {domain}]({domain_url})\n\nMerci,\n{company_name}",
+    ],
+    'domain_renewed' => [
+        'subject' => '{domain} est renouvelé jusqu\'au {expiry_date}',
+        'body' => "Bonjour {client_first_name},\n\n{domain} est renouvelé et expire maintenant le {expiry_date}.\n\n[Gérer {domain}]({domain_url})\n\nMerci,\n{company_name}",
+    ],
+    'domain_renewal_reminder' => [
+        'subject' => '{domain} expire dans {days_left} jours',
+        'body' => "Bonjour {client_first_name},\n\n{domain} expire le {expiry_date}. {renewal_note}\n\nLe renouveler pour {renewal_years} an(s) coûte {renewal_amount}.\n\n[Renouveler {domain}]({domain_url})\n\nMerci,\n{company_name}",
+    ],
+    'domain_expired' => [
+        'subject' => '{domain} a expiré',
+        'body' => "Bonjour {client_first_name},\n\n{domain} a expiré le {expiry_date}. Les sites web et les e-mails qui l'utilisent peuvent cesser de fonctionner.\n\nLa plupart des domaines peuvent encore être renouvelés peu de temps après leur expiration : renouvelez-le maintenant si vous souhaitez le garder.\n\n[Renouveler {domain}]({domain_url})\n\nMerci,\n{company_name}",
+    ],
 ];

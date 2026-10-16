@@ -61,6 +61,10 @@
                 <input name="label" value="{{ old('label') }}" maxlength="255" required placeholder="example.com" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 <span class="text-ink-500">{{ __('The domain this service is set up for. You can point it here once the service is ready.') }}</span>
             </label>
+            @if (App\Models\Tld::sold()->exists())
+                <label class="flex items-start gap-2"><input type="checkbox" name="register_domain" value="1" class="mt-0.5" @checked(old('register_domain'))>
+                    <span>{{ __('Also register this domain with us') }} <span class="text-ink-500">(<a href="{{ route('domains.index') }}" class="text-brand-600" target="_blank">{{ __('check it and see prices') }}</a>)</span></span></label>
+            @endif
         @else
             <label class="block">{{ __('Domain or hostname (optional)') }}
                 <input name="label" value="{{ old('label') }}" maxlength="255" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">

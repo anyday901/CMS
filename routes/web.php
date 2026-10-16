@@ -418,4 +418,50 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     });
 });
 
+// Domains: the store's search, price list and WHOIS lookup; the client's domains in the portal; the admin area's domains, TLDs and settings.
+Route::middleware(EnsureClientCanLogIn::class)->prefix('domains')->name('domains.')->controller(Store\DomainController::class)->group(function () {
+    Route::get('/', 'index')->middleware('throttle:30,1')->name('index');
+    Route::get('whois', 'whois')->middleware('throttle:20,1')->name('whois');
+    Route::post('cart', 'add')->middleware('throttle:30,1')->name('cart');
+});
+Route::prefix('portal/domains')->name('portal.domains.')->middleware(['auth:client', EnsureClientCanLogIn::class])
+    ->controller(Portal\DomainController::class)->group(function () {
+        Route::middleware('contact.can:services')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('{domain}', 'show')->whereNumber('domain')->name('show');
+            Route::middleware('throttle:20,1')->group(function () {
+                Route::put('{domain}/nameservers', 'nameservers')->name('nameservers');
+                Route::put('{domain}/dns', 'dns')->name('dns');
+                Route::put('{domain}/contact', 'contact')->name('contact');
+                Route::put('{domain}/id-protection', 'idProtection')->name('id-protection');
+                Route::put('{domain}/lock', 'lock')->name('lock');
+            });
+            Route::post('{domain}/epp-code', 'eppCode')->middleware('throttle:5,1')->name('epp-code');
+        });
+        Route::middleware('contact.can:orders')->group(function () {
+            Route::put('{domain}/auto-renew', 'autoRenew')->name('auto-renew');
+            Route::post('{domain}/renew', 'renew')->middleware('throttle:10,1')->name('renew');
+        });
+    });
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class])->group(function () {
+    Route::get('domains', [Admin\DomainController::class, 'index'])->name('domains.index');
+    Route::get('domains/{domain}', [Admin\DomainController::class, 'show'])->whereNumber('domain')->name('domains.show');
+    Route::middleware('can:manage-clients')->controller(Admin\DomainController::class)->group(function () {
+        Route::get('clients/{client}/domains/create', 'create')->name('domains.create');
+        Route::post('clients/{client}/domains', 'store')->name('domains.store');
+        Route::put('domains/{domain}', 'update')->name('domains.update');
+        Route::put('domains/{domain}/nameservers', 'nameservers')->name('domains.nameservers');
+        Route::post('domains/{domain}/epp-code', 'eppCode')->name('domains.epp-code');
+        Route::post('domains/{domain}/{action}', 'action')->whereIn('action', ['register', 'transfer', 'renew', 'sync'])->name('domains.action');
+    });
+    Route::middleware('can:manage-settings')->group(function () {
+        Route::resource('tlds', Admin\TldController::class)->except('show');
+        Route::controller(Admin\DomainSettingsController::class)->group(function () {
+            Route::get('settings/domains', 'edit')->name('domain-settings.edit');
+            Route::put('settings/domains', 'update')->name('domain-settings.update');
+            Route::post('settings/domains/{registrar}/test', 'test')->name('domain-settings.test');
+        });
+    });
+});
+
 require __DIR__.'/platform.php';

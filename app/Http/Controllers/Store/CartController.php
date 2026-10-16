@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Store;
 
+use App\Domains\DomainLookup;
+use App\Domains\DomainName;
+use App\Domains\DomainOrders;
 use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
 use App\Models\CustomField;
@@ -44,6 +47,7 @@ class CartController extends Controller
 
         $label = trim((string) ($data['label'] ?? ''));
         $label = $needsDomain ? strtolower($label) : $label;
+        $domain = $needsDomain && $request->boolean('register_domain') ? $this->domainToRegister($label, $request) : null;
 
         $this->add([
             'product_id' => $product->id,
@@ -53,8 +57,40 @@ class CartController extends Controller
             'label' => $label !== '' ? $label : null,
             'addons' => array_values(array_unique(array_map('intval', $data['addons'] ?? []))),
         ], $request, 'billing_cycle');
+        if ($domain !== null) {
+            $this->cart->addDomain($domain);
+        }
 
         return redirect()->route('cart.index')->with('status', __(':product is in your cart.', ['product' => $product->name]));
+    }
+
+    /**
+     * The registration to add with a hosting order whose client ticked "also
+     * register this domain", for the shortest term sold.
+     *
+     * @return array<string, mixed>
+     */
+    private function domainToRegister(string $name, Request $request): array
+    {
+        $currency = Checkout::currencyFor($request->user('client'));
+        $tld = DomainName::parse($name)?->tld->load('prices');
+        $term = $tld?->termsFor($currency, 'register')->first();
+
+        if ($term === null) {
+            throw ValidationException::withMessages(['label' => __("We don't sell :name. Untick the domain registration, or use one you own.", ['name' => $name])]);
+        }
+
+        $line = ['name' => $name, 'type' => 'register', 'years' => $term->years];
+        try {
+            $priced = app(DomainOrders::class)->line($line, $currency);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['label' => $e->getMessage()]);
+        }
+        if (app(DomainLookup::class)->isAvailable($priced->name, $priced->tld) === false) {
+            throw ValidationException::withMessages(['label' => __(':name is already taken. If it is yours, untick the registration.', ['name' => $priced->name])]);
+        }
+
+        return ['name' => $priced->name] + $line;
     }
 
     /** Adds an add-on for a service the client already has. */

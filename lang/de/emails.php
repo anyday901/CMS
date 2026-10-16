@@ -69,4 +69,24 @@ return [
         'subject' => 'Wie zufrieden waren Sie mit Ticket Nr. {ticket_id}?',
         'body' => "Hallo {client_first_name},\n\nIhr Ticket „{ticket_subject}“ ist jetzt geschlossen. Möchten Sie uns sagen, wie zufrieden Sie waren? Es dauert nur ein paar Sekunden und hilft uns, besser zu werden.\n\n[Unseren Support bewerten]({feedback_url})\n\nVielen Dank\n{company_name}",
     ],
+    'domain_registered' => [
+        'subject' => '{domain} ist registriert',
+        'body' => "Hallo {client_first_name},\n\ngute Nachrichten: {domain} ist jetzt bis zum {expiry_date} auf Sie registriert.\n\nNameserver, Kontaktdaten und mehr können Sie im Portal ändern.\n\n[{domain} verwalten]({domain_url})\n\nVielen Dank\n{company_name}",
+    ],
+    'domain_transferred' => [
+        'subject' => '{domain} ist jetzt bei uns',
+        'body' => "Hallo {client_first_name},\n\nder Transfer von {domain} ist abgeschlossen. Die Domain wird jetzt bei uns verlängert und läuft am {expiry_date} ab.\n\n[{domain} verwalten]({domain_url})\n\nVielen Dank\n{company_name}",
+    ],
+    'domain_renewed' => [
+        'subject' => '{domain} ist bis zum {expiry_date} verlängert',
+        'body' => "Hallo {client_first_name},\n\n{domain} ist verlängert und läuft jetzt am {expiry_date} ab.\n\n[{domain} verwalten]({domain_url})\n\nVielen Dank\n{company_name}",
+    ],
+    'domain_renewal_reminder' => [
+        'subject' => '{domain} läuft in {days_left} Tagen ab',
+        'body' => "Hallo {client_first_name},\n\n{domain} läuft am {expiry_date} ab. {renewal_note}\n\nEine Verlängerung um {renewal_years} Jahr(e) kostet {renewal_amount}.\n\n[{domain} verlängern]({domain_url})\n\nVielen Dank\n{company_name}",
+    ],
+    'domain_expired' => [
+        'subject' => '{domain} ist abgelaufen',
+        'body' => "Hallo {client_first_name},\n\n{domain} ist am {expiry_date} abgelaufen. Websites und E-Mail mit dieser Domain funktionieren möglicherweise nicht mehr.\n\nDie meisten Domains lassen sich noch kurze Zeit nach dem Ablauf verlängern. Verlängern Sie sie also jetzt, wenn Sie sie behalten möchten.\n\n[{domain} verlängern]({domain_url})\n\nVielen Dank\n{company_name}",
+    ],
 ];

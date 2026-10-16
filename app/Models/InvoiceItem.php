@@ -29,8 +29,17 @@ class InvoiceItem extends Model
     /** Disk or bandwidth used over what the product includes, billed after the month. */
     public const TYPE_OVERAGE = 'overage';
 
+    /** A domain registered, transferred or renewed for the item's period. */
+    public const TYPE_DOMAIN_REGISTER = 'domain_register';
+
+    public const TYPE_DOMAIN_TRANSFER = 'domain_transfer';
+
+    public const TYPE_DOMAIN_RENEW = 'domain_renew';
+
+    public const DOMAIN_TYPES = [self::TYPE_DOMAIN_REGISTER, self::TYPE_DOMAIN_TRANSFER, self::TYPE_DOMAIN_RENEW];
+
     protected $fillable = [
-        'invoice_id', 'service_id', 'type', 'description', 'amount', 'taxable',
+        'invoice_id', 'service_id', 'domain_id', 'type', 'description', 'amount', 'taxable',
         'period_start', 'period_end',
     ];
 
@@ -71,5 +80,10 @@ class InvoiceItem extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function domain(): BelongsTo
+    {
+        return $this->belongsTo(Domain::class);
     }
 }

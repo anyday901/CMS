@@ -13,10 +13,14 @@ use Illuminate\Support\Str;
  * A line is either a product with its add-ons, or an add-on for a service
  * the client already has:
  * ['product_id', 'billing_cycle', 'options', 'custom_fields', 'label', 'addons', 'parent_service_id'].
+ * Domain registrations and transfers are kept apart:
+ * ['name', 'type', 'years', 'id_protection', 'epp_code', 'nameservers'].
  */
 class Cart
 {
     private const LINES = 'cart.lines';
+
+    private const DOMAINS = 'cart.domains';
 
     private const PROMOTION = 'cart.promotion';
 
@@ -42,27 +46,57 @@ class Cart
         return $key;
     }
 
+    /** @return array<string, array<string, mixed>> */
+    public function domains(): array
+    {
+        return $this->session->get(self::DOMAINS, []);
+    }
+
+    /**
+     * Adds a domain, replacing the same name already in the cart.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    public function addDomain(array $line): string
+    {
+        $domains = array_filter($this->domains(), fn (array $domain) => $domain['name'] !== $line['name']);
+        $key = 'd'.Str::lower(Str::random(11));
+        $domains[$key] = $line + ['type' => 'register', 'years' => 1, 'id_protection' => false, 'epp_code' => null, 'nameservers' => []];
+        $this->session->put(self::DOMAINS, $domains);
+
+        return $key;
+    }
+
+    public function hasDomain(string $name): bool
+    {
+        return in_array($name, array_column($this->domains(), 'name'), true);
+    }
+
     public function remove(string $key): void
     {
         $lines = $this->lines();
         unset($lines[$key]);
         $this->session->put(self::LINES, $lines);
+
+        $domains = $this->domains();
+        unset($domains[$key]);
+        $this->session->put(self::DOMAINS, $domains);
     }
 
     public function isFull(): bool
     {
-        return count($this->lines()) >= self::MAX_LINES;
+        return count($this->lines()) + count($this->domains()) >= self::MAX_LINES;
     }
 
-    /** Products and add-ons in the cart, for the cart link. */
+    /** Products, add-ons and domains in the cart, for the cart link. */
     public function count(): int
     {
-        return array_sum(array_map(fn (array $line) => 1 + count($line['addons'] ?? []), $this->lines()));
+        return array_sum(array_map(fn (array $line) => 1 + count($line['addons'] ?? []), $this->lines())) + count($this->domains());
     }
 
     public function isEmpty(): bool
     {
-        return $this->lines() === [];
+        return $this->lines() === [] && $this->domains() === [];
     }
 
     public function promotionCode(): ?string
@@ -77,6 +111,6 @@ class Cart
 
     public function clear(): void
     {
-        $this->session->forget([self::LINES, self::PROMOTION]);
+        $this->session->forget([self::LINES, self::DOMAINS, self::PROMOTION]);
     }
 }

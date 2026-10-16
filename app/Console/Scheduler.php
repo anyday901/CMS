@@ -35,6 +35,10 @@ class Scheduler
             ->description('Check that monitored servers answer');
         $schedule->command('affiliates:clear')->dailyAt('02:30')->withoutOverlapping()
             ->description('Approve affiliate commissions past their clearing days');
+        $schedule->command('domains:run')->dailyAt('00:35')->withoutOverlapping()
+            ->description('Domains: renewal invoices, renewal reminders and expiry notices');
+        $schedule->command('domains:sync')->dailyAt('04:10')->withoutOverlapping()
+            ->description('Sync domain expiry dates and statuses with the registrars');
         $schedule->command('backup:run', ['--scheduled'])->dailyAt(self::time((string) config('backups.time'), '01:30'))->withoutOverlapping()
             ->description('Back up the database, when automatic backups are on under Settings > Backups');
         if (Demo::enabled() && (int) config('demo.reset_hours') > 0) {

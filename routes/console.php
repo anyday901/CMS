@@ -9,6 +9,9 @@ use App\Billing\OverdueProcessor;
 use App\Billing\RefundReconciler;
 use App\Billing\ServiceCanceller;
 use App\Console\Scheduler;
+use App\Domains\DomainReminders;
+use App\Domains\DomainRenewals;
+use App\Domains\DomainSync;
 use App\Models\Activity;
 use App\Models\Department;
 use App\Monitoring\ServerMonitor;
@@ -107,5 +110,18 @@ Artisan::command('affiliates:clear', function (Commissions $commissions) {
     $approved = $commissions->clear(now());
     $this->info("Approved {$approved} affiliate commission(s) past their clearing days.");
 })->purpose('Approve pending affiliate commissions whose clearing days are up, so they count towards payouts');
+
+Artisan::command('domains:run', function (DomainRenewals $renewals, DomainReminders $reminders) {
+    $invoices = $renewals->generate(today());
+    $this->info("Generated {$invoices->count()} domain renewal invoice(s).");
+
+    $counts = $reminders->run(today());
+    $this->info("Marked {$counts['expired']} domain(s) expired and sent {$counts['reminded']} renewal reminder(s).");
+})->purpose('Generate renewal invoices for auto-renewing domains, send renewal reminders and mark lapsed domains expired');
+
+Artisan::command('domains:sync {--limit= : Domains to sync this run; defaults to DOMAINS_SYNC_BATCH}', function (DomainSync $sync) {
+    $counts = $sync->run($this->option('limit') !== null ? (int) $this->option('limit') : null);
+    $this->info("Synced {$counts['synced']} domain(s) with their registrars; {$counts['failed']} failed.");
+})->purpose('Update expiry dates and statuses of domains from their registrars, and finish transfers');
 
 Scheduler::define(app(Schedule::class));

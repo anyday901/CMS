@@ -9,6 +9,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
 - Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, and client cancellation requests
+- Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
 - Invoices, payments, credits, refunds and overdue handling
 - Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
@@ -110,6 +111,12 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Orders**: every checkout is saved as an order. **Orders** in the admin area lists them by status and finds them by order number or the client's name, company or email; a client's page shows their latest orders.
 - **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
 
+## Domains
+
+Domains are sold from the store's **Domains** page, alone or with hosting, and registered or transferred at the TLD's registrar once paid. Set them up under **Settings**: **Registrars and domain settings** for each registrar's credentials (with a **Test** button), the default nameservers, renewal invoice and reminder days and the auto-renew default; **TLDs and pricing** for each extension, its registrar, and its register, transfer, renew and ID protection prices per term and currency. Enom, Namecheap, OpenSRS and ResellerClub modules are built in; they follow each registrar's API but haven't been tried against live accounts yet, so try them in the registrar's test environment first.
+
+Auto-renewing domains get a renewal invoice before they expire (30 days by default), reminders go out 30, 7 and 1 days before, and an expired domain gets one notice. The nightly `domains:sync` fetches expiry dates and statuses from the registrars and finishes transfers. Clients manage nameservers, DNS records, the registrant contact, ID protection, the transfer lock and EPP codes in the portal, and renew for any term sold. See [docs/admin/domains.md](docs/admin/domains.md), and [docs/developers/registrars.md](docs/developers/registrars.md) to write a registrar module.
+
 ## Online payments
 
 Clients pay each invoice from the portal. A payment method appears on unpaid invoices once its settings are in `.env`. Leave them blank to hide it.
@@ -172,7 +179,7 @@ The admin area at `/admin` covers the dashboard, a search box for everything, a 
 
 **Clients** searches by client or company name, email, phone and status; **Advanced** adds address, city, state, postcode, country, currency, client group, credit balance, tax exempt, agreed to marketing emails and signup date. Closed clients are hidden from the list until you switch off **Hide closed clients** or pick **Closed** as the status. The search is kept in the web address, so a filtered list can be bookmarked or shared with other staff. **Export to CSV** downloads the clients found, with their group, marketing consent and a personal unsubscribe link, for a mailing list or a spreadsheet. Values that a spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) start with an apostrophe.
 
-The **Search** box in the admin menu looks through everything at once: clients (by name, company, email, phone or number, or a contact's name or email), services and domains (by domain or label, control panel username, product or number), invoices and orders (by number) and tickets (by number, subject or a guest's email). Staff only see tickets if they can work on them.
+The **Search** box in the admin menu looks through everything at once: clients (by name, company, email, phone or number, or a contact's name or email), services (by domain or label, control panel username, product or number), registered domains (by name), invoices and orders (by number) and tickets (by number, subject or a guest's email). Staff only see tickets if they can work on them.
 
 ### Client groups, notes and the to-do list
 
