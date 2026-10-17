@@ -224,10 +224,11 @@ class ServerImporter
         $username = Whmcs::short($row->username ?? '', $onServer ? 64 : 255);
         $password = $this->decrypt($row->password ?? null);
 
-        return $username === null && $password === null ? [] : [
-            'username' => $username,
-            'password' => $password === null ? null : encrypt($password, false),
-        ];
+        if ($username === null && $password === null) {
+            return [];
+        }
+
+        return ['username' => $username, 'password' => $password === null ? null : encrypt($password, false)];
     }
 
     private function importServers(): void

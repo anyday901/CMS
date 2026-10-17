@@ -80,41 +80,52 @@ class ServiceLoginImporter
             $addresses = $this->run->table('tblclients')->whereIn('id', $rows->pluck('userid')->unique())->pluck('email', 'id');
 
             foreach ($rows as $row) {
-                $service = $here->get((int) $row->id);
-                $login = $this->servers->credentials($row, ServerImporter::serverModule($service?->module));
-
-                if ($login === []) {
-                    continue;
-                }
-
-                $this->run->report->found(self::SECTION);
-                $missing = $this->missing($row, $service, Str::lower(trim((string) ($addresses[$row->userid] ?? ''))));
-
-                if ($missing !== null) {
-                    $this->run->report->skipped(self::SECTION, "Service {$row->id} ({$row->domain}) {$missing}.");
-
-                    continue;
-                }
-
-                $fill = array_filter([
-                    'username' => blank($service->username) ? $login['username'] : null,
-                    'password' => blank($service->password) ? $login['password'] : null,
-                ], fn ($value) => $value !== null);
-
-                if ($fill === []) {
-                    $already++;
-
-                    continue;
-                }
-
-                DB::table('services')->where('id', $service->id)->update($fill + ['updated_at' => $this->run->now]);
-                $this->run->report->imported(self::SECTION);
+                $already += $this->bring($row, $here->get((int) $row->id), Str::lower(trim((string) ($addresses[$row->userid] ?? '')))) ? 0 : 1;
             }
         });
 
-        if ($already > 0) {
-            $this->run->report->note(self::SECTION, number_format($already).' '.Str::plural('service', $already).' already had '.($already === 1 ? 'its' : 'their').' login here and '.($already === 1 ? 'was' : 'were').' left as '.($already === 1 ? 'it is' : 'they are').'.');
+        if ($already === 1) {
+            $this->run->report->note(self::SECTION, '1 service already had its login here and was left as it is.');
+        } elseif ($already > 1) {
+            $this->run->report->note(self::SECTION, number_format($already).' services already had their login here and were left as they are.');
         }
+    }
+
+    /**
+     * Fills in one WHMCS service's login here where it is still empty.
+     *
+     * @return bool false when the service already had its whole login here
+     */
+    private function bring(object $row, ?object $service, string $whmcsEmail): bool
+    {
+        $login = $this->servers->credentials($row, ServerImporter::serverModule($service?->module));
+
+        if ($login === []) {
+            return true;
+        }
+
+        $this->run->report->found(self::SECTION);
+        $missing = $this->missing($row, $service, $whmcsEmail);
+
+        if ($missing !== null) {
+            $this->run->report->skipped(self::SECTION, "Service {$row->id} ({$row->domain}) {$missing}.");
+
+            return true;
+        }
+
+        $fill = array_filter([
+            'username' => blank($service->username) ? $login['username'] : null,
+            'password' => blank($service->password) ? $login['password'] : null,
+        ], fn ($value) => $value !== null);
+
+        if ($fill === []) {
+            return false;
+        }
+
+        DB::table('services')->where('id', $service->id)->update($fill + ['updated_at' => $this->run->now]);
+        $this->run->report->imported(self::SECTION);
+
+        return true;
     }
 
     /** Why a WHMCS service's login doesn't go on the service here, or null when it does. */

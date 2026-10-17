@@ -27,6 +27,8 @@ class WhmcsImportWizardTest extends TestCase
 
     private const STEP_3 = self::URL.'?step=3';
 
+    private const STEP_5 = self::URL.'?step=5';
+
     private const CONNECT = self::URL.'/connect';
 
     private const IMPORT = self::URL.'/import';
@@ -106,7 +108,7 @@ class WhmcsImportWizardTest extends TestCase
         $this->post(self::IMPORT)->assertSessionHasErrors('confirm');
         $this->assertSame(0, Client::count());
 
-        $this->post(self::IMPORT, self::CONFIRMED)->assertRedirect(self::URL.'?step=5');
+        $this->post(self::IMPORT, self::CONFIRMED)->assertRedirect(self::STEP_5);
         $this->assertSame(1, Client::count());
         $this->assertSame(2, Invoice::count());
         $this->assertNotNull(Setting::find(WhmcsImporter::SETTING));
@@ -133,7 +135,7 @@ class WhmcsImportWizardTest extends TestCase
         $this->post(self::CONNECT, self::FROM_ENV)->assertRedirect(self::STEP_3);
         $this->get(self::STEP_3)->assertOk()->assertSee(self::LAST_STEP)->assertSee('Bring over the WHMCS emails');
 
-        $this->post(self::EMAILS)->assertRedirect(self::URL.'?step=5');
+        $this->post(self::EMAILS)->assertRedirect(self::STEP_5);
         $this->assertSame(4, EmailLog::count());
         $this->assertSame('Brought over 4 emails from WHMCS', Activity::latest('id')->value('description'));
         $this->get(self::URL)->assertOk()->assertSee('4 emails from WHMCS are listed on your clients');
@@ -154,7 +156,7 @@ class WhmcsImportWizardTest extends TestCase
 
         $this->post(self::CONNECT, self::FROM_ENV);
         $this->get(self::URL)->assertOk()->assertSee('Bring over the service logins');
-        $this->post(self::URL.'/logins', ['encryption_hash' => WhmcsDatabase::HASH])->assertRedirect(self::URL.'?step=5');
+        $this->post(self::URL.'/logins', ['encryption_hash' => WhmcsDatabase::HASH])->assertRedirect(self::STEP_5);
 
         $this->assertSame(WhmcsDatabase::SERVICE_PASSWORD, Service::findOrFail(40)->password);
         $this->assertSame('Brought over the WHMCS logins of 1 service', Activity::latest('id')->value('description'));
