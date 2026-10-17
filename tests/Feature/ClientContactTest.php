@@ -45,7 +45,7 @@ class ClientContactTest extends TestCase
         $this->get("/admin/clients/{$client->id}/contacts/create")->assertOk();
         $this->post("/admin/clients/{$client->id}/contacts", [
             'first_name' => 'Pat', 'last_name' => 'Lee', 'email' => self::BOOKKEEPER, 'invoice_emails' => '1',
-        ])->assertRedirect("/admin/clients/{$client->id}");
+        ])->assertRedirect("/admin/clients/{$client->id}?tab=contacts");
 
         $contact = ClientContact::sole();
         $this->assertSame([true, false], [$contact->invoice_emails, $contact->support_emails]);
