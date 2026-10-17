@@ -208,6 +208,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('cancellations/{cancellation}', [Admin\CancellationController::class, 'destroy'])->name('cancellations.destroy');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
             Route::put("{$service}/server", [Admin\ServiceController::class, 'server'])->name('services.server');
+            Route::put("{$service}/login", [Admin\ServiceController::class, 'login'])->name('services.login');
             Route::post("{$service}/control-panel", [Admin\ServiceController::class, 'controlPanel'])->name('services.control-panel');
             Route::post("{$service}/account-moves", [Admin\AccountMoveController::class, 'store'])->name('account-moves.store');
             Route::post('account-moves/{move}/finish', [Admin\AccountMoveController::class, 'finish'])->name('account-moves.finish');
@@ -384,7 +385,8 @@ Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', Require
         Route::post('dry-run', 'dryRun')->name('dry-run');
         Route::post('import', 'import')->name('import');
         Route::post('emails', 'emails')->name('emails');
-        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import', 'emails'])->name('report');
+        Route::post('logins', 'logins')->name('logins');
+        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import', 'emails', 'logins'])->name('report');
         Route::delete('/', 'reset')->name('reset');
     });
 });

@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\ServerImporter;
+use App\Import\Whmcs\ServiceLoginImporter;
 use App\Import\Whmcs\WhmcsCrypt;
 use App\Import\Whmcs\WhmcsImporter;
+use App\Models\Client;
 use App\Models\Product;
 use App\Models\Server;
 use App\Models\ServerGroup;
@@ -103,6 +106,112 @@ class WhmcsServerImportTest extends TestCase
 
         $this->artisan('whmcs:import', ['--dry-run' => true, '--hash' => WhmcsDatabase::HASH])->assertSuccessful();
         $this->assertSame(0, Server::count());
+    }
+
+    public function test_services_without_a_server_module_keep_their_whmcs_login(): void
+    {
+        WhmcsDatabase::seedPlainService($this->whmcs);
+
+        $report = (new WhmcsImporter(null, WhmcsDatabase::HASH))->run($this->whmcs, dryRun: false);
+
+        $this->assertSame(['found' => 2, 'imported' => 2, 'skipped' => 0], $report->counts()['Service logins']);
+        $service = Service::findOrFail(42);
+        $this->assertSame(['ada-mail', WhmcsDatabase::MAILBOX_PASSWORD, null, null], [$service->username, $service->password, $service->server_id, $service->provisioned_at]);
+
+        $this->actingAs(User::factory()->create(), 'web');
+        $this->get('/admin/services/42')->assertOk()->assertSee('Login')->assertSee('ada-mail')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
+        $this->put('/admin/services/42/login', ['username' => 'ada-box', 'password' => ''])->assertRedirect();
+        $this->assertSame(['ada-box', WhmcsDatabase::MAILBOX_PASSWORD], [$service->fresh()->username, $service->fresh()->password]);
+        // A service on a server changes its login with its server details instead.
+        $this->put('/admin/services/40/login', ['username' => 'x'])->assertStatus(422);
+
+        $this->actingAs($service->client, 'client');
+        $this->get('/portal/services/42')->assertOk()->assertSee('Logging in')->assertSee('ada-box')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
+    }
+
+    public function test_services_without_a_server_keep_long_usernames_and_show_a_password_on_its_own(): void
+    {
+        WhmcsDatabase::seedPlainService($this->whmcs);
+        $long = str_repeat('a', 80).'@example.com';
+        $this->whmcs->table('tblhosting')->where('id', 42)->update(['username' => $long]);
+
+        (new WhmcsImporter(null, WhmcsDatabase::HASH))->run($this->whmcs, dryRun: false);
+        $this->assertSame($long, Service::findOrFail(42)->username);
+
+        Service::findOrFail(42)->forceFill(['username' => null])->save();
+        $this->actingAs(Service::findOrFail(42)->client, 'client');
+        $this->get('/portal/services/42')->assertOk()->assertSee('Logging in')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
+    }
+
+    public function test_an_imported_install_gets_its_service_logins_by_running_again(): void
+    {
+        WhmcsDatabase::seedPlainService($this->whmcs);
+        // An import from before every service kept its login, made without the hash.
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        Service::findOrFail(42)->forceFill(['username' => null])->save();
+        // Staff set a password on this one since; it stays.
+        Service::findOrFail(40)->forceFill(['password' => 'Staff-set-1'])->save();
+        // A service added in WHMCS after the import isn't here.
+        $this->whmcs->table('tblhosting')->insert(['id' => 43, 'userid' => 7, 'packageid' => 9, 'domain' => 'new.example.com', 'billingcycle' => 'Free Account', 'domainstatus' => 'Active', 'username' => 'ada-new']);
+
+        $dryRun = ServiceLoginImporter::bringOver($this->whmcs, WhmcsDatabase::HASH, dryRun: true);
+        $this->assertSame(1, $dryRun->counts()[ServiceLoginImporter::SECTION]['imported']);
+        $this->assertNull(Service::findOrFail(42)->username);
+
+        $report = ServiceLoginImporter::bringOver($this->whmcs, WhmcsDatabase::HASH, dryRun: false);
+        $this->assertSame(['found' => 3, 'imported' => 1, 'skipped' => 1], $report->counts()[ServiceLoginImporter::SECTION]);
+        $this->assertStringContainsString("Service 43 (new.example.com) isn't here.", $report->toMarkdown());
+        $this->assertStringContainsString('1 service already had its login here', $report->toMarkdown());
+        $this->assertSame(['ada-mail', WhmcsDatabase::MAILBOX_PASSWORD], [Service::findOrFail(42)->username, Service::findOrFail(42)->password]);
+        $this->assertSame(['ada', 'Staff-set-1'], [Service::findOrFail(40)->username, Service::findOrFail(40)->password]);
+
+        $again = ServiceLoginImporter::bringOver($this->whmcs, WhmcsDatabase::HASH, dryRun: false);
+        $this->assertSame(0, $again->counts()[ServiceLoginImporter::SECTION]['imported']);
+    }
+
+    public function test_service_logins_go_only_to_the_same_client_as_in_whmcs(): void
+    {
+        WhmcsDatabase::seedPlainService($this->whmcs);
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        Client::find(7)->forceFill(['email' => 'ada@new.example.com'])->save();
+
+        $report = ServiceLoginImporter::bringOver($this->whmcs, WhmcsDatabase::HASH, dryRun: false);
+
+        $this->assertSame(0, $report->counts()[ServiceLoginImporter::SECTION]['imported']);
+        $this->assertStringContainsString("isn't the one here (ada@new.example.com)", $report->toMarkdown());
+        $this->assertNull(Service::findOrFail(42)->password);
+    }
+
+    public function test_without_the_hash_bringing_logins_over_brings_usernames_only(): void
+    {
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        Service::findOrFail(40)->forceFill(['username' => null])->save();
+
+        $report = ServiceLoginImporter::bringOver($this->whmcs, null, dryRun: false);
+
+        $this->assertStringContainsString('only usernames came over', $report->toMarkdown());
+        $this->assertSame(['ada', null], [Service::findOrFail(40)->username, Service::findOrFail(40)->password]);
+    }
+
+    public function test_bringing_logins_over_needs_an_install_imported_from_whmcs(): void
+    {
+        $this->expectException(ImportException::class);
+
+        ServiceLoginImporter::bringOver($this->whmcs, WhmcsDatabase::HASH, dryRun: false);
+    }
+
+    public function test_the_command_brings_logins_over_on_its_own(): void
+    {
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        $path = sys_get_temp_dir().'/whmcs-logins-'.uniqid().'.md';
+
+        $this->artisan('whmcs:import', ['--logins' => true, '--hash' => WhmcsDatabase::HASH, '--report' => $path])
+            ->expectsConfirmation('Bring each service\'s WHMCS username and password over now?', 'yes')
+            ->expectsOutputToContain('Logins brought over.')
+            ->assertSuccessful();
+
+        $this->assertSame(WhmcsDatabase::SERVICE_PASSWORD, Service::findOrFail(40)->password);
+        unlink($path);
     }
 
     public function test_whmcs_module_names_map_to_this_apps_modules(): void

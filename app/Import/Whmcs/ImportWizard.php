@@ -56,6 +56,9 @@ class ImportWizard
     /** Session key of the summary of bringing emails over after the import. */
     public const EMAILS_SUMMARY = 'emails';
 
+    /** Session key of the summary of bringing service logins over after the import. */
+    public const LOGINS_SUMMARY = 'logins';
+
     /** WHMCS tables counted when connecting, to show the right database was picked. */
     private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets', 'Knowledge base articles' => 'tblknowledgebase'];
 
@@ -139,7 +142,7 @@ class ImportWizard
      */
     public function run(bool $dryRun): ImportReport
     {
-        $details = $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
+        $details = $this->connected();
 
         if (! $dryRun && $this->summary(self::DRY_RUN_SUMMARY) === null) {
             throw new ImportException('Run the dry run before importing.');
@@ -149,8 +152,7 @@ class ImportWizard
         set_time_limit(0);
         ignore_user_abort(true);
 
-        $hash = filled($details[self::HASH] ?? null) ? Crypt::decryptString($details[self::HASH]) : null;
-        $report = (new WhmcsImporter(self::folder($details, 'attachments'), $hash, self::folder($details, 'downloads')))
+        $report = (new WhmcsImporter(self::folder($details, 'attachments'), self::hash($details), self::folder($details, 'downloads')))
             ->run($this->open($details), $dryRun);
         $this->session->put(self::SESSION.'.'.($dryRun ? self::DRY_RUN_SUMMARY : 'import'), $this->summarize($report));
 
@@ -165,7 +167,7 @@ class ImportWizard
      */
     public function runEmails(): ImportReport
     {
-        $details = $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
+        $details = $this->connected();
 
         set_time_limit(0);
         ignore_user_abort(true);
@@ -174,6 +176,49 @@ class ImportWizard
         $this->session->put(self::SESSION.'.'.self::EMAILS_SUMMARY, $this->summarize($report));
 
         return $report;
+    }
+
+    /**
+     * Brings each service's WHMCS username and password into this already
+     * imported install, from the WHMCS database connected in this session,
+     * with the encryption hash given here or when connecting.
+     *
+     * @throws ImportException when no WHMCS database is connected or this install wasn't imported from WHMCS
+     */
+    public function runLogins(?string $encryptionHash): ImportReport
+    {
+        $details = $this->connected();
+
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        $hash = filled($encryptionHash) ? $encryptionHash : self::hash($details);
+        $report = ServiceLoginImporter::bringOver($this->open($details), $hash, dryRun: false);
+        $this->session->put(self::SESSION.'.'.self::LOGINS_SUMMARY, $this->summarize($report));
+
+        return $report;
+    }
+
+    /**
+     * The WHMCS database details picked in step 2.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws ImportException when none were
+     */
+    private function connected(): array
+    {
+        return $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
+    }
+
+    /**
+     * The encryption hash given when connecting, or null.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    private static function hash(array $details): ?string
+    {
+        return filled($details[self::HASH] ?? null) ? Crypt::decryptString($details[self::HASH]) : null;
     }
 
     /** @return array{counts: array<string, array{found: int, imported: int, skipped: int}>, checks: list<array{label: string, whmcs: string, here: string}>, mismatches: int, notes: array<string, array{total: int, shown: list<string>}>, path: string}|null */

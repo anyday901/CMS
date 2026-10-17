@@ -140,6 +140,10 @@
         </div>
     @endif
 
+    @if ($servers === null)
+        @include('admin.services._login')
+    @endif
+
     @php $tasks = App\Models\FulfillmentTask::where('service_id', $service->id)->with(['service.client', 'service.product', 'completedBy'])->latest('id')->get(); @endphp
     @if ($tasks->isNotEmpty())
         <h2 class="mb-3 text-lg font-semibold">Tasks</h2>

@@ -3,6 +3,8 @@
     $imported = $wizard->imported();
     $emailsSummary = $wizard->summary(\App\Import\Whmcs\ImportWizard::EMAILS_SUMMARY);
     $emailsHere = $wizard->emailsHere();
+    $loginsSummary = $wizard->summary(\App\Import\Whmcs\ImportWizard::LOGINS_SUMMARY);
+    $connected = $wizard->connection();
 @endphp
 
 <p class="mb-4 rounded-md bg-green-50 px-4 py-3 text-green-800">WHMCS was imported on {{ \Illuminate\Support\Carbon::parse($imported['imported_at'])->format('M j, Y \a\t g:i a') }}.</p>
@@ -35,6 +37,28 @@
     </details>
 @endif
 <p class="text-ink-500">Or on the server: <code>php artisan whmcs:import --emails</code></p>
+
+<h3 class="mb-3 mt-6 text-base font-semibold">Service usernames and passwords</h3>
+@if ($loginsSummary)
+    @include('admin.whmcs-import._report', ['run' => 'logins', 'summary' => $loginsSummary])
+@endif
+<p class="mb-3 mt-4 text-ink-600">
+    Each service shows the username and password it had in WHMCS. Imports made before every service kept them, or made without the encryption hash, left some out.
+    Bring them over from WHMCS any time: only logins still empty here are filled, so any you changed since stay as they are.
+</p>
+@if ($connected)
+    <form method="POST" action="{{ route('admin.whmcs-import.logins') }}" class="mb-2 flex flex-wrap items-end gap-3">
+        @csrf
+        <label class="block">WHMCS encryption hash <span class="text-ink-500">(needed for passwords)</span>
+            <input type="password" name="encryption_hash" autocomplete="off" placeholder="{{ ($connected['has_hash'] ?? false) ? 'Given when connecting' : '' }}" class="mt-1 block w-72 rounded-md px-3 py-2 ring-1 ring-ink-300">
+        </label>
+        <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Bring over the service logins</button>
+    </form>
+    <p class="mb-2 text-ink-500">The hash is the <code>$cc_encryption_hash</code> line in WHMCS's configuration.php. Without it only usernames come over.</p>
+@else
+    <p class="mb-2 text-ink-600">Connect to the WHMCS database under the emails above to bring them over.</p>
+@endif
+<p class="text-ink-500">Or on the server: <code>php artisan whmcs:import --logins --hash=YOUR_HASH</code></p>
 
 <h3 class="mb-3 mt-6 text-base font-semibold">What to do next</h3>
 <ol class="space-y-3">

@@ -314,6 +314,12 @@ Steps 2 to 4 can also be done in the admin area under **Settings > Import from W
    sudo -u www-data php artisan whmcs:import --emails
    ```
 
+   Each service keeps the username and password it had in WHMCS (the passwords need the encryption hash). If you imported before every service kept them, or without the hash, bring them over now (or with **Bring over the service logins** on the last step of the walkthrough). Only usernames and passwords still empty here are filled, so ones you changed since stay, and it's safe to run again:
+
+   ```sh
+   sudo -u www-data php artisan whmcs:import --logins --hash='your cc_encryption_hash'
+   ```
+
 5. **Run both side by side for a billing cycle.** Before turning WHMCS off, check this app would bill the same:
 
    ```sh
