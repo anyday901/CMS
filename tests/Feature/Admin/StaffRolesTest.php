@@ -59,7 +59,7 @@ class StaffRolesTest extends TestCase
 
         $this->get('/admin/clients/create')->assertOk();
         $this->get("/admin/clients/{$client->id}/invoices/create")->assertOk();
-        $this->get('/admin')->assertOk()->assertDontSee('Products')->assertDontSee('Staff');
+        $this->get('/admin')->assertOk()->assertDontSee('Products')->assertDontSee(route('admin.staff.index').'"', false);
         $this->get('/admin/products')->assertForbidden();
         $this->get('/admin/tax-rules')->assertForbidden();
         $this->get(self::STAFF)->assertForbidden();

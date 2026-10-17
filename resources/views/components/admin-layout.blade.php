@@ -1,4 +1,4 @@
-@props(['title' => null])
+@props(['title' => null, 'wide' => false])
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +17,7 @@
     @endif
     @auth
         <nav class="border-b border-ink-200 bg-white" aria-label="Admin">
-            <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
+            <div class="mx-auto flex {{ $wide ? 'max-w-[96rem]' : 'max-w-6xl' }} flex-wrap items-center gap-x-1 gap-y-2 px-4 py-3">
                 <a href="{{ route('admin.dashboard') }}" class="mr-3 flex items-center gap-2 font-display text-base font-extrabold">@if ($logo = App\Support\Branding::logoUrl())<img src="{{ $logo }}" alt="" class="h-7 w-auto max-w-40 object-contain">@else<span class="brand-mark"></span>@endif{{ App\Support\Branding::adminName() }}</a>
                 @php
                     $settings = auth()->user()->can('manage-settings');
@@ -67,7 +67,7 @@
         </nav>
     @endauth
 
-    <main class="mx-auto max-w-6xl px-4 py-8">
+    <main class="mx-auto {{ $wide ? 'max-w-[96rem]' : 'max-w-6xl' }} px-4 py-8">
         @if (session('status'))
             <div class="mb-6 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">{{ session('status') }}</div>
         @endif
