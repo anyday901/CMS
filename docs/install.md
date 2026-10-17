@@ -308,6 +308,12 @@ Steps 2 to 4 can also be done in the admin area under **Settings > Import from W
 
    Everything is imported in one database transaction, so a failure part way leaves nothing behind.
 
+   The emails WHMCS sent to clients come over too, listed on each client's page with their WHMCS dates. If you imported before the importer brought emails over, bring them over now (or with **Bring over the WHMCS emails** on the last step of the walkthrough). Emails already here are skipped, so it's safe to run again:
+
+   ```sh
+   sudo -u www-data php artisan whmcs:import --emails
+   ```
+
 5. **Run both side by side for a billing cycle.** Before turning WHMCS off, check this app would bill the same:
 
    ```sh

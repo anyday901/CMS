@@ -495,6 +495,19 @@ class WhmcsDatabase
             $t->text('reason')->nullable();
             $t->string('type');
         });
+        $schema->create('tblemails', function (Blueprint $t) {
+            $t->id();
+            $t->integer('userid');
+            $t->text('subject')->nullable();
+            $t->text('message')->nullable();
+            $t->dateTime('date')->nullable();
+            $t->text('to')->nullable();
+            $t->text('cc')->nullable();
+            $t->text('bcc')->nullable();
+            $t->integer('pending')->default(0);
+            $t->integer('failed')->default(0);
+            $t->text('failure_reason')->nullable();
+        });
         $schema->create('tblactivitylog', function (Blueprint $t) {
             $t->id();
             $t->dateTime('date')->nullable();
@@ -542,6 +555,22 @@ class WhmcsDatabase
             ['date' => '2024-01-15 08:00:00', 'description' => 'Client Logged In', 'user' => 'Client', 'userid' => 7, 'user_id' => 1, 'admin_id' => 0, 'ipaddr' => '198.51.100.7'],
             ['date' => '2024-01-16 00:05:00', 'description' => 'Cron Job: Starting', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
             ['date' => '2024-01-16 00:06:00', 'description' => '', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
+        ]);
+    }
+
+    /**
+     * Emails WHMCS sent on top of seed(): an invoice email to Ada with a copy
+     * to Bob, an older one with no To address, one that failed, one still
+     * waiting to go out, and one to a client that wasn't imported.
+     */
+    public static function seedEmails(ConnectionInterface $db): void
+    {
+        $db->table('tblemails')->insert([
+            ['id' => 501, 'userid' => 7, 'subject' => 'Customer Invoice', 'message' => '<html><head><style>p { color: red; }</style></head><body><p>Dear Ada,</p><p>Invoice <strong>#100</strong> is due.</p><p><a href="https://billing.example.com/viewinvoice.php?id=100">Pay now</a></p><script>alert(1)</script></body></html>', 'date' => '2025-03-01 09:00:00', 'to' => 'ada@example.com', 'cc' => 'bob@example.com', 'bcc' => 'accounts@example.com', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 500, 'userid' => 7, 'subject' => 'Welcome &amp; thanks', 'message' => 'Thanks for signing up.', 'date' => '2020-01-02 10:00:00', 'to' => '', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 502, 'userid' => 7, 'subject' => 'Overdue', 'message' => '<p>Late</p>', 'date' => '2025-04-01 09:00:00', 'to' => 'ada@example.com', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 1, 'failure_reason' => 'SMTP Error: Could not connect'],
+            ['id' => 503, 'userid' => 7, 'subject' => 'Queued', 'message' => '<p>Soon</p>', 'date' => '2025-05-01 09:00:00', 'to' => 'ada@example.com', 'cc' => '', 'bcc' => '', 'pending' => 1, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 504, 'userid' => 99, 'subject' => 'Nobody', 'message' => '<p>Gone</p>', 'date' => '2025-05-01 09:00:00', 'to' => 'gone@example.com', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
         ]);
     }
 

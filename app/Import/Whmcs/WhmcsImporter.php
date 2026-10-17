@@ -21,7 +21,8 @@ use Throwable;
  * groups, clients and their contacts, staff notes on clients, the to-do list, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
  * transactions, admins as staff, promotions, orders, the credit log,
- * cancellation requests, the activity log, affiliates with their referrals,
+ * cancellation requests, the activity log, the emails sent to clients,
+ * affiliates with their referrals,
  * commissions and payouts, ticket departments, custom fields, tags,
  * tickets (guest tickets too), replies and feedback ratings, and the
  * knowledge base and announcements with their translations, network
@@ -124,6 +125,39 @@ class WhmcsImporter
         return $this->run->report;
     }
 
+    /**
+     * Brings over only the emails WHMCS sent to clients, into an install
+     * already imported from WHMCS, for imports made before emails came over
+     * too. Emails already here are skipped, so it can run any number of times.
+     *
+     * @throws ImportException when this install wasn't imported from WHMCS
+     */
+    public function runEmails(ConnectionInterface $source, bool $dryRun): ImportReport
+    {
+        if (! Setting::whereKey(self::SETTING)->exists()) {
+            throw new ImportException('This install wasn\'t imported from WHMCS, so there are no WHMCS clients to add emails to. Run the full import instead.');
+        }
+
+        $this->run = new ImportRun($source, new ImportReport($dryRun));
+        // Clients keep their WHMCS ids. Anonymised ones had their emails deleted on purpose, so they get none back.
+        $clients = DB::table('clients')->whereNull('anonymised_at')->pluck('id')->flip()->all();
+
+        DB::beginTransaction();
+
+        try {
+            (new EmailHistoryImporter($this->run, $clients))->import();
+            $this->run->flushAll();
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            throw $e;
+        }
+
+        $dryRun ? DB::rollBack() : DB::commit();
+
+        return $this->run->report;
+    }
+
     /** @return list<string> the tables that already have data here, which stop an import */
     public static function blockers(): array
     {
@@ -156,6 +190,7 @@ class WhmcsImporter
         $history->importActivity($staff);
         $this->extras->importNotes($this->clients, $staff);
         $this->extras->importTodos($staff);
+        (new EmailHistoryImporter($this->run, $this->clients))->import();
         (new AffiliateImporter($this->run, $this->clients, $this->invoices))->import();
         $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
         $this->tickets->import();

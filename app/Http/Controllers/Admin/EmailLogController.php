@@ -24,6 +24,7 @@ class EmailLogController extends Controller
                 ->where('to', 'like', "%{$search}%")
                 ->orWhere('subject', 'like', "%{$search}%")))
             ->when(in_array($status, [EmailLog::QUEUED, EmailLog::SENT, EmailLog::FAILED], true), fn ($query) => $query->where('status', $status))
+            ->latest()
             ->latest('id')
             ->paginate(50)
             ->withQueryString();

@@ -16,6 +16,7 @@
         <div><div class="text-ink-500">Queued</div>{{ $email->created_at->format('M j, Y g:ia') }}</div>
         <div><div class="text-ink-500">Sent</div>{{ $email->sent_at?->format('M j, Y g:ia') ?? '—' }}@if ($email->attach_invoice_pdf) · invoice PDF attached @endif</div>
     </div>
+    @if ($email->whmcs_id)<p class="mb-6 rounded-md bg-ink-50 px-4 py-3 text-sm text-ink-600">Sent by WHMCS, before the switch, and brought over by the WHMCS import.</p>@endif
     @if ($email->error)<p class="mb-6 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{{ $email->error }}</p>@endif
     <div class="prose max-w-3xl rounded-lg border border-ink-200 bg-white p-6 text-sm [&_a]:text-brand-600 [&_p]:mb-3">{!! $html !!}</div>
 </x-admin-layout>

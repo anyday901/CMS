@@ -6,6 +6,7 @@ use App\Enums\StaffRole;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\EmailLog;
 use App\Models\Invoice;
 use App\Models\Server;
 use App\Models\Service;
@@ -48,7 +49,7 @@ class WhmcsImportWizardTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (['dry_run', 'import'] as $run) {
+        foreach (['dry_run', 'import', 'emails'] as $run) {
             $path = session("whmcs_import_wizard.{$run}.path");
 
             if ($path !== null && is_file($path)) {
@@ -111,6 +112,40 @@ class WhmcsImportWizardTest extends TestCase
             ->assertSee('Step 5 of 5')
             ->assertSee('What to do next');
         $this->get(self::URL.'/report/import')->assertOk()->assertDownload();
+    }
+
+    public function test_an_imported_install_brings_the_whmcs_emails_over_from_the_last_step(): void
+    {
+        (new WhmcsImporter)->run(DB::connection(WhmcsDatabase::CONNECTION), dryRun: false);
+        WhmcsDatabase::seedEmails(DB::connection(WhmcsDatabase::CONNECTION));
+
+        // A new login session has no WHMCS connection, so the step offers to connect again.
+        $this->get(self::URL)->assertOk()
+            ->assertSee('Step 5 of 5')
+            ->assertSee('No emails from WHMCS are here yet.')
+            ->assertSee('Connect to the WHMCS database to bring them over')
+            ->assertSee('php artisan whmcs:import --emails');
+
+        $this->post(self::CONNECT, self::FROM_ENV)->assertRedirect(self::STEP_3);
+        $this->get(self::STEP_3)->assertOk()->assertSee('Step 5 of 5')->assertSee('Bring over the WHMCS emails');
+
+        $this->post(self::URL.'/emails')->assertRedirect(self::URL.'?step=5');
+        $this->assertSame(4, EmailLog::count());
+        $this->assertSame('Brought over 4 emails from WHMCS', Activity::latest('id')->value('description'));
+        $this->get(self::URL)->assertOk()->assertSee('4 emails from WHMCS are listed on your clients');
+        $this->get(self::URL.'/report/emails')->assertOk()->assertDownload();
+
+        // Doing it again adds nothing.
+        $this->post(self::URL.'/emails');
+        $this->assertSame(4, EmailLog::count());
+    }
+
+    public function test_emails_can_only_be_brought_over_into_an_imported_install(): void
+    {
+        $this->post(self::CONNECT, self::FROM_ENV);
+
+        $this->post(self::URL.'/emails')->assertSessionHasErrors(self::ERROR);
+        $this->assertSame(0, EmailLog::count());
     }
 
     public function test_an_install_with_data_cannot_go_past_the_first_step(): void
