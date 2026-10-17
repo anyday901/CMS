@@ -27,7 +27,7 @@ class ClientContactController extends Controller
         $contact = $client->contacts()->create(ClientContact::attributesFrom($data, $request));
         Activity::record("Added contact {$contact->fullName()}", $client);
 
-        return redirect()->route('admin.clients.show', $client)->with('status', $this->status($this->invitation->sendIfNew($contact, true), 'added', $contact));
+        return redirect()->route('admin.clients.show', [$client, 'tab' => 'contacts'])->with('status', $this->status($this->invitation->sendIfNew($contact, true), 'added', $contact));
     }
 
     public function edit(ClientContact $contact): View
@@ -41,7 +41,7 @@ class ClientContactController extends Controller
         $contact->update(ClientContact::attributesFrom($data, $request));
         Activity::record("Updated contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('admin.clients.show', $contact->client)->with('status', $this->status($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), 'updated', $contact));
+        return redirect()->route('admin.clients.show', [$contact->client, 'tab' => 'contacts'])->with('status', $this->status($this->invitation->sendIfNew($contact, $contact->wasChanged(['portal_access', 'email'])), 'updated', $contact));
     }
 
     public function resendInvite(ClientContact $contact): RedirectResponse
@@ -58,7 +58,7 @@ class ClientContactController extends Controller
         $contact->delete();
         Activity::record("Removed contact {$contact->fullName()}", $contact->client);
 
-        return redirect()->route('admin.clients.show', $contact->client)->with('status', 'Contact removed.');
+        return redirect()->route('admin.clients.show', [$contact->client, 'tab' => 'contacts'])->with('status', 'Contact removed.');
     }
 
     private function status(?string $sent, string $done, ClientContact $contact): string

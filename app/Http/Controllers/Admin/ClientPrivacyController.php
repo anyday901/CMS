@@ -33,7 +33,7 @@ class ClientPrivacyController extends Controller
 
         $anonymiser->anonymise($client);
 
-        return redirect()->route('admin.clients.show', $client)->with('status', 'The client is anonymised. Their invoices and payments are kept without their personal details.');
+        return redirect()->route('admin.clients.show', [$client, 'tab' => 'security'])->with('status', 'The client is anonymised. Their invoices and payments are kept without their personal details.');
     }
 
     public function verifyEmail(Client $client): RedirectResponse

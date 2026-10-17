@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\ClientStatus;
+use App\Enums\InvoiceStatus;
+use App\Enums\ServiceStatus;
+use App\Enums\TicketStatus;
 use App\Events\ClientCreated;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\MarketingUnsubscribeController;
@@ -11,6 +14,7 @@ use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\ClientGroup;
 use App\Models\CustomField;
+use App\Models\Tld;
 use App\Support\ClientSearch;
 use App\Support\Csv;
 use App\Support\Language;
@@ -24,6 +28,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientController extends Controller
 {
+    /** The client page's side menu: groups of sections, each shown one at a time. */
+    public const SECTIONS = [
+        'Account' => ['summary' => 'Summary', 'profile' => 'Profile', 'contacts' => 'Contacts', 'security' => 'Login and privacy'],
+        'Products' => ['services' => 'Services', 'domains' => 'Domains', 'orders' => 'Orders'],
+        'Billing' => ['invoices' => 'Invoices', 'credit' => 'Credit'],
+        'Support' => ['tickets' => 'Tickets', 'emails' => 'Emails'],
+        'Staff' => ['notes' => 'Notes', 'todos' => 'To-dos'],
+        'History' => ['activity' => 'Activity log'],
+    ];
+
     public function index(Request $request): View
     {
         $search = ClientSearch::fromRequest($request);
@@ -99,11 +113,11 @@ class ClientController extends Controller
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
     }
 
-    public function show(Client $client): View
+    public function show(Request $request, Client $client): View
     {
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
-            'invoices' => fn ($q) => $q->latest('issue_date')->latest('id'),
+            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
         ]);
 
@@ -125,7 +139,37 @@ class ClientController extends Controller
 
         $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
 
-        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins', 'todos'));
+        $sections = self::SECTIONS;
+        if ($client->domains->isEmpty() && ! Tld::exists()) {
+            unset($sections['Products']['domains']);
+        }
+        $section = collect($sections)->collapse()->has($request->query('tab')) ? $request->query('tab') : 'summary';
+
+        $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid);
+        $activeServices = $client->services->where('status', ServiceStatus::Active);
+        $stats = [
+            'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->paid_amount),
+            'unpaid' => $unpaid->count(),
+            'overdue' => $unpaid->filter(fn ($invoice) => $invoice->due_date?->isPast() && ! $invoice->due_date->isToday())->count(),
+            'activeServices' => $activeServices->count(),
+            'nextDue' => $activeServices->pluck('next_due_date')->filter()->min(),
+            'openTickets' => $client->tickets()->listed()->where('status', '!=', TicketStatus::Closed)->count(),
+            'awaitingReply' => $client->tickets()->listed()->awaitingStaff()->count(),
+        ];
+
+        $counts = [
+            'contacts' => $client->contacts()->count(),
+            'services' => $client->services->count(),
+            'domains' => $client->domains->count(),
+            'orders' => $client->orders()->count(),
+            'invoices' => $client->invoices->count(),
+            'tickets' => $client->tickets()->listed()->count(),
+            'emails' => $client->emailLogs()->count(),
+            'notes' => $client->clientNotes->count(),
+            'todos' => $client->todos()->unfinished()->count(),
+        ];
+
+        return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins', 'todos', 'sections', 'section', 'stats', 'counts'));
     }
 
     public function edit(Client $client): View

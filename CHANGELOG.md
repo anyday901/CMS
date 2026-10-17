@@ -160,6 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Module settings can set a shortest length for text (`'min'`).
 
 ### Changed
+- **The client page is split into sections**: totals across the top (credit balance, amount owed with unpaid and overdue invoices, active services with the next due date, and open tickets), then a side menu grouped into Account, Products, Billing, Support, Staff and History, showing one section at a time with counts beside each. **Summary** opens first with contact and account details, recent emails and recent activity. The section is kept in the address (`?tab=invoices`), so links, the back button and forms sent from a section return to it; links to `#notes` and `#todos` open their section. Adding, editing or removing a contact returns to **Contacts**, and anonymising a client to **Login and privacy**.
 - Emails are listed newest first by when they were sent, so emails brought over from WHMCS later sit by their own dates.
 - The admin search's **Services and domains** section is now **Services**, with domains in their own section.
 - The installer, updater, backups and marketplace now throw their own exception types (`InstallFailed`, `UpdateFailed`, `BackupFailed`, `PackageException`, `ArchiveException`, `EnvFileException`, all `RuntimeException`s), and their longest methods are split up, clearing SonarCloud's code smells on the platform work.

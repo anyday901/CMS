@@ -180,6 +180,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Global search across clients, services, invoices, domains and tickets 
 - [x] Merge two client accounts
 - [x] Marketing email opt-in and opt-out
+- [x] Client page in sections with a side menu and totals across the top, like WHMCS's client tabs
 - [ ] An account holder reaching other accounts with their own login too (WHMCS 8 users who own one client and are users of another)
 
 ## Milestone 11: Reports, automation and integrations

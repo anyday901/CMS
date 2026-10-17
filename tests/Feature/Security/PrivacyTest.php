@@ -127,7 +127,7 @@ class PrivacyTest extends TestCase
         Storage::disk('local')->assertExists($path);
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->post("/admin/clients/{$client->id}/anonymise", ['confirm' => '1'])->assertRedirect("/admin/clients/{$client->id}")->assertSessionHas('status');
+        $this->post("/admin/clients/{$client->id}/anonymise", ['confirm' => '1'])->assertRedirect("/admin/clients/{$client->id}?tab=security")->assertSessionHas('status');
 
         $client->refresh();
         $this->assertTrue($client->isAnonymised());
