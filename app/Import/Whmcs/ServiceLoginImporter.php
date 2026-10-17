@@ -74,18 +74,20 @@ class ServiceLoginImporter
 
         $already = 0;
         $this->run->chunk('tblhosting', function (Collection $rows) use (&$already) {
-            $here = DB::table('services')->whereIn('id', $rows->pluck('id'))->get(['id', 'client_id', 'username', 'password'])->keyBy('id');
+            $here = DB::table('services')->join('products', 'products.id', '=', 'services.product_id')
+                ->whereIn('services.id', $rows->pluck('id'))
+                ->get(['services.id', 'services.client_id', 'services.username', 'services.password', 'products.module'])->keyBy('id');
             $addresses = $this->run->table('tblclients')->whereIn('id', $rows->pluck('userid')->unique())->pluck('email', 'id');
 
             foreach ($rows as $row) {
-                $login = $this->servers->credentials($row);
+                $service = $here->get((int) $row->id);
+                $login = $this->servers->credentials($row, ServerImporter::serverModule($service?->module));
 
                 if ($login === []) {
                     continue;
                 }
 
                 $this->run->report->found(self::SECTION);
-                $service = $here->get((int) $row->id);
                 $missing = $this->missing($row, $service, Str::lower(trim((string) ($addresses[$row->userid] ?? ''))));
 
                 if ($missing !== null) {

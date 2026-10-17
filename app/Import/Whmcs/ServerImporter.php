@@ -56,7 +56,7 @@ class ServerImporter
     }
 
     /** Whether a product's module (this app's key) is one the importer puts services on servers for. */
-    private static function serverModule(?string $module): bool
+    public static function serverModule(?string $module): bool
     {
         return $module !== null && (str_starts_with($module, WhmcsModules::PREFIX) || in_array($module, ['cpanel', 'plesk', 'directadmin', 'proxmox'], true)
             || app(ConvertedModules::class)->find($module) !== null);
@@ -175,9 +175,10 @@ class ServerImporter
     public function login(object $row, ?string $productModule): array
     {
         $server = $this->servers[(int) ($row->server ?? 0)] ?? null;
-        $login = $this->credentials($row);
+        $onServer = self::serverModule($productModule);
+        $login = $this->credentials($row, $onServer);
 
-        if (! self::serverModule($productModule) || ($server === null && $login === [])) {
+        if (! $onServer || ($server === null && $login === [])) {
             if ($login !== []) {
                 $this->run->report->found(self::LOGINS);
                 $this->run->report->imported(self::LOGINS);
@@ -213,13 +214,14 @@ class ServerImporter
 
     /**
      * A WHMCS service's username and password (encrypted here), or [] when it
-     * has neither.
+     * has neither. Server accounts keep to the 64 characters their modules
+     * take; other services keep the whole username.
      *
      * @return array{username?: ?string, password?: ?string}
      */
-    public function credentials(object $row): array
+    public function credentials(object $row, bool $onServer): array
     {
-        $username = Whmcs::short($row->username ?? '', 64);
+        $username = Whmcs::short($row->username ?? '', $onServer ? 64 : 255);
         $password = $this->decrypt($row->password ?? null);
 
         return $username === null && $password === null ? [] : [

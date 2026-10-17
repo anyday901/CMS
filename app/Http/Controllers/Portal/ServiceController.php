@@ -44,7 +44,10 @@ class ServiceController extends Controller
             'canUpgrade' => PortalContact::allows('orders') && $service->product->upgrades->where('active', true)->isNotEmpty() && $upgrader->problem($service) === null,
             'canCancel' => PortalContact::allows('orders') && $canceller->problem($service) === null,
             'canOrder' => PortalContact::allows('orders'),
-            'login' => $this->login($service, $modules),
+            'login' => $login = $this->login($service, $modules),
+            // A service without a server can have a password but no username.
+            'passwordOnly' => $login === [] && filled($service->password) && ! $modules->find($service->product->module) instanceof UsesServers
+                && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true),
             ...ServiceAccountController::abilities($service, $modules),
         ]);
     }

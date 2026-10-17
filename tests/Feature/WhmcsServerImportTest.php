@@ -129,6 +129,20 @@ class WhmcsServerImportTest extends TestCase
         $this->get('/portal/services/42')->assertOk()->assertSee('Logging in')->assertSee('ada-box')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
     }
 
+    public function test_services_without_a_server_keep_long_usernames_and_show_a_password_on_its_own(): void
+    {
+        WhmcsDatabase::seedPlainService($this->whmcs);
+        $long = str_repeat('a', 80).'@example.com';
+        $this->whmcs->table('tblhosting')->where('id', 42)->update(['username' => $long]);
+
+        (new WhmcsImporter(null, WhmcsDatabase::HASH))->run($this->whmcs, dryRun: false);
+        $this->assertSame($long, Service::findOrFail(42)->username);
+
+        Service::findOrFail(42)->forceFill(['username' => null])->save();
+        $this->actingAs(Service::findOrFail(42)->client, 'client');
+        $this->get('/portal/services/42')->assertOk()->assertSee('Logging in')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
+    }
+
     public function test_an_imported_install_gets_its_service_logins_by_running_again(): void
     {
         WhmcsDatabase::seedPlainService($this->whmcs);

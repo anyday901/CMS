@@ -43,7 +43,7 @@
         <p class="mt-4 rounded-md bg-sun-300/40 px-4 py-3 text-sm text-amber-900">{!! __("We're moving this service to a new server. Your current account keeps working until the move is finished, and we'll let you know if you need to do anything.") !!}</p>
     @endif
     @error('account')<p class="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{{ $message }}</p>@enderror
-    @if ($login !== [])
+    @if ($login !== [] || $passwordOnly)
         <div class="mt-8 mb-3 flex flex-wrap items-center gap-3">
             <h2 class="text-lg font-semibold">{{ __('Logging in') }}</h2>
             @if ($canLogIn)
