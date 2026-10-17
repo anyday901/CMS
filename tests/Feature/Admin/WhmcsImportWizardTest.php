@@ -31,6 +31,10 @@ class WhmcsImportWizardTest extends TestCase
 
     private const IMPORT = self::URL.'/import';
 
+    private const EMAILS = self::URL.'/emails';
+
+    private const LAST_STEP = 'Step 5 of 5';
+
     private const CONFIRMED = ['confirm' => '1'];
 
     /** Connect with the WHMCS_DB_* connection, which the tests point at a WHMCS database in memory. */
@@ -109,7 +113,7 @@ class WhmcsImportWizardTest extends TestCase
         $this->assertSame('Imported from WHMCS', Activity::latest('id')->value('description'));
 
         $this->get(self::STEP_2)->assertOk()
-            ->assertSee('Step 5 of 5')
+            ->assertSee(self::LAST_STEP)
             ->assertSee('What to do next');
         $this->get(self::URL.'/report/import')->assertOk()->assertDownload();
     }
@@ -121,22 +125,22 @@ class WhmcsImportWizardTest extends TestCase
 
         // A new login session has no WHMCS connection, so the step offers to connect again.
         $this->get(self::URL)->assertOk()
-            ->assertSee('Step 5 of 5')
+            ->assertSee(self::LAST_STEP)
             ->assertSee('No emails from WHMCS are here yet.')
             ->assertSee('Connect to the WHMCS database to bring them over')
             ->assertSee('php artisan whmcs:import --emails');
 
         $this->post(self::CONNECT, self::FROM_ENV)->assertRedirect(self::STEP_3);
-        $this->get(self::STEP_3)->assertOk()->assertSee('Step 5 of 5')->assertSee('Bring over the WHMCS emails');
+        $this->get(self::STEP_3)->assertOk()->assertSee(self::LAST_STEP)->assertSee('Bring over the WHMCS emails');
 
-        $this->post(self::URL.'/emails')->assertRedirect(self::URL.'?step=5');
+        $this->post(self::EMAILS)->assertRedirect(self::URL.'?step=5');
         $this->assertSame(4, EmailLog::count());
         $this->assertSame('Brought over 4 emails from WHMCS', Activity::latest('id')->value('description'));
         $this->get(self::URL)->assertOk()->assertSee('4 emails from WHMCS are listed on your clients');
         $this->get(self::URL.'/report/emails')->assertOk()->assertDownload();
 
         // Doing it again adds nothing.
-        $this->post(self::URL.'/emails');
+        $this->post(self::EMAILS);
         $this->assertSame(4, EmailLog::count());
     }
 
@@ -144,7 +148,7 @@ class WhmcsImportWizardTest extends TestCase
     {
         $this->post(self::CONNECT, self::FROM_ENV);
 
-        $this->post(self::URL.'/emails')->assertSessionHasErrors(self::ERROR);
+        $this->post(self::EMAILS)->assertSessionHasErrors(self::ERROR);
         $this->assertSame(0, EmailLog::count());
     }
 

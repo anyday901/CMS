@@ -3,9 +3,12 @@
 namespace App\Import\Whmcs;
 
 use App\Models\EmailLog;
+use App\Models\Setting;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * The emails WHMCS sent to clients (tblemails), so each client's email list
@@ -22,6 +25,39 @@ class EmailHistoryImporter
 
     /** @param  array<int, mixed>  $clients  the clients here, by WHMCS id */
     public function __construct(private ImportRun $run, private array $clients) {}
+
+    /**
+     * Brings over only these emails, into an install already imported from
+     * WHMCS, for imports made before emails came over too. Emails already
+     * here are skipped, so it can run any number of times.
+     *
+     * @throws ImportException when this install wasn't imported from WHMCS
+     */
+    public static function bringOver(ConnectionInterface $source, bool $dryRun): ImportReport
+    {
+        if (! Setting::whereKey(WhmcsImporter::SETTING)->exists()) {
+            throw new ImportException('This install wasn\'t imported from WHMCS, so there are no WHMCS clients to add emails to. Run the full import instead.');
+        }
+
+        $run = new ImportRun($source, new ImportReport($dryRun));
+        // Clients keep their WHMCS ids. Anonymised ones had their emails deleted on purpose, so they get none back.
+        $clients = DB::table('clients')->whereNull('anonymised_at')->pluck('id')->flip()->all();
+
+        DB::beginTransaction();
+
+        try {
+            (new self($run, $clients))->import();
+            $run->flushAll();
+        } catch (Throwable $e) {
+            DB::rollBack();
+
+            throw $e;
+        }
+
+        $dryRun ? DB::rollBack() : DB::commit();
+
+        return $run->report;
+    }
 
     public function import(): void
     {

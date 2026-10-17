@@ -170,7 +170,7 @@ class ImportWizard
         set_time_limit(0);
         ignore_user_abort(true);
 
-        $report = (new WhmcsImporter)->runEmails($this->open($details), dryRun: false);
+        $report = EmailHistoryImporter::bringOver($this->open($details), dryRun: false);
         $this->session->put(self::SESSION.'.'.self::EMAILS_SUMMARY, $this->summarize($report));
 
         return $report;

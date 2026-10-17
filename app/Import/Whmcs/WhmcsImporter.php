@@ -125,39 +125,6 @@ class WhmcsImporter
         return $this->run->report;
     }
 
-    /**
-     * Brings over only the emails WHMCS sent to clients, into an install
-     * already imported from WHMCS, for imports made before emails came over
-     * too. Emails already here are skipped, so it can run any number of times.
-     *
-     * @throws ImportException when this install wasn't imported from WHMCS
-     */
-    public function runEmails(ConnectionInterface $source, bool $dryRun): ImportReport
-    {
-        if (! Setting::whereKey(self::SETTING)->exists()) {
-            throw new ImportException('This install wasn\'t imported from WHMCS, so there are no WHMCS clients to add emails to. Run the full import instead.');
-        }
-
-        $this->run = new ImportRun($source, new ImportReport($dryRun));
-        // Clients keep their WHMCS ids. Anonymised ones had their emails deleted on purpose, so they get none back.
-        $clients = DB::table('clients')->whereNull('anonymised_at')->pluck('id')->flip()->all();
-
-        DB::beginTransaction();
-
-        try {
-            (new EmailHistoryImporter($this->run, $clients))->import();
-            $this->run->flushAll();
-        } catch (Throwable $e) {
-            DB::rollBack();
-
-            throw $e;
-        }
-
-        $dryRun ? DB::rollBack() : DB::commit();
-
-        return $this->run->report;
-    }
-
     /** @return list<string> the tables that already have data here, which stop an import */
     public static function blockers(): array
     {

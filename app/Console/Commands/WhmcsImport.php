@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Import\Whmcs\EmailHistoryImporter;
 use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\ImportReport;
 use App\Import\Whmcs\WhmcsImporter;
@@ -40,8 +41,9 @@ class WhmcsImport extends Command
             }
 
             $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
-            $importer = new WhmcsImporter($attachments, $this->option('hash'), $downloads);
-            $report = $emails ? $importer->runEmails($source, $dryRun) : $importer->run($source, $dryRun);
+            $report = $emails
+                ? EmailHistoryImporter::bringOver($source, $dryRun)
+                : (new WhmcsImporter($attachments, $this->option('hash'), $downloads))->run($source, $dryRun);
         } catch (ImportException $e) {
             $this->error($e->getMessage());
 
@@ -53,19 +55,21 @@ class WhmcsImport extends Command
         $this->newLine();
         $this->line("Full report, with every skipped record: {$path}");
 
-        if (! $emails) {
-            $this->line('Custom WHMCS reports (PHP files in modules/reports) are not copied, since only the database is read. Admin > Reports has the closest built-in ones.');
-        }
-
-        if ($dryRun) {
-            $this->info('Nothing was saved. Run again without --dry-run to import.');
-        } elseif ($emails) {
-            $this->info('Emails brought over. Each client\'s page lists the ones sent to them.');
-        } else {
-            $this->info('Imported. Clients log in with their WHMCS password; staff need new accounts (php artisan admin:create).');
-        }
+        $this->finished($dryRun, $emails);
 
         return self::SUCCESS;
+    }
+
+    private function finished(bool $dryRun, bool $emails): void
+    {
+        if ($emails) {
+            $this->info($dryRun ? 'Nothing was saved. Run again without --dry-run to bring the emails over.' : 'Emails brought over. Each client\'s page lists the ones sent to them.');
+
+            return;
+        }
+
+        $this->line('Custom WHMCS reports (PHP files in modules/reports) are not copied, since only the database is read. Admin > Reports has the closest built-in ones.');
+        $this->info($dryRun ? 'Nothing was saved. Run again without --dry-run to import.' : 'Imported. Clients log in with their WHMCS password; staff need new accounts (php artisan admin:create).');
     }
 
     /** @throws ImportException when the attachments or downloads folder or the WHMCS database can't be reached */
