@@ -59,7 +59,7 @@ Corey uses no control panel, so v1 provisioning is:
 
 ### Admin
 - Staff accounts with roles and permissions.
-- Dashboard: income this month, overdue invoices, open tickets, pending tasks.
+- Dashboard, laid out like WHMCS's: income, overdue invoices, open tickets, pending tasks, orders and income chart, automation overview and activity.
 - Activity log for audit.
 
 ### WHMCS importer

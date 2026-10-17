@@ -82,7 +82,8 @@ class ServerMonitorTest extends TestCase
         $this->assertSame(Server::UP, $server->refresh()->status);
         $this->assertNotNull(ServerOutage::sole()->ended_at);
         Notification::assertSentTo($this->admin, StaffAlert::class, fn (StaffAlert $alert) => $alert->subject === 'Server back up: cp1');
-        $this->get('/admin')->assertDontSee('cp1 is down');
+        // The activity log on the dashboard still mentions it; the warning is gone.
+        $this->get('/admin')->assertViewHas('serverProblems', fn ($servers) => $servers->isEmpty());
     }
 
     public function test_the_status_changes_only_when_two_checks_in_a_row_agree(): void

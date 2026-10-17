@@ -38,6 +38,16 @@ class UpdateChecker
         return $release === false ? null : $release;
     }
 
+    /** The last release found, without asking GitHub; null when none is known. */
+    public function cached(): ?array
+    {
+        if (! config('updates.enabled')) {
+            return null;
+        }
+
+        return Cache::get(self::CACHE_KEY) ?: null;
+    }
+
     private function fetch(): ?array
     {
         $url = rtrim((string) config('updates.api_url'), '/').'/repos/'.config('updates.repository').'/releases/latest';

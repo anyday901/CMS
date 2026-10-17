@@ -125,7 +125,8 @@ class ClientToolsTest extends TestCase
         $this->get(self::TODOS.'?who=all&show=overdue')->assertSee(self::SSL_TODO)->assertDontSee(self::CALL_TODO);
 
         // The menu counts mine; the dashboard and the client's page list them.
-        $this->get('/admin')->assertSee('To-do (1)')->assertSee('Your to-do list')->assertSee(self::SSL_TODO)->assertSee(self::CALL_TODO)->assertDontSee(self::OLIVE_TODO);
+        $this->get('/admin')->assertSee('To-do (1)')->assertSee('Your to-do list')->assertSee(self::SSL_TODO)->assertSee(self::CALL_TODO)
+            ->assertViewHas('todos', fn ($todos) => ! $todos->contains('title', self::OLIVE_TODO));
         $this->get(self::CLIENTS."/{$client->id}")->assertSee(self::CALL_TODO);
 
         $todo = Todo::where('title', self::SSL_TODO)->sole();
