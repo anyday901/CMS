@@ -113,19 +113,28 @@ class ServiceLoginImporter
             return true;
         }
 
+        return $this->fill($service, $login);
+    }
+
+    /**
+     * Puts a login's username and password on the service where its own are empty.
+     *
+     * @param  array{username?: ?string, password?: ?string}  $login
+     * @return bool false when the service already had both
+     */
+    private function fill(object $service, array $login): bool
+    {
         $fill = array_filter([
             'username' => blank($service->username) ? $login['username'] : null,
             'password' => blank($service->password) ? $login['password'] : null,
         ], fn ($value) => $value !== null);
 
-        if ($fill === []) {
-            return false;
+        if ($fill !== []) {
+            DB::table('services')->where('id', $service->id)->update($fill + ['updated_at' => $this->run->now]);
+            $this->run->report->imported(self::SECTION);
         }
 
-        DB::table('services')->where('id', $service->id)->update($fill + ['updated_at' => $this->run->now]);
-        $this->run->report->imported(self::SECTION);
-
-        return true;
+        return $fill !== [];
     }
 
     /** Why a WHMCS service's login doesn't go on the service here, or null when it does. */
