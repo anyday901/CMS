@@ -21,6 +21,9 @@ class WhmcsDatabase
 
     public const CONNECTION = 'whmcs';
 
+    /** Ada's email, as WHMCS sent to it. */
+    public const ADA_EMAIL = 'ada@example.com';
+
     /** WHMCS's cc_encryption_hash, which stored passwords are encrypted with. */
     public const HASH = 'Kx92lsQp0dLw7a1VbN3eRtYu';
 
@@ -495,6 +498,19 @@ class WhmcsDatabase
             $t->text('reason')->nullable();
             $t->string('type');
         });
+        $schema->create('tblemails', function (Blueprint $t) {
+            $t->id();
+            $t->integer('userid');
+            $t->text('subject')->nullable();
+            $t->text('message')->nullable();
+            $t->dateTime('date')->nullable();
+            $t->text('to')->nullable();
+            $t->text('cc')->nullable();
+            $t->text('bcc')->nullable();
+            $t->integer('pending')->default(0);
+            $t->integer('failed')->default(0);
+            $t->text('failure_reason')->nullable();
+        });
         $schema->create('tblactivitylog', function (Blueprint $t) {
             $t->id();
             $t->dateTime('date')->nullable();
@@ -542,6 +558,22 @@ class WhmcsDatabase
             ['date' => '2024-01-15 08:00:00', 'description' => 'Client Logged In', 'user' => 'Client', 'userid' => 7, 'user_id' => 1, 'admin_id' => 0, 'ipaddr' => '198.51.100.7'],
             ['date' => '2024-01-16 00:05:00', 'description' => 'Cron Job: Starting', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
             ['date' => '2024-01-16 00:06:00', 'description' => '', 'user' => 'System', 'userid' => 0, 'user_id' => 0, 'admin_id' => 0, 'ipaddr' => ''],
+        ]);
+    }
+
+    /**
+     * Emails WHMCS sent on top of seed(): an invoice email to Ada with a copy
+     * to Bob, an older one with no To address, one that failed, one still
+     * waiting to go out, and one to a client that wasn't imported.
+     */
+    public static function seedEmails(ConnectionInterface $db): void
+    {
+        $db->table('tblemails')->insert([
+            ['id' => 501, 'userid' => 7, 'subject' => 'Customer Invoice', 'message' => '<html><head><style>p { color: red; }</style></head><body><p>Dear Ada,</p><p>Invoice <strong>#100</strong> is due.</p><p><a href="https://billing.example.com/viewinvoice.php?id=100">Pay now</a></p><script>alert(1)</script></body></html>', 'date' => '2025-03-01 09:00:00', 'to' => self::ADA_EMAIL, 'cc' => 'bob@example.com', 'bcc' => 'accounts@example.com', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 500, 'userid' => 7, 'subject' => 'Welcome &amp; thanks', 'message' => 'Thanks for signing up.', 'date' => '2020-01-02 10:00:00', 'to' => '', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 502, 'userid' => 7, 'subject' => 'Overdue', 'message' => '<p>Late</p>', 'date' => '2025-04-01 09:00:00', 'to' => self::ADA_EMAIL, 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 1, 'failure_reason' => 'SMTP Error: Could not connect'],
+            ['id' => 503, 'userid' => 7, 'subject' => 'Queued', 'message' => '<p>Soon</p>', 'date' => '2025-05-01 09:00:00', 'to' => self::ADA_EMAIL, 'cc' => '', 'bcc' => '', 'pending' => 1, 'failed' => 0, 'failure_reason' => ''],
+            ['id' => 504, 'userid' => 99, 'subject' => 'Nobody', 'message' => '<p>Gone</p>', 'date' => '2025-05-01 09:00:00', 'to' => 'gone@example.com', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
         ]);
     }
 
@@ -611,7 +643,7 @@ class WhmcsDatabase
             'id' => 7, 'firstname' => 'Ada', 'lastname' => 'O&#039;Neil', 'companyname' => 'Ada &amp; Co', 'email' => 'Ada@Example.com',
             'country' => 'US', 'status' => 'Active', 'currency' => 1, 'credit' => '12.50', 'password' => '', 'datecreated' => '2020-01-02',
         ]);
-        $db->table('tblusers')->insert(['id' => 1, 'email' => 'ada@example.com', 'password' => password_hash('old-secret', PASSWORD_BCRYPT)]);
+        $db->table('tblusers')->insert(['id' => 1, 'email' => self::ADA_EMAIL, 'password' => password_hash('old-secret', PASSWORD_BCRYPT)]);
         $db->table('tblusers_clients')->insert(['auth_user_id' => 1, 'client_id' => 7, 'owner' => 1]);
         $db->table('tblcontacts')->insert(['userid' => 7, 'firstname' => 'Bob', 'lastname' => 'Books', 'email' => 'bob@example.com', 'invoiceemails' => '1', 'supportemails' => '0']);
 

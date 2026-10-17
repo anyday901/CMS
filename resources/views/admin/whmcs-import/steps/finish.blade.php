@@ -1,6 +1,8 @@
 @php
     $summary = $wizard->summary('import');
     $imported = $wizard->imported();
+    $emailsSummary = $wizard->summary(\App\Import\Whmcs\ImportWizard::EMAILS_SUMMARY);
+    $emailsHere = $wizard->emailsHere();
 @endphp
 
 <p class="mb-4 rounded-md bg-green-50 px-4 py-3 text-green-800">WHMCS was imported on {{ \Illuminate\Support\Carbon::parse($imported['imported_at'])->format('M j, Y \a\t g:i a') }}.</p>
@@ -8,6 +10,31 @@
 @if ($summary)
     @include('admin.whmcs-import._report', ['run' => 'import'])
 @endif
+
+<h3 class="mb-3 mt-6 text-base font-semibold">Emails WHMCS sent to clients</h3>
+@if ($emailsSummary)
+    @include('admin.whmcs-import._report', ['run' => 'emails', 'summary' => $emailsSummary])
+@endif
+<p class="mb-3 mt-4 text-ink-600">
+    @if ($emailsHere > 0)
+        {{ number_format($emailsHere) }} {{ Str::plural('email', $emailsHere) }} from WHMCS {{ $emailsHere === 1 ? 'is' : 'are' }} listed on your clients' pages.
+    @else
+        No emails from WHMCS are here yet. Imports made before the importer brought them over left them behind.
+    @endif
+    Bring them over from WHMCS any time: emails already here are skipped, so nothing is doubled.
+</p>
+@if ($wizard->connection())
+    <form method="POST" action="{{ route('admin.whmcs-import.emails') }}" class="mb-2">
+        @csrf
+        <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Bring over the WHMCS emails</button>
+    </form>
+@else
+    <details class="mb-2 rounded-md bg-ink-50 px-4 py-3" @if ($errors->has('whmcs')) open @endif>
+        <summary class="cursor-pointer font-medium">Connect to the WHMCS database to bring them over</summary>
+        <div class="mt-4">@include('admin.whmcs-import.steps.connect')</div>
+    </details>
+@endif
+<p class="text-ink-500">Or on the server: <code>php artisan whmcs:import --emails</code></p>
 
 <h3 class="mb-3 mt-6 text-base font-semibold">What to do next</h3>
 <ol class="space-y-3">

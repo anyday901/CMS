@@ -21,7 +21,8 @@ use Throwable;
  * groups, clients and their contacts, staff notes on clients, the to-do list, products with prices, configurable options and module
  * settings, custom fields, services with their logins, invoices,
  * transactions, admins as staff, promotions, orders, the credit log,
- * cancellation requests, the activity log, affiliates with their referrals,
+ * cancellation requests, the activity log, the emails sent to clients,
+ * affiliates with their referrals,
  * commissions and payouts, ticket departments, custom fields, tags,
  * tickets (guest tickets too), replies and feedback ratings, and the
  * knowledge base and announcements with their translations, network
@@ -156,6 +157,7 @@ class WhmcsImporter
         $history->importActivity($staff);
         $this->extras->importNotes($this->clients, $staff);
         $this->extras->importTodos($staff);
+        (new EmailHistoryImporter($this->run, $this->clients))->import();
         (new AffiliateImporter($this->run, $this->clients, $this->invoices))->import();
         $this->tickets = new TicketImporter($this->run, $this->clients, $staff, $this->attachmentsPath);
         $this->tickets->import();
@@ -618,6 +620,8 @@ class WhmcsImporter
         Setting::updateOrCreate(['key' => self::SETTING], ['value' => json_encode([
             'imported_at' => $this->run->now,
             'last_invoice_id' => (int) $this->run->table('tblinvoices')->max('id'),
+            // Clients above this were added after the import, here or in WHMCS, so their ids no longer match.
+            'last_client_id' => (int) $this->run->table('tblclients')->max('id'),
         ])]);
     }
 }

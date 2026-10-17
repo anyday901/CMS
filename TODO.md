@@ -57,6 +57,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Rehash WHMCS client passwords on first login
 - [x] Side-by-side billing comparison tool (`whmcs:compare`)
 - [x] Step-by-step WHMCS import walkthrough in the admin area (Settings > Import from WHMCS)
+- [x] Import the emails WHMCS sent to clients, and bring them over into an install already imported (`whmcs:import --emails`)
 - [ ] Side-by-side billing cycle on production data (Corey runs it; see docs/install.md)
 - [x] Install guide (Nginx, PHP-FPM, cron, queue worker)
 - [x] Docker Compose setup

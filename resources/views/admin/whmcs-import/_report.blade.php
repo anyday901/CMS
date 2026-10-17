@@ -1,5 +1,6 @@
-{{-- What a dry run or import found: $summary from ImportWizard::summary(), $run is dry_run or import. --}}
-@if ($summary['mismatches'] === 0)
+{{-- What a dry run or import found: $summary from ImportWizard::summary(), $run is dry_run, import or emails. --}}
+@if ($summary['checks'] === [])
+@elseif ($summary['mismatches'] === 0)
     <p class="mb-4 rounded-md bg-green-50 px-4 py-3 text-green-800">Every total matches WHMCS.</p>
 @else
     <p class="mb-4 rounded-md bg-amber-50 px-4 py-3 text-amber-900">{{ $summary['mismatches'] }} {{ Str::plural('total', $summary['mismatches']) }} differ from WHMCS. The notes below and the full report list the skipped records behind them.</p>
