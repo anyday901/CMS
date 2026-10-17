@@ -53,7 +53,7 @@ class WhmcsImportWizardTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (['dry_run', 'import', 'emails'] as $run) {
+        foreach (['dry_run', 'import', 'emails', 'logins'] as $run) {
             $path = session("whmcs_import_wizard.{$run}.path");
 
             if ($path !== null && is_file($path)) {
@@ -142,6 +142,24 @@ class WhmcsImportWizardTest extends TestCase
         // Doing it again adds nothing.
         $this->post(self::EMAILS);
         $this->assertSame(4, EmailLog::count());
+    }
+
+    public function test_an_imported_install_brings_the_service_logins_over_from_the_last_step(): void
+    {
+        // Imported without the hash, so passwords were left out.
+        (new WhmcsImporter)->run(DB::connection(WhmcsDatabase::CONNECTION), dryRun: false);
+        $this->assertNull(Service::findOrFail(40)->password);
+
+        $this->get(self::URL)->assertOk()->assertSee('Service usernames and passwords')->assertSee('php artisan whmcs:import --logins');
+
+        $this->post(self::CONNECT, self::FROM_ENV);
+        $this->get(self::URL)->assertOk()->assertSee('Bring over the service logins');
+        $this->post(self::URL.'/logins', ['encryption_hash' => WhmcsDatabase::HASH])->assertRedirect(self::URL.'?step=5');
+
+        $this->assertSame(WhmcsDatabase::SERVICE_PASSWORD, Service::findOrFail(40)->password);
+        $this->assertSame('Brought over the WHMCS logins of 1 service', Activity::latest('id')->value('description'));
+        $this->get(self::URL)->assertOk()->assertDontSee(WhmcsDatabase::HASH);
+        $this->get(self::URL.'/report/logins')->assertOk()->assertDownload();
     }
 
     public function test_emails_can_only_be_brought_over_into_an_imported_install(): void

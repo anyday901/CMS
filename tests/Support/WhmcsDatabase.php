@@ -31,6 +31,8 @@ class WhmcsDatabase
 
     public const SERVICE_PASSWORD = 'Ada-cpanel-pass1';
 
+    public const MAILBOX_PASSWORD = 'Ada-mailbox-pass1';
+
     /** The VPS's monthly price. */
     private const PRICE = '13.00';
 
@@ -574,6 +576,19 @@ class WhmcsDatabase
             ['id' => 502, 'userid' => 7, 'subject' => 'Overdue', 'message' => '<p>Late</p>', 'date' => '2025-04-01 09:00:00', 'to' => self::ADA_EMAIL, 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 1, 'failure_reason' => 'SMTP Error: Could not connect'],
             ['id' => 503, 'userid' => 7, 'subject' => 'Queued', 'message' => '<p>Soon</p>', 'date' => '2025-05-01 09:00:00', 'to' => self::ADA_EMAIL, 'cc' => '', 'bcc' => '', 'pending' => 1, 'failed' => 0, 'failure_reason' => ''],
             ['id' => 504, 'userid' => 99, 'subject' => 'Nobody', 'message' => '<p>Gone</p>', 'date' => '2025-05-01 09:00:00', 'to' => 'gone@example.com', 'cc' => '', 'bcc' => '', 'pending' => 0, 'failed' => 0, 'failure_reason' => ''],
+        ]);
+    }
+
+    /**
+     * On top of seed(): a free product on a WHMCS module this app doesn't
+     * have (autorelease), with an active service that has a WHMCS login.
+     */
+    public static function seedPlainService(ConnectionInterface $db): void
+    {
+        $db->table('tblproducts')->insert(['id' => 9, 'name' => 'Mailbox', 'paytype' => 'free', 'servertype' => 'autorelease']);
+        $db->table('tblhosting')->insert([
+            'id' => 42, 'userid' => 7, 'packageid' => 9, 'regdate' => '2024-03-01', 'domain' => 'mail.example.com', 'amount' => '0.00',
+            'billingcycle' => 'Free Account', 'domainstatus' => 'Active', 'username' => 'ada-mail', 'password' => (new WhmcsCrypt(self::HASH))->encrypt(self::MAILBOX_PASSWORD),
         ]);
     }
 

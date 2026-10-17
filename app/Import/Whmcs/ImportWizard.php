@@ -56,6 +56,9 @@ class ImportWizard
     /** Session key of the summary of bringing emails over after the import. */
     public const EMAILS_SUMMARY = 'emails';
 
+    /** Session key of the summary of bringing service logins over after the import. */
+    public const LOGINS_SUMMARY = 'logins';
+
     /** WHMCS tables counted when connecting, to show the right database was picked. */
     private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets', 'Knowledge base articles' => 'tblknowledgebase'];
 
@@ -172,6 +175,27 @@ class ImportWizard
 
         $report = EmailHistoryImporter::bringOver($this->open($details), dryRun: false);
         $this->session->put(self::SESSION.'.'.self::EMAILS_SUMMARY, $this->summarize($report));
+
+        return $report;
+    }
+
+    /**
+     * Brings each service's WHMCS username and password into this already
+     * imported install, from the WHMCS database connected in this session,
+     * with the encryption hash given here or when connecting.
+     *
+     * @throws ImportException when no WHMCS database is connected or this install wasn't imported from WHMCS
+     */
+    public function runLogins(?string $encryptionHash): ImportReport
+    {
+        $details = $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
+
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        $hash = filled($encryptionHash) ? $encryptionHash : (filled($details[self::HASH] ?? null) ? Crypt::decryptString($details[self::HASH]) : null);
+        $report = ServiceLoginImporter::bringOver($this->open($details), $hash, dryRun: false);
+        $this->session->put(self::SESSION.'.'.self::LOGINS_SUMMARY, $this->summarize($report));
 
         return $report;
     }

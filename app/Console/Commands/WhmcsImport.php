@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Import\Whmcs\EmailHistoryImporter;
 use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\ImportReport;
+use App\Import\Whmcs\ServiceLoginImporter;
 use App\Import\Whmcs\WhmcsImporter;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
@@ -16,6 +17,7 @@ class WhmcsImport extends Command
     protected $signature = 'whmcs:import
         {--dry-run : Show what would be imported, then undo it all}
         {--emails : Only bring over the emails WHMCS sent to clients, into an install already imported from WHMCS. Safe to run again}
+        {--logins : Only bring over each service\'s username and password (with --hash), into an install already imported from WHMCS. Safe to run again}
         {--connection=whmcs : Database connection for the WHMCS database (see WHMCS_DB_* in .env)}
         {--attachments= : Path to the WHMCS attachments folder, to bring ticket attachments over}
         {--downloads= : Path to the WHMCS downloads folder, to bring files on its Downloads page over}
@@ -28,22 +30,29 @@ class WhmcsImport extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
         $emails = (bool) $this->option('emails');
+        $logins = (bool) $this->option('logins');
         $attachments = $this->option('attachments');
         $downloads = $this->option('downloads');
 
         try {
             $source = $this->source($attachments, $downloads);
 
-            $question = $emails ? 'Bring the emails WHMCS sent to clients over now?' : 'Import WHMCS into this install now? Run with --dry-run first to check the report.';
+            $question = match (true) {
+                $emails => 'Bring the emails WHMCS sent to clients over now?',
+                $logins => 'Bring each service\'s WHMCS username and password over now?',
+                default => 'Import WHMCS into this install now? Run with --dry-run first to check the report.',
+            };
 
             if (! $dryRun && ! $this->confirm($question, true)) {
                 return self::FAILURE;
             }
 
             $this->info($dryRun ? 'Dry run: reading WHMCS and undoing everything at the end…' : 'Importing from WHMCS…');
-            $report = $emails
-                ? EmailHistoryImporter::bringOver($source, $dryRun)
-                : (new WhmcsImporter($attachments, $this->option('hash'), $downloads))->run($source, $dryRun);
+            $report = match (true) {
+                $emails => EmailHistoryImporter::bringOver($source, $dryRun),
+                $logins => ServiceLoginImporter::bringOver($source, $this->option('hash'), $dryRun),
+                default => (new WhmcsImporter($attachments, $this->option('hash'), $downloads))->run($source, $dryRun),
+            };
         } catch (ImportException $e) {
             $this->error($e->getMessage());
 
@@ -55,13 +64,19 @@ class WhmcsImport extends Command
         $this->newLine();
         $this->line("Full report, with every skipped record: {$path}");
 
-        $this->finished($dryRun, $emails);
+        $this->finished($dryRun, $emails, $logins);
 
         return self::SUCCESS;
     }
 
-    private function finished(bool $dryRun, bool $emails): void
+    private function finished(bool $dryRun, bool $emails, bool $logins): void
     {
+        if ($logins) {
+            $this->info($dryRun ? 'Nothing was saved. Run again without --dry-run to bring the logins over.' : 'Logins brought over. Each service\'s page shows its username and password.');
+
+            return;
+        }
+
         if ($emails) {
             $this->info($dryRun ? 'Nothing was saved. Run again without --dry-run to bring the emails over.' : 'Emails brought over. Each client\'s page lists the ones sent to them.');
 

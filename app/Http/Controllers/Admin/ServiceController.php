@@ -201,6 +201,33 @@ class ServiceController extends Controller
         return back()->with('status', $push ? 'Saved. The new password is being set on the server.' : 'Saved.');
     }
 
+    /**
+     * The username and password of a service whose module doesn't use
+     * servers, kept for reference (WHMCS keeps one on every service).
+     */
+    public function login(Request $request, Service $service, ModuleRegistry $modules): RedirectResponse
+    {
+        abort_if($modules->find($service->product->module) instanceof UsesServers, 422, 'Change this service\'s login with its server details.');
+
+        $data = $request->validate([
+            'username' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $service->forceFill([
+            'username' => $data['username'] ?? null,
+            ...(filled($data['password'] ?? null) ? ['password' => $data['password']] : []),
+        ]);
+        $changed = array_keys($service->getDirty());
+        $service->save();
+
+        if ($changed !== []) {
+            Activity::record("Changed the login of {$service->description()}", $service, ['changed' => $changed]);
+        }
+
+        return back()->with('status', 'Saved.');
+    }
+
     /** Opens the service's control panel, logged in as its account, for staff helping the client. */
     public function controlPanel(Request $request, Service $service, ModuleRegistry $modules): RedirectResponse
     {

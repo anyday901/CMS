@@ -165,26 +165,33 @@ class ServerImporter
 
     /**
      * A service's server, login and saved address, as services columns.
-     * Active and suspended services on a server count as set up, so the
-     * modules act on their accounts from now on.
+     * Every service keeps its WHMCS username and password, as WHMCS shows
+     * them on any service; only products on a server module put it on a
+     * server. Active and suspended services on a server count as set up,
+     * so the modules act on their accounts from now on.
      *
      * @return array<string, mixed>
      */
     public function login(object $row, ?string $productModule): array
     {
         $server = $this->servers[(int) ($row->server ?? 0)] ?? null;
-        $username = Whmcs::short($row->username ?? '', 64);
+        $login = $this->credentials($row);
 
-        if (($server === null && $username === null) || ! self::serverModule($productModule)) {
-            return [];
+        if (! self::serverModule($productModule) || ($server === null && $login === [])) {
+            if ($login !== []) {
+                $this->run->report->found(self::LOGINS);
+                $this->run->report->imported(self::LOGINS);
+            }
+
+            return $login;
         }
 
         $this->run->report->found(self::LOGINS);
 
         if ($server !== null && $server['module'] !== $productModule) {
-            $this->run->report->skipped(self::LOGINS, "Service {$row->id} ({$row->domain}) is on a {$server['module']} server, but its product isn't on that module, so it wasn't put on the server.");
+            $this->run->report->skipped(self::LOGINS, "Service {$row->id} ({$row->domain}) is on a {$server['module']} server, but its product isn't on that module, so it wasn't put on the server. Its username and password came over.");
 
-            return [];
+            return $login;
         }
 
         $running = in_array(strtolower((string) $row->domainstatus), ['active', 'suspended'], true);
@@ -197,10 +204,27 @@ class ServerImporter
 
         return [
             'server_id' => $server['id'] ?? null,
-            'username' => $username,
-            'password' => ($password = $this->decrypt($row->password ?? null)) === null ? null : encrypt($password, false),
+            'username' => $login['username'] ?? null,
+            'password' => $login['password'] ?? null,
             'provisioned_at' => $server !== null && $running ? $this->run->now : null,
             'provisioning_data' => $ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) !== false ? json_encode(['ip' => $ip]) : null,
+        ];
+    }
+
+    /**
+     * A WHMCS service's username and password (encrypted here), or [] when it
+     * has neither.
+     *
+     * @return array{username?: ?string, password?: ?string}
+     */
+    public function credentials(object $row): array
+    {
+        $username = Whmcs::short($row->username ?? '', 64);
+        $password = $this->decrypt($row->password ?? null);
+
+        return $username === null && $password === null ? [] : [
+            'username' => $username,
+            'password' => $password === null ? null : encrypt($password, false),
         ];
     }
 
@@ -296,6 +320,7 @@ class ServerImporter
             $this->run->report->note(self::SERVERS, 'Some passwords didn\'t decrypt, so they weren\'t brought over. Check the encryption hash is the cc_encryption_hash from WHMCS\'s configuration.php.');
         }
 
-        return $plain;
+        // WHMCS encrypts an empty password too.
+        return $plain === '' ? null : $plain;
     }
 }

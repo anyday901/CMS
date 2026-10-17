@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Import\Whmcs\EmailHistoryImporter;
 use App\Import\Whmcs\ImportException;
 use App\Import\Whmcs\ImportWizard;
+use App\Import\Whmcs\ServiceLoginImporter;
 use App\Import\Whmcs\WhmcsImporter;
 use App\Models\Activity;
 use Illuminate\Database\QueryException;
@@ -81,6 +82,17 @@ class WhmcsImportController extends Controller
             $count = $wizard->runEmails()->counts()[EmailHistoryImporter::SECTION]['imported'] ?? 0;
             Activity::record('Brought over '.number_format($count).' '.Str::plural('email', $count).' from WHMCS');
         }, ImportWizard::FINISH, 'Brought the WHMCS emails over.');
+    }
+
+    /** Brings over each service's username and password, for installs imported before every service kept them. */
+    public function logins(Request $request, ImportWizard $wizard): RedirectResponse
+    {
+        $hash = $request->validate(['encryption_hash' => ['nullable', 'string', 'max:255']])['encryption_hash'] ?? null;
+
+        return $this->attempt(function () use ($wizard, $hash) {
+            $count = $wizard->runLogins($hash)->counts()[ServiceLoginImporter::SECTION]['imported'] ?? 0;
+            Activity::record('Brought over the WHMCS logins of '.number_format($count).' '.Str::plural('service', $count));
+        }, ImportWizard::FINISH, 'Brought the WHMCS service logins over.');
     }
 
     /** Downloads the full Markdown report of the dry run or the import. */
