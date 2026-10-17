@@ -29,6 +29,7 @@ class DashboardTest extends TestCase
         Order::create(['client_id' => $client->id, 'status' => OrderStatus::Active]);
         Transaction::create(['client_id' => $client->id, 'gateway' => 'stripe', 'currency' => 'USD', 'amount' => 2500]);
         Transaction::create(['client_id' => $client->id, 'gateway' => 'stripe', 'currency' => 'USD', 'amount' => 900, 'pending' => true]);
+        Transaction::create(['client_id' => $client->id, 'gateway' => 'stripe', 'currency' => 'EUR', 'amount' => 700]);
         Transaction::create(['client_id' => $client->id, 'gateway' => 'stripe', 'currency' => 'USD', 'amount' => 1000])->forceFill(['created_at' => now()->subYears(2)])->save();
         Activity::create(['actor_type' => 'system', 'actor_name' => 'System', 'description' => 'Generated invoice #7 for $10.00']);
         Activity::create(['actor_type' => 'system', 'actor_name' => 'System', 'description' => 'Suspended vps1 (overdue)']);
@@ -41,8 +42,8 @@ class DashboardTest extends TestCase
         $response->assertSeeInOrder(['Pending Orders', 'Tickets Waiting', 'Pending Cancellations', 'Pending Module Actions']);
         $response->assertSeeInOrder(['System Overview', 'Billing', 'Payments to review', 'Client Activity', 'Automation Overview', 'Activity']);
         $response->assertViewHas('pendingOrderCount', 1);
-        // The pending payment counts as income once received, like the rest; the old one only counts towards all time.
-        $response->assertViewHas('incomeToday', 3400)->assertViewHas('incomeAllTime', 4400);
+        // The pending payment isn't income yet, a payment in another currency can't be added in, and the old one only counts towards all time.
+        $response->assertViewHas('incomeToday', 2500)->assertViewHas('incomeAllTime', 3500);
         $response->assertViewHas('paymentsToReviewCount', 1)->assertSee('1</strong> payment waiting for review', false);
         $response->assertViewHas('clientsSignedIn', 1)->assertSee('Ada Lovelace');
         $response->assertSee('Today at 12:05 AM')->assertSee('Generated invoice #7 for $10.00');

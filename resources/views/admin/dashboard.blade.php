@@ -125,11 +125,11 @@
                     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div class="space-y-5">
                             <section class="{{ $panel }}">
-                                <h2 class="{{ $panelTitle }}">Billing</h2>
+                                <h2 class="{{ $panelTitle }}">Billing <span class="font-normal text-ink-400">· income in {{ SystemOverview::currency() }}</span></h2>
                                 <div class="grid grid-cols-2 divide-x divide-ink-100">
                                     @foreach ([['Today', $incomeToday], ['This Month', $incomeThisMonth], ['This Year', $incomeThisYear], ['All Time', $incomeAllTime]] as $i => [$label, $amount])
                                         <div class="px-4 py-3 {{ $i >= 2 ? 'border-t border-ink-100' : '' }}">
-                                            <div class="font-display text-xl font-bold {{ $amount ? 'text-brand-700' : 'text-ink-400' }}">{{ Money::format($amount) }}</div>
+                                            <div class="font-display text-xl font-bold {{ $amount ? 'text-brand-700' : 'text-ink-400' }}">{{ Money::format($amount, SystemOverview::currency()) }}</div>
                                             <div class="text-xs text-ink-500">{{ $label }}</div>
                                         </div>
                                     @endforeach

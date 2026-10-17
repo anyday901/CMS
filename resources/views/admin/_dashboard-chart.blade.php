@@ -33,21 +33,21 @@
 <div class="mb-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs text-ink-600">
     <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-5 rounded-sm bg-ink-200 ring-1 ring-ink-300"></span>New Orders</span>
     <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-5 rounded-sm bg-brand-600"></span>Activated Orders</span>
-    <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-5 rounded-sm bg-sun-300 ring-1 ring-sun-400"></span>Income</span>
+    <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-5 rounded-sm bg-sun-300 ring-1 ring-sun-400"></span>Income ({{ App\Support\SystemOverview::currency() }})</span>
 </div>
 <svg viewBox="0 0 {{ $width }} {{ $height }}" class="h-auto w-full" role="img" aria-label="New orders, activated orders and income, {{ strtolower(App\Support\SystemOverview::PERIODS[$overview->period]) }}">
     @foreach (range(0, 4) as $step)
         @php $lineY = $top + $plotHeight - $step * $plotHeight / 4; @endphp
         <line x1="{{ $left }}" x2="{{ $width - $right }}" y1="{{ $lineY }}" y2="{{ $lineY }}" class="stroke-ink-100" stroke-width="1" />
         <text x="{{ $left - 6 }}" y="{{ $lineY + 4 }}" text-anchor="end" class="fill-ink-500 text-[11px]">{{ $ordersMax * $step / 4 }}</text>
-        <text x="{{ $width - $right + 6 }}" y="{{ $lineY + 4 }}" class="fill-ink-500 text-[11px]">{{ Money::format((int) ($incomeMax * $step / 4)) }}</text>
+        <text x="{{ $width - $right + 6 }}" y="{{ $lineY + 4 }}" class="fill-ink-500 text-[11px]">{{ Money::format((int) ($incomeMax * $step / 4), App\Support\SystemOverview::currency()) }}</text>
     @endforeach
     <polygon points="{{ $area($series['income'], $incomeMax) }}" class="fill-sun-300/50 stroke-sun-400" stroke-width="1.5" stroke-linejoin="round" />
     <polygon points="{{ $area($series['new'], $ordersMax) }}" class="fill-ink-200/60 stroke-ink-400" stroke-width="1.5" stroke-linejoin="round" />
     <polyline points="{{ $line($series['activated'], $ordersMax) }}" fill="none" class="stroke-brand-600" stroke-width="2.5" stroke-linejoin="round" />
     @foreach ($labels as $i => $label)
         <g>
-            <title>{{ $label }}: {{ $series['new'][$i] }} new, {{ $series['activated'][$i] }} activated, {{ Money::format($series['income'][$i]) }} income</title>
+            <title>{{ $label }}: {{ $series['new'][$i] }} new, {{ $series['activated'][$i] }} activated, {{ Money::format($series['income'][$i], App\Support\SystemOverview::currency()) }} income</title>
             <rect x="{{ $x($i) - $plotWidth / max(1, $count) / 2 }}" y="{{ $top }}" width="{{ $plotWidth / max(1, $count) }}" height="{{ $plotHeight }}" fill="transparent" />
         </g>
         @if ($i % $every === 0)

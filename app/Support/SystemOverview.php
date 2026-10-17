@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\Transaction;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -77,15 +78,32 @@ class SystemOverview
     {
         $totals = array_fill(0, count($this->buckets), 0);
 
-        // Paying from credit moves money already received, so it isn't new income.
-        $payments = Transaction::where('created_at', '>=', $this->buckets[0])
-            ->where('gateway', '!=', CreditApplier::GATEWAY)->get(['created_at', 'amount']);
+        $payments = self::incomeQuery()->where('created_at', '>=', $this->buckets[0])->get(['created_at', 'amount']);
 
         foreach ($payments as $payment) {
             $totals[$this->bucketOf($payment->created_at)] += (int) $payment->amount;
         }
 
         return $totals;
+    }
+
+    /**
+     * Money received in the default currency: amounts in different currencies
+     * can't be added up. Paying from credit moves money already received, and
+     * a pending refund may still fail, so neither counts.
+     *
+     * @return Builder<Transaction>
+     */
+    public static function incomeQuery(): Builder
+    {
+        return Transaction::where('currency', self::currency())
+            ->where('gateway', '!=', CreditApplier::GATEWAY)
+            ->where('pending', false);
+    }
+
+    public static function currency(): string
+    {
+        return (string) config('billing.currency');
     }
 
     /** @return list<int> */

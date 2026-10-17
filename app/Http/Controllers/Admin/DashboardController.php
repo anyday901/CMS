@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Billing\CreditApplier;
 use App\Billing\DisputeRecorder;
 use App\Enums\ClientStatus;
 use App\Enums\InvoiceStatus;
@@ -96,12 +95,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** Money received since a time, or ever, in minor units. */
+    /** Money received in the default currency since a time, or ever, in minor units. */
     private function income($since): int
     {
-        return (int) Transaction::when($since, fn ($query) => $query->where('created_at', '>=', $since))
-            // Paying from credit moves money already received, so it isn't new income.
-            ->where('gateway', '!=', CreditApplier::GATEWAY)->sum('amount');
+        return (int) SystemOverview::incomeQuery()->when($since, fn ($query) => $query->where('created_at', '>=', $since))->sum('amount');
     }
 
     /** Payments still clearing at the gateway, and payments with an open dispute. */
