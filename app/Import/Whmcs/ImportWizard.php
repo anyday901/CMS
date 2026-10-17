@@ -2,6 +2,7 @@
 
 namespace App\Import\Whmcs;
 
+use App\Models\EmailLog;
 use App\Models\Setting;
 use Illuminate\Contracts\Session\Session;
 use Illuminate\Database\ConnectionInterface;
@@ -52,6 +53,9 @@ class ImportWizard
     /** Session key of the dry run summary, also the run name in report links. */
     public const DRY_RUN_SUMMARY = 'dry_run';
 
+    /** Session key of the summary of bringing emails over after the import. */
+    public const EMAILS_SUMMARY = 'emails';
+
     /** WHMCS tables counted when connecting, to show the right database was picked. */
     private const PREVIEW = ['Clients' => 'tblclients', 'Services' => 'tblhosting', 'Invoices' => 'tblinvoices', 'Tickets' => 'tbltickets', 'Knowledge base articles' => 'tblknowledgebase'];
 
@@ -72,12 +76,18 @@ class ImportWizard
         };
     }
 
-    /** @return array{imported_at: string, last_invoice_id: int}|null when this install was imported from WHMCS */
+    /** @return array{imported_at: string, last_invoice_id: int, last_client_id?: int}|null when this install was imported from WHMCS */
     public function imported(): ?array
     {
         $value = Setting::find(WhmcsImporter::SETTING)?->value;
 
         return $value === null ? null : json_decode((string) $value, true);
+    }
+
+    /** How many emails sent by WHMCS are here. */
+    public function emailsHere(): int
+    {
+        return EmailLog::whereNotNull('whmcs_id')->count();
     }
 
     /** @return array<string, mixed>|null the WHMCS database picked in step 2, without its password */
@@ -143,6 +153,25 @@ class ImportWizard
         $report = (new WhmcsImporter(self::folder($details, 'attachments'), $hash, self::folder($details, 'downloads')))
             ->run($this->open($details), $dryRun);
         $this->session->put(self::SESSION.'.'.($dryRun ? self::DRY_RUN_SUMMARY : 'import'), $this->summarize($report));
+
+        return $report;
+    }
+
+    /**
+     * Brings the emails WHMCS sent to clients over into this already imported
+     * install, from the WHMCS database connected in this session.
+     *
+     * @throws ImportException when no WHMCS database is connected or this install wasn't imported from WHMCS
+     */
+    public function runEmails(): ImportReport
+    {
+        $details = $this->session->get(self::CONNECTION_KEY) ?? throw new ImportException('Connect to the WHMCS database first.');
+
+        set_time_limit(0);
+        ignore_user_abort(true);
+
+        $report = EmailHistoryImporter::bringOver($this->open($details), dryRun: false);
+        $this->session->put(self::SESSION.'.'.self::EMAILS_SUMMARY, $this->summarize($report));
 
         return $report;
     }

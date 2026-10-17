@@ -383,7 +383,8 @@ Route::prefix('admin/settings')->name('admin.')->middleware(['auth:web', Require
         Route::post('connect', 'connect')->name('connect');
         Route::post('dry-run', 'dryRun')->name('dry-run');
         Route::post('import', 'import')->name('import');
-        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import'])->name('report');
+        Route::post('emails', 'emails')->name('emails');
+        Route::get('report/{run}', 'report')->whereIn('run', ['dry_run', 'import', 'emails'])->name('report');
         Route::delete('/', 'reset')->name('reset');
     });
 });

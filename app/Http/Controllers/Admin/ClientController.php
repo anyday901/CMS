@@ -113,7 +113,7 @@ class ClientController extends Controller
 
         $tickets = $client->tickets()->listed()->with(['department', 'assignee', 'tags'])->latest('last_reply_at')->limit(10)->get()->each->setRelation('client', $client);
 
-        $emails = $client->emailLogs()->latest('id')->limit(10)->get();
+        $emails = $client->emailLogs()->latest()->latest('id')->limit(10)->get();
 
         $orders = $client->orders()->with(['invoice', 'services.product'])->latest('id')->limit(5)->get()->each->setRelation('client', $client);
 
