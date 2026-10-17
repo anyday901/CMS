@@ -308,7 +308,7 @@ Steps 2 to 4 can also be done in the admin area under **Settings > Import from W
 
    Everything is imported in one database transaction, so a failure part way leaves nothing behind.
 
-   The emails WHMCS sent to clients come over too, listed on each client's page with their WHMCS dates. If you imported before the importer brought emails over, bring them over now (or with **Bring over the WHMCS emails** on the last step of the walkthrough). Emails already here are skipped, so it's safe to run again:
+   The emails WHMCS sent to clients come over too, listed on each client's page with their WHMCS dates. If you imported before the importer brought emails over, bring them over now (or with **Bring over the WHMCS emails** on the last step of the walkthrough). Emails already here are skipped, so it's safe to run again. Since WHMCS and this app may both have added clients since the import, each email only goes to a client with the same email address here as in WHMCS; the report lists any it skipped:
 
    ```sh
    sudo -u www-data php artisan whmcs:import --emails

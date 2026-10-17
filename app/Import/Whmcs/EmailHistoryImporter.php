@@ -23,8 +23,12 @@ class EmailHistoryImporter
     /** The template name of an email brought over from WHMCS. */
     public const TEMPLATE = 'whmcs';
 
-    /** @param  array<int, mixed>  $clients  the clients here, by WHMCS id */
-    public function __construct(private ImportRun $run, private array $clients) {}
+    /**
+     * @param  array<int, mixed>  $clients  the clients here, by WHMCS id
+     * @param  array<int, string>|null  $emails  when adding to an earlier import, each client's email here, to check it is
+     *                                           the same person in WHMCS: both may have given the same id to someone new since
+     */
+    public function __construct(private ImportRun $run, private array $clients, private ?array $emails = null) {}
 
     /**
      * Brings over only these emails, into an install already imported from
@@ -40,13 +44,19 @@ class EmailHistoryImporter
         }
 
         $run = new ImportRun($source, new ImportReport($dryRun));
+        $lastClient = json_decode((string) Setting::find(WhmcsImporter::SETTING)?->value, true)['last_client_id'] ?? null;
         // Clients keep their WHMCS ids. Anonymised ones had their emails deleted on purpose, so they get none back.
-        $clients = DB::table('clients')->whereNull('anonymised_at')->pluck('id')->flip()->all();
+        $emails = DB::table('clients')
+            ->whereNull('anonymised_at')
+            ->when($lastClient !== null, fn ($query) => $query->where('id', '<=', $lastClient))
+            ->pluck('email', 'id')
+            ->map(fn ($email) => Str::lower(trim((string) $email)))
+            ->all();
 
         DB::beginTransaction();
 
         try {
-            (new self($run, $clients))->import();
+            (new self($run, $emails, $emails))->import();
             $run->flushAll();
         } catch (Throwable $e) {
             DB::rollBack();
@@ -79,19 +89,36 @@ class EmailHistoryImporter
                     continue;
                 }
 
-                if (! isset($this->clients[(int) $row->userid])) {
-                    $this->run->report->skipped(self::SECTION, "Email {$row->id} (\"".Whmcs::short($row->subject ?? '', 80)."\") was to client {$row->userid}, who isn't here.");
+                $clientEmail = Str::lower(trim((string) ($addresses[$row->userid] ?? '')));
+                $missing = $this->missing((int) $row->userid, $clientEmail);
+
+                if ($missing !== null) {
+                    $this->run->report->skipped(self::SECTION, "Email {$row->id} (\"".Whmcs::short($row->subject ?? '', 80)."\") was to client {$row->userid}, {$missing}.");
 
                     continue;
                 }
 
-                $this->queue($row, Str::lower((string) ($addresses[$row->userid] ?? '')));
+                $this->queue($row, $clientEmail);
             }
         });
 
         if ($already > 0) {
             $this->run->report->note(self::SECTION, number_format($already).' '.Str::plural('email', $already).' came over in an earlier import and were left as they are.');
         }
+    }
+
+    /** Why an email's client doesn't get it here, or null when they do. */
+    private function missing(int $client, string $whmcsEmail): ?string
+    {
+        if (! isset($this->clients[$client])) {
+            return "who isn't here";
+        }
+
+        if ($this->emails !== null && $this->emails[$client] !== $whmcsEmail) {
+            return "whose email in WHMCS ({$whmcsEmail}) isn't the one here ({$this->emails[$client]}), so it may be someone else";
+        }
+
+        return null;
     }
 
     private function queue(object $row, string $clientEmail): void
@@ -104,7 +131,8 @@ class EmailHistoryImporter
             'client_id' => (int) $row->userid,
             'template' => self::TEMPLATE,
             'to' => Whmcs::short($row->to ?? '', 255) ?? Whmcs::short($clientEmail, 255) ?? '',
-            'cc' => $this->copies($row->cc ?? '', $row->bcc ?? ''),
+            // Blind copies stay out: Send again would show them to everyone as copies.
+            'cc' => $this->copies($row->cc ?? ''),
             'subject' => Whmcs::short($row->subject ?? '') ?? '(no subject)',
             'body' => HtmlToMarkdown::convert((string) ($row->message ?? '')),
             'status' => $status,
@@ -130,10 +158,10 @@ class EmailHistoryImporter
         return [EmailLog::SENT, null];
     }
 
-    /** WHMCS keeps copies as comma-separated addresses; here they are one list, blind copies included. */
-    private function copies(mixed $cc, mixed $bcc): ?string
+    /** WHMCS keeps copies as comma-separated addresses; here they are a list. */
+    private function copies(mixed $cc): ?string
     {
-        $addresses = array_values(array_unique(array_filter(array_map('trim', explode(',', Whmcs::text($cc).','.Whmcs::text($bcc))))));
+        $addresses = array_values(array_unique(array_filter(array_map('trim', explode(',', Whmcs::text($cc))))));
 
         return $addresses === [] ? null : json_encode($addresses);
     }

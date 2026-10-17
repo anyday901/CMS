@@ -76,7 +76,7 @@ class ImportWizard
         };
     }
 
-    /** @return array{imported_at: string, last_invoice_id: int}|null when this install was imported from WHMCS */
+    /** @return array{imported_at: string, last_invoice_id: int, last_client_id?: int}|null when this install was imported from WHMCS */
     public function imported(): ?array
     {
         $value = Setting::find(WhmcsImporter::SETTING)?->value;

@@ -620,6 +620,8 @@ class WhmcsImporter
         Setting::updateOrCreate(['key' => self::SETTING], ['value' => json_encode([
             'imported_at' => $this->run->now,
             'last_invoice_id' => (int) $this->run->table('tblinvoices')->max('id'),
+            // Clients above this were added after the import, here or in WHMCS, so their ids no longer match.
+            'last_client_id' => (int) $this->run->table('tblclients')->max('id'),
         ])]);
     }
 }

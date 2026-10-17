@@ -39,7 +39,7 @@ class WhmcsEmailImportTest extends TestCase
         $this->assertStringContainsString('client 99', implode(' ', $report->notes()[EmailHistoryImporter::SECTION]));
 
         $invoice = EmailLog::where('whmcs_id', 501)->sole();
-        $this->assertSame([7, 'whmcs', WhmcsDatabase::ADA_EMAIL, ['bob@example.com', 'accounts@example.com'], 'Customer Invoice', EmailLog::SENT], [$invoice->client_id, $invoice->template, $invoice->to, $invoice->cc, $invoice->subject, $invoice->status]);
+        $this->assertSame([7, 'whmcs', WhmcsDatabase::ADA_EMAIL, ['bob@example.com'], 'Customer Invoice', EmailLog::SENT], [$invoice->client_id, $invoice->template, $invoice->to, $invoice->cc, $invoice->subject, $invoice->status]);
         $this->assertSame("Dear Ada,\n\nInvoice **#100** is due.\n\n[Pay now](https://billing.example.com/viewinvoice.php?id=100)", $invoice->body);
         $this->assertSame(['2025-03-01 09:00:00', '2025-03-01 09:00:00'], [$invoice->created_at->toDateTimeString(), $invoice->sent_at->toDateTimeString()]);
 
@@ -92,6 +92,26 @@ class WhmcsEmailImportTest extends TestCase
         $this->assertSame(['found' => 5, 'imported' => 0, 'skipped' => 1], $again->counts()[EmailHistoryImporter::SECTION]);
         $this->assertStringContainsString('4 emails came over in an earlier import', implode(' ', $again->notes()[EmailHistoryImporter::SECTION]));
         $this->assertSame(5, EmailLog::count());
+    }
+
+    public function test_emails_go_only_to_the_same_client_as_in_whmcs(): void
+    {
+        (new WhmcsImporter)->run($this->whmcs, dryRun: false);
+        WhmcsDatabase::seedEmails($this->whmcs);
+
+        // Since the import, both this app and WHMCS gave id 8 to a new client, and Ada changed her email here.
+        $this->whmcs->table('tblclients')->insert(['id' => 8, 'firstname' => 'Wes', 'lastname' => 'Whmcs', 'email' => 'wes@example.com', 'status' => 'Active']);
+        $this->whmcs->table('tblemails')->insert(['id' => 510, 'userid' => 8, 'subject' => 'For Wes', 'message' => 'Hi Wes', 'date' => '2026-10-16 09:00:00', 'to' => 'wes@example.com']);
+        Client::factory()->create(['id' => 8, 'email' => 'cara@example.com']);
+        Client::find(7)->forceFill(['email' => 'ada@new.example.com'])->save();
+
+        $report = EmailHistoryImporter::bringOver($this->whmcs, dryRun: false);
+
+        $this->assertSame(['found' => 6, 'imported' => 0, 'skipped' => 6], $report->counts()[EmailHistoryImporter::SECTION]);
+        $notes = implode(' ', $report->notes()[EmailHistoryImporter::SECTION]);
+        $this->assertStringContainsString("client 8, who isn't here", $notes);
+        $this->assertStringContainsString("isn't the one here (ada@new.example.com)", $notes);
+        $this->assertSame(0, EmailLog::count());
     }
 
     public function test_anonymised_clients_do_not_get_their_emails_back(): void
