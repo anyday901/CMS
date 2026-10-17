@@ -184,6 +184,8 @@ The **Search** box in the admin menu looks through everything at once: clients (
 
 ### Client groups, notes and the to-do list
 
+A client's page shows their credit balance, what they owe, active services and open tickets across the top, with a side menu of sections (summary, profile, contacts, login and privacy, services, domains, orders, invoices, credit, tickets, emails, notes, to-dos and the activity log) that shows one at a time. The open section is kept in the address, so a link such as `/admin/clients/12?tab=invoices` opens straight to it.
+
 **Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. Groups are labels only: discounts and exemptions from automatic suspension aren't tied to them.
 
 A client's page has **Notes**: dated notes by staff, which only staff see. Tick **Pin to the top of the page** to show one as a banner above the client's details. The older single notes field is still on the edit form as **Profile notes**.
