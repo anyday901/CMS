@@ -2,7 +2,7 @@
 
 A provisioning module sets up and manages a service somewhere else: a control panel, a VPS host, a licensing server, your own API. Staff choose a module on a product and fill in its settings there; from then on, every service of that product is created, suspended, unsuspended and terminated through the module as its status changes.
 
-The code is in `app/Provisioning`, and the built-in modules in `app/Provisioning/Modules`:
+The code is in `app/Provisioning`, and the built-in modules in `app/Provisioning/Modules`. Modules written for WHMCS can be uploaded instead of rewritten, and converted into a class that extends `App\Provisioning\Converted\ConvertedModule`; see [WHMCS modules](../admin/whmcs-modules.md).
 
 | Module | Key | Class | What it shows |
 |---|---|---|---|
@@ -32,7 +32,7 @@ interface ProvisioningModule
      * Settings shown on the product form and saved in the product's
      * module_config, keyed by field name.
      *
-     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>, min?: int}>
+     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>, min?: int, default?: string}>
      */
     public function configFields(): array;
 
@@ -48,7 +48,7 @@ interface ProvisioningModule
 ```
 
 - **`key()`** is saved in the product's `module` column. Don't change it once products use the module.
-- **`configFields()`** are the product's settings for the module. `type` is `text` (the default), `textarea`, `url`, `number` (a whole number) or `select` with `options` (value => label); `min` is the shortest a text may be. The values are saved in the product's `module_config` array.
+- **`configFields()`** are the product's settings for the module. `type` is `text` (the default), `textarea`, `url`, `number` (a whole number) or `select` with `options` (value => label); `min` is the shortest a text may be; `default` fills the field when a product first picks the module. The values are saved in the product's `module_config` array.
 - **The four actions** each return a `ProvisioningResult`.
 
 Register the class in `config/provisioning.php`:

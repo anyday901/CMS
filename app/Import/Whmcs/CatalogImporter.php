@@ -69,7 +69,7 @@ class CatalogImporter
             $this->run->report->imported(self::PRODUCTS);
 
             if ($module === null && filled($row->servertype ?? null)) {
-                $this->run->report->note(self::PRODUCTS, "\"{$row->name}\" used the WHMCS {$row->servertype} module. Pick a provisioning module for it on its product page.");
+                $this->run->report->note(self::PRODUCTS, "\"{$row->name}\" used the WHMCS {$row->servertype} module. Pick a provisioning module for it on its product page, or upload that WHMCS module under Settings > WHMCS modules and enable it before you import.");
             }
 
             if (strtolower((string) $row->paytype) !== 'free') {

@@ -72,6 +72,7 @@ nav:
       - Mail settings: admin/mail.md
       - Health, maintenance, backups and updates: admin/system.md
       - Marketplace: admin/marketplace.md
+      - WHMCS modules: admin/whmcs-modules.md
   - Integrations:
       - REST API: api.md
       - Webhooks and notifications: webhooks.md

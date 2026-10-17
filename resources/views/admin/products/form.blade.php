@@ -138,7 +138,7 @@
                 @foreach ($modules as $key => $module)
                     @foreach ($module->configFields() as $name => $field)
                         <label class="block" data-module="{{ $key }}">{{ $module->label() }}: {{ $field['label'] }}@if ($field['required'] ?? false) <span class="text-ink-500">(required)</span>@endif
-                            @php $value = old("module_config.{$key}.{$name}", $product->module === $key ? ($product->module_config[$name] ?? '') : ''); @endphp
+                            @php $value = old("module_config.{$key}.{$name}", $product->module === $key ? ($product->module_config[$name] ?? '') : ($field['default'] ?? '')); @endphp
                             @if (($field['type'] ?? 'text') === 'select')
                                 <select name="module_config[{{ $key }}][{{ $name }}]" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
                                     @foreach ($field['options'] ?? [] as $optionValue => $optionLabel)

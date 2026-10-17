@@ -28,8 +28,9 @@ interface ProvisioningModule
      * module_config, keyed by field name. "type" is text (the default),
      * textarea, url, number (a whole number) or select, which offers
      * "options" (value => label). "min" is the shortest a text may be.
+     * "default" fills the field when a product first picks the module.
      *
-     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>, min?: int}>
+     * @return array<string, array{label: string, required?: bool, help?: string, type?: string, options?: array<string, string>, min?: int, default?: string}>
      */
     public function configFields(): array;
 

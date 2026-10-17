@@ -2,15 +2,19 @@
 
 namespace App\Provisioning;
 
+use App\Provisioning\Converted\ConvertedModules;
+use App\Provisioning\Whmcs\WhmcsModules;
 use Illuminate\Support\Collection;
 
 class ModuleRegistry
 {
-    /** @return Collection<string, ProvisioningModule> keyed by module key */
+    /** @return Collection<string, ProvisioningModule> keyed by module key, then modules converted from WHMCS, then enabled WHMCS modules */
     public function all(): Collection
     {
         return collect(config('provisioning.modules', []))
             ->map(fn (string $class) => app($class))
+            ->merge(app(ConvertedModules::class)->modules())
+            ->merge(app(WhmcsModules::class)->modules())
             ->keyBy(fn (ProvisioningModule $module) => $module->key());
     }
 
