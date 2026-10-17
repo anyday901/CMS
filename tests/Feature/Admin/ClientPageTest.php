@@ -17,6 +17,8 @@ class ClientPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PAST = '2026-01-01';
+
     private const HIDDEN_NOTES = 'id="section-notes" data-section="notes" hidden';
 
     private Client $client;
@@ -30,10 +32,10 @@ class ClientPageTest extends TestCase
 
     public function test_the_tiles_add_up_what_the_client_owes_and_has_open(): void
     {
-        $overdue = $this->invoice(2500, '2026-01-01');
+        $overdue = $this->invoice(2500, self::PAST);
         $overdue->transactions()->create(['client_id' => $this->client->id, 'gateway' => 'manual', 'currency' => 'USD', 'amount' => 1000]);
         $this->invoice(1500, today()->addWeek()->toDateString());
-        $this->invoice(9900, '2026-01-01', InvoiceStatus::Paid);
+        $this->invoice(9900, self::PAST, InvoiceStatus::Paid);
         Service::factory()->for($this->client)->create();
         app(TicketDesk::class)->open($this->client, Department::create(['name' => 'Support']), 'Site is down', 'Help');
 
@@ -61,7 +63,7 @@ class ClientPageTest extends TestCase
 
     private function invoice(int $amount, string $due, InvoiceStatus $status = InvoiceStatus::Unpaid): Invoice
     {
-        $invoice = Invoice::create(['client_id' => $this->client->id, 'status' => $status, 'currency' => 'USD', 'issue_date' => '2026-01-01', 'due_date' => $due]);
+        $invoice = Invoice::create(['client_id' => $this->client->id, 'status' => $status, 'currency' => 'USD', 'issue_date' => self::PAST, 'due_date' => $due]);
         $invoice->items()->create(['description' => 'Hosting', 'amount' => $amount]);
 
         return $invoice->recalculate();
