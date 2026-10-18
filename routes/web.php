@@ -579,4 +579,11 @@ Route::prefix('admin/settings')->name('admin.system.')->middleware(['auth:web', 
         Route::get('php', 'php')->name('php');
     });
 
+// System cleanup: delete old logs and ticket attachments, under Settings > System. Kept outside the admin group above; same checks as backups.
+Route::prefix('admin/settings/cleanup')->name('admin.cleanup.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-system'])
+    ->controller(Admin\CleanupController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::delete('/', 'run')->middleware('throttle:10,1')->name('run');
+    });
+
 require __DIR__.'/platform.php';

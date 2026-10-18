@@ -5,6 +5,7 @@
         'admin.backups.index' => 'Backups',
         'admin.system.logs.index' => 'Logs',
         'admin.system.php' => 'PHP info',
+        'admin.cleanup.show' => 'Cleanup',
         'admin.updates.index' => 'Updates',
         'admin.marketplace.index' => 'Marketplace',
         'admin.whmcs-modules.index' => 'WHMCS modules',

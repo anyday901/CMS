@@ -226,6 +226,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Maintenance mode and system health page
 - [x] Database backups from the admin area
 - [x] Log viewer (Settings > Logs, with level filter, search and download) and a PHP info page
+- [x] System cleanup: delete old logs and ticket attachments by date, from the admin area or `system:cleanup`
 - [x] Documentation site, module developer guide and demo instance
 - [x] Module and theme marketplace
 - [ ] Publish the docs site and marketplace registry (turn on GitHub Pages and set DOCS_DEPLOY=true; see docs/release.md)

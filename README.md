@@ -21,7 +21,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - An importer for existing WHMCS installs
 - The portal and client emails in several languages (English, German, French and Spanish ship), with staff able to change any wording
 - Portal themes, template overrides and white-label settings (logo, colours, company details), and SMTP and other mail settings in the admin area
-- A web installer, one-click updates, database backups, maintenance mode, a system health page, a log viewer and PHP info
+- A web installer, one-click updates, database backups, a system cleanup tool, maintenance mode, a system health page, a log viewer and PHP info
 - A marketplace of add-ons and themes, a documentation site with a module developer guide, and a demo mode for a public demo instance
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -326,7 +326,7 @@ Turn on the affiliate program under **Settings > Affiliates**. Clients get a ref
 
 **Settings > Mail** sets how email is sent (SMTP with server, port, security and login, Sendmail, or log only) and who it comes from, replacing the `MAIL_*` settings in `.env`. The SMTP password is stored encrypted. **Send a test email** checks the settings straight away. See [docs/admin/mail.md](docs/admin/mail.md).
 
-### System: health, maintenance, backups, logs and updates
+### System: health, maintenance, backups, cleanup, logs and updates
 
 Staff with the system ability (admins) get:
 
@@ -334,6 +334,7 @@ Staff with the system ability (admins) get:
 - **Settings > Maintenance**: takes the portal, store and public pages offline with a message, while staff keep working (and see the site).
 - **Settings > Backups**: database backups (MySQL, MariaDB or SQLite, as gzipped SQL, without `mysqldump`) on demand or every day or week, kept for a set number and optionally copied to another disk such as S3. `php artisan backup:run` and `php artisan backup:restore` do the same from the command line.
 - **Settings > Logs**: the Laravel log files in `storage/logs`, newest entries first, with a level filter, a search and a download, plus links to the activity, email and gateway logs. **Settings > PHP info** shows the PHP version, limits and extensions, and `phpinfo()` without the environment variables.
+- **Settings > Cleanup**: counts and deletes ticket attachments and log entries (email, activity, gateway, logins, ticket email, webhooks, texts, task runs, failed jobs) made before a date, never financial records. `php artisan system:cleanup` does the same from the command line.
 - **Settings > Updates**: checks GitHub releases, shows the notes and installs an update with one click, with a checksum check, a database and file backup and automatic rollback. `php artisan cms:update` does it from the command line. Git checkouts and Docker images are updated as before.
 
 See [docs/admin/system.md](docs/admin/system.md).
