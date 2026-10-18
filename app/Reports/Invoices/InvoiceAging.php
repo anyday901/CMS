@@ -3,6 +3,7 @@
 namespace App\Reports\Invoices;
 
 use App\Enums\InvoiceStatus;
+use App\Models\InvoiceItem;
 use App\Reports\Report;
 use App\Reports\ReportFilters;
 use App\Reports\ReportRegistry;
@@ -47,7 +48,7 @@ class InvoiceAging extends Report
         $today = CarbonImmutable::today();
         $paid = DB::table('transactions')->select('invoice_id', DB::raw('SUM(amount) as paid'))->whereNotNull('invoice_id')->groupBy('invoice_id');
         // Credit notes take their amount off what's owed, as their refunds take it off what's paid.
-        $credited = DB::table('credit_notes')->select('invoice_id', DB::raw('SUM(total) as credited'))->groupBy('invoice_id');
+        $credited = DB::table('credit_notes')->select('invoice_id', DB::raw('SUM(total) as credited'))->whereNull('voided_at')->groupBy('invoice_id');
 
         $invoices = DB::table('invoices')
             ->join('clients', 'clients.id', '=', 'invoices.client_id')
@@ -55,6 +56,8 @@ class InvoiceAging extends Report
             ->leftJoinSub($credited, 'credited', 'credited.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', InvoiceStatus::Unpaid->value)
             ->where('invoices.currency', $filters->currency)
+            // Add funds and mass payment invoices aren't owed: their originals are, or nothing is.
+            ->whereNotExists(fn ($items) => $items->from('invoice_items')->whereColumn('invoice_items.invoice_id', 'invoices.id')->whereIn('invoice_items.type', InvoiceItem::FUNDS_TYPES))
             ->orderBy('invoices.id')
             ->get(['invoices.client_id', 'invoices.due_date', 'invoices.total', 'paid.paid', 'credited.credited', 'clients.first_name', 'clients.last_name', 'clients.company']);
 

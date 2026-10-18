@@ -171,7 +171,7 @@ class Invoice extends Model
 
     public function creditNotes(): HasMany
     {
-        return $this->hasMany(CreditNote::class);
+        return $this->hasMany(CreditNote::class)->whereNull('voided_at');
     }
 
     /** The total of the credit notes issued against this invoice. */

@@ -10,6 +10,7 @@ use App\Enums\ServiceStatus;
 use App\Enums\StaffRole;
 use App\Models\BillableItem;
 use App\Models\Client;
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Service;
@@ -165,5 +166,15 @@ class InvoiceMergeTest extends TestCase
         $this->assertSame($first->id, $item->refresh()->invoice_id);
         $this->assertTrue($item->isInvoiced());
         $this->assertSame($item->id, $first->items()->where('type', InvoiceItem::TYPE_BILLABLE)->sole()->billable_item_id);
+    }
+
+    public function test_invoices_with_a_credit_note_cannot_be_merged(): void
+    {
+        $first = $this->invoice([[1000, true]]);
+        $second = $this->invoice([[2000, true]]);
+        CreditNote::create(['number' => 'CN-1', 'client_id' => $this->client->id, 'invoice_id' => $second->id, 'currency' => 'USD', 'total' => 500, 'reason' => 'Outage', 'refund_mode' => 'credit']);
+
+        $this->expectExceptionMessage('Invoices with a credit note can\'t be merged.');
+        app(InvoiceMerger::class)->merge([$first->id, $second->id]);
     }
 }

@@ -32,6 +32,8 @@ return new class extends Migration
             // credit (to the client's credit balance), gateway or manual
             $table->string('refund_mode');
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            // Set when its gateway refund failed after being accepted, so it no longer counts.
+            $table->timestamp('voided_at')->nullable();
             $table->timestamps();
         });
 

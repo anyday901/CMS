@@ -5,6 +5,7 @@ namespace App\Reports\Invoices;
 use App\Billing\CreditApplier;
 use App\Enums\InvoiceStatus;
 use App\Models\Client;
+use App\Models\InvoiceItem;
 use App\Reports\Report;
 use App\Reports\ReportFilters;
 use App\Reports\ReportRegistry;
@@ -61,11 +62,16 @@ class ClientStatement extends Report
 
         $start = $filters->from->startOfDay();
         $billed = array_map(fn (InvoiceStatus $status) => $status->value, self::BILLED);
-        $invoices = DB::table('invoices')->where('client_id', $client->id)->whereIn('status', $billed);
+        $invoices = DB::table('invoices')->where('client_id', $client->id)->whereIn('status', $billed)
+            // An unpaid add funds or mass payment invoice isn't owed: its originals are, or nothing is.
+            ->whereNot(fn ($unpaidFunds) => $unpaidFunds->where('status', InvoiceStatus::Unpaid->value)
+                ->whereExists(fn ($items) => $items->from('invoice_items')->whereColumn('invoice_items.invoice_id', 'invoices.id')->whereIn('invoice_items.type', InvoiceItem::FUNDS_TYPES)));
         $payments = DB::table('transactions')->where('client_id', $client->id)->where('pending', false);
+        $creditNotes = DB::table('credit_notes')->where('client_id', $client->id)->whereNull('voided_at');
 
         $opening = (int) (clone $invoices)->where('issue_date', '<', $start->toDateString())->sum('total')
-            - (int) (clone $payments)->where('created_at', '<', $start)->sum('amount');
+            - (int) (clone $payments)->where('created_at', '<', $start)->sum('amount')
+            - (int) (clone $creditNotes)->where('created_at', '<', $start)->sum('total');
 
         $lines = collect();
         foreach ((clone $invoices)->whereBetween('issue_date', [$start->toDateString(), $filters->to->toDateString()])->get() as $invoice) {
@@ -75,6 +81,12 @@ class ClientStatement extends Report
         $numbers = DB::table('invoices')->whereIn('id', $paid->pluck('invoice_id')->filter())->pluck('number', 'id');
         foreach ($paid as $payment) {
             $lines->push($this->paymentLine($payment, $numbers));
+        }
+        // A credit note takes its amount off what was charged; its refund shows as its own line.
+        $credited = (clone $creditNotes)->whereBetween('created_at', $filters->between())->get();
+        $creditedOn = DB::table('invoices')->whereIn('id', $credited->pluck('invoice_id'))->pluck('number', 'id');
+        foreach ($credited as $note) {
+            $lines->push($this->creditNoteLine($note, $creditedOn));
         }
 
         $table = new ReportTable([
@@ -118,6 +130,24 @@ class ClientStatement extends Report
             'debit' => (int) $invoice->total,
             'credit' => 0,
             '_links' => ['reference' => route('admin.invoices.show', $invoice->id)],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, string>  $numbers  invoice id => invoice number
+     * @return array<string, mixed>
+     */
+    private function creditNoteLine(object $note, Collection $numbers): array
+    {
+        return [
+            'at' => (string) $note->created_at,
+            'date' => substr((string) $note->created_at, 0, 10),
+            'type' => 'Credit note',
+            'reference' => '#'.($numbers[$note->invoice_id] ?? $note->invoice_id),
+            'description' => "{$note->number}: {$note->reason}",
+            'debit' => 0,
+            'credit' => (int) $note->total,
+            '_links' => ['reference' => route('admin.invoices.show', $note->invoice_id)],
         ];
     }
 

@@ -8,8 +8,10 @@ use App\Enums\StaffRole;
 use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\CreditEntry;
+use App\Models\CreditNote;
 use App\Models\Department;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Promotion;
@@ -258,5 +260,22 @@ class ReportsTest extends TestCase
 
         $this->assertStringContainsString("'=HYPERLINK", $csv);
         $this->assertStringNotContainsString(',=HYPERLINK', $csv);
+    }
+
+    public function test_aging_and_statements_leave_out_unpaid_funds_invoices_and_count_credit_notes(): void
+    {
+        $service = Service::factory()->create(['client_id' => $this->client->id, 'product_id' => $this->product->id]);
+        $paid = $this->paidInvoice($service, 1000, '2026-02-01 09:00:00');
+        $refund = Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $paid->id, 'gateway' => 'credit', 'currency' => 'USD', 'amount' => -200]);
+        $refund->forceFill(['created_at' => '2026-03-01 09:00:00'])->save();
+        $note = CreditNote::create(['number' => 'CN-7', 'client_id' => $this->client->id, 'invoice_id' => $paid->id, 'currency' => 'USD', 'total' => 200, 'reason' => 'Outage', 'refund_mode' => 'credit']);
+        $note->forceFill(['created_at' => '2026-03-01 09:00:00'])->save();
+        $funds = $this->invoice(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => '2026-04-01', 'due_date' => '2026-04-01', 'status' => 'unpaid', 'total' => 5000]);
+        $funds->items()->create(['type' => InvoiceItem::TYPE_ADD_FUNDS, 'description' => 'Add funds', 'amount' => 5000]);
+
+        $this->assertStringNotContainsString('Ada Lovelace', $this->get('/admin/reports/invoice-aging/export')->streamedContent());
+        $this->get('/admin/reports/client-statement?from=2026-01-01&to=2026-10-15&client='.$this->client->email)->assertOk()
+            ->assertSeeInOrder(['Refund', '$2.00', 'Credit note', 'CN-7: Outage', '$2.00', '$0.00'])
+            ->assertDontSee('$50.00');
     }
 }

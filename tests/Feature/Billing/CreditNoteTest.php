@@ -6,6 +6,7 @@ use App\Billing\AddFunds;
 use App\Billing\CreditNoteIssuer;
 use App\Billing\InvoiceCanceller;
 use App\Billing\PaymentRecorder;
+use App\Billing\RefundReconciler;
 use App\Clients\ClientMerger;
 use App\Enums\InvoiceStatus;
 use App\Enums\StaffRole;
@@ -286,5 +287,26 @@ class CreditNoteTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         app(CreditNoteIssuer::class)->issue($invoice->refresh(), $this->allLines($invoice), self::REASON, CreditNote::MODES[0]);
+    }
+
+    public function test_a_credit_note_whose_pending_refund_fails_is_voided(): void
+    {
+        config(['payments.paypal' => ['mode' => 'sandbox', 'client_id' => 'id', 'secret' => 'secret', 'webhook_id' => null, 'venmo' => true]]);
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response(['access_token' => 'tok']),
+            'api-m.sandbox.paypal.com/v2/payments/captures/CAP1/refund' => Http::response(['id' => 'REF1', 'status' => 'PENDING'], 201),
+            'api-m.sandbox.paypal.com/v2/payments/refunds/REF1' => Http::response(['id' => 'REF1', 'status' => 'FAILED']),
+        ]);
+        $invoice = $this->paid('paypal', 'CAP1');
+        $note = app(CreditNoteIssuer::class)->issue($invoice, $this->allLines($invoice), self::REASON, 'gateway', $invoice->transactions()->first());
+        $this->assertSame([], array_filter(CreditNoteIssuer::creditableLines($invoice)));
+
+        app(RefundReconciler::class)->run();
+
+        // The client got nothing back, so the credit note no longer counts and a new one can be issued.
+        $this->assertTrue($note->refresh()->isVoided());
+        $this->assertSame(0, $invoice->refresh()->creditNotes()->count());
+        $this->assertSame($this->allLines($invoice), CreditNoteIssuer::creditableLines($invoice));
+        $this->assertTrue(Activity::where('description', 'Voided credit note CN-1 because its gateway refund failed')->exists());
     }
 }

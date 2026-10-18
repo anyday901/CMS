@@ -114,6 +114,7 @@ class CreditNoteIssuer
     public static function creditableLines(Invoice $invoice): array
     {
         $credited = CreditNoteItem::whereIn('invoice_item_id', $invoice->items()->select('id'))
+            ->whereHas('creditNote', fn ($note) => $note->whereNull('voided_at'))
             ->groupBy('invoice_item_id')
             ->selectRaw('invoice_item_id, sum(amount) as credited')
             ->pluck('credited', 'invoice_item_id');

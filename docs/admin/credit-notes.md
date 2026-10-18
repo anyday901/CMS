@@ -43,6 +43,10 @@ Each credit note is written to the activity log ("Issued credit note CN-1 for $2
 
 Credit notes are numbered from their own sequence, in the order they're issued. Change the format (`CN-{NUMBER}` by default, with the same `{YEAR}`, `{MONTH}`, `{DAY}` and `{NUMBER}` placeholders as invoices) and the next number under **Settings > Invoice numbering**, or set `BILLING_CREDIT_NOTE_NUMBER_FORMAT` in `.env`. See [Invoice numbering](invoice-numbering.md).
 
+## When a gateway refund fails
+
+Some gateways accept a refund and settle it later. If the nightly billing run finds that such a refund failed, the payment stands again and the credit note is marked **voided**: it no longer counts against the invoice, and you can issue a new one. Invoices with a credit note can't be merged into another invoice.
+
 ## Not included yet
 
 Credit notes don't send an email, can't be edited or deleted once issued, and aren't yet in the REST API, webhooks or the tax report.

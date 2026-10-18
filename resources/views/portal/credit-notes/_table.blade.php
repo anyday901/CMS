@@ -7,7 +7,7 @@
         <tbody class="divide-y divide-ink-100">
             @foreach ($creditNotes as $note)
                 <tr>
-                    <td class="whitespace-nowrap px-4 py-2"><a href="{{ route('portal.credit-notes.pdf', $note) }}" class="text-brand-600">{{ $note->number }}</a></td>
+                    <td class="whitespace-nowrap px-4 py-2"><a href="{{ route('portal.credit-notes.pdf', $note) }}" class="text-brand-600">{{ $note->number }}</a>@if ($note->isVoided()) <span class="text-ink-500">{{ __('Voided') }}</span>@endif</td>
                     <td class="whitespace-nowrap px-4 py-2">{{ $note->created_at->translatedFormat('M j, Y') }}</td>
                     @unless ($hideInvoice ?? false)<td class="px-4 py-2"><a href="{{ route('portal.invoices.show', $note->invoice) }}" class="text-brand-600">#{{ $note->invoice->number }}</a></td>@endunless
                     <td class="px-4 py-2">{{ $note->reason }}</td>

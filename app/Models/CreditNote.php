@@ -31,6 +31,7 @@ class CreditNote extends Model
             'tax' => 'integer',
             'tax_rate' => 'integer',
             'total' => 'integer',
+            'voided_at' => 'datetime',
         ];
     }
 
@@ -59,6 +60,12 @@ class CreditNote extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /** Whether its refund failed at the gateway, so it no longer counts. */
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
     }
 
     /** "Sales tax (8.25%)" */

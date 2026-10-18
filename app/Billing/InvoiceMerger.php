@@ -101,6 +101,8 @@ class InvoiceMerger
             // One invoice has one tax rate, so merging different ones would change the tax owed.
             $invoices->contains(fn (Invoice $invoice) => $invoice->tax_rate !== $first->tax_rate || $invoice->tax_inclusive !== $first->tax_inclusive || $invoice->tax_name !== $first->tax_name) => 'These invoices have different tax rates, so they can\'t be merged.',
             $invoices->contains(fn (Invoice $invoice) => $invoice->isAddFunds() || $invoice->isMassPayment()) => 'Add funds and mass payment invoices can\'t be merged.',
+            // Its lines would move without what was credited on them.
+            $invoices->contains(fn (Invoice $invoice) => $invoice->creditNotes()->exists()) => 'Invoices with a credit note can\'t be merged.',
             default => null,
         };
 

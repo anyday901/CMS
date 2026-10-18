@@ -4,6 +4,7 @@ namespace App\Billing;
 
 use App\Enums\InvoiceStatus;
 use App\Models\Activity;
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Payments\GatewayRefund;
@@ -78,6 +79,12 @@ class RefundReconciler
         DB::transaction(function () use ($refund) {
             $invoice = $refund->invoice_id ? Invoice::lockForUpdate()->find($refund->invoice_id) : null;
             $refund->delete();
+
+            // The credit note it paid back no longer stands; staff can issue a new one.
+            if ($refund->credit_note_id && $note = CreditNote::find($refund->credit_note_id)) {
+                $note->forceFill(['voided_at' => now()])->save();
+                Activity::record("Voided credit note {$note->number} because its gateway refund failed", $invoice, [], $refund->client);
+            }
             Activity::record(
                 'Gateway refund of '.Money::format(-$refund->amount, $refund->currency).' failed, so the payment stands again',
                 Transaction::find($refund->refund_of_id),
