@@ -95,6 +95,11 @@ class Client extends Authenticatable
         return $this->hasMany(Quote::class);
     }
 
+    public function billableItems(): HasMany
+    {
+        return $this->hasMany(BillableItem::class);
+    }
+
     public function creditEntries(): HasMany
     {
         return $this->hasMany(CreditEntry::class);

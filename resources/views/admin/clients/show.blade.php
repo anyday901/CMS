@@ -236,6 +236,10 @@
             @endif
         </section>
 
+        <section {!! $panel('billable-items') !!}>
+            @include('admin.clients._billable_items')
+        </section>
+
         <section {!! $panel('quotes') !!}>
             <div class="mb-3 flex items-center gap-3">
                 <h2 class="text-lg font-semibold">Quotes</h2>

@@ -22,6 +22,7 @@ class IncomeByProduct extends Report
         InvoiceItem::TYPE_PROMOTION => 'Promotion discounts',
         InvoiceItem::TYPE_UPGRADE => 'Upgrades',
         InvoiceItem::TYPE_OVERAGE => 'Usage overages',
+        InvoiceItem::TYPE_BILLABLE => 'Billable items',
     ];
 
     public function key(): string
