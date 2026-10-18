@@ -38,7 +38,13 @@
             @if ($autoChargeCard)
                 <p class="mb-4 text-ink-600">{{ __(':method will be charged automatically when this invoice is due, unless you pay it first.', ['method' => $autoChargeCard->label()]) }} <a href="{{ route('portal.payment-methods.index') }}" class="text-brand-600">{{ __('Payment methods') }}</a></p>
             @endif
-            @if ($client->credit_balance > 0 && $client->currency === $invoice->currency)
+            @if ($addingFunds)
+                <p class="mb-4 text-ink-600">{{ __('Once this invoice is paid, the amount is added to your account credit.') }}</p>
+            @endif
+            @if ($massPayment)
+                <p class="mb-4 text-ink-600">{!! __('This invoice is also on :invoice, which pays it together with others. Pay either one.', ['invoice' => '<a href="'.e(route('portal.invoices.show', $massPayment)).'" class="text-brand-600">'.e(__('invoice #:number', ['number' => $massPayment->number])).'</a>']) !!}</p>
+            @endif
+            @if ($client->credit_balance > 0 && $client->currency === $invoice->currency && ! $addingFunds)
                 <form method="POST" action="{{ route('portal.invoices.credit', $invoice) }}" class="mb-4">
                     @csrf
                     <button class="rounded-md px-4 py-2 font-medium ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Use my :amount account credit', ['amount' => Money::format(min($client->credit_balance, $invoice->balance()), $invoice->currency)]) }}</button>

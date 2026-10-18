@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Addons\AddonManager;
 use App\Affiliates\AffiliateHooks;
+use App\Billing\MassPayment;
 use App\Billing\SavedMethodCharger;
 use App\Billing\ServiceUpgrader;
 use App\Console\RecordsScheduledTasks;
@@ -116,6 +117,9 @@ class AppServiceProvider extends ServiceProvider
             ServiceUpgrade::where('invoice_id', $e->invoice->id)->where('status', ServiceUpgrade::PENDING)->get()
                 ->each(fn (ServiceUpgrade $upgrade) => app(ServiceUpgrader::class)->apply($upgrade));
         });
+
+        // A paid mass payment's credit pays the invoices it covers.
+        Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(MassPayment::class)->paid($e->invoice));
 
         // Paying a domain line registers, transfers or renews the domain.
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(DomainRenewals::class)->paid($e->invoice));

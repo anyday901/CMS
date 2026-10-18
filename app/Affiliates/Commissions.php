@@ -75,6 +75,8 @@ class Commissions
 
         return $affiliate !== null && $affiliate->isActive() && $affiliate->client_id !== $invoice->client_id
             && ! AffiliateCommission::where('invoice_id', $invoice->id)->exists()
+            // Their money only goes into credit; commission comes when that pays an invoice.
+            && ! $invoice->isAddFunds() && ! $invoice->isMassPayment()
             && $this->withinLimits($referral, $invoice);
     }
 

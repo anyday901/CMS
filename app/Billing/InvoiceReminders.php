@@ -28,7 +28,8 @@ class InvoiceReminders
 
         $sent = 0;
 
-        Invoice::where('status', InvoiceStatus::Unpaid)
+        // A mass payment's invoices get their own reminders.
+        Invoice::where('status', InvoiceStatus::Unpaid)->withoutFunds()
             ->whereDate('due_date', '<=', $today->copy()->subDays($days->first()))
             ->with('client')
             ->chunkById(200, function ($invoices) use ($today, $days, &$sent) {

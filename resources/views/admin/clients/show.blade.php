@@ -232,7 +232,11 @@
             @if ($client->invoices->isEmpty())
                 <p class="text-sm text-ink-500">No invoices yet.</p>
             @else
-                @include('admin.invoices._table', ['invoices' => $client->invoices->each->setRelation('client', $client)])
+                @php $mergeable = auth()->user()->can('manage-billing') && $client->invoices->where('status', App\Enums\InvoiceStatus::Unpaid)->reject->is_funds->count() >= 2; @endphp
+                @if ($mergeable)
+                    @include('admin.invoices._merge-form')
+                @endif
+                @include('admin.invoices._table', ['invoices' => $client->invoices->each->setRelation('client', $client), 'mergeable' => $mergeable])
             @endif
         </section>
 

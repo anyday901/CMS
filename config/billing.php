@@ -71,4 +71,19 @@ return [
     // staff accept the order in the pending orders queue. Can also be set
     // on the admin Settings page.
     'hold_new_orders' => (bool) env('BILLING_HOLD_NEW_ORDERS', false),
+
+    // Let clients prepay into their credit balance from the portal, paying
+    // an add funds invoice. Amounts are in the default currency (converted
+    // for clients in others); blank means no limit. Can also be set on the
+    // admin Settings page.
+    'add_funds' => [
+        'enabled' => (bool) env('BILLING_ADD_FUNDS', false),
+        'minimum' => env('BILLING_ADD_FUNDS_MINIMUM', '10.00'),
+        'maximum' => env('BILLING_ADD_FUNDS_MAXIMUM', '500.00'),
+        'maximum_balance' => env('BILLING_ADD_FUNDS_MAXIMUM_BALANCE', '1000.00'),
+    ],
+
+    // Let clients tick several unpaid invoices in the portal and pay them
+    // together on one mass payment invoice.
+    'mass_pay' => (bool) env('BILLING_MASS_PAY', true),
 ];

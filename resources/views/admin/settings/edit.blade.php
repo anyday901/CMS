@@ -73,6 +73,28 @@
             </label>
         </fieldset>
 
+        <fieldset id="add-funds" class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Add funds and mass payment</legend>
+            <input type="hidden" name="add_funds_enabled" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="add_funds_enabled" value="1" class="mt-1" @checked(old('add_funds_enabled', $addFunds['enabled']))>
+                <span>Let clients add funds. They prepay into their account credit from the portal by paying an add funds invoice, through any payment gateway.</span>
+            </label>
+            <div class="flex flex-wrap gap-3">
+                @foreach (['minimum' => 'Least per payment', 'maximum' => 'Most per payment', 'maximum_balance' => 'Most credit balance'] as $key => $label)
+                    <label class="block">{{ $label }}
+                        <input type="text" name="add_funds_{{ $key }}" value="{{ old('add_funds_'.$key, $addFunds[$key]) }}" inputmode="decimal" maxlength="20" class="mt-1 block w-32 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    </label>
+                @endforeach
+            </div>
+            <span class="block text-ink-500">In {{ App\Models\Currency::defaultCode() }}, converted for clients in other currencies. Leave the most per payment or most credit balance blank for no limit; the balance limit counts unpaid add funds invoices too.</span>
+            <input type="hidden" name="mass_pay" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="mass_pay" value="1" class="mt-1" @checked(old('mass_pay', $massPay))>
+                <span>Let clients tick several unpaid invoices in the portal and pay them together, on one mass payment invoice.</span>
+            </label>
+        </fieldset>
+
         <fieldset id="offline-payments" class="space-y-3">
             <legend class="mb-1 text-base font-semibold">Bank transfer and mail-in payments</legend>
             <p class="text-ink-600">Each one shows on unpaid invoices in the portal and on invoice PDFs once it has instructions. Clients are asked to use the invoice number as the reference, and you record the payment on the invoice when it arrives.</p>

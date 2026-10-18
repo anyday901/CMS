@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InvoiceStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -121,6 +122,27 @@ class Invoice extends Model
     public function isEditable(): bool
     {
         return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+    }
+
+    /**
+     * Leaves out add funds and mass payment invoices. Their money only goes
+     * into credit, so they are not chased, charged or counted as owed.
+     */
+    public function scopeWithoutFunds(Builder $query): void
+    {
+        $query->whereDoesntHave('items', fn (Builder $items) => $items->whereIn('type', InvoiceItem::FUNDS_TYPES));
+    }
+
+    /** An add funds invoice: paying it adds to the client's credit balance. */
+    public function isAddFunds(): bool
+    {
+        return $this->items()->where('type', InvoiceItem::TYPE_ADD_FUNDS)->exists();
+    }
+
+    /** A mass payment invoice: paying it pays the invoices on its lines. */
+    public function isMassPayment(): bool
+    {
+        return $this->items()->where('type', InvoiceItem::TYPE_MASS_PAY)->exists();
     }
 
     public function amountPaid(): int
