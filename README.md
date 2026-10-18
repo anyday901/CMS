@@ -111,6 +111,7 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Free trials**: set **Free trial days** on the product form. A client's first service of that product on a recurring cycle is free for that many days: the order invoice shows the trial at no charge (plus any setup fee), the service starts at once, and the first renewal invoice comes when the trial ends. A client who has had the product before pays from the start. Upgrades and downgrades open once the trial is over.
 - **Stock control**: tick **Count stock** on the product form and set how many are in stock. Each store order takes one per service, the store shows the product as out of stock at none, and the cart and checkout stop orders for more than is left. Cancelling an order or marking it as fraud puts its stock back.
 - **Orders**: every checkout is saved as an order. **Orders** in the admin area lists them by status and finds them by order number or the client's name, company or email; a client's page shows their latest orders.
+- **Terms of service**: set **Terms of service link** under **Settings > Orders** (or `STORE_TERMS_URL`) and checkout asks clients to tick a box agreeing to it before the order is placed, and before a new client's account is made. The order page shows that they agreed.
 - **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
 
 ## Domains
@@ -162,6 +163,10 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=...
 With the webhook, refunds issued from the Square dashboard are recorded on the invoice, pending refunds are confirmed or undone as soon as Square knows, and disputed payments are flagged on the admin invoice page. A lost or accepted dispute is recorded as a refund of the disputed amount.
 
 Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
+
+### Bank transfer and mail-in payments
+
+Write your bank details, or where to post a cheque, under **Settings > Bank transfer and mail-in payments** (or set `PAYMENTS_BANK_TRANSFER_INSTRUCTIONS` and `PAYMENTS_MAIL_IN_INSTRUCTIONS`). Each one with instructions shows on unpaid invoices in the portal and on invoice PDFs, asking the client to use the invoice number as the reference. Record the payment with **Record payment** on the invoice (method **Bank transfer** or **Mail-in payment**) when it arrives; that marks the invoice paid and starts its services as usual.
 
 ## Look and feel
 

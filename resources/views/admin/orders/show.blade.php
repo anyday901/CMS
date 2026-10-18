@@ -10,7 +10,8 @@
         <div><div class="text-ink-500">Client</div><a href="{{ route('admin.clients.show', $order->client) }}" class="text-brand-600">{{ $order->client->fullName() }}</a>
             <div class="text-ink-500">{{ $order->client->email }}</div></div>
         <div><div class="text-ink-500">Placed</div>{{ $order->created_at->format('M j, Y g:ia') }}
-            @if ($order->ip_address)<div class="text-ink-500">from {{ $order->ip_address }}</div>@endif</div>
+            @if ($order->ip_address)<div class="text-ink-500">from {{ $order->ip_address }}</div>@endif
+            @if ($order->terms_accepted_at)<div class="text-ink-500">Agreed to the terms of service</div>@endif</div>
         <div><div class="text-ink-500">Invoice</div>
             @if ($order->invoice)
                 <a href="{{ route('admin.invoices.show', $order->invoice) }}" class="text-brand-600">#{{ $order->invoice->number }}</a>

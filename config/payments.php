@@ -1,6 +1,8 @@
 <?php
 
+use App\Payments\Gateways\BankTransfer;
 use App\Payments\Gateways\CashAppPay;
+use App\Payments\Gateways\MailIn;
 use App\Payments\Gateways\PayPal;
 
 return [
@@ -9,6 +11,8 @@ return [
     'gateways' => [
         PayPal::class,
         CashAppPay::class,
+        BankTransfer::class,
+        MailIn::class,
     ],
 
     'paypal' => [
@@ -34,5 +38,17 @@ return [
         // The exact notification URL entered in Square. Defaults to this
         // app's /webhooks/square; set it if the app sits behind a proxy.
         'webhook_url' => env('SQUARE_WEBHOOK_URL'),
+    ],
+
+    // Pay outside the app. Each shows on unpaid invoices (and their PDFs)
+    // once it has instructions, such as your bank details or the address to
+    // post a cheque to; staff record the payment when it arrives. Can also be
+    // set on the admin Settings page.
+    'bank_transfer' => [
+        'instructions' => env('PAYMENTS_BANK_TRANSFER_INSTRUCTIONS'),
+    ],
+
+    'mail_in' => [
+        'instructions' => env('PAYMENTS_MAIL_IN_INSTRUCTIONS'),
     ],
 ];

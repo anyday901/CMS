@@ -57,6 +57,22 @@
                 <input type="checkbox" name="hold_new_orders" value="1" class="mt-1" @checked(old('hold_new_orders', $holdNewOrders))>
                 <span>Hold new orders for review. Services from the store stay pending, even once paid, until staff accept the order under <a href="{{ route('admin.orders.index') }}" class="text-brand-600">Orders</a>.</span>
             </label>
+            <label class="block">Terms of service link
+                <input type="url" name="terms_url" value="{{ old('terms_url', $termsUrl) }}" maxlength="255" placeholder="https://example.com/terms" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">When set, clients tick a box agreeing to your terms before they can place an order or accept a quote, and the order records when they did. Leave blank for no checkbox.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="offline-payments" class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Bank transfer and mail-in payments</legend>
+            <p class="text-ink-600">Each one shows on unpaid invoices in the portal and on invoice PDFs once it has instructions. Clients are asked to use the invoice number as the reference, and you record the payment on the invoice when it arrives.</p>
+            <label class="block">Bank transfer instructions
+                <textarea name="bank_transfer_instructions" rows="4" maxlength="5000" placeholder="Bank: Example Bank&#10;Account name: Example Hosting LLC&#10;Account number: 12345678&#10;Routing number: 021000021" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('bank_transfer_instructions', $bankTransferInstructions) }}</textarea>
+            </label>
+            <label class="block">Mail-in payment instructions
+                <textarea name="mail_in_instructions" rows="4" maxlength="5000" placeholder="Make cheques payable to Example Hosting LLC and post them to:&#10;1 Main Street, Springfield" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('mail_in_instructions', $mailInInstructions) }}</textarea>
+            </label>
+            <span class="block text-ink-500">Leave either blank to hide it.</span>
         </fieldset>
 
         <fieldset class="space-y-2">

@@ -72,7 +72,7 @@ class Checkout
      *
      * @throws InvalidArgumentException when the cart can't be ordered as it is.
      */
-    public function place(Cart $cart, Client $client, ?string $ip = null): array
+    public function place(Cart $cart, Client $client, ?string $ip = null, bool $acceptedTerms = false): array
     {
         ['lines' => $lines, 'errors' => $errors] = $this->resolve($cart, $client);
         ['domains' => $domains, 'errors' => $domainErrors] = $this->resolveDomains($cart, $client->currency);
@@ -85,7 +85,7 @@ class Checkout
             throw new InvalidArgumentException('Your cart is empty.');
         }
 
-        $result = DB::transaction(function () use ($cart, $client, $lines, $domains, $ip) {
+        $result = DB::transaction(function () use ($cart, $client, $lines, $domains, $ip, $acceptedTerms) {
             $promotion = null;
             if ($cart->promotionCode() !== null) {
                 // Locked so two checkouts can't both take the last use.
@@ -103,6 +103,7 @@ class Checkout
                 'promotion_id' => $promotion?->id,
                 'promotion_code' => $promotion?->code,
                 'ip_address' => $ip,
+                'terms_accepted_at' => $acceptedTerms ? now() : null,
             ]);
             $placed = $this->orders->place($client, $lines, today(), true, $promotion, $order, array_values($domains));
             Activity::record("Placed order #{$order->id}", $order, array_filter(['promotion_code' => $promotion?->code]));

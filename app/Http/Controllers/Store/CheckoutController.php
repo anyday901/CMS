@@ -67,15 +67,33 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->withErrors(['cart' => $problem]);
         }
 
+        $acceptedTerms = $this->checkTerms($request);
         $client ??= $this->signUp($request);
 
         try {
-            ['order' => $order] = $this->checkout->place($this->cart, $client, $request->ip());
+            ['order' => $order] = $this->checkout->place($this->cart, $client, $request->ip(), $acceptedTerms);
         } catch (InvalidArgumentException $e) {
             return redirect()->route('cart.index')->withErrors(['cart' => $e->getMessage()]);
         }
 
         return $this->placed($order);
+    }
+
+    /**
+     * Requires the terms of service box to be ticked when a terms link is set,
+     * before anyone is signed up. True when the client agreed to them.
+     */
+    private function checkTerms(Request $request): bool
+    {
+        if (blank(config('store.terms_url'))) {
+            return false;
+        }
+
+        $request->validate(['accept_terms' => ['accepted']], [
+            'accept_terms.accepted' => __('Please agree to the terms of service to place your order.'),
+        ]);
+
+        return true;
     }
 
     /** Sends the client to pay the order's invoice or, when nothing is due, to what is being set up. */

@@ -119,7 +119,7 @@
                 </label>
                 <label class="block">Method
                     <select name="method" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-                        @foreach (['paypal' => 'PayPal', 'venmo' => 'Venmo', 'cashapp' => 'Cash App', 'cash' => 'Cash', 'check' => 'Check', 'bank_transfer' => 'Bank transfer', 'other' => 'Other'] as $value => $label)
+                        @foreach (['paypal' => 'PayPal', 'venmo' => 'Venmo', 'cashapp' => 'Cash App', 'cash' => 'Cash', 'check' => 'Check', 'bank_transfer' => 'Bank transfer', 'mail_in' => 'Mail-in payment', 'other' => 'Other'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('method') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>

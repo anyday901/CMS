@@ -57,6 +57,10 @@
                 <span>{{ __('Email me news and special offers. You can unsubscribe at any time.') }}</span></label>
             <x-captcha form="register" />
         @endauth
+        @if (filled(config('store.terms_url')))
+            <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="accept_terms" value="1" required class="mt-1" @checked(old('accept_terms'))>
+                <span>{!! __('I have read and agree to the :terms.', ['terms' => '<a href="'.e(config('store.terms_url')).'" target="_blank" rel="noopener" class="text-brand-600">'.e(__('terms of service')).'</a>']) !!}</span></label>
+        @endif
         <button class="rounded-full bg-brand-600 px-5 py-2 font-medium text-white hover:bg-brand-500">{{ __('Place order') }}</button>
     </form>
 </x-portal-layout>

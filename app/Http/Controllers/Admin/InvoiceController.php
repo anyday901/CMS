@@ -113,7 +113,7 @@ class InvoiceController extends Controller
     {
         $data = $request->validate([
             'amount' => ['required', Money::rule()],
-            'method' => ['required', Rule::in(['cash', 'check', 'bank_transfer', 'paypal', 'venmo', 'cashapp', 'other'])],
+            'method' => ['required', Rule::in(['cash', 'check', 'bank_transfer', 'mail_in', 'paypal', 'venmo', 'cashapp', 'other'])],
             'reference' => ['nullable', 'string', 'max:255'],
         ]);
 
