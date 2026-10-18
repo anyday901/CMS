@@ -64,6 +64,16 @@ class SystemCleanup
         'task_runs' => [ScheduledTaskRun::class, 'started_at'],
     ];
 
+    /**
+     * Rows that are still waiting to go out: their jobs look them up to send
+     * them, so they're kept whatever their date.
+     */
+    private const WAITING = [
+        self::EMAILS => EmailLog::QUEUED,
+        'sms_log' => SmsLog::QUEUED,
+        'webhook_deliveries' => WebhookDelivery::PENDING,
+    ];
+
     /** How many attachment rows are read at a time when their files are deleted. */
     private const CHUNK = 500;
 
@@ -139,8 +149,9 @@ class SystemCleanup
         }
 
         [$model, $column] = self::MODELS[$target];
+        $query = $model::where($column, '<', $before);
 
-        return $model::where($column, '<', $before);
+        return isset(self::WAITING[$target]) ? $query->where('status', '!=', self::WAITING[$target]) : $query;
     }
 
     private function failedJobs(CarbonInterface $before): ?Builder

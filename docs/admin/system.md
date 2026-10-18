@@ -65,7 +65,7 @@ Logs and PHP info are off in demo mode.
 - login history and the ticket email log (piped and fetched email),
 - webhook deliveries, the text message log, scheduled task runs and failed queue jobs.
 
-Tick what to delete and press **Delete ticked**; it asks before deleting, and it can't be undone, so take a backup first if you might want something back. Invoices, payments, credit notes, credit and other financial records are never deleted. Each cleanup is written to the activity log with how many of each went.
+Tick what to delete and press **Delete ticked**; it asks before deleting, and it can't be undone, so take a backup first if you might want something back. Invoices, payments, credit notes, credit and other financial records are never deleted. Emails, texts and webhook deliveries still waiting to go out are kept whatever their date. Each cleanup is written to the activity log with how many of each went.
 
 Some of these are already trimmed every night: login history after the days set under **Security**, ticket email and texts after 90 days, webhook deliveries and task runs after 30 days, and the activity and gateway logs after **Activity log retention** on the main settings page, when that is set (`activity:prune` uses the same cleanup code).
 

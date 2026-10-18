@@ -64,11 +64,19 @@ class SystemCleanupCommand extends Command
         $days = (string) $this->option('days');
 
         $before = match (true) {
-            $date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1 => CarbonImmutable::createFromFormat('!Y-m-d', $date) ?: null,
+            $date !== '' => self::date($date),
             $days !== '' && ctype_digit($days) && (int) $days > 0 => CarbonImmutable::now()->subDays((int) $days),
             default => null,
         };
 
         return $before !== null && $before->lte(CarbonImmutable::today()) ? $before : null;
+    }
+
+    /** A real YYYY-MM-DD date, or null: PHP would read 2026-02-31 as March 3. */
+    private static function date(string $date): ?CarbonImmutable
+    {
+        $parsed = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1 ? CarbonImmutable::createFromFormat('!Y-m-d', $date) : null;
+
+        return $parsed instanceof CarbonImmutable && $parsed->format('Y-m-d') === $date ? $parsed : null;
     }
 }

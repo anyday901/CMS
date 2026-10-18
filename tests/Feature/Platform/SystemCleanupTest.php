@@ -15,6 +15,7 @@ use App\Models\TicketAttachment;
 use App\Models\Transaction;
 use App\Models\User;
 use App\System\SystemCleanup;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -121,7 +122,17 @@ class SystemCleanupTest extends TestCase
         $this->assertSame(1, Invoice::count());
 
         $this->artisan(self::COMMAND)->expectsOutputToContain('--days=N')->assertFailed();
+        $this->artisan(self::COMMAND, ['--before' => '2026-02-31', '--force' => true])->expectsOutputToContain('--days=N')->assertFailed();
         $this->artisan(self::COMMAND, ['--days' => 1, '--only' => ['invoices']])->expectsOutputToContain('Unknown cleanup target')->assertFailed();
+    }
+
+    public function test_emails_still_waiting_to_send_are_kept(): void
+    {
+        $queued = EmailLog::create(['to' => 'a@example.com', 'template' => 'invoice_created', 'subject' => 'Hi', 'body' => 'Hi', 'status' => EmailLog::QUEUED])->forceFill([self::MADE => self::OLD]);
+        $queued->save();
+
+        $this->assertSame([SystemCleanup::EMAILS => 0], app(SystemCleanup::class)->run(CarbonImmutable::parse(self::BEFORE), [SystemCleanup::EMAILS]));
+        $this->assertTrue($queued->exists());
     }
 
     private function seedData(): void
