@@ -32,7 +32,7 @@ final class ServerAccount
     {
         return function (string $attribute, mixed $value, Closure $fail) {
             if (! self::isDomain((string) $value)) {
-                $fail('Enter the domain name, such as example.com.');
+                $fail('Enter the domain name, such as example.com.')->translate();
             }
         };
     }

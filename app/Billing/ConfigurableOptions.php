@@ -48,7 +48,7 @@ class ConfigurableOptions
         };
 
         if ($option->type === ProductOption::DROPDOWN && $value !== '' && $choice === null) {
-            throw new InvalidArgumentException("Choose one of the listed values for {$option->name}.");
+            throw new InvalidArgumentException(__('Choose one of the listed values for :option.', ['option' => $option->name]));
         }
 
         if ($choice === null || $quantity === 0) {
@@ -63,15 +63,15 @@ class ConfigurableOptions
     private function quantity(ProductOption $option, string $value): int
     {
         if ($value !== '' && ! ctype_digit($value)) {
-            throw new InvalidArgumentException("{$option->name} must be a whole number.");
+            throw new InvalidArgumentException(__(':option must be a whole number.', ['option' => $option->name]));
         }
 
         $quantity = (int) $value;
 
         if ($quantity < $option->min_quantity || ($option->max_quantity !== null && $quantity > $option->max_quantity)) {
             throw new InvalidArgumentException($option->max_quantity !== null
-                ? "{$option->name} must be between {$option->min_quantity} and {$option->max_quantity}."
-                : "{$option->name} must be at least {$option->min_quantity}.");
+                ? __(':option must be between :min and :max.', ['option' => $option->name, 'min' => $option->min_quantity, 'max' => $option->max_quantity])
+                : __(':option must be at least :min.', ['option' => $option->name, 'min' => $option->min_quantity]));
         }
 
         return $quantity;
@@ -101,7 +101,7 @@ class ConfigurableOptions
         $unpriced = $selected->first(fn (ServiceOption $chosen) => ! $chosen->choice->pricedIn($currency));
 
         if ($unpriced !== null) {
-            throw new InvalidArgumentException("{$unpriced->option->name} has no prices in {$currency} yet.");
+            throw new InvalidArgumentException(__(':option has no prices in :currency yet.', ['option' => $unpriced->option->name, 'currency' => $currency]));
         }
     }
 

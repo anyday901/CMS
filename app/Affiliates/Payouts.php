@@ -28,7 +28,7 @@ class Payouts
             $affiliate = Affiliate::lockForUpdate()->findOrFail($affiliate->id);
 
             if (! $affiliate->isActive()) {
-                throw new InvalidArgumentException('Your affiliate account is turned off, so payouts can\'t be requested. Please contact us.');
+                throw new InvalidArgumentException(__("Your affiliate account is turned off, so payouts can't be requested. Please contact us."));
             }
 
             $commissions = $affiliate->commissions()->where('status', AffiliateCommission::APPROVED)->whereNull('payout_id')->where('currency', $currency);
@@ -36,7 +36,7 @@ class Payouts
             $minimum = $this->program->minimumPayout();
 
             if ($balance <= 0 || $balance < $minimum) {
-                throw new InvalidArgumentException('You can ask for a payout once your balance reaches '.Money::format($minimum, $currency).'.');
+                throw new InvalidArgumentException(__('You can ask for a payout once your balance reaches :amount.', ['amount' => Money::format($minimum, $currency)]));
             }
 
             $payout = AffiliatePayout::create(['affiliate_id' => $affiliate->id, 'amount' => $balance, 'currency' => $currency]);

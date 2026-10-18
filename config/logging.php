@@ -50,6 +50,21 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Log viewer
+    |--------------------------------------------------------------------------
+    |
+    | Settings > Logs lists the .log files in this folder. Only the last
+    | max_bytes of a file are read, so a huge log can't use up the memory.
+    |
+    */
+
+    'viewer' => [
+        'path' => storage_path('logs'),
+        'max_bytes' => 2 * 1024 * 1024,
+    ],
+
     'channels' => [
 
         'stack' => [

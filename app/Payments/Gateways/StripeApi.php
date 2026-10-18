@@ -126,10 +126,10 @@ class StripeApi
     public function declineMessage(?array $error, string $default = self::DECLINED): string
     {
         return match (true) {
-            ($error['code'] ?? null) === 'authentication_required' => 'Your bank asked to confirm this payment. Please pay the invoice in the client area.',
+            ($error['code'] ?? null) === 'authentication_required' => __('Your bank asked to confirm this payment. Please pay the invoice in the client area.'),
             // Card errors are written for the cardholder; other errors could show how the app talks to Stripe.
             ($error['type'] ?? null) === 'card_error' && filled($error['message'] ?? null) => $error['message'],
-            default => $default,
+            default => __($default),
         };
     }
 
@@ -142,7 +142,7 @@ class StripeApi
         if ($response->failed()) {
             Log::warning("Stripe could not find {$id}", ['status' => $response->status(), 'error' => $response->json('error.message')]);
 
-            throw new PaymentFailed('This payment could not be found. Please try again.');
+            throw new PaymentFailed(__('This payment could not be found. Please try again.'));
         }
 
         return $response->json();
@@ -151,7 +151,7 @@ class StripeApi
     public function id(string $prefix, string $id): void
     {
         if (! preg_match(sprintf(self::ID_PATTERN, $prefix), $id)) {
-            throw new PaymentFailed('This payment could not be found. Please try again.');
+            throw new PaymentFailed(__('This payment could not be found. Please try again.'));
         }
     }
 
@@ -170,7 +170,7 @@ class StripeApi
         if ($response->failed()) {
             Log::error("Stripe could not {$action}", ['status' => $response->status(), 'error' => $response->json('error')]);
 
-            throw new PaymentFailed('The card payment could not be started. Please try again or contact us.');
+            throw new PaymentFailed(__('The card payment could not be started. Please try again or contact us.'));
         }
 
         return $response;

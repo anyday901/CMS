@@ -53,7 +53,7 @@ class LoginSecurity
         $this->record($area, $email, $account, $request, LoginAttempt::LOCKED);
 
         throw ValidationException::withMessages([
-            'email' => "Too many failed logins. Try again in {$minutes} ".Str::plural('minute', $minutes).', or reset your password.',
+            'email' => trans_choice('Too many failed logins. Try again in :count minute, or reset your password.|Too many failed logins. Try again in :count minutes, or reset your password.', $minutes),
         ]);
     }
 

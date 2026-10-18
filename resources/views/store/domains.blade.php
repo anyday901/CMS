@@ -22,7 +22,7 @@
 
     @if ($lookup)
         @if ($lookup['error'])
-            <p class="mb-8 max-w-2xl rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">{{ __($lookup['error']) }}</p>
+            <p class="mb-8 max-w-2xl rounded-md bg-orange-50 px-4 py-3 text-sm text-orange-800">{{ $lookup['error'] }}</p>
         @else
             <div class="mb-10 divide-y divide-ink-100 rounded-lg border border-ink-200 bg-white text-sm">
                 @foreach ($lookup['results'] as $i => $result)

@@ -28,6 +28,7 @@ The language files are in `lang/` in the app's root folder:
 | `lang/en.json` | The catalogue of every client-facing string |
 | `lang/de.json`, `lang/fr.json`, `lang/es.json` | The German, French and Spanish translations that ship with CMS |
 | `lang/{code}/emails.php` | Default email subjects and bodies for that language (see [Email templates](#email-templates)) |
+| `lang/{code}/validation.php`, `pagination.php`, `passwords.php` | Laravel's form validation, pagination and password reset messages in that language (German, French and Spanish ship; anything missing falls back to English) |
 
 Each JSON file maps the English string to its translation:
 
@@ -43,7 +44,7 @@ Keep placeholders such as `:number` exactly as they are. A string missing from a
 ### Adding a language
 
 1. Copy `lang/en.json` to `lang/{code}.json`, such as `lang/it.json`, and translate the values.
-2. Optionally add `lang/{code}/emails.php` with the email templates in that language.
+2. Optionally add `lang/{code}/emails.php` with the email templates in that language, and `lang/{code}/validation.php`, `pagination.php` and `passwords.php` with Laravel's messages (copy them from `lang/de/` and translate the values).
 3. List the code under **Settings > Languages > Other languages**.
 
 `php artisan lang:check` (or `php artisan lang:check it` for one language) lists the strings each language file is missing compared with `lang/en.json`, strings it has that English doesn't, placeholders that don't match, and email templates missing from `emails.php`. It exits with an error while anything is missing, so it can run in CI. Run it after adding strings, and before sending a translation as a pull request.
