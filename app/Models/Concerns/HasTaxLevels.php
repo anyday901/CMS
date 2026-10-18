@@ -60,13 +60,13 @@ trait HasTaxLevels
     /** "Sales tax (8.25%)" */
     public function taxLabel(): string
     {
-        return ($this->tax_name ?? 'Tax').($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
+        return ($this->tax_name ?? __('Tax')).($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
     }
 
     /** "GST (5%)" */
     public function tax2Label(): string
     {
-        return ($this->tax2_name ?? 'Tax').($this->tax2_rate ? ' ('.TaxRule::formatRate($this->tax2_rate).')' : '');
+        return ($this->tax2_name ?? __('Tax')).($this->tax2_rate ? ' ('.TaxRule::formatRate($this->tax2_rate).')' : '');
     }
 
     /**

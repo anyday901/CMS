@@ -105,7 +105,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         $lock = Cache::lock("charge-invoice-{$invoice->id}", 120);
 
         if (! $lock->get()) {
-            throw new PaymentFailed('This invoice is being charged right now. Please check it again in a minute.');
+            throw new PaymentFailed(__('This invoice is being charged right now. Please check it again in a minute.'));
         }
 
         try {
@@ -121,7 +121,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         $amount = $invoice->balance();
 
         if ($invoice->status !== InvoiceStatus::Unpaid || $amount <= 0) {
-            throw new PaymentFailed('This invoice has nothing left to pay.');
+            throw new PaymentFailed(__('This invoice has nothing left to pay.'));
         }
 
         // A repeat while Stripe is still processing the first payment gets
@@ -166,7 +166,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         if (($intent['metadata']['invoice_id'] ?? null) !== (string) $invoice->id) {
             Log::warning('Stripe payment does not match invoice', ['invoice' => $invoice->id, 'intent' => $intentId]);
 
-            throw new PaymentFailed('This payment does not match the invoice. Please contact us.');
+            throw new PaymentFailed(__('This payment does not match the invoice. Please contact us.'));
         }
 
         return $this->settle($invoice, $intent);
@@ -194,7 +194,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         $intent = $response->json();
 
         if (($intent['status'] ?? null) === 'requires_action') {
-            throw new PaymentFailed('Your bank asked to confirm this payment. Please pay the invoice in the client area.');
+            throw new PaymentFailed(__('Your bank asked to confirm this payment. Please pay the invoice in the client area.'));
         }
 
         return new SavedCharge($this->settle($invoice, $intent), (string) $intent['id']);
@@ -209,7 +209,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         if ($response->failed() && $response->status() !== 404 && ! str_contains((string) $response->json('error.message'), 'not attached')) {
             Log::error('Stripe could not remove a card', ['method' => $method->id, 'status' => $response->status(), 'error' => $response->json('error.message')]);
 
-            throw new PaymentFailed('Stripe could not remove this card. Please try again later.');
+            throw new PaymentFailed(__('Stripe could not remove this card. Please try again later.'));
         }
     }
 
@@ -257,7 +257,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         if (strtoupper((string) ($intent['currency'] ?? '')) !== $invoice->currency) {
             Log::critical('Stripe payment in another currency than its invoice', ['invoice' => $invoice->id, 'intent' => $intent['id']]);
 
-            throw new PaymentFailed('This payment was made in the wrong currency. Please contact us.');
+            throw new PaymentFailed(__('This payment was made in the wrong currency. Please contact us.'));
         }
 
         if (($intent['setup_future_usage'] ?? null) && is_array($intent['payment_method'] ?? null) && filled($intent['customer'] ?? null) && $invoice->client) {
@@ -277,7 +277,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
             // or cancelled). Staff need to apply or refund it by hand.
             Log::critical('Stripe payment received but not applied', ['invoice' => $invoice->id, 'intent' => $intent['id'], 'reason' => $e->getMessage()]);
 
-            throw new PaymentFailed('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.');
+            throw new PaymentFailed(__('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.'));
         }
     }
 

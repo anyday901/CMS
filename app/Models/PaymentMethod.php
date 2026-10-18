@@ -43,7 +43,7 @@ class PaymentMethod extends Model
             default => ucwords(str_replace('_', ' ', $this->brand)),
         };
 
-        return $this->last4 ? "{$name} ending {$this->last4}" : $name;
+        return $this->last4 ? __(':brand ending :last4', ['brand' => $name, 'last4' => $this->last4]) : $name;
     }
 
     /** "04/2027", or null for methods without an expiry date. */

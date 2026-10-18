@@ -31,7 +31,7 @@ class StripeCards
         $intent = $this->api->retrieve('setup_intents', 'seti', $setupIntentId, ['payment_method']);
 
         if (($intent['metadata']['client_id'] ?? null) !== (string) $client->id || ! is_array($intent['payment_method'] ?? null)) {
-            throw new PaymentFailed('This card could not be found. Please try again.');
+            throw new PaymentFailed(__('This card could not be found. Please try again.'));
         }
 
         if (($intent['status'] ?? null) !== 'succeeded') {
@@ -69,7 +69,7 @@ class StripeCards
             $saved = PaymentMethod::firstOrNew(['gateway' => Stripe::KEY, 'gateway_reference' => $method['id']]);
 
             if ($saved->exists && $saved->client_id !== $client->id) {
-                throw new PaymentFailed('This card could not be saved. Please contact us.');
+                throw new PaymentFailed(__('This card could not be saved. Please contact us.'));
             }
 
             $card = $method['card'] ?? [];

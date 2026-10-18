@@ -32,7 +32,7 @@ class EnsureClientCanLogIn
             PortalLogin::logout($request);
 
             return redirect()->route('portal.login')
-                ->withErrors(['email' => 'This account can no longer sign in. Please contact support.']);
+                ->withErrors(['email' => __('This account can no longer sign in. Please contact support.')]);
         }
 
         return $next($request);

@@ -196,7 +196,7 @@ The admin area and client portal share one built-in theme, Harbor, defined in `r
 
 ### Languages
 
-The portal, store, public support pages and client emails come in the languages offered under **Settings > Languages**. Visitors get their browser's language and can pick another; signed-in clients keep theirs on their account (staff can set it on the client), and their emails use it. English, German, French and Spanish ship in `lang/`; **Settings > Portal text and translations** changes any string in any language, and **Email templates** has a tab per language. `php artisan lang:check` lists strings a translation is missing. See [docs/admin/languages.md](docs/admin/languages.md) and [docs/developers/translations.md](docs/developers/translations.md).
+The portal, store, public support pages and client emails come in the languages offered under **Settings > Languages**. Visitors get their browser's language and can pick another; signed-in clients keep theirs on their account (staff can set it on the client), and their emails use it. English, German, French and Spanish ship in `lang/`, covering the domain pages, cart, upgrade and payment messages, invoice, quote and credit note PDFs, and Laravel's validation and pagination messages too; **Settings > Portal text and translations** changes any string in any language, and **Email templates** has a tab per language. `php artisan lang:check` lists strings a translation is missing. See [docs/admin/languages.md](docs/admin/languages.md) and [docs/developers/translations.md](docs/developers/translations.md).
 
 ## Admin area
 

@@ -71,7 +71,7 @@ class Captcha
         $answer = (string) $request->input($provider['field']);
 
         if ($answer === '' || ! self::passes($provider, $answer, $request->ip())) {
-            throw ValidationException::withMessages(['captcha' => 'Please complete the check that you\'re not a robot.']);
+            throw ValidationException::withMessages(['captcha' => __("Please complete the check that you're not a robot.")]);
         }
     }
 

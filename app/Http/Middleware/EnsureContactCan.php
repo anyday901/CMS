@@ -22,13 +22,25 @@ class EnsureContactCan
         }
 
         $message = $permission === PortalContact::OWNER
-            ? 'Only the account holder can open that page.'
-            : 'Your login doesn\'t include '.strtolower(strtok(ClientContact::PERMISSIONS[$permission] ?? $permission, ':')).'. Ask the account holder if you need it.';
+            ? __('Only the account holder can open that page.')
+            : __("Your login doesn't include :permission. Ask the account holder if you need it.", ['permission' => self::area($permission)]);
 
         if ($request->expectsJson()) {
             abort(403, $message);
         }
 
         return redirect()->route('portal.dashboard')->withErrors(['permission' => $message]);
+    }
+
+    /** The part of the portal a permission opens, such as "invoices". */
+    private static function area(string $permission): string
+    {
+        return match ($permission) {
+            'billing' => __('invoices'),
+            'orders' => __('orders'),
+            'services' => __('services'),
+            'support' => __('support'),
+            default => strtolower(strtok(ClientContact::PERMISSIONS[$permission] ?? $permission, ':')),
+        };
     }
 }

@@ -13,7 +13,7 @@ class BlockBannedIps
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->is('webhooks/*') && IpBan::covers($request->ip())) {
-            abort(403, 'Access from your network has been blocked. If you think this is a mistake, please contact us another way.');
+            abort(403, __('Access from your network has been blocked. If you think this is a mistake, please contact us another way.'));
         }
 
         return $next($request);
