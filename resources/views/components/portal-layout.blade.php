@@ -40,6 +40,7 @@
                     'portal.services.index' => App\Auth\PortalContact::allows('services') ? __('Services') : null,
                     'portal.domains.index' => App\Auth\PortalContact::allows('services') && (App\Models\Tld::exists() || auth('client')->user()->domains()->exists()) ? __('Domains') : null,
                     'portal.invoices.index' => App\Auth\PortalContact::allows('billing') ? __('Invoices') : null,
+                    'portal.quotes.index' => App\Auth\PortalContact::allows('billing') && auth('client')->user()->quotes()->visibleToClient()->exists() ? __('Quotes') : null,
                     'portal.tickets.index' => App\Auth\PortalContact::allows('support') ? __('Support') : null,
                     'portal.account.edit' => $portalContact ? null : __('Account'),
                     'portal.security.show' => __('Security'),

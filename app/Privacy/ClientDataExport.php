@@ -16,6 +16,8 @@ use App\Models\InvoiceItem;
 use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
 use App\Models\Order;
+use App\Models\Quote;
+use App\Models\QuoteItem;
 use App\Models\Service;
 use App\Models\SmsLog;
 use App\Models\Ticket;
@@ -72,6 +74,11 @@ class ClientDataExport
             ]) + [
                 'items' => $invoice->items->map(fn (InvoiceItem $item) => $this->only($item, ['description', 'amount', 'period_start', 'period_end']))->all(),
                 'payments' => $invoice->transactions->map(fn (Transaction $transaction) => $this->only($transaction, ['gateway', 'payment_method', 'gateway_reference', 'currency', 'amount', 'created_at']))->all(),
+            ])->all(),
+            'quotes' => $client->quotes()->whereNotNull('delivered_at')->with('items')->orderBy('id')->get()->map(fn (Quote $quote) => $this->only($quote, [
+                'number', 'subject', 'stage', 'currency', 'issue_date', 'valid_until', 'subtotal', 'tax', 'total', 'notes', 'accepted_at',
+            ]) + [
+                'items' => $quote->items->map(fn (QuoteItem $item) => $this->only($item, ['description', 'amount']))->all(),
             ])->all(),
             'credit' => $client->creditEntries->map(fn (CreditEntry $entry) => $this->only($entry, ['amount', 'balance_after', 'description', 'created_at']))->all(),
             'tickets' => $client->tickets->map(fn (Ticket $ticket) => [

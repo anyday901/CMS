@@ -13,6 +13,10 @@ return [
         'subject' => 'Rechnung Nr. {invoice_number} von {company_name}',
         'body' => "Hallo {client_first_name},\n\nwir haben die Rechnung Nr. {invoice_number} über {invoice_total} ausgestellt, fällig am {invoice_due_date}.\n\n[Rechnung ansehen und bezahlen]({invoice_url})\n\nVielen Dank\n{company_name}",
     ],
+    'quote_delivered' => [
+        'subject' => 'Angebot Nr. {quote_number} von {company_name}: {quote_subject}',
+        'body' => "Hallo {client_first_name},\n\nhier ist unser Angebot Nr. {quote_number} für {quote_subject}: {quote_total}, gültig bis zum {quote_valid_until}. Das PDF finden Sie im Anhang.\n\n[Angebot ansehen und annehmen]({quote_url})\n\nWenn Sie Fragen haben, antworten Sie einfach auf diese E-Mail.\n\nVielen Dank\n{company_name}",
+    ],
     'order_confirmation' => [
         'subject' => 'Bestätigung Ihrer Bestellung Nr. {order_number}',
         'body' => "Hallo {client_first_name},\n\nvielen Dank für Ihre Bestellung. Das haben Sie am {order_date} bestellt:\n\n{order_items}\n\nBestellsumme: {order_total}\n\n[Rechnung ansehen]({invoice_url})\n\nWir geben Ihnen Bescheid, sobald jeder Dienst bereit ist.\n\nVielen Dank\n{company_name}",
