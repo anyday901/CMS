@@ -21,7 +21,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - An importer for existing WHMCS installs
 - The portal and client emails in several languages (English, German, French and Spanish ship), with staff able to change any wording
 - Portal themes, template overrides and white-label settings (logo, colours, company details), and SMTP and other mail settings in the admin area
-- A web installer, one-click updates, database backups, maintenance mode and a system health page
+- A web installer, one-click updates, database backups, maintenance mode, a system health page, a log viewer and PHP info
 - A marketplace of add-ons and themes, a documentation site with a module developer guide, and a demo mode for a public demo instance
 
 The full v1 spec is in [docs/spec.md](docs/spec.md). Progress is tracked in [TODO.md](TODO.md) and released changes in [CHANGELOG.md](CHANGELOG.md).
@@ -263,7 +263,7 @@ Each staff account has one role:
 | Admin | Everything, including staff, products, tax rules, departments, email templates, the email log, settings and the activity log |
 | Billing | Create and edit clients, services and invoices; record payments, apply credit and refund; handle tickets; see reports |
 | Support | Handle tickets; look at clients, services and invoices, and download invoice PDFs, without changing them |
-| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets, see reports, and the system (backups, updates, themes and marketplace packages, maintenance mode) |
+| Custom | Only the abilities you tick: manage staff, manage settings, manage clients and services, manage invoices and payments, handle tickets, see reports, and the system (backups, updates, themes and marketplace packages, maintenance mode, logs and PHP info) |
 
 Every role can look at clients, services, invoices and tasks. A custom staff member with nothing ticked can only look.
 
@@ -326,13 +326,14 @@ Turn on the affiliate program under **Settings > Affiliates**. Clients get a ref
 
 **Settings > Mail** sets how email is sent (SMTP with server, port, security and login, Sendmail, or log only) and who it comes from, replacing the `MAIL_*` settings in `.env`. The SMTP password is stored encrypted. **Send a test email** checks the settings straight away. See [docs/admin/mail.md](docs/admin/mail.md).
 
-### System: health, maintenance, backups and updates
+### System: health, maintenance, backups, logs and updates
 
 Staff with the system ability (admins) get:
 
 - **Settings > System**: a health page checking PHP and its extensions, the database and migrations, the scheduler and queue, mail, storage, disk space, debug mode, HTTPS, backups and updates. `GET /health` answers 200 or 503 for uptime monitors (with `?token=` set to `HEALTH_TOKEN`, it lists each check).
 - **Settings > Maintenance**: takes the portal, store and public pages offline with a message, while staff keep working (and see the site).
 - **Settings > Backups**: database backups (MySQL, MariaDB or SQLite, as gzipped SQL, without `mysqldump`) on demand or every day or week, kept for a set number and optionally copied to another disk such as S3. `php artisan backup:run` and `php artisan backup:restore` do the same from the command line.
+- **Settings > Logs**: the Laravel log files in `storage/logs`, newest entries first, with a level filter, a search and a download, plus links to the activity, email and gateway logs. **Settings > PHP info** shows the PHP version, limits and extensions, and `phpinfo()` without the environment variables.
 - **Settings > Updates**: checks GitHub releases, shows the notes and installs an update with one click, with a checksum check, a database and file backup and automatic rollback. `php artisan cms:update` does it from the command line. Git checkouts and Docker images are updated as before.
 
 See [docs/admin/system.md](docs/admin/system.md).
