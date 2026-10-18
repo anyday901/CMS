@@ -53,7 +53,7 @@
                         @foreach ($invoice->items as $item)
                             <tr>
                                 <td class="px-4 py-2">
-                                    @if ($item->service)<a href="{{ route('admin.services.show', $item->service) }}" class="text-brand-600">{{ $item->description }}</a>@elseif ($item->paid_invoice_id)<a href="{{ route('admin.invoices.show', $item->paid_invoice_id) }}" class="text-brand-600">{{ $item->description }}</a>@else{{ $item->description }}@endif
+                                    @if ($item->service)<a href="{{ route('admin.services.show', $item->service) }}" class="text-brand-600">{{ $item->description }}<span class="sr-only"> (service)</span></a>@elseif ($item->paid_invoice_id)<a href="{{ route('admin.invoices.show', $item->paid_invoice_id) }}" class="text-brand-600">{{ $item->description }}<span class="sr-only"> (invoice)</span></a>@else{{ $item->description }}@endif
                                 </td>
                                 <td class="px-4 py-2 text-right">{{ Money::format($item->amount, $invoice->currency) }}</td>
                             </tr>

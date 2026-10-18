@@ -28,13 +28,17 @@ use Tests\TestCase;
 
 class ReportsTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private const ADA = 'Ada Lovelace';
+
+    private const TWO = '$2.00';
+
     private const PAID_AT = '2026-09-10 09:00:00';
 
     private const LATER_AT = '2026-09-20 10:00:00';
 
     private const TWENTY = '$20.00';
-
-    use RefreshDatabase;
 
     private Client $client;
 
@@ -127,7 +131,7 @@ class ReportsTest extends TestCase
 
         $this->get('/admin/reports/monthly-transactions?from=2026-09-01&to=2026-09-30&currency=EUR')->assertOk()->assertSee('€99.00');
 
-        $this->get('/admin/reports/top-clients?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['Ada Lovelace', self::TWENTY, '$5.00', '$15.00']);
+        $this->get('/admin/reports/top-clients?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder([self::ADA, self::TWENTY, '$5.00', '$15.00']);
         $this->get('/admin/reports/income-by-product?from=2026-01-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['VPS Small', self::TWENTY]);
 
         // A discount line on the same service doesn't count it twice.
@@ -171,7 +175,7 @@ class ReportsTest extends TestCase
         $this->invoice(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => '2026-03-01', 'due_date' => '2026-03-01', 'status' => 'cancelled', 'total' => 9999]);
 
         $this->get('/admin/reports/client-statement?from=2026-01-01&to=2026-10-15&client='.$this->client->email)->assertOk()
-            ->assertSee('Ada Lovelace')
+            ->assertSee(self::ADA)
             ->assertSee('Balance brought forward from before Jan 1, 2026: $4.00')
             ->assertSeeInOrder(['Invoice', '$10.00', '$14.00', 'Payment', '$10.00', '$4.00'])
             ->assertDontSee('$99.99');
@@ -236,7 +240,7 @@ class ReportsTest extends TestCase
         $this->get('/admin/reports/promotion-usage?from=2026-09-01&to=2026-10-15')->assertOk()->assertSeeInOrder(['SAVE10', '10%, recurring', '1', '1', '$9.00', '1']);
         $this->get('/admin/reports/suspensions-and-cancellations?from=2026-01-01&to=2026-10-15')->assertOk()
             ->assertSeeInOrder(['Overdue on payment', '1', 'Too expensive', '2', '1', '0', '1']);
-        $this->get('/admin/reports/credits?from=2026-10-01&to=2026-10-31')->assertOk()->assertSeeInOrder(['Oct 2026', '$5.00', '$2.00', '$3.00']);
+        $this->get('/admin/reports/credits?from=2026-10-01&to=2026-10-31')->assertOk()->assertSeeInOrder(['Oct 2026', '$5.00', self::TWO, '$3.00']);
 
         $department = Department::create(['name' => 'Support']);
         $staff = User::factory()->create(['name' => 'Jane Staff']);
@@ -273,9 +277,9 @@ class ReportsTest extends TestCase
         $funds = $this->invoice(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => '2026-04-01', 'due_date' => '2026-04-01', 'status' => 'unpaid', 'total' => 5000]);
         $funds->items()->create(['type' => InvoiceItem::TYPE_ADD_FUNDS, 'description' => 'Add funds', 'amount' => 5000]);
 
-        $this->assertStringNotContainsString('Ada Lovelace', $this->get('/admin/reports/invoice-aging/export')->streamedContent());
+        $this->assertStringNotContainsString(self::ADA, $this->get('/admin/reports/invoice-aging/export')->streamedContent());
         $this->get('/admin/reports/client-statement?from=2026-01-01&to=2026-10-15&client='.$this->client->email)->assertOk()
-            ->assertSeeInOrder(['Refund', '$2.00', 'Credit note', 'CN-7: Outage', '$2.00', '$0.00'])
+            ->assertSeeInOrder(['Refund', self::TWO, 'Credit note', 'CN-7: Outage', self::TWO, '$0.00'])
             ->assertDontSee('$50.00');
     }
 }

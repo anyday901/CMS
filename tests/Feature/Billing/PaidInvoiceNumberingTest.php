@@ -94,13 +94,10 @@ class PaidInvoiceNumberingTest extends TestCase
 
         // A payment rolled back after taking a number gives it back.
         $invoice = $this->invoice();
-        try {
-            DB::transaction(function () use ($invoice) {
-                app(PaymentRecorder::class)->record($invoice, 1000, 'cash');
-                throw new InvalidArgumentException('Rolled back');
-            });
-        } catch (InvalidArgumentException) {
-        }
+        $this->assertThrows(fn () => DB::transaction(function () use ($invoice) {
+            app(PaymentRecorder::class)->record($invoice, 1000, 'cash');
+            throw new InvalidArgumentException('Rolled back');
+        }), InvalidArgumentException::class);
         $this->assertTrue($invoice->refresh()->proforma);
 
         app(PaymentRecorder::class)->record($invoice, 1000, 'cash');

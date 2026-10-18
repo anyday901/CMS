@@ -17,6 +17,12 @@ class BillableItemsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DUE = '2026-10-20';
+
+    private const NEXT_DAY = '2026-10-21';
+
+    private const LOGO = 'Logo design';
+
     private Client $client;
 
     protected function setUp(): void
@@ -30,7 +36,7 @@ class BillableItemsTest extends TestCase
     private function store(array $data)
     {
         return $this->post("/admin/clients/{$this->client->id}/billable-items", $data + [
-            'description' => 'Website changes', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => '2026-10-20', 'taxable' => '1',
+            'description' => 'Website changes', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => self::DUE, 'taxable' => '1',
         ]);
     }
 
@@ -95,11 +101,11 @@ class BillableItemsTest extends TestCase
         $this->store(['amount' => '50.00', 'invoice_action' => BillableItem::DONT_INVOICE]);
         $item = $this->client->billableItems()->sole();
 
-        $this->put("/admin/billable-items/{$item->id}", ['description' => 'Logo design', 'amount' => '75.00', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => '2026-10-20'])
+        $this->put("/admin/billable-items/{$item->id}", ['description' => self::LOGO, 'amount' => '75.00', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => self::DUE])
             ->assertSessionHasNoErrors();
-        $this->assertSame(['Logo design', 7500, false], [$item->refresh()->description, $item->amount, $item->taxable]);
+        $this->assertSame([self::LOGO, 7500, false], [$item->refresh()->description, $item->amount, $item->taxable]);
 
-        $invoice = app(BillableItemBiller::class)->run(CarbonImmutable::parse('2026-10-20'))->sole();
+        $invoice = app(BillableItemBiller::class)->run(CarbonImmutable::parse(self::DUE))->sole();
 
         $this->get("/admin/clients/{$this->client->id}?tab=billable-items")
             ->assertSee("Invoice #{$invoice->number}")
@@ -107,16 +113,16 @@ class BillableItemsTest extends TestCase
         $this->put("/admin/billable-items/{$item->id}", ['description' => 'Changed', 'amount' => '1', 'invoice_action' => BillableItem::NEXT_CRON])
             ->assertSessionHasErrors('item');
         $this->delete("/admin/billable-items/{$item->id}")->assertSessionHasErrors('item');
-        $this->assertSame('Logo design', $item->refresh()->description);
+        $this->assertSame(self::LOGO, $item->refresh()->description);
 
         // Cancelling the invoice frees the item; saving it bills it again.
         $invoice->update(['status' => InvoiceStatus::Cancelled]);
-        $this->assertCount(0, app(BillableItemBiller::class)->run(CarbonImmutable::parse('2026-10-21')));
+        $this->assertCount(0, app(BillableItemBiller::class)->run(CarbonImmutable::parse(self::NEXT_DAY)));
         $this->get("/admin/clients/{$this->client->id}?tab=billable-items")->assertSee('Cancelled; save the item to bill it again');
-        $this->put("/admin/billable-items/{$item->id}", ['description' => 'Logo design', 'amount' => '75.00', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => '2026-10-21'])
+        $this->put("/admin/billable-items/{$item->id}", ['description' => self::LOGO, 'amount' => '75.00', 'invoice_action' => BillableItem::NEXT_CRON, 'due_date' => self::NEXT_DAY])
             ->assertSessionHasNoErrors();
         $this->assertNull($item->refresh()->invoice_id);
-        $this->assertCount(1, app(BillableItemBiller::class)->run(CarbonImmutable::parse('2026-10-21')));
+        $this->assertCount(1, app(BillableItemBiller::class)->run(CarbonImmutable::parse(self::NEXT_DAY)));
 
         $this->store(['amount' => '5']);
         $other = $this->client->billableItems()->latest('id')->first();
