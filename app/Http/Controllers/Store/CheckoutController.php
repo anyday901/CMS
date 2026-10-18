@@ -125,6 +125,8 @@ class CheckoutController extends Controller
         $client = new Client([
             ...collect($data)->except('password')->all(),
             'country' => strtoupper($data['country']),
+            // The currency they saw the store and cart in.
+            'currency' => Checkout::currencyFor(null),
             'password' => $data['password'],
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), null),
         ]);

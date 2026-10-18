@@ -125,7 +125,7 @@
                     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div class="space-y-5">
                             <section class="{{ $panel }}">
-                                <h2 class="{{ $panelTitle }}">Billing <span class="font-normal text-ink-400">· income in {{ SystemOverview::currency() }}</span></h2>
+                                <h2 class="{{ $panelTitle }}">Billing <span class="font-normal text-ink-400">· income in {{ SystemOverview::currency() }}@if (count(App\Models\Currency::codes()) > 1), other currencies converted at today's rates @endif</span></h2>
                                 <div class="grid grid-cols-2 divide-x divide-ink-100">
                                     @foreach ([['Today', $incomeToday], ['This Month', $incomeThisMonth], ['This Year', $incomeThisYear], ['All Time', $incomeAllTime]] as $i => [$label, $amount])
                                         <div class="px-4 py-3 {{ $i >= 2 ? 'border-t border-ink-100' : '' }}">
@@ -135,7 +135,7 @@
                                     @endforeach
                                 </div>
                                 <div class="border-t border-ink-100 px-4 py-2 text-xs text-ink-500">
-                                    <a href="{{ route('admin.invoices.index', ['status' => 'unpaid']) }}" class="text-brand-700">{{ $unpaidCount }} unpaid {{ Str::plural('invoice', $unpaidCount) }}</a> totalling {{ Money::format($unpaidTotal) }}
+                                    <a href="{{ route('admin.invoices.index', ['status' => 'unpaid']) }}" class="text-brand-700">{{ $unpaidCount }} unpaid {{ Str::plural('invoice', $unpaidCount) }}</a> totalling {{ Money::format($unpaidTotal, SystemOverview::currency()) }}
                                 </div>
                             </section>
 

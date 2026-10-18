@@ -9,8 +9,14 @@ return [
         'tax_id' => env('BILLING_COMPANY_TAX_ID'),
     ],
 
-    // Currency for new clients and invoices (ISO 4217).
+    // The default currency (ISO 4217): new clients get it, and other
+    // currencies' exchange rates are against it. It sets the default when
+    // CMS is installed; after that, change it under Settings > Currencies.
     'currency' => env('BILLING_CURRENCY', 'USD'),
+
+    // Update exchange rates from the European Central Bank once a day. Can
+    // also be set on the admin Automation settings page.
+    'update_exchange_rates' => (bool) env('BILLING_UPDATE_EXCHANGE_RATES', false),
 
     // Generate renewal invoices this many days before a service is due.
     'invoice_days_before_due' => (int) env('BILLING_INVOICE_DAYS_BEFORE_DUE', 7),

@@ -6,7 +6,7 @@
     @if ($product->options->isNotEmpty())
         <form method="GET" action="{{ route('portal.services.upgrade.show', [$service, $product]) }}" class="mb-6 max-w-xl space-y-3 rounded-lg border border-ink-200 bg-white p-6 text-sm">
             <h2 class="font-semibold">{{ __('Options') }}</h2>
-            @include('services._options', ['options' => $product->options, 'values' => $values, 'cycleHint' => $service->billing_cycle])
+            @include('services._options', ['options' => $product->options, 'values' => $values, 'cycleHint' => $service->billing_cycle, 'currency' => $currency])
             <button class="rounded-full px-4 py-2 ring-1 ring-ink-300 hover:bg-ink-100">{{ $quote ? __('Update price') : __('See the price') }}</button>
         </form>
     @endif

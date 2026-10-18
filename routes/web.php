@@ -35,6 +35,7 @@ Route::middleware(EnsureClientCanLogIn::class)->group(function () {
         Route::delete('cart/lines/{line}', [Store\CartController::class, 'destroy'])->name('cart.destroy');
         Route::post('cart/promotion', [Store\CartController::class, 'promotion'])->name('cart.promotion');
         Route::delete('cart/promotion', [Store\CartController::class, 'removePromotion'])->name('cart.promotion.destroy');
+        Route::post('store/currency', Store\CurrencyController::class)->name('store.currency');
     });
     Route::get('checkout', [Store\CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('checkout', [Store\CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
@@ -301,6 +302,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('settings/automation', [Admin\AutomationController::class, 'edit'])->name('automation.edit');
             Route::put('settings/automation', [Admin\AutomationController::class, 'update'])->name('automation.update');
             Route::get('settings/cron', Admin\CronController::class)->name('cron.show');
+            Route::prefix('settings/currencies')->name('currencies.')->controller(Admin\CurrencyController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::post('rates', 'updateRates')->middleware('throttle:10,1')->name('rates');
+                Route::post('prices', 'updatePrices')->name('prices');
+                Route::get('{currency}/edit', 'edit')->whereNumber('currency')->name('edit');
+                Route::put('{currency}', 'update')->whereNumber('currency')->name('update');
+                Route::delete('{currency}', 'destroy')->whereNumber('currency')->name('destroy');
+                Route::post('{currency}/default', 'makeDefault')->whereNumber('currency')->name('default');
+            });
         });
     });
 });

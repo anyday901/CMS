@@ -71,7 +71,19 @@
                 @endif
                 <a href="{{ route('cart.index') }}" class="text-sm {{ request()->routeIs('cart.*', 'checkout.*') ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ $cartCount ? __('Cart (:count)', ['count' => $cartCount]) : __('Cart') }}</a>
                 <a href="{{ route('kb.index') }}" class="text-sm {{ request()->routeIs(...App\Http\Controllers\Help\KnowledgebaseController::HELP_ROUTES) ? 'rounded-full bg-brand-100 px-3 py-1 font-semibold text-brand-700' : 'rounded-full px-3 py-1 text-ink-600 hover:bg-ink-100 hover:text-ink-900' }}">{{ __('Help') }}</a>
-                <a href="{{ route('portal.login') }}" class="ml-auto rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">{{ __('Log in') }}</a>
+                @if (count($storeCurrencies = App\Models\Currency::codes()) > 1)
+                    <form method="POST" action="{{ route('store.currency') }}" class="ml-auto flex items-center gap-1.5 text-sm">
+                        @csrf
+                        <label for="store-currency" class="text-ink-500">{{ __('Currency') }}</label>
+                        <select id="store-currency" name="currency" onchange="this.form.submit()" class="rounded-md bg-white px-2 py-1 ring-1 ring-ink-300">
+                            @foreach ($storeCurrencies as $code)
+                                <option value="{{ $code }}" @selected(App\Ordering\Checkout::currencyFor(null) === $code)>{{ $code }}</option>
+                            @endforeach
+                        </select>
+                        <noscript><button class="rounded-md px-2 py-1 ring-1 ring-ink-300">{{ __('Change') }}</button></noscript>
+                    </form>
+                @endif
+                <a href="{{ route('portal.login') }}" class="{{ count($storeCurrencies) > 1 ? '' : 'ml-auto' }} rounded-full px-3 py-1 text-sm text-ink-600 hover:bg-ink-100 hover:text-ink-900">{{ __('Log in') }}</a>
             </div>
         </nav>
     @endauth

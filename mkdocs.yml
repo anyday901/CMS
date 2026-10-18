@@ -67,6 +67,7 @@ nav:
       - Running a demo instance: demo.md
   - Admin guide:
       - Appearance and white-label: admin/appearance.md
+      - Currencies: admin/currencies.md
       - Domains: admin/domains.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md

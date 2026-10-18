@@ -33,6 +33,7 @@ class AutomationController extends Controller
             'suspendDays' => config('billing.suspend_after_days'),
             'terminateDays' => config('billing.terminate_after_days'),
             'overageDays' => config('billing.overage_due_days'),
+            'updateRates' => (bool) config('billing.update_exchange_rates'),
             'timezone' => config('app.timezone'),
         ]);
     }
@@ -50,6 +51,7 @@ class AutomationController extends Controller
             'suspend_after_days' => self::DAYS,
             'terminate_after_days' => self::DAYS,
             'overage_due_days' => ['required', 'integer', 'min:0', 'max:365'],
+            'update_exchange_rates' => ['boolean'],
         ]);
 
         $amount = Money::parse($data['late_fee_amount'] ?? '0');
@@ -82,6 +84,7 @@ class AutomationController extends Controller
             'billing.suspend_after_days' => $days('suspend_after_days'),
             'billing.terminate_after_days' => $days('terminate_after_days'),
             'billing.overage_due_days' => (int) $data['overage_due_days'],
+            'billing.update_exchange_rates' => $request->boolean('update_exchange_rates'),
         ];
         Settings::save($values);
         Activity::record('Updated automation settings', null, collect($values)->mapWithKeys(fn ($value, $key) => [str_replace('billing.', '', $key) => $value])->all());

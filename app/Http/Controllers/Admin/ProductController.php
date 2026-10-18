@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Models\Currency;
 use App\Models\Product;
 use App\Models\ProductGroup;
 use App\Models\ServerGroup;
@@ -30,7 +31,7 @@ class ProductController extends Controller
 
     public function create(): View
     {
-        return view('admin.products.form', ['product' => new Product, 'prices' => collect()] + $this->formData(new Product));
+        return view('admin.products.form', ['product' => new Product, 'prices' => collect(), 'otherPrices' => collect()] + $this->formData(new Product));
     }
 
     public function store(Request $request): RedirectResponse
@@ -44,10 +45,14 @@ class ProductController extends Controller
 
     public function edit(Product $product): View
     {
-        $prices = $product->prices()->where('currency', config('billing.currency'))->get()
-            ->keyBy(fn ($price) => $price->billing_cycle->value);
+        $all = $product->prices()->get()->groupBy('currency')
+            ->map(fn ($prices) => $prices->keyBy(fn ($price) => $price->billing_cycle->value));
 
-        return view('admin.products.form', ['product' => $product, 'prices' => $prices] + $this->formData($product));
+        return view('admin.products.form', [
+            'product' => $product,
+            'prices' => $all->get(config('billing.currency'), collect()),
+            'otherPrices' => $all->except(config('billing.currency')),
+        ] + $this->formData($product));
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -71,7 +76,14 @@ class ProductController extends Controller
             'upgradeProducts' => $others->where('is_addon', false),
             'chosenAddons' => $product->exists ? $product->addons()->pluck('products.id')->all() : [],
             'chosenUpgrades' => $product->exists ? $product->upgrades()->pluck('products.id')->all() : [],
+            'otherCurrencies' => self::otherCurrencies(),
         ];
+    }
+
+    /** @return list<string> The currencies besides the default, whose prices are set under currency_prices. */
+    private static function otherCurrencies(): array
+    {
+        return array_values(array_diff(Currency::codes(), [config('billing.currency')]));
     }
 
     private function save(Request $request, Product $product): void
@@ -105,6 +117,10 @@ class ProductController extends Controller
         foreach (BillingCycle::cases() as $cycle) {
             $rules["prices.{$cycle->value}.price"] = $money;
             $rules["prices.{$cycle->value}.setup_fee"] = $money;
+            foreach (self::otherCurrencies() as $code) {
+                $rules["currency_prices.{$code}.{$cycle->value}.price"] = $money;
+                $rules["currency_prices.{$code}.{$cycle->value}.setup_fee"] = $money;
+            }
         }
         $data = $request->validate($rules);
 
@@ -135,10 +151,21 @@ class ProductController extends Controller
         $product->addons()->sync($product->is_addon ? [] : array_map('intval', $data['addons'] ?? []));
         $product->upgrades()->sync($product->is_addon ? [] : array_diff(array_map('intval', $data['upgrades'] ?? []), [$product->id]));
 
-        $currency = config('billing.currency');
+        $this->savePrices($product, config('billing.currency'), $data['prices'] ?? []);
+        // Only the currencies on the form; a currency added since keeps its prices.
+        foreach (self::otherCurrencies() as $code) {
+            if ($request->has("currency_prices.{$code}")) {
+                $this->savePrices($product, $code, $data['currency_prices'][$code] ?? []);
+            }
+        }
+    }
+
+    /** @param  array<string, array{price?: ?string, setup_fee?: ?string}>  $input  cycle => price and setup fee */
+    private function savePrices(Product $product, string $currency, array $input): void
+    {
         foreach (BillingCycle::cases() as $cycle) {
-            $input = $data['prices'][$cycle->value] ?? [];
-            $price = trim((string) ($input['price'] ?? ''));
+            $row = $input[$cycle->value] ?? [];
+            $price = trim((string) ($row['price'] ?? ''));
 
             if ($price === '') {
                 $product->prices()->where('billing_cycle', $cycle)->where('currency', $currency)->delete();
@@ -150,7 +177,7 @@ class ProductController extends Controller
                 ['billing_cycle' => $cycle, 'currency' => $currency],
                 [
                     'price' => Money::parse($price),
-                    'setup_fee' => Money::parse(trim((string) ($input['setup_fee'] ?? '')) ?: '0'),
+                    'setup_fee' => Money::parse(trim((string) ($row['setup_fee'] ?? '')) ?: '0'),
                 ],
             );
         }

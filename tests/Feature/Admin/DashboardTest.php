@@ -42,7 +42,7 @@ class DashboardTest extends TestCase
         $response->assertSeeInOrder(['Pending Orders', 'Tickets Waiting', 'Pending Cancellations', 'Pending Module Actions']);
         $response->assertSeeInOrder(['System Overview', 'Billing', 'Payments to review', 'Client Activity', 'Automation Overview', 'Activity']);
         $response->assertViewHas('pendingOrderCount', 1);
-        // The pending payment isn't income yet, a payment in another currency can't be added in, and the old one only counts towards all time.
+        // The pending payment isn't income yet, a payment in a currency with no exchange rate can't be added in, and the old one only counts towards all time.
         $response->assertViewHas('incomeToday', 2500)->assertViewHas('incomeAllTime', 3500);
         $response->assertViewHas('paymentsToReviewCount', 1)->assertSee('1</strong> payment waiting for review', false);
         $response->assertViewHas('clientsSignedIn', 1)->assertSee('Ada Lovelace');

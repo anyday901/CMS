@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Billing\CreditApplier;
 use App\Enums\OrderStatus;
+use App\Models\Currency;
 use App\Models\Order;
 use App\Models\Transaction;
 use Carbon\CarbonImmutable;
@@ -78,26 +79,26 @@ class SystemOverview
     {
         $totals = array_fill(0, count($this->buckets), 0);
 
-        $payments = self::incomeQuery()->where('created_at', '>=', $this->buckets[0])->get(['created_at', 'amount']);
+        $payments = self::incomeQuery()->where('created_at', '>=', $this->buckets[0])->get(['created_at', 'amount', 'currency']);
 
         foreach ($payments as $payment) {
-            $totals[$this->bucketOf($payment->created_at)] += (int) $payment->amount;
+            $totals[$this->bucketOf($payment->created_at)] += Currency::sumInDefault([$payment->currency => (int) $payment->amount]);
         }
 
         return $totals;
     }
 
     /**
-     * Money received in the default currency: amounts in different currencies
-     * can't be added up. Paying from credit moves money already received, and
-     * a pending refund may still fail, so neither counts.
+     * Money received, in every currency: callers convert other currencies to
+     * the default one at today's rates before adding them up. Paying from
+     * credit moves money already received, and a pending refund may still
+     * fail, so neither counts.
      *
      * @return Builder<Transaction>
      */
     public static function incomeQuery(): Builder
     {
-        return Transaction::where('currency', self::currency())
-            ->where('gateway', '!=', CreditApplier::GATEWAY)
+        return Transaction::where('gateway', '!=', CreditApplier::GATEWAY)
             ->where('pending', false);
     }
 
