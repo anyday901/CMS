@@ -32,6 +32,11 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Currencies</legend>
+            <p class="text-ink-600">The currencies clients can be billed in, the default currency and exchange rates. <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Tax</legend>
             <input type="hidden" name="tax_inclusive" value="0">
             <label class="flex items-start gap-2">

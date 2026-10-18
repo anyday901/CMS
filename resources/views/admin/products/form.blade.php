@@ -96,7 +96,7 @@
 
         <div>
             <h2 class="mb-1 font-semibold">Pricing ({{ config('billing.currency') }})</h2>
-            <p class="mb-3 text-ink-500">Leave a price blank to not offer that billing cycle.</p>
+            <p class="mb-3 text-ink-500">Leave a price blank to not offer that billing cycle.@if ($otherCurrencies) Clients billed in another currency see the prices set for it below; fill them in, or convert them all from {{ config('billing.currency') }} under <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.@endif</p>
             <table class="text-sm">
                 <thead class="text-left text-ink-500"><tr><th class="pr-4">Cycle</th><th class="pr-4">Price</th><th>Setup fee</th></tr></thead>
                 <tbody>
@@ -111,6 +111,33 @@
                 </tbody>
             </table>
         </div>
+
+        @if ($otherCurrencies)
+            <div>
+                <h2 class="mb-1 font-semibold">Pricing in other currencies</h2>
+                <p class="mb-3 text-ink-500">A billing cycle without a price in a currency isn't offered to clients billed in it.</p>
+                <div class="overflow-x-auto">
+                    <table class="text-sm">
+                        <thead class="text-left text-ink-500">
+                            <tr><th class="pr-4"></th>@foreach ($otherCurrencies as $code)<th colspan="2" class="pr-4">{{ $code }}</th>@endforeach</tr>
+                            <tr><th class="pr-4">Cycle</th>@foreach ($otherCurrencies as $code)<th class="pr-2 font-normal">Price</th><th class="pr-4 font-normal">Setup fee</th>@endforeach</tr>
+                        </thead>
+                        <tbody>
+                            @foreach (App\Enums\BillingCycle::cases() as $cycle)
+                                <tr>
+                                    <td class="py-1 pr-4">{{ $cycle->label() }}</td>
+                                    @foreach ($otherCurrencies as $code)
+                                        @php $price = $otherPrices->get($code)?->get($cycle->value); @endphp
+                                        <td class="py-1 pr-2"><label for="price-{{ $code }}-{{ $cycle->value }}" class="sr-only">{{ $cycle->label() }} price in {{ $code }}</label><input id="price-{{ $code }}-{{ $cycle->value }}" name="currency_prices[{{ $code }}][{{ $cycle->value }}][price]" value="{{ old("currency_prices.{$code}.{$cycle->value}.price", $price ? Money::toInput($price->price) : '') }}" placeholder="0.00" class="w-24 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
+                                        <td class="py-1 pr-4"><label for="setup-fee-{{ $code }}-{{ $cycle->value }}" class="sr-only">{{ $cycle->label() }} setup fee in {{ $code }}</label><input id="setup-fee-{{ $code }}-{{ $cycle->value }}" name="currency_prices[{{ $code }}][{{ $cycle->value }}][setup_fee]" value="{{ old("currency_prices.{$code}.{$cycle->value}.setup_fee", $price && $price->setup_fee ? Money::toInput($price->setup_fee) : '') }}" placeholder="0.00" class="w-24 rounded-md px-2 py-1 ring-1 ring-ink-300"></td>
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
 
         @if ($modules->isNotEmpty())
             <fieldset class="space-y-3">

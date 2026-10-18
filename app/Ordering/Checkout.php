@@ -12,6 +12,7 @@ use App\Enums\ServiceStatus;
 use App\Events\OrderPlaced;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\Currency;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Promotion;
@@ -24,9 +25,23 @@ class Checkout
 {
     public function __construct(private OrderService $orders, private DomainOrders $domainOrders) {}
 
+    /** Where a guest's choice of currency in the store is kept. */
+    public const SESSION_CURRENCY = 'store_currency';
+
+    /**
+     * The currency a client is billed in. A guest sees the store in the
+     * currency they picked, when it's still one of the currencies, and
+     * signs up in it.
+     */
     public static function currencyFor(?Client $client): string
     {
-        return $client?->currency ?? config('billing.currency');
+        if ($client !== null) {
+            return $client->currency ?? config('billing.currency');
+        }
+
+        $chosen = request()->hasSession() ? request()->session()->get(self::SESSION_CURRENCY) : null;
+
+        return is_string($chosen) && $chosen !== config('billing.currency') && Currency::known($chosen) ? $chosen : config('billing.currency');
     }
 
     public function quote(Cart $cart, ?Client $client): CartQuote

@@ -13,6 +13,7 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\ClientGroup;
+use App\Models\Currency;
 use App\Models\CustomField;
 use App\Models\Tld;
 use App\Support\ClientSearch;
@@ -23,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -246,7 +248,14 @@ class ClientController extends Controller
             'tax_exempt' => ['boolean'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
             'language' => ['nullable', Rule::in(Language::all())],
+            'currency' => ['nullable', Rule::in(array_filter([...Currency::codes(), $client?->currency]))],
         ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+
+        if (blank($data['currency'] ?? null)) {
+            unset($data['currency']);
+        } elseif ($client !== null && $data['currency'] !== $client->currency && $client->currencyLocked()) {
+            throw ValidationException::withMessages(['currency' => "{$client->fullName()} already has invoices, payments or credit in {$client->currency}, so their currency can't be changed. Add a new client account for billing in {$data['currency']}."]);
+        }
 
         return [
             ...$data,

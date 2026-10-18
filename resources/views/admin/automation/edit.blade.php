@@ -78,6 +78,15 @@
             <p class="text-ink-500">Leave either blank to turn it off.</p>
         </fieldset>
 
+        <fieldset class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Exchange rates</legend>
+            <input type="hidden" name="update_exchange_rates" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="update_exchange_rates" value="1" class="mt-1" @checked(old('update_exchange_rates', $updateRates))>
+                <span>Update exchange rates from the European Central Bank every day at {{ App\Console\Scheduler::EXCHANGE_RATES_TIME }}. Prices don't change until you use Update product prices under <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.</span>
+            </label>
+        </fieldset>
+
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save automation settings</button>
     </form>
 </x-admin-layout>

@@ -35,7 +35,7 @@
         @if ($product->options->isNotEmpty())
             <fieldset class="space-y-3">
                 <legend class="mb-1 font-semibold">{{ __('Options') }}</legend>
-                @include('services._options', ['options' => $product->options, 'values' => [], 'cycleHint' => $prices->count() === 1 ? $prices->first()->billing_cycle : null])
+                @include('services._options', ['options' => $product->options, 'values' => [], 'cycleHint' => $prices->count() === 1 ? $prices->first()->billing_cycle : null, 'currency' => $currency])
                 @if ($prices->count() > 1)<p class="text-ink-500">{{ __('Option prices depend on the billing cycle. Your cart shows the total.') }}</p>@endif
             </fieldset>
         @endif

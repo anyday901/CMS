@@ -30,6 +30,25 @@
             </select>
             @can('manage-settings')<span class="mt-1 block text-ink-500">Add groups under <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">Client groups</a>.</span>@endcan
         </label>
+        @php
+            $currencyCodes = array_values(array_unique(array_filter([...App\Models\Currency::codes(), $client->currency])));
+            $currencyLocked = $client->currencyLocked();
+        @endphp
+        <label class="block">Currency
+            <select name="currency" @disabled($currencyLocked) class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300 disabled:bg-ink-50 disabled:text-ink-500">
+                @foreach ($currencyCodes as $code)
+                    <option value="{{ $code }}" @selected(old('currency', $client->currency ?? config('billing.currency')) === $code)>{{ $code }}</option>
+                @endforeach
+            </select>
+            <span class="mt-1 block text-ink-500">
+                @if ($currencyLocked)
+                    Can't be changed: the client has invoices, payments or credit in {{ $client->currency }}.
+                @else
+                    Prices, invoices and credit are in this currency. It can't be changed once the client has an invoice.
+                @endif
+                @can('manage-settings') Add currencies under <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.@endcan
+            </span>
+        </label>
         @if (count(App\Support\Language::all()) > 1)
             <label class="block">Language
                 <select name="language" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">

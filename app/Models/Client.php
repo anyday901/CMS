@@ -111,6 +111,15 @@ class Client extends Authenticatable
         return $this->hasMany(Transaction::class);
     }
 
+    /**
+     * Invoices, payments and credit are in the client's currency, so as in
+     * WHMCS it can't be changed once there are any.
+     */
+    public function currencyLocked(): bool
+    {
+        return $this->exists && ($this->credit_balance !== 0 || $this->invoices()->exists() || $this->transactions()->exists());
+    }
+
     public function sendPasswordResetNotification($token): void
     {
         app(ClientMailer::class)->send($this, 'password_reset', [

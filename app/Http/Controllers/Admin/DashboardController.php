@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\CancellationRequest;
 use App\Models\Client;
+use App\Models\Currency;
 use App\Models\EmailLog;
 use App\Models\FulfillmentTask;
 use App\Models\Invoice;
@@ -89,16 +90,17 @@ class DashboardController extends Controller
                 ? Server::where('monitor', true)->whereIn('status', [Server::DOWN, Server::WARNING])->orderBy('name')->get()
                 : collect(),
             'unpaidCount' => (clone $unpaid)->count(),
-            'unpaidTotal' => (int) (clone $unpaid)->sum('total'),
+            'unpaidTotal' => Currency::sumInDefault((clone $unpaid)->groupBy('currency')->selectRaw('currency, sum(total) as total')->pluck('total', 'currency')),
             'overdue' => (clone $unpaid)->whereDate('due_date', '<', today())
                 ->with('client')->orderBy('due_date')->limit(10)->get(),
         ]);
     }
 
-    /** Money received in the default currency since a time, or ever, in minor units. */
+    /** Money received since a time, or ever, in minor units of the default currency. */
     private function income($since): int
     {
-        return (int) SystemOverview::incomeQuery()->when($since, fn ($query) => $query->where('created_at', '>=', $since))->sum('amount');
+        return Currency::sumInDefault(SystemOverview::incomeQuery()->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->groupBy('currency')->selectRaw('currency, sum(amount) as amount')->pluck('amount', 'currency'));
     }
 
     /** Payments still clearing at the gateway, and payments with an open dispute. */
