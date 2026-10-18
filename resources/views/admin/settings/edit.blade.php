@@ -18,7 +18,12 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Automation</legend>
-            <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
+            <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, automatic card charges, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Payment gateways</legend>
+            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">

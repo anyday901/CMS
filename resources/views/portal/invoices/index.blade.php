@@ -1,5 +1,10 @@
 <x-portal-layout :title="__('Invoices')">
-    <h1 class="mb-6 text-2xl font-semibold">{{ __('Invoices') }}</h1>
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+        <h1 class="text-2xl font-semibold">{{ __('Invoices') }}</h1>
+        @if ($savedCards)
+            <a href="{{ route('portal.payment-methods.index') }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Payment methods') }}</a>
+        @endif
+    </div>
     @if ($invoices->isEmpty())
         <p class="text-sm text-ink-500">{{ __('You have no invoices yet.') }}</p>
     @else

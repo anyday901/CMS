@@ -5,7 +5,7 @@
         <a href="{{ route('admin.cron.show') }}" class="ml-auto text-sm text-brand-600">Cron status</a>
         <a href="{{ route('admin.settings.edit') }}" class="text-sm text-brand-600">Back to settings</a>
     </div>
-    <p class="mb-6 max-w-2xl text-sm text-ink-600">Once a day the billing run carries out cancellations, creates renewal and overage invoices, adds late fees, sends overdue reminders, and suspends and terminates overdue services, in that order. These are the days it works by.</p>
+    <p class="mb-6 max-w-2xl text-sm text-ink-600">Once a day the billing run carries out cancellations, creates renewal and overage invoices, charges saved cards, adds late fees, sends overdue reminders, and suspends and terminates overdue services, in that order. These are the days it works by.</p>
 
     <form method="POST" action="{{ route('admin.automation.update') }}" class="max-w-2xl space-y-6 rounded-lg border border-ink-200 bg-white p-6 text-sm">
         @csrf
@@ -31,6 +31,19 @@
             <label class="flex items-start gap-2">
                 <input type="checkbox" name="apply_credit_automatically" value="1" class="mt-1" @checked(old('apply_credit_automatically', $applyCredit))>
                 <span>Pay new invoices from the client's credit balance when they are created.</span>
+            </label>
+        </fieldset>
+
+        <fieldset class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Automatic card charging</legend>
+            <p class="text-ink-600">Unpaid invoices are charged to the client's default saved card, for clients who saved one and haven't turned automatic charging off. It needs a gateway that saves cards, such as Stripe, under <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>. A failed charge emails the client the "Payment failed" email, and shows on the invoice.</p>
+            <label class="block">Charge this many days before the due date
+                <input type="number" name="auto_charge_days_before_due" min="0" max="60" value="{{ old('auto_charge_days_before_due', $autoChargeDays) }}" class="{{ $input }}">
+                <span class="text-ink-500">0 charges on the due date.</span>
+            </label>
+            <label class="block">Try a failed charge again this many days after the due date
+                <input name="charge_retry_days" value="{{ old('charge_retry_days', $chargeRetryDays) }}" placeholder="No retries" class="{{ $input }} w-48">
+                <span class="text-ink-500">One try for each number, such as <code class="rounded bg-ink-100 px-1">1, 3, 5</code>. Leave blank to try only once. An invoice is never charged automatically twice on one day.</span>
             </label>
         </fieldset>
 

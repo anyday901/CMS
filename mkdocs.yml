@@ -70,6 +70,7 @@ nav:
       - Domains: admin/domains.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
+      - Stripe and automatic charging: admin/stripe.md
       - Health, maintenance, backups and updates: admin/system.md
       - Marketplace: admin/marketplace.md
       - WHMCS modules: admin/whmcs-modules.md

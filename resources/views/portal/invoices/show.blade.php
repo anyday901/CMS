@@ -35,6 +35,9 @@
         <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">
             <h2 class="mb-3 font-semibold">{{ __('Pay :amount', ['amount' => Money::format($invoice->balance(), $invoice->currency)]) }}</h2>
             @php $client = auth('client')->user(); @endphp
+            @if ($autoChargeCard)
+                <p class="mb-4 text-ink-600">{{ __(':method will be charged automatically when this invoice is due, unless you pay it first.', ['method' => $autoChargeCard->label()]) }} <a href="{{ route('portal.payment-methods.index') }}" class="text-brand-600">{{ __('Payment methods') }}</a></p>
+            @endif
             @if ($client->credit_balance > 0 && $client->currency === $invoice->currency)
                 <form method="POST" action="{{ route('portal.invoices.credit', $invoice) }}" class="mb-4">
                     @csrf

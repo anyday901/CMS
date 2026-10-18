@@ -96,6 +96,28 @@
                     <p class="text-sm text-ink-500">No payments yet.</p>
                 @endforelse
             </div>
+
+            @if ($invoice->paymentAttempts->isNotEmpty())
+                <div>
+                    <h2 class="mb-2 font-semibold">Saved card charges</h2>
+                    <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Date</th><th class="px-4 py-2">Card</th><th class="px-4 py-2">By</th><th class="px-4 py-2 text-right">Amount</th><th class="px-4 py-2">Result</th></tr></thead>
+                            <tbody class="divide-y divide-ink-100">
+                                @foreach ($invoice->paymentAttempts as $attempt)
+                                    <tr>
+                                        <td class="whitespace-nowrap px-4 py-2">{{ $attempt->created_at->format('M j, Y H:i') }}</td>
+                                        <td class="px-4 py-2">{{ $attempt->method_label }}</td>
+                                        <td class="px-4 py-2 text-ink-500">{{ $attempt->source === App\Models\PaymentAttempt::AUTO ? 'Billing run' : 'Staff' }}</td>
+                                        <td class="px-4 py-2 text-right">{{ Money::format($attempt->amount, $attempt->currency) }}</td>
+                                        <td class="px-4 py-2 {{ $attempt->status === 'failed' ? 'text-red-700' : ($attempt->status === 'pending' ? 'text-yellow-700' : 'text-green-700') }}">{{ ucfirst($attempt->status) }}@if ($attempt->message): {{ $attempt->message }}@endif</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
         </div>
 
         @if ($invoice->status->value === 'unpaid' && auth()->user()->can('manage-billing'))
@@ -111,6 +133,21 @@
                     <button class="w-full rounded-md px-4 py-2 font-medium ring-1 ring-ink-300 hover:bg-ink-100">Apply credit</button>
                 </form>
             @endif
+            @if ($chargeable->isNotEmpty())
+                <form method="POST" action="{{ route('admin.invoices.charge', $invoice) }}" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm" onsubmit="return confirm('Charge {{ Money::format($invoice->balance(), $invoice->currency) }} to this card now?')">
+                    @csrf
+                    <h2 class="font-semibold">Charge saved card</h2>
+                    <label class="block">Card
+                        <select name="payment_method" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                            @foreach ($chargeable as $method)
+                                <option value="{{ $method->id }}" @selected($method->is_default)>{{ $method->label() }}@if ($method->expiry()) ({{ $method->expiry() }})@endif</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    @error('charge')<p class="text-red-600">{{ $message }}</p>@enderror
+                    <button class="w-full rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Charge {{ Money::format($invoice->balance(), $invoice->currency) }}</button>
+                </form>
+            @endif
             <form method="POST" action="{{ route('admin.invoices.pay', $invoice) }}" class="space-y-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
                 @csrf
                 <h2 class="font-semibold">Record a payment</h2>
@@ -119,7 +156,7 @@
                 </label>
                 <label class="block">Method
                     <select name="method" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
-                        @foreach (['paypal' => 'PayPal', 'venmo' => 'Venmo', 'cashapp' => 'Cash App', 'cash' => 'Cash', 'check' => 'Check', 'bank_transfer' => 'Bank transfer', 'other' => 'Other'] as $value => $label)
+                        @foreach (['paypal' => 'PayPal', 'venmo' => 'Venmo', 'cashapp' => 'Cash App', 'stripe' => 'Stripe', 'cash' => 'Cash', 'check' => 'Check', 'bank_transfer' => 'Bank transfer', 'other' => 'Other'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('method') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>

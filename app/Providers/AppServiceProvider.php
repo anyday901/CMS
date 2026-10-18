@@ -21,6 +21,7 @@ use App\Hooks\HookCatalog;
 use App\Hooks\Hooks;
 use App\Mail\ClientMailer;
 use App\Models\ClientContact;
+use App\Models\PaymentAttempt;
 use App\Models\ServiceUpgrade;
 use App\Models\User;
 use App\Provisioning\AccountMover;
@@ -134,6 +135,8 @@ class AppServiceProvider extends ServiceProvider
         });
         Event::listen(OrderPlaced::class, fn (OrderPlaced $e) => app(ClientMailer::class)->orderConfirmation($e->order));
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(ClientMailer::class)->send($e->invoice->client, 'payment_receipt', invoice: $e->invoice));
+        // A saved-card charge the gateway was still processing has gone through.
+        Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => $e->invoice->paymentAttempts()->where('status', PaymentAttempt::PENDING)->update(['status' => PaymentAttempt::SUCCEEDED]));
         Event::listen(ServiceActivated::class, function (ServiceActivated $e) {
             $service = $e->service;
             app(ClientMailer::class)->send($service->client, 'service_welcome', [

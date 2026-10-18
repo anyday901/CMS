@@ -52,6 +52,15 @@ return [
     // its due date, once for each number. Empty turns reminders off.
     'reminder_days' => array_values(array_filter(array_map('intval', explode(',', (string) env('BILLING_REMINDER_DAYS', '1,7'))))),
 
+    // Charge unpaid invoices to the client's default saved card this many
+    // days before their due date (0: on the due date), in the billing run.
+    // Clients can turn automatic charging off in the portal.
+    'auto_charge_days_before_due' => (int) env('BILLING_AUTO_CHARGE_DAYS_BEFORE_DUE', 0),
+
+    // Try a failed automatic charge again this many days after the due date,
+    // once for each number. Empty means no retries.
+    'charge_retry_days' => array_values(array_filter(array_map('intval', explode(',', (string) env('BILLING_CHARGE_RETRY_DAYS', '1,3,5'))))),
+
     // Keep the services of new store orders pending, even once paid, until
     // staff accept the order in the pending orders queue. Can also be set
     // on the admin Settings page.

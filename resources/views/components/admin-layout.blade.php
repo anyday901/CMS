@@ -46,7 +46,7 @@
                     // Pages that light up a menu item besides its own.
                     $alsoActive = [
                         'admin.clients.index' => ['admin.mass-mail.*'],
-                        'admin.settings.edit' => ['admin.mail.*', 'admin.appearance.*', 'admin.languages.*', 'admin.system.*', 'admin.maintenance.*', 'admin.backups.*', 'admin.updates.*', 'admin.marketplace.*', 'admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.tlds.*', 'admin.domain-settings.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
+                        'admin.settings.edit' => ['admin.mail.*', 'admin.appearance.*', 'admin.languages.*', 'admin.system.*', 'admin.maintenance.*', 'admin.backups.*', 'admin.updates.*', 'admin.marketplace.*', 'admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.payment-gateways.*', 'admin.tlds.*', 'admin.domain-settings.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
                         'admin.kb.index' => ['admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*'],
                     ];
                 @endphp

@@ -29,6 +29,10 @@ return [
         'subject' => 'Reçu pour la facture n° {invoice_number}',
         'body' => "Bonjour {client_first_name},\n\nMerci pour votre paiement. La facture n° {invoice_number} d’un montant de {invoice_total} est désormais entièrement réglée.\n\n[Consulter la facture]({invoice_url})\n\n{company_name}",
     ],
+    'payment_failed' => [
+        'subject' => 'Échec du paiement de la facture n° {invoice_number}',
+        'body' => "Bonjour {client_first_name},\n\nNous avons tenté de débiter {invoice_balance} pour la facture n° {invoice_number} sur votre {payment_method}, mais le paiement n’a pas abouti : {failure_reason}\n\n[Payer la facture]({invoice_url})\n\nPour utiliser une autre carte lors des prochains paiements, [mettez à jour vos moyens de paiement]({payment_methods_url}).\n\nMerci,\n{company_name}",
+    ],
     'service_welcome' => [
         'subject' => 'Votre {service_name} est prêt',
         'body' => "Bonjour {client_first_name},\n\nMerci pour votre commande. Votre {service_name} est maintenant actif.\n\n{product_welcome}\n\n[Consulter votre service]({service_url})\n\nMerci,\n{company_name}",
