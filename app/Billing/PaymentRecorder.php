@@ -18,7 +18,7 @@ use InvalidArgumentException;
 
 class PaymentRecorder
 {
-    public function __construct(private ServiceLifecycle $lifecycle, private CreditLedger $ledger) {}
+    public function __construct(private ServiceLifecycle $lifecycle, private CreditLedger $ledger, private InvoiceNumbering $numbering) {}
 
     /**
      * Record a payment against an invoice. A repeated gateway reference returns
@@ -146,6 +146,7 @@ class PaymentRecorder
 
     private function markPaid(Invoice $invoice): void
     {
+        $this->numbering->assign($invoice);
         $invoice->forceFill([
             'status' => InvoiceStatus::Paid,
             'paid_at' => now(),

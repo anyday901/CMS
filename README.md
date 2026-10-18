@@ -468,6 +468,8 @@ Every client email is listed under **Emails** with its status (queued, sent or f
 
 Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
 
+Invoice numbers are the invoice's id by default. To number paid invoices in order with no gaps, with a proforma number before payment, turn on sequential paid numbers under **Settings > Invoice numbering**; see [docs/admin/invoice-numbering.md](docs/admin/invoice-numbering.md).
+
 Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
@@ -521,6 +523,8 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
+| `BILLING_SEQUENTIAL_PAID_NUMBERS` | `false` | Number invoices in order only once paid, with a proforma number before payment |
+| `BILLING_INVOICE_NUMBER_FORMAT` | `INV-{YEAR}-{NUMBER}` | How paid invoice numbers are written |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 | `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |

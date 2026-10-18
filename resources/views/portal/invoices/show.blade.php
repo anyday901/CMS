@@ -1,7 +1,8 @@
 @php use App\Support\Money; @endphp
-<x-portal-layout :title="__('Invoice #:number', ['number' => $invoice->number])">
+@php $title = $invoice->proforma ? __('Proforma #:number', ['number' => $invoice->number]) : __('Invoice #:number', ['number' => $invoice->number]); @endphp
+<x-portal-layout :title="$title">
     <div class="mb-6 flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold">{{ __('Invoice #:number', ['number' => $invoice->number]) }}</h1>
+        <h1 class="text-2xl font-semibold">{{ $title }}</h1>
         <x-status-badge :status="$invoice->status->value === 'unpaid' && $invoice->due_date->lt(today()) ? 'overdue' : $invoice->status" />
         <a href="{{ route('portal.invoices.pdf', $invoice) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Download PDF') }}</a>
     </div>

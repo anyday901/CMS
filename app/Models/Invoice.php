@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Billing\InvoiceNumbering;
 use App\Enums\InvoiceStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +38,11 @@ class Invoice extends Model
                 $invoice->tax_name = $rule?->name;
                 $invoice->tax_rate = $rule?->rate ?? 0;
             }
+
+            // Numbered on payment instead: a proforma until then.
+            if (! $invoice->isDirty('proforma') && $invoice->number === null) {
+                $invoice->proforma = InvoiceNumbering::enabled() && in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+            }
         });
 
         static::created(function (Invoice $invoice) {
@@ -51,6 +57,7 @@ class Invoice extends Model
         return [
             'status' => InvoiceStatus::class,
             'tax_inclusive' => 'boolean',
+            'proforma' => 'boolean',
             'issue_date' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
@@ -69,6 +76,12 @@ class Invoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    /** "Invoice #42", or "Proforma #42" until an invoice numbered on payment is paid. */
+    public function label(): string
+    {
+        return ($this->proforma ? 'Proforma' : 'Invoice')." #{$this->number}";
     }
 
     /** "Sales tax (8.25%)" */

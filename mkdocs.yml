@@ -69,6 +69,7 @@ nav:
       - Appearance and white-label: admin/appearance.md
       - Currencies: admin/currencies.md
       - Domains: admin/domains.md
+      - Invoice numbering: admin/invoice-numbering.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
       - Quotes: admin/quotes.md

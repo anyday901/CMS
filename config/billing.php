@@ -71,4 +71,15 @@ return [
     // staff accept the order in the pending orders queue. Can also be set
     // on the admin Settings page.
     'hold_new_orders' => (bool) env('BILLING_HOLD_NEW_ORDERS', false),
+
+    // Number invoices in order only once they are paid, like WHMCS's
+    // "Sequential Paid Invoice Numbering". Until then an invoice is a
+    // proforma, shown with its id. Can also be set on the admin Invoice
+    // numbering page, along with the next number.
+    'sequential_paid_numbers' => (bool) env('BILLING_SEQUENTIAL_PAID_NUMBERS', false),
+
+    // How paid invoice numbers are written. {NUMBER} is the next number in
+    // the sequence; {YEAR}, {MONTH} and {DAY} are the payment date. It needs
+    // a letter or symbol, so a paid number never looks like a proforma's id.
+    'invoice_number_format' => env('BILLING_INVOICE_NUMBER_FORMAT', 'INV-{YEAR}-{NUMBER}'),
 ];

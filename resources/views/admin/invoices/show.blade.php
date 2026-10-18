@@ -1,7 +1,7 @@
 @php use App\Support\Money; @endphp
-<x-admin-layout :title="'Invoice '.$invoice->number">
+<x-admin-layout :title="$invoice->label()">
     <div class="mb-6 flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold">Invoice #{{ $invoice->number }}</h1>
+        <h1 class="text-2xl font-semibold">{{ $invoice->label() }}</h1>
         <x-status-badge :status="$invoice->status" />
         <div class="ml-auto flex flex-wrap items-center gap-2">
             <a href="{{ route('admin.invoices.pdf', $invoice) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Download PDF</a>
@@ -24,6 +24,9 @@
             @endcan
         </div>
     </div>
+    @if ($invoice->proforma && in_array($invoice->status->value, ['draft', 'unpaid'], true))
+        <p class="mb-6 rounded-md bg-ink-50 px-4 py-3 text-sm text-ink-700">A proforma: it takes the next paid invoice number once it's paid. See <a href="{{ route('admin.invoice-numbering.edit') }}" class="text-brand-600">Invoice numbering</a>.</p>
+    @endif
     @if ($invoice->status->value === 'draft')
         <p class="mb-6 rounded-md bg-yellow-50 px-4 py-3 text-sm text-yellow-800">This is a draft. The client can't see it until you publish it.</p>
     @endif

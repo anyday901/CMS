@@ -100,7 +100,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Direct debit gateway (e.g. GoCardless)
 - [ ] Billable items: one-off or recurring charges and time tracking added to the next invoice
 - [ ] Merge unpaid invoices
-- [ ] Sequential invoice numbers for paid invoices only, with a proforma number before payment
+- [x] Sequential invoice numbers for paid invoices only, with a proforma number before payment
 - [ ] Compound and multi-level tax, EU VAT number validation and reverse charge
 - [ ] Account statements for a date range
 - [ ] Gateway log of every callback and webhook

@@ -7,7 +7,7 @@
         <tbody class="divide-y divide-ink-100">
             @foreach ($invoices as $invoice)
                 <tr>
-                    <td class="px-4 py-2"><a href="{{ route('admin.invoices.show', $invoice) }}" class="text-brand-600">{{ $invoice->number }}</a></td>
+                    <td class="px-4 py-2"><a href="{{ route('admin.invoices.show', $invoice) }}" class="text-brand-600">{{ $invoice->number }}</a>@if ($invoice->proforma) <span class="text-ink-500">proforma</span>@endif</td>
                     <td class="px-4 py-2">{{ $invoice->client->fullName() }}</td>
                     <td class="px-4 py-2">{{ $invoice->issue_date->format('M j, Y') }}</td>
                     <td class="px-4 py-2">{{ $invoice->due_date->format('M j, Y') }}</td>

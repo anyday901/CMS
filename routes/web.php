@@ -529,4 +529,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     });
 });
 
+// Invoice numbering: sequential numbers for paid invoices, with a proforma number before payment.
+Route::prefix('admin/settings/invoice-numbering')->name('admin.invoice-numbering.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])
+    ->controller(Admin\InvoiceNumberingController::class)->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+    });
+
 require __DIR__.'/platform.php';
