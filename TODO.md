@@ -19,7 +19,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Activity log
 - [x] Client portal: login, password setup and reset, invoices, services, account
 - [x] Own visual theme (Harbor) for the admin area and client portal
-- [ ] Use the Harbor colors on PDF invoices
+- [x] Use the Harbor colors on PDF invoices
 - [x] Client 2FA
 - [x] Client sign-up and ordering from the portal
 - [x] PayPal gateway (one-time checkout per invoice)
@@ -105,8 +105,8 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Client tax ID / VAT number on the client profile, invoices and quotes
 - [ ] Import WHMCS's level 2 tax rules, compound setting and client tax IDs
 - [ ] Re-check unverified EU VAT numbers with VIES automatically
-- [ ] Account statements for a date range
-- [ ] Gateway log of every callback and webhook
+- [x] Account statements for a date range
+- [x] Gateway log of every callback and webhook
 - [ ] Client groups with discounts and their own settings
 
 ## Milestone 7: Domains

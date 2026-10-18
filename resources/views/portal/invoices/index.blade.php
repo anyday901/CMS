@@ -2,6 +2,7 @@
     <div class="mb-6 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">{{ __('Invoices') }}</h1>
         <div class="ml-auto flex flex-wrap gap-2">
+            <a href="{{ route('portal.statement.show') }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Account statement') }}</a>
             @if ($addFunds)
                 <a href="{{ route('portal.add-funds.create') }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Add funds') }}</a>
             @endif

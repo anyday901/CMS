@@ -5,22 +5,7 @@
 <meta charset="utf-8">
 <title>{{ $invoice->label() }}</title>
 <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; }
-    h1 { font-size: 22px; margin: 0; }
-    .muted { color: #6b7280; }
-    .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 10px; }
-    .status-paid { background: #dcfce7; color: #166534; }
-    .status-unpaid { background: #fef9c3; color: #854d0e; }
-    .status-other { background: #f3f4f6; color: #374151; }
-    table { width: 100%; border-collapse: collapse; }
-    .header td { vertical-align: top; }
-    .items { margin-top: 24px; }
-    .items th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 6px 4px; color: #6b7280; }
-    .items td { border-bottom: 1px solid #f3f4f6; padding: 6px 4px; }
-    .num { text-align: right; white-space: nowrap; }
-    .totals td { padding: 4px; }
-    .totals .label { text-align: right; }
-    .grand td { font-weight: bold; border-top: 1px solid #d1d5db; }
+@include('pdf._harbor')
 </style>
 </head>
 <body>

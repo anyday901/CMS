@@ -2,10 +2,8 @@
 
 namespace App\Reports\Invoices;
 
-use App\Billing\CreditApplier;
-use App\Enums\InvoiceStatus;
+use App\Billing\AccountStatement;
 use App\Models\Client;
-use App\Models\InvoiceItem;
 use App\Reports\Report;
 use App\Reports\ReportFilters;
 use App\Reports\ReportRegistry;
@@ -13,14 +11,21 @@ use App\Reports\ReportResult;
 use App\Reports\ReportTable;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
-/** One client's invoices and payments in date order, with the balance after each. */
+/**
+ * One client's invoices and payments in date order, with the balance after
+ * each, and the changes to their credit balance. Clients see the same
+ * AccountStatement on the portal's statement page.
+ */
 class ClientStatement extends Report
 {
-    /** Invoices that were billed: not drafts, and not cancelled ones. */
-    private const BILLED = [InvoiceStatus::Unpaid, InvoiceStatus::Paid, InvoiceStatus::Refunded];
+    private const TYPES = [
+        AccountStatement::INVOICE => 'Invoice',
+        AccountStatement::PAYMENT => 'Payment',
+        AccountStatement::REFUND => 'Refund',
+        AccountStatement::CREDIT_APPLIED => 'Credit applied',
+        AccountStatement::CREDIT_NOTE => 'Credit note',
+    ];
 
     public function key(): string
     {
@@ -60,34 +65,7 @@ class ClientStatement extends Report
             return (new ReportResult)->note('Enter a client\'s number or email address to see their statement.');
         }
 
-        $start = $filters->from->startOfDay();
-        $billed = array_map(fn (InvoiceStatus $status) => $status->value, self::BILLED);
-        $invoices = DB::table('invoices')->where('client_id', $client->id)->whereIn('status', $billed)
-            // An unpaid add funds or mass payment invoice isn't owed: its originals are, or nothing is.
-            ->whereNot(fn ($unpaidFunds) => $unpaidFunds->where('status', InvoiceStatus::Unpaid->value)
-                ->whereExists(fn ($items) => $items->from('invoice_items')->whereColumn('invoice_items.invoice_id', 'invoices.id')->whereIn('invoice_items.type', InvoiceItem::FUNDS_TYPES)));
-        $payments = DB::table('transactions')->where('client_id', $client->id)->where('pending', false);
-        $creditNotes = DB::table('credit_notes')->where('client_id', $client->id)->whereNull('voided_at');
-
-        $opening = (int) (clone $invoices)->where('issue_date', '<', $start->toDateString())->sum('total')
-            - (int) (clone $payments)->where('created_at', '<', $start)->sum('amount')
-            - (int) (clone $creditNotes)->where('created_at', '<', $start)->sum('total');
-
-        $lines = collect();
-        foreach ((clone $invoices)->whereBetween('issue_date', [$start->toDateString(), $filters->to->toDateString()])->get() as $invoice) {
-            $lines->push($this->invoiceLine($invoice));
-        }
-        $paid = (clone $payments)->whereBetween('created_at', $filters->between())->get();
-        $numbers = DB::table('invoices')->whereIn('id', $paid->pluck('invoice_id')->filter())->pluck('number', 'id');
-        foreach ($paid as $payment) {
-            $lines->push($this->paymentLine($payment, $numbers));
-        }
-        // A credit note takes its amount off what was charged; its refund shows as its own line.
-        $credited = (clone $creditNotes)->whereBetween('created_at', $filters->between())->get();
-        $creditedOn = DB::table('invoices')->whereIn('id', $credited->pluck('invoice_id'))->pluck('number', 'id');
-        foreach ($credited as $note) {
-            $lines->push($this->creditNoteLine($note, $creditedOn));
-        }
+        $statement = AccountStatement::for($client, $filters->from, $filters->to);
 
         $table = new ReportTable([
             'date' => ['Date', ReportTable::DATE],
@@ -100,17 +78,36 @@ class ClientStatement extends Report
         ], $client->fullName(), $client->currency);
         $table->empty = 'No invoices or payments in these dates.';
 
-        $balance = $opening;
-        foreach ($lines->sortBy([['at', 'asc'], ['debit', 'desc']]) as $line) {
-            $balance += $line['debit'] - $line['credit'];
-            unset($line['at']);
-            $table->add($line + ['balance' => $balance]);
+        foreach ($statement->lines as $line) {
+            $table->add($this->row($line));
         }
-        $table->withTotals(['date' => null, 'type' => 'Total', 'balance' => $balance]);
+        $table->withTotals(['date' => null, 'type' => 'Total', 'balance' => $statement->closing]);
 
-        return (new ReportResult)->table($table)
-            ->note('Balance brought forward from before '.$start->format('M j, Y').': '.Money::format($opening, $client->currency).'. Balance is what the client owed after each line; below zero, they had paid ahead.')
-            ->note('Drafts and cancelled invoices aren\'t included. Payments from the credit balance show as Credit applied.');
+        $credit = new ReportTable([
+            'date' => ['Date', ReportTable::DATE],
+            'description' => ['Details', ReportTable::TEXT],
+            'amount' => ['Change', ReportTable::MONEY],
+            'balance' => ['Credit balance', ReportTable::MONEY],
+        ], 'Credit balance', $client->currency);
+        $credit->empty = 'No changes to the credit balance in these dates.';
+
+        foreach ($statement->creditEntries as $entry) {
+            $credit->add([
+                'date' => $entry['date'],
+                'description' => $entry['description'],
+                'amount' => $entry['amount'],
+                'balance' => $entry['balance'],
+                '_links' => $entry['invoice_id'] ? ['description' => route('admin.invoices.show', $entry['invoice_id'])] : [],
+            ]);
+        }
+
+        $from = $statement->from->format('M j, Y');
+        $to = $statement->to->format('M j, Y');
+
+        return (new ReportResult)->table($table)->table($credit)
+            ->note("Balance brought forward from before {$from}: ".Money::format($statement->opening, $client->currency).'. Balance is what the client owed after each line; below zero, they had paid ahead.')
+            ->note('Drafts and cancelled invoices aren\'t included. Payments from the credit balance show as Credit applied.')
+            ->note("Credit balance before {$from}: ".Money::format($statement->creditOpening, $client->currency)."; at the end of {$to}: ".Money::format($statement->creditClosing, $client->currency).'. Credit isn\'t counted in the balance until it is applied to an invoice.');
     }
 
     public static function label(Client $client): string
@@ -118,72 +115,30 @@ class ClientStatement extends Report
         return "#{$client->id} {$client->fullName()} ({$client->email})";
     }
 
-    /** @return array<string, mixed> */
-    private function invoiceLine(object $invoice): array
-    {
-        return [
-            'at' => "{$invoice->issue_date} 00:00:00",
-            'date' => $invoice->issue_date,
-            'type' => 'Invoice',
-            'reference' => "#{$invoice->number}",
-            'description' => 'Due '.CarbonImmutable::parse($invoice->due_date)->format('M j, Y'),
-            'debit' => (int) $invoice->total,
-            'credit' => 0,
-            '_links' => ['reference' => route('admin.invoices.show', $invoice->id)],
-        ];
-    }
-
     /**
-     * @param  Collection<int, string>  $numbers  invoice id => invoice number
+     * One statement line as a table row, linked to its invoice.
+     *
+     * @param  array<string, mixed>  $line
      * @return array<string, mixed>
      */
-    private function creditNoteLine(object $note, Collection $numbers): array
+    private function row(array $line): array
     {
-        return [
-            'at' => (string) $note->created_at,
-            'date' => substr((string) $note->created_at, 0, 10),
-            'type' => 'Credit note',
-            'reference' => '#'.($numbers[$note->invoice_id] ?? $note->invoice_id),
-            'description' => "{$note->number}: {$note->reason}",
-            'debit' => 0,
-            'credit' => (int) $note->total,
-            '_links' => ['reference' => route('admin.invoices.show', $note->invoice_id)],
-        ];
-    }
-
-    /**
-     * @param  Collection<int, string>  $numbers  invoice id => invoice number
-     * @return array<string, mixed>
-     */
-    private function paymentLine(object $payment, Collection $numbers): array
-    {
-        $amount = (int) $payment->amount;
-        $fromCredit = $payment->gateway === CreditApplier::GATEWAY;
-
-        if ($amount < 0) {
-            $type = 'Refund';
-        } else {
-            $type = $fromCredit ? 'Credit applied' : 'Payment';
-        }
-
-        $reference = '';
-        $links = [];
-        if ($payment->invoice_id) {
-            $reference = '#'.($numbers[$payment->invoice_id] ?? $payment->invoice_id);
-            $links = ['reference' => route('admin.invoices.show', $payment->invoice_id)];
-        }
-
-        $gateway = ucfirst((string) $payment->gateway).($payment->gateway_reference ? " {$payment->gateway_reference}" : '');
+        $description = match ($line['type']) {
+            AccountStatement::INVOICE => 'Due '.CarbonImmutable::parse($line['due_date'])->format('M j, Y'),
+            AccountStatement::CREDIT_APPLIED => 'From credit balance',
+            AccountStatement::CREDIT_NOTE => "{$line['reference']}: {$line['method']}",
+            default => ucfirst((string) $line['gateway']).($line['reference'] ? " {$line['reference']}" : ''),
+        };
 
         return [
-            'at' => (string) $payment->created_at,
-            'date' => substr((string) $payment->created_at, 0, 10),
-            'type' => $type,
-            'reference' => $reference,
-            'description' => $fromCredit ? 'From credit balance' : $gateway,
-            'debit' => max(0, -$amount),
-            'credit' => max(0, $amount),
-            '_links' => $links,
+            'date' => $line['date'],
+            'type' => self::TYPES[$line['type']],
+            'reference' => $line['invoice_id'] ? "#{$line['invoice_number']}" : '',
+            'description' => $description,
+            'debit' => $line['debit'],
+            'credit' => $line['credit'],
+            'balance' => $line['balance'],
+            '_links' => $line['invoice_id'] ? ['reference' => route('admin.invoices.show', $line['invoice_id'])] : [],
         ];
     }
 }

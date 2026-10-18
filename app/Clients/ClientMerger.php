@@ -31,6 +31,7 @@ class ClientMerger
         'services', 'domains', 'invoices', 'quotes', 'credit_notes', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
         'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log', 'payment_methods', 'payment_attempts',
         'billable_items',
+        'gateway_logs',
     ];
 
     /** Tables with a client_id that don't move row by row: contacts are matched up, credit history is summed, and AffiliateMerger sorts out affiliates and referrals. */

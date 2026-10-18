@@ -472,7 +472,7 @@ Use **New invoice** on a client's page to bill anything that isn't a service ren
 
 Invoice numbers are the invoice's id by default. To number paid invoices in order with no gaps, with a proforma number before payment, turn on sequential paid numbers under **Settings > Invoice numbering**; see [docs/admin/invoice-numbering.md](docs/admin/invoice-numbering.md).
 
-Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
+Staff and clients can download any invoice they can see as a PDF. Invoice, quote, credit note and statement PDFs use the Harbor colours, kept dark enough to read printed in greyscale. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -488,6 +488,14 @@ Open a client and choose **Billing > Quotes > New quote** to make a priced propo
 ### Billable items
 
 Open a client and choose **Billing > Billable items** to add a charge by hand: an amount, or hours at an hourly rate, with an invoice action that says when the nightly billing run invoices it (the next run, on the client's next renewal invoice, on a due date, or recurring every so many days, weeks, months or years, a set number of times or until stopped). Each item records the invoice it went on, so it's never billed twice, and stays editable until it's invoiced. See [docs/admin/billable-items.md](docs/admin/billable-items.md).
+
+### Account statements
+
+Clients, and contacts with the billing permission, open **Invoices > Account statement** in the portal to see their invoices, payments, refunds and credit applied between two dates they pick, with the opening balance, what they owed after each line, the closing balance and the changes to their credit balance, and download it as a PDF. Staff see the same statement under **Reports > Client statement**. See [docs/admin/statements.md](docs/admin/statements.md).
+
+### Gateway log
+
+**Settings > Payment gateways > Gateway log** lists every webhook, return and payment confirmation PayPal, Stripe and Square sent, with the outcome (accepted, rejected or error), the reason and the payload, with secrets and card data redacted. Filter by gateway and outcome. Entries are kept as long as the activity log. See [docs/admin/gateway-log.md](docs/admin/gateway-log.md).
 
 ### Activity log
 

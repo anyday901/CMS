@@ -10,6 +10,7 @@ use App\Models\Activity;
 use App\Models\Affiliate;
 use App\Models\CancellationRequest;
 use App\Models\Client;
+use App\Models\GatewayLog;
 use App\Models\InboundEmail;
 use App\Models\KnownDevice;
 use App\Models\LoginAttempt;
@@ -92,6 +93,8 @@ class ClientAnonymiser
             KnownDevice::whereIn('email', array_map('strtolower', $emails))->delete();
             $client->emailLogs()->delete();
             SmsLog::where('client_id', $client->id)->delete();
+            // What gateways sent about them, such as payer names and addresses.
+            GatewayLog::where('client_id', $client->id)->orWhereIn('invoice_id', $client->invoices()->select('id'))->delete();
             LoginAttempt::where('client_id', $client->id)->delete();
             foreach (['client_password_reset_tokens', 'contact_password_reset_tokens'] as $table) {
                 DB::table($table)->whereIn('email', $emails)->delete();

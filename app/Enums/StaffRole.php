@@ -17,7 +17,7 @@ enum StaffRole: string
     {
         return match ($ability) {
             'manage-staff' => 'Manage staff accounts',
-            'manage-settings' => 'Change products, tax rules, settings, email templates and departments, and see the activity log',
+            'manage-settings' => 'Change products, tax rules, settings, email templates and departments, and see the activity and gateway logs',
             'manage-clients' => 'Add and edit clients and services, and run provisioning',
             'manage-billing' => 'Create and edit invoices and quotes, record payments, apply credit and refund',
             'manage-tickets' => 'Answer, assign and close support tickets',
