@@ -20,6 +20,12 @@ class GatewayLogTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const REDACTED = '[redacted]';
+
+    private const STRIPE_HOOK = 'webhooks/stripe';
+
+    private const PAYPAL_HOOK = 'webhooks/paypal';
+
     private const SQUARE_URL = 'https://billing.example.test/webhooks/square';
 
     private const SQUARE_KEY = 'test-signature-key';
@@ -111,7 +117,7 @@ class GatewayLogTest extends TestCase
 
         $this->assertSame('pi_1', $redacted['id']);
         $this->assertSame(GatewayLogger::REDACTED, $redacted['client_secret']);
-        $this->assertSame(['brand' => 'visa', 'last4' => '4242', 'number' => '[redacted]', 'exp_month' => '[redacted]', 'exp_year' => '[redacted]', 'cvc' => '[redacted]'], $redacted['payment_method']['card']);
+        $this->assertSame(['brand' => 'visa', 'last4' => '4242', 'number' => self::REDACTED, 'exp_month' => self::REDACTED, 'exp_year' => self::REDACTED, 'cvc' => self::REDACTED], $redacted['payment_method']['card']);
         $this->assertSame(GatewayLogger::REDACTED, $redacted['source_id']);
         $this->assertSame('Card [redacted] was used', $redacted['note']);
         // An order number that isn't a card number stays.
@@ -149,8 +155,8 @@ class GatewayLogTest extends TestCase
     {
         $client = Client::factory()->create(['first_name' => 'Ada', 'last_name' => 'Lovelace']);
         $invoice = $this->invoice($client);
-        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => 'webhooks/stripe', 'event' => 'charge.refunded', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'payload' => '{"id":"evt_ok"}', 'client_id' => $client->id, 'invoice_id' => $invoice->id]);
-        GatewayLog::create(['gateway' => 'paypal', 'endpoint' => 'webhooks/paypal', 'event' => 'CUSTOMER.DISPUTE.CREATED', 'outcome' => GatewayLog::REJECTED, 'response_status' => 400, 'payload' => '{"id":"WH-bad"}']);
+        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => self::STRIPE_HOOK, 'event' => 'charge.refunded', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'payload' => '{"id":"evt_ok"}', 'client_id' => $client->id, 'invoice_id' => $invoice->id]);
+        GatewayLog::create(['gateway' => 'paypal', 'endpoint' => self::PAYPAL_HOOK, 'event' => 'CUSTOMER.DISPUTE.CREATED', 'outcome' => GatewayLog::REJECTED, 'response_status' => 400, 'payload' => '{"id":"WH-bad"}']);
         $this->actingAs(User::factory()->create(), 'web');
 
         $this->get('/admin/settings/payment-gateways')->assertSee('Gateway log');
@@ -172,9 +178,9 @@ class GatewayLogTest extends TestCase
     {
         $client = Client::factory()->create();
         $invoice = $this->invoice($client);
-        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => 'webhooks/stripe', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'client_id' => $client->id]);
-        GatewayLog::create(['gateway' => 'paypal', 'endpoint' => 'webhooks/paypal', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'invoice_id' => $invoice->id]);
-        $other = GatewayLog::create(['gateway' => 'paypal', 'endpoint' => 'webhooks/paypal', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
+        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => self::STRIPE_HOOK, 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'client_id' => $client->id]);
+        GatewayLog::create(['gateway' => 'paypal', 'endpoint' => self::PAYPAL_HOOK, 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200, 'invoice_id' => $invoice->id]);
+        $other = GatewayLog::create(['gateway' => 'paypal', 'endpoint' => self::PAYPAL_HOOK, 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
 
         app(ClientAnonymiser::class)->anonymise($client);
 
@@ -183,9 +189,9 @@ class GatewayLogTest extends TestCase
 
     public function test_entries_are_pruned_with_the_activity_log_retention(): void
     {
-        $old = GatewayLog::create(['gateway' => 'stripe', 'endpoint' => 'webhooks/stripe', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
+        $old = GatewayLog::create(['gateway' => 'stripe', 'endpoint' => self::STRIPE_HOOK, 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
         $old->forceFill(['created_at' => now()->subDays(100)])->save();
-        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => 'webhooks/stripe', 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
+        GatewayLog::create(['gateway' => 'stripe', 'endpoint' => self::STRIPE_HOOK, 'outcome' => GatewayLog::ACCEPTED, 'response_status' => 200]);
 
         $this->artisan('model:prune', ['--model' => [GatewayLog::class]])->assertSuccessful();
         $this->assertSame(2, GatewayLog::count());

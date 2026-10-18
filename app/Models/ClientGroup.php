@@ -76,11 +76,20 @@ class ClientGroup extends Model
         return TaxRule::formatRate($this->discount_percent);
     }
 
+    private function discountSummary(): ?string
+    {
+        if ($this->discount_percent <= 0) {
+            return null;
+        }
+
+        return $this->discountLabel().' off new orders'.($this->discount_renewals ? ' and renewals' : '');
+    }
+
     /** What the group changes, for the groups list: "10% off new orders and renewals, no late fees". */
     public function settingsSummary(): string
     {
         return implode(', ', array_filter([
-            $this->discount_percent > 0 ? $this->discountLabel().' off new orders'.($this->discount_renewals ? ' and renewals' : '') : null,
+            $this->discountSummary(),
             $this->exempt_late_fees ? 'no late fees' : null,
             $this->exempt_suspension ? 'no overdue suspension or termination' : null,
             $this->separate_invoices ? 'separate invoices' : null,

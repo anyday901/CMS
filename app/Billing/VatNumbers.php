@@ -4,6 +4,7 @@ namespace App\Billing;
 
 use App\Models\Client;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
@@ -61,19 +62,22 @@ class VatNumbers
         }
 
         try {
-            $response = Http::timeout(10)->acceptJson()->post(self::VIES_URL, [
+            return self::answer(Http::timeout(10)->acceptJson()->post(self::VIES_URL, [
                 'countryCode' => substr($vatNumber, 0, 2),
                 'vatNumber' => substr($vatNumber, 2),
-            ]);
+            ]));
         } catch (ConnectionException) {
             return null;
         }
+    }
 
+    /** VIES's verdict from its reply; anything but INVALID_INPUT, such as MS_UNAVAILABLE or TIMEOUT, means "ask again later". */
+    private static function answer(Response $response): ?bool
+    {
         if (is_bool($response->json('valid'))) {
             return $response->json('valid');
         }
 
-        // Anything else, such as MS_UNAVAILABLE or TIMEOUT, means "ask again later".
         return collect((array) $response->json('errorWrappers'))->contains(fn ($error) => ($error['error'] ?? null) === 'INVALID_INPUT') ? false : null;
     }
 

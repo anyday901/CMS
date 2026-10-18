@@ -24,6 +24,8 @@ class ClientGroupSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PURPLE = '#7c3aed';
+
     private const GROUPS = '/admin/client-groups';
 
     private const MONTHLY = 'monthly';
@@ -32,7 +34,7 @@ class ClientGroupSettingsTest extends TestCase
 
     private function group(array $attributes = []): ClientGroup
     {
-        return ClientGroup::create($attributes + ['name' => 'Resellers', 'colour' => '#7c3aed']);
+        return ClientGroup::create($attributes + ['name' => 'Resellers', 'colour' => self::PURPLE]);
     }
 
     private function clientIn(ClientGroup $group): Client
@@ -49,9 +51,9 @@ class ClientGroupSettingsTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
-        $this->post(self::GROUPS, ['name' => 'Resellers', 'colour' => '#7c3aed', 'discount_percent' => '120'])->assertSessionHasErrors('discount_percent');
+        $this->post(self::GROUPS, ['name' => 'Resellers', 'colour' => self::PURPLE, 'discount_percent' => '120'])->assertSessionHasErrors('discount_percent');
         $this->post(self::GROUPS, [
-            'name' => 'Resellers', 'colour' => '#7c3aed', 'discount_percent' => '12.5', 'discount_renewals' => '1',
+            'name' => 'Resellers', 'colour' => self::PURPLE, 'discount_percent' => '12.5', 'discount_renewals' => '1',
             'exempt_late_fees' => '1', 'exempt_suspension' => '0', 'separate_invoices' => '1', 'credit_limit' => '250',
         ])->assertRedirect(self::GROUPS)->assertSessionHasNoErrors();
 
@@ -63,7 +65,7 @@ class ClientGroupSettingsTest extends TestCase
         $this->get(self::GROUPS."/{$group->id}/edit")->assertOk()->assertSee('value="12.50"', false)->assertSee('value="250.00"', false);
 
         // Blank means no discount and no limit of the group's own.
-        $this->put(self::GROUPS."/{$group->id}", ['name' => 'Resellers', 'colour' => '#7c3aed', 'discount_percent' => '', 'credit_limit' => ''])->assertRedirect(self::GROUPS);
+        $this->put(self::GROUPS."/{$group->id}", ['name' => 'Resellers', 'colour' => self::PURPLE, 'discount_percent' => '', 'credit_limit' => ''])->assertRedirect(self::GROUPS);
         $this->assertSame([0, false, null], [$group->fresh()->discount_percent, $group->fresh()->separate_invoices, $group->fresh()->credit_limit]);
     }
 

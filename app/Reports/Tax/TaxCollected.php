@@ -131,7 +131,10 @@ class TaxCollected extends Report
         $rate = (int) $row->tax_rate;
         $rate2 = (int) $row->tax2_rate;
         $taxName = $row->tax_name ?: 'Tax';
-        $tax2Name = $rate2 > 0 ? ($row->tax2_name ?: 'Tax') : '';
+        $tax2Name = '';
+        if ($rate2 > 0) {
+            $tax2Name = $row->tax2_name ?: 'Tax';
+        }
         $country = $row->country ?: 'Unknown';
         $key = sprintf('%s|%06d|%s|%06d|%s|%d', $country, 999999 - $rate, $taxName, 999999 - $rate2, $tax2Name, $row->reverse_charge);
 

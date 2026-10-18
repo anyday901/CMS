@@ -17,6 +17,8 @@ class ClientTaxIdTest extends TestCase
 {
     use MakesApiKeys, RefreshDatabase;
 
+    private const TAX_ID_LABEL = 'Tax ID: ';
+
     private const TAX_ID = '12-3456789';
 
     public function test_clients_and_staff_set_a_tax_id(): void
@@ -48,8 +50,8 @@ class ClientTaxIdTest extends TestCase
         $this->assertSame(self::TAX_ID, $invoice->client_tax_id);
 
         $company = config('billing.company');
-        $this->assertStringContainsString('Tax ID: '.self::TAX_ID, view('pdf.invoice', ['invoice' => $invoice, 'company' => $company])->render());
-        $this->assertStringContainsString('Tax ID: '.self::TAX_ID, view('pdf.quote', ['quote' => $quote, 'company' => $company])->render());
+        $this->assertStringContainsString(self::TAX_ID_LABEL.self::TAX_ID, view('pdf.invoice', ['invoice' => $invoice, 'company' => $company])->render());
+        $this->assertStringContainsString(self::TAX_ID_LABEL.self::TAX_ID, view('pdf.quote', ['quote' => $quote, 'company' => $company])->render());
         $this->actingAs($client, 'client')->get("/portal/invoices/{$invoice->id}")->assertOk()->assertSee(self::TAX_ID);
         $this->actingAs(User::factory()->create(), 'web')->get("/admin/quotes/{$quote->id}")->assertOk()->assertSee(self::TAX_ID);
     }
@@ -62,7 +64,7 @@ class ClientTaxIdTest extends TestCase
         $this->actingAs(User::factory()->create(), 'web');
         $into = Client::factory()->create();
         app(ClientMerger::class)->merge($client, $into);
-        $this->assertStringContainsString('Tax ID: '.self::TAX_ID, $into->clientNotes()->sole()->body);
+        $this->assertStringContainsString(self::TAX_ID_LABEL.self::TAX_ID, $into->clientNotes()->sole()->body);
 
         $this->withApiKey();
         $this->patchJson("/api/v1/clients/{$into->id}", ['tax_id' => 'GB 123 4567 89'])->assertOk()->assertJsonPath('data.tax_id', 'GB 123 4567 89');

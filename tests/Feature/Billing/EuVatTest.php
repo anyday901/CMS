@@ -20,6 +20,10 @@ class EuVatTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const EMAIL = 'ada@example.com';
+
+    private const REVERSE_CHARGE = 'Reverse charge';
+
     private const OUR_VAT = 'DE123456789';
 
     private const THEIR_VAT = 'FR12345678901';
@@ -39,17 +43,17 @@ class EuVatTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->post('/admin/clients', [
-            'first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com', 'status' => 'active', 'tax_id' => 'fr 12 345 678 901',
+            'first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => self::EMAIL, 'status' => 'active', 'tax_id' => 'fr 12 345 678 901',
         ])->assertRedirect();
 
         $client = Client::sole();
         $this->assertSame(self::THEIR_VAT, $client->tax_id);
         $this->assertNotNull($client->tax_id_verified_at);
         Http::assertSent(fn (Request $request) => $request->url() === VatNumbers::VIES_URL && $request['countryCode'] === 'FR' && $request['vatNumber'] === '12345678901');
-        $this->get("/admin/clients/{$client->id}")->assertSee(self::THEIR_VAT.' (VIES verified)')->assertSee('Reverse charge');
+        $this->get("/admin/clients/{$client->id}")->assertSee(self::THEIR_VAT.' (VIES verified)')->assertSee(self::REVERSE_CHARGE);
 
         // Saving the same number again doesn't ask VIES again.
-        $this->put("/admin/clients/{$client->id}", ['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com', 'status' => 'active', 'tax_id' => self::THEIR_VAT]);
+        $this->put("/admin/clients/{$client->id}", ['first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => self::EMAIL, 'status' => 'active', 'tax_id' => self::THEIR_VAT]);
         Http::assertSentCount(1);
     }
 
@@ -79,7 +83,7 @@ class EuVatTest extends TestCase
 
         $this->post(route('cart.store', $product), ['billing_cycle' => 'monthly']);
         $this->post('/checkout', [
-            'first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => 'ada@example.com', 'password' => self::PASSWORD, 'password_confirmation' => self::PASSWORD,
+            'first_name' => 'Ada', 'last_name' => 'Lovelace', 'email' => self::EMAIL, 'password' => self::PASSWORD, 'password_confirmation' => self::PASSWORD,
             'address1' => '1 Rue', 'city' => 'Paris', 'postcode' => '75001', 'country' => 'fr', 'tax_id' => self::THEIR_VAT,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
@@ -126,12 +130,12 @@ class EuVatTest extends TestCase
         $this->assertSame(self::THEIR_VAT, $invoice->client_tax_id);
 
         $html = view('pdf.invoice', ['invoice' => $invoice, 'company' => config('billing.company')])->render();
-        $this->assertStringContainsString('Reverse charge', $html);
+        $this->assertStringContainsString(self::REVERSE_CHARGE, $html);
         $this->assertStringContainsString('Supplier VAT number: '.self::OUR_VAT, $html);
         $this->assertStringContainsString('Customer VAT number: '.self::THEIR_VAT, $html);
 
         $this->actingAs($client, 'client')->get("/portal/invoices/{$invoice->id}")->assertOk()
-            ->assertSee('Reverse charge')->assertSee(self::OUR_VAT)->assertSee(self::THEIR_VAT);
+            ->assertSee(self::REVERSE_CHARGE)->assertSee(self::OUR_VAT)->assertSee(self::THEIR_VAT);
     }
 
     public function test_vat_is_charged_at_home_without_the_setting_or_when_exempt(): void

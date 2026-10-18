@@ -20,6 +20,12 @@ class CreditLimitTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const RUN_DAY = '2026-10-25';
+
+    private const LATER_DAY = '2026-11-05';
+
+    private const AUTOMATION = '/admin/settings/automation';
+
     private const CLIENTS = '/admin/clients';
 
     protected function setUp(): void
@@ -32,7 +38,7 @@ class CreditLimitTest extends TestCase
     private function overdueService(Client $client): Service
     {
         $service = Service::factory()->create(['client_id' => $client->id, 'recurring_amount' => 1000]);
-        app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-25'));
+        app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::RUN_DAY));
 
         return $service;
     }
@@ -65,11 +71,11 @@ class CreditLimitTest extends TestCase
         $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->runOverdue());
 
         // A second unpaid invoice takes the client to $20.00, over the $15.00 limit.
-        Service::factory()->create(['client_id' => $client->id, 'recurring_amount' => 1000, 'next_due_date' => '2026-11-05']);
-        app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-11-05'));
+        Service::factory()->create(['client_id' => $client->id, 'recurring_amount' => 1000, 'next_due_date' => self::LATER_DAY]);
+        app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::LATER_DAY));
         $this->assertSame(2000, $client->unpaidBalance());
 
-        $this->assertSame(['suspended' => 1, 'terminated' => 0], $this->runOverdue('2026-11-05'));
+        $this->assertSame(['suspended' => 1, 'terminated' => 0], $this->runOverdue(self::LATER_DAY));
         $this->assertSame(ServiceStatus::Suspended, $service->refresh()->status);
     }
 
@@ -98,11 +104,11 @@ class CreditLimitTest extends TestCase
             'run_time' => '00:05', 'invoice_days_before_due' => '7', 'late_fee_type' => 'fixed', 'suspend_after_days' => '3', 'terminate_after_days' => '30', 'overage_due_days' => '7',
         ];
 
-        $this->put('/admin/settings/automation', $form + ['credit_limit' => 'lots'])->assertSessionHasErrors('credit_limit');
-        $this->put('/admin/settings/automation', $form + ['credit_limit' => '100'])->assertSessionHasNoErrors();
+        $this->put(self::AUTOMATION, $form + ['credit_limit' => 'lots'])->assertSessionHasErrors('credit_limit');
+        $this->put(self::AUTOMATION, $form + ['credit_limit' => '100'])->assertSessionHasNoErrors();
         Settings::apply();
         $this->assertSame('100.00', config('billing.credit_limit'));
-        $this->get('/admin/settings/automation')->assertSee('value="100.00"', false);
+        $this->get(self::AUTOMATION)->assertSee('value="100.00"', false);
 
         $within = $this->overdueService(Client::factory()->create());
         $this->assertSame(['suspended' => 0, 'terminated' => 0], $this->runOverdue());
@@ -135,7 +141,7 @@ class CreditLimitTest extends TestCase
     {
         $client = Client::factory()->create(['credit_limit' => 1000]);
         $this->overdueService($client);
-        $funds = Invoice::create(['client_id' => $client->id, 'currency' => $client->currency, 'issue_date' => '2026-10-25', 'due_date' => '2026-10-25']);
+        $funds = Invoice::create(['client_id' => $client->id, 'currency' => $client->currency, 'issue_date' => self::RUN_DAY, 'due_date' => self::RUN_DAY]);
         $funds->items()->create(['type' => InvoiceItem::TYPE_ADD_FUNDS, 'description' => 'Add funds', 'amount' => 5000, 'taxable' => false]);
         $funds->recalculate();
 

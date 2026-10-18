@@ -17,6 +17,20 @@ class AccountStatementTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const GOODWILL = 'Goodwill credit';
+
+    private const JUNE_1 = '2026-06-01';
+
+    private const FOUR = '$4.00';
+
+    private const SEVEN = '$7.00';
+
+    private const THREE = '$3.00';
+
+    private const FIVE = '$5.00';
+
+    private const STATEMENT = '/portal/statement';
+
     private Client $client;
 
     protected function setUp(): void
@@ -44,13 +58,13 @@ class AccountStatementTest extends TestCase
         $this->travelTo('2026-03-01 09:00:00');
         Transaction::create(['client_id' => $this->client->id, 'invoice_id' => $paid->id, 'refund_of_id' => $payment->id, 'gateway' => 'paypal', 'currency' => 'USD', 'amount' => -300, 'gateway_reference' => 'PP-R1']);
         $this->travelTo('2026-04-01 09:00:00');
-        app(CreditLedger::class)->adjust($this->client, 500, 'Goodwill credit');
+        app(CreditLedger::class)->adjust($this->client, 500, self::GOODWILL);
         $this->travelTo('2026-05-01 09:00:00');
         $credited = $this->invoice('2026-05-01', 200);
         app(CreditApplier::class)->apply($credited);
-        $this->invoice('2026-06-01', 9999, 'cancelled');
-        $this->invoice('2026-06-01', 8888, 'draft');
-        $this->invoice('2026-06-01', 7777, 'unpaid', Client::factory()->create());
+        $this->invoice(self::JUNE_1, 9999, 'cancelled');
+        $this->invoice(self::JUNE_1, 8888, 'draft');
+        $this->invoice(self::JUNE_1, 7777, 'unpaid', Client::factory()->create());
         $this->travelTo('2026-10-15 12:00:00');
     }
 
@@ -63,9 +77,9 @@ class AccountStatementTest extends TestCase
 
         $this->get('/portal/statement?from=2026-01-01&to=2026-10-15')->assertOk()
             ->assertSee('Opening balance on Jan 1, 2026')
-            ->assertSeeInOrder(['$4.00', 'Charged', '$15.00', 'Paid', '$12.00', 'Closing balance on Oct 15, 2026', '$7.00'])
-            ->assertSeeInOrder(['Invoice', '$10.00', '$14.00', 'Payment', 'PayPal PP-1', '$4.00', 'Refund', '$3.00', '$7.00', 'Invoice', '$9.00', 'Credit applied', 'From your credit balance', '$7.00'])
-            ->assertSeeInOrder(['Credit balance', '$0.00 on Jan 1, 2026, $3.00 at the end of Oct 15, 2026.', 'Goodwill credit', '$5.00', 'Paid invoice', '-$2.00', '$3.00'])
+            ->assertSeeInOrder([self::FOUR, 'Charged', '$15.00', 'Paid', '$12.00', 'Closing balance on Oct 15, 2026', self::SEVEN])
+            ->assertSeeInOrder(['Invoice', '$10.00', '$14.00', 'Payment', 'PayPal PP-1', self::FOUR, 'Refund', self::THREE, self::SEVEN, 'Invoice', '$9.00', 'Credit applied', 'From your credit balance', self::SEVEN])
+            ->assertSeeInOrder(['Credit balance', '$0.00 on Jan 1, 2026, $3.00 at the end of Oct 15, 2026.', self::GOODWILL, self::FIVE, 'Paid invoice', '-$2.00', self::THREE])
             ->assertDontSee('$99.99')
             ->assertDontSee('$88.88')
             ->assertDontSee('$77.77');
@@ -73,7 +87,7 @@ class AccountStatementTest extends TestCase
         // Before the range, everything is brought forward.
         $this->get('/portal/statement?from=2026-04-15&to=2026-10-15')->assertOk()
             ->assertSee('Opening balance on Apr 15, 2026')
-            ->assertSeeInOrder(['Opening balance', '$7.00'])
+            ->assertSeeInOrder(['Opening balance', self::SEVEN])
             ->assertSee('$5.00 on Apr 15, 2026, $3.00 at the end of Oct 15, 2026.');
     }
 
@@ -94,7 +108,7 @@ class AccountStatementTest extends TestCase
     {
         $this->actingAs($this->client, 'client');
 
-        $this->get('/portal/statement')->assertOk()->assertSee('value="2026-01-01"', false)->assertSee('value="2026-10-15"', false)
+        $this->get(self::STATEMENT)->assertOk()->assertSee('value="2026-01-01"', false)->assertSee('value="2026-10-15"', false)
             ->assertSee('No invoices or payments in these dates.');
         $this->get('/portal/statement?from=2026-02-30&to=nonsense')->assertOk()->assertSee('value="2026-01-01"', false);
         // Dates the wrong way round are swapped.
@@ -121,7 +135,7 @@ class AccountStatementTest extends TestCase
 
         $html = view('pdf.statement', ['statement' => $statement, 'company' => config('billing.company')])->render();
 
-        foreach (['Acme Hosting', 'Account statement', 'Ada Lovelace', 'Opening balance', '$4.00', 'PayPal PP-1', 'Goodwill credit', 'Closing balance on Oct 15, 2026', '#0e7c6b'] as $text) {
+        foreach (['Acme Hosting', 'Account statement', 'Ada Lovelace', 'Opening balance', self::FOUR, 'PayPal PP-1', self::GOODWILL, 'Closing balance on Oct 15, 2026', '#0e7c6b'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
     }
@@ -132,16 +146,16 @@ class AccountStatementTest extends TestCase
         $contact->forceFill(['password' => 'contact-password-1'])->save();
         $this->post('/portal/login', ['email' => 'pat@example.com', 'password' => 'contact-password-1']);
 
-        $this->get('/portal/statement')->assertRedirect('/portal');
+        $this->get(self::STATEMENT)->assertRedirect('/portal');
         $this->get('/portal/statement/pdf')->assertRedirect('/portal');
 
         $contact->update(['permissions' => ['billing']]);
-        $this->get('/portal/statement')->assertOk();
+        $this->get(self::STATEMENT)->assertOk();
     }
 
     public function test_guests_are_sent_to_log_in(): void
     {
-        $this->get('/portal/statement')->assertRedirect('/portal/login');
+        $this->get(self::STATEMENT)->assertRedirect('/portal/login');
     }
 
     public function test_the_admin_report_shows_the_same_statement_with_the_credit_balance(): void
@@ -151,8 +165,8 @@ class AccountStatementTest extends TestCase
 
         $this->get('/admin/reports/client-statement?from=2026-01-01&to=2026-10-15&client='.$this->client->id)->assertOk()
             ->assertSee('Balance brought forward from before Jan 1, 2026: $4.00')
-            ->assertSeeInOrder(['Refund', 'Paypal PP-R1', '$3.00', '$7.00'])
-            ->assertSeeInOrder(['Credit balance', 'Goodwill credit', '$5.00', '$5.00', 'Paid invoice', '-$2.00', '$3.00'])
+            ->assertSeeInOrder(['Refund', 'Paypal PP-R1', self::THREE, self::SEVEN])
+            ->assertSeeInOrder(['Credit balance', self::GOODWILL, self::FIVE, self::FIVE, 'Paid invoice', '-$2.00', self::THREE])
             ->assertSee('Credit balance before Jan 1, 2026: $0.00; at the end of Oct 15, 2026: $3.00.');
 
         $csv = $this->get('/admin/reports/client-statement/export?from=2026-01-01&to=2026-10-15&client='.$this->client->id)->assertOk()->streamedContent();

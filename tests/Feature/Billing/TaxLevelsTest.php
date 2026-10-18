@@ -16,6 +16,10 @@ class TaxLevelsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const QST = 'QST (9.5%)';
+
+    private const GST = 'GST (5%)';
+
     private const RULES_URL = '/admin/tax-rules';
 
     private Client $client;
@@ -48,7 +52,7 @@ class TaxLevelsTest extends TestCase
         $this->assertSame(1450, $invoice->tax);
         $this->assertSame(950, $invoice->tax2);
         $this->assertSame(11450, $invoice->total);
-        $this->assertSame([['GST (5%)', 500], ['QST (9.5%)', 950]], $invoice->taxLines());
+        $this->assertSame([[self::GST, 500], [self::QST, 950]], $invoice->taxLines());
     }
 
     public function test_compound_level_2_is_charged_on_the_amount_plus_level_1(): void
@@ -70,12 +74,12 @@ class TaxLevelsTest extends TestCase
     {
         config(['billing.tax_inclusive' => true]);
         $invoice = $this->invoice(11450);
-        $this->assertSame([['GST (5%)', 500], ['QST (9.5%)', 950]], $invoice->taxLines());
+        $this->assertSame([[self::GST, 500], [self::QST, 950]], $invoice->taxLines());
         $this->assertSame(11450, $invoice->total);
 
         config(['billing.tax_compound' => true]);
         $invoice = $this->invoice(11498);
-        $this->assertSame([['GST (5%)', 500], ['QST (9.5%)', 998]], $invoice->taxLines());
+        $this->assertSame([[self::GST, 500], [self::QST, 998]], $invoice->taxLines());
         $this->assertSame(11498, $invoice->total);
     }
 
@@ -96,11 +100,11 @@ class TaxLevelsTest extends TestCase
         $invoice = $this->invoice(10000);
         $this->actingAs(User::factory()->create());
 
-        $this->get("/admin/invoices/{$invoice->id}")->assertOk()->assertSeeInOrder(['GST (5%)', '$5.00', 'QST (9.5%)', '$9.50', '$114.50']);
-        $this->actingAs($this->client, 'client')->get("/portal/invoices/{$invoice->id}")->assertOk()->assertSeeInOrder(['GST (5%)', 'QST (9.5%)']);
+        $this->get("/admin/invoices/{$invoice->id}")->assertOk()->assertSeeInOrder([self::GST, '$5.00', self::QST, '$9.50', '$114.50']);
+        $this->actingAs($this->client, 'client')->get("/portal/invoices/{$invoice->id}")->assertOk()->assertSeeInOrder([self::GST, self::QST]);
 
         $html = view('pdf.invoice', ['invoice' => $invoice, 'company' => config('billing.company')])->render();
-        $this->assertStringContainsString('QST (9.5%)', $html);
+        $this->assertStringContainsString(self::QST, $html);
     }
 
     public function test_a_quote_keeps_both_levels_when_it_becomes_an_invoice(): void

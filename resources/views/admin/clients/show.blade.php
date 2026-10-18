@@ -57,7 +57,7 @@
                 <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2">
                     <dt class="text-ink-500">Client since</dt><dd>{{ $client->created_at->format('M j, Y') }}</dd>
                     <dt class="text-ink-500">Group</dt><dd>{{ $client->group?->name ?? 'None' }}</dd>
-                    @include('admin.clients._credit-limit')
+                    <dt class="text-ink-500">Credit limit</dt><dd>@include('admin.clients._credit-limit')</dd>
                     <dt class="text-ink-500">Tax</dt><dd>{{ $taxName }}</dd>
                     <dt class="text-ink-500">Two-factor</dt><dd>{{ $client->hasTwoFactor() ? 'On' : 'Off' }}</dd>
                     <dt class="text-ink-500">Marketing emails</dt><dd>{{ $client->marketing_emails ? 'Agreed' : 'Not agreed' }}</dd>

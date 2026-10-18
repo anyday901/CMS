@@ -19,6 +19,8 @@ use Carbon\CarbonImmutable;
  */
 class ClientStatement extends Report
 {
+    private const DATE_FORMAT = 'M j, Y';
+
     private const TYPES = [
         AccountStatement::INVOICE => 'Invoice',
         AccountStatement::PAYMENT => 'Payment',
@@ -101,8 +103,8 @@ class ClientStatement extends Report
             ]);
         }
 
-        $from = $statement->from->format('M j, Y');
-        $to = $statement->to->format('M j, Y');
+        $from = $statement->from->format(self::DATE_FORMAT);
+        $to = $statement->to->format(self::DATE_FORMAT);
 
         return (new ReportResult)->table($table)->table($credit)
             ->note("Balance brought forward from before {$from}: ".Money::format($statement->opening, $client->currency).'. Balance is what the client owed after each line; below zero, they had paid ahead.')
@@ -124,7 +126,7 @@ class ClientStatement extends Report
     private function row(array $line): array
     {
         $description = match ($line['type']) {
-            AccountStatement::INVOICE => 'Due '.CarbonImmutable::parse($line['due_date'])->format('M j, Y'),
+            AccountStatement::INVOICE => 'Due '.CarbonImmutable::parse($line['due_date'])->format(self::DATE_FORMAT),
             AccountStatement::CREDIT_APPLIED => 'From credit balance',
             AccountStatement::CREDIT_NOTE => "{$line['reference']}: {$line['method']}",
             default => ucfirst((string) $line['gateway']).($line['reference'] ? " {$line['reference']}" : ''),
