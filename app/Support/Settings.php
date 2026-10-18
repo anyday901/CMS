@@ -41,6 +41,7 @@ class Settings
         'billing.hold_new_orders',
         'billing.sequential_paid_numbers',
         'billing.invoice_number_format',
+        'billing.credit_note_number_format',
         'store.terms_url',
         'payments.bank_transfer.instructions',
         'payments.mail_in.instructions',

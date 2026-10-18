@@ -27,6 +27,10 @@ The next number is kept in one database row, which is locked while a payment tak
 
 Saving the settings page only changes the sequence when you change **Next number**, so saving it while payments come in doesn't wind the numbers back.
 
+## Credit notes
+
+The same page sets the format and next number of [credit notes](credit-notes.md), which have their own sequence (`CN-{NUMBER}` by default) and are numbered as they're issued, whether or not paid invoices are numbered sequentially.
+
 ## Turning it off again
 
 Invoices created before the setting was turned on keep their numbers when they're paid. Turning it off stops new invoices being proformas; proformas made while it was on still take a sequential number when they're paid, so none of them are left without one.

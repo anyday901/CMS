@@ -25,7 +25,9 @@ class InvoiceController extends Controller
         // Link to the Payment methods page when cards can be saved, or some already are.
         $savedCards = $gateways->savingMethods()->isNotEmpty() || $request->user('client')->paymentMethods()->exists();
 
-        return view('portal.invoices.index', compact('invoices', 'savedCards'));
+        $creditNotes = $request->user('client')->creditNotes()->with('invoice')->latest('id')->get();
+
+        return view('portal.invoices.index', compact('invoices', 'savedCards', 'creditNotes'));
     }
 
     public function applyCredit(Request $request, int $invoice, CreditApplier $credit): RedirectResponse
@@ -51,7 +53,7 @@ class InvoiceController extends Controller
     {
         $invoice = $request->user('client')->invoices()
             ->where('status', '!=', InvoiceStatus::Draft)
-            ->with(['items', 'transactions'])
+            ->with(['items', 'transactions', 'creditNotes'])
             ->findOrFail($invoice);
 
         $client = $request->user('client');

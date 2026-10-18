@@ -89,7 +89,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 ## Milestone 6: Billing parity
 - [x] Multiple currencies with exchange rates and per-currency prices
 - [x] Quotes that convert to invoices once accepted
-- [ ] Credit notes
+- [x] Credit notes
 - [ ] Add funds (prepay into credit) and mass pay of several invoices at once
 - [x] Saved payment methods and automatic charging on the due date
 - [x] Stripe gateway (cards and the wallets Stripe's Payment Element offers)

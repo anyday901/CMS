@@ -130,10 +130,10 @@ class Invoice extends Model
         return $this;
     }
 
-    /** Drafts and unpaid invoices can still have their lines changed. */
+    /** Drafts and unpaid invoices can still have their lines changed, until a credit note is issued against them. */
     public function isEditable(): bool
     {
-        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true) && ! $this->creditNotes()->exists();
     }
 
     public function amountPaid(): int
@@ -141,8 +141,20 @@ class Invoice extends Model
         return (int) $this->transactions()->sum('amount');
     }
 
+    /** What's left to pay. Credit notes take their amount off what's owed, as their refunds take it off what's paid. */
     public function balance(): int
     {
-        return $this->total - $this->amountPaid();
+        return $this->total - $this->credited() - $this->amountPaid();
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class);
+    }
+
+    /** The total of the credit notes issued against this invoice. */
+    public function credited(): int
+    {
+        return (int) $this->creditNotes()->sum('total');
     }
 }

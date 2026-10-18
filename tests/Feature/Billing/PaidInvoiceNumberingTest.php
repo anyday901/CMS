@@ -23,6 +23,9 @@ class PaidInvoiceNumberingTest extends TestCase
 
     private const URL = '/admin/settings/invoice-numbering';
 
+    /** The credit note fields on the same page, left as they are. */
+    private const CREDIT_NOTES = ['credit_note_number_format' => 'CN-{NUMBER}', 'credit_note_next_number' => '1', 'shown_credit_note_next_number' => '1'];
+
     private Client $client;
 
     protected function setUp(): void
@@ -144,10 +147,10 @@ class PaidInvoiceNumberingTest extends TestCase
         $this->get('/admin/settings')->assertOk()->assertSee('Invoice numbering');
         $this->get(self::URL)->assertOk()->assertSee('INV-'.now()->format('Y').'-1');
 
-        $this->put(self::URL, ['sequential_paid_numbers' => '1', 'invoice_number_format' => '{NUMBER}', 'next_number' => '5', 'shown_next_number' => '1'])
+        $this->put(self::URL, self::CREDIT_NOTES + ['sequential_paid_numbers' => '1', 'invoice_number_format' => '{NUMBER}', 'next_number' => '5', 'shown_next_number' => '1'])
             ->assertSessionHasErrors('invoice_number_format');
 
-        $this->put(self::URL, ['sequential_paid_numbers' => '1', 'invoice_number_format' => 'F{YEAR}-{NUMBER}', 'next_number' => '1001', 'shown_next_number' => '1'])
+        $this->put(self::URL, self::CREDIT_NOTES + ['sequential_paid_numbers' => '1', 'invoice_number_format' => 'F{YEAR}-{NUMBER}', 'next_number' => '1001', 'shown_next_number' => '1'])
             ->assertRedirect(self::URL);
         $this->assertTrue(config('billing.sequential_paid_numbers'));
         $this->assertSame(1001, NumberSequence::peek(NumberSequence::INVOICE));
@@ -155,7 +158,7 @@ class PaidInvoiceNumberingTest extends TestCase
 
         // Saving again with the number as shown doesn't wind the sequence back.
         NumberSequence::take(NumberSequence::INVOICE);
-        $this->put(self::URL, ['sequential_paid_numbers' => '1', 'invoice_number_format' => 'F{YEAR}-{NUMBER}', 'next_number' => '1001', 'shown_next_number' => '1001']);
+        $this->put(self::URL, self::CREDIT_NOTES + ['sequential_paid_numbers' => '1', 'invoice_number_format' => 'F{YEAR}-{NUMBER}', 'next_number' => '1001', 'shown_next_number' => '1001']);
         $this->assertSame(1002, NumberSequence::peek(NumberSequence::INVOICE));
 
         $invoice = $this->invoice();

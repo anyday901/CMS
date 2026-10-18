@@ -11,7 +11,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, quotes, payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Invoices, quotes, payments, credits, refunds, credit notes and overdue handling, in several currencies with exchange rates, with optional sequential numbering of paid invoices
 - Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
@@ -499,6 +499,8 @@ Overpayments and refunds to credit go to the client's credit balance. Staff with
 
 To refund a payment, open its invoice and use **Refund** under the payment. PayPal, Venmo and Cash App payments can be sent back through the gateway (if the gateway reports the refund as pending, the nightly billing run checks it and undoes the record if it later fails); any payment can be recorded as refunded outside the app or moved to account credit. A fully refunded invoice is marked refunded. Services are left as they are, so suspend or terminate them yourself if needed.
 
+To give money back with a document for the books, use **Issue credit note** on a paid or part paid invoice instead: credit some or all of its lines with a reason, and the money goes to account credit or back as a refund of a payment. Credit notes have their own numbers and PDF, and clients see them in the portal. See [docs/admin/credit-notes.md](docs/admin/credit-notes.md).
+
 ## Scheduled jobs
 
 Add the Laravel scheduler to cron so billing and activity log clean-up run daily (see [docs/install.md](docs/install.md#6-cron-for-the-scheduler)):
@@ -525,6 +527,7 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
 | `BILLING_SEQUENTIAL_PAID_NUMBERS` | `false` | Number invoices in order only once paid, with a proforma number before payment |
 | `BILLING_INVOICE_NUMBER_FORMAT` | `INV-{YEAR}-{NUMBER}` | How paid invoice numbers are written |
+| `BILLING_CREDIT_NOTE_NUMBER_FORMAT` | `CN-{NUMBER}` | How credit note numbers are written |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 | `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |

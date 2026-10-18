@@ -82,4 +82,8 @@ return [
     // the sequence; {YEAR}, {MONTH} and {DAY} are the payment date. It needs
     // a letter or symbol, so a paid number never looks like a proforma's id.
     'invoice_number_format' => env('BILLING_INVOICE_NUMBER_FORMAT', 'INV-{YEAR}-{NUMBER}'),
+
+    // How credit note numbers are written, with the same placeholders. Credit
+    // notes have their own sequence, set on the Invoice numbering page.
+    'credit_note_number_format' => env('BILLING_CREDIT_NOTE_NUMBER_FORMAT', 'CN-{NUMBER}'),
 ];

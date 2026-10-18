@@ -234,6 +234,10 @@
             @else
                 @include('admin.invoices._table', ['invoices' => $client->invoices->each->setRelation('client', $client)])
             @endif
+            @if ($client->creditNotes->isNotEmpty())
+                <h3 class="mb-2 mt-6 font-semibold">Credit notes</h3>
+                @include('admin.credit-notes._table', ['creditNotes' => $client->creditNotes])
+            @endif
         </section>
 
         <section {!! $panel('quotes') !!}>

@@ -30,6 +30,22 @@
             @error('next_number')<p class="text-red-600">{{ $message }}</p>@enderror
         </fieldset>
 
+        <fieldset class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Credit notes</legend>
+            <p class="text-ink-600">Credit notes are numbered in order as they're issued, from their own sequence, whether or not paid invoices are.</p>
+            <label class="block">Number format
+                <input name="credit_note_number_format" value="{{ old('credit_note_number_format', $creditNoteFormat) }}" required maxlength="40" class="{{ $input }} w-64">
+                <span class="text-ink-500">The same placeholders, such as <code class="rounded bg-ink-100 px-1">CN-{NUMBER}</code>.</span>
+            </label>
+            @error('credit_note_number_format')<p class="text-red-600">{{ $message }}</p>@enderror
+            <input type="hidden" name="shown_credit_note_next_number" value="{{ $creditNoteNext }}">
+            <label class="block">Next number
+                <input type="number" name="credit_note_next_number" min="1" max="999999999" required value="{{ old('credit_note_next_number', $creditNoteNext) }}" class="{{ $input }} w-32">
+                <span class="text-ink-500">The next credit note is <strong>{{ $creditNoteExample }}</strong>.</span>
+            </label>
+            @error('credit_note_next_number')<p class="text-red-600">{{ $message }}</p>@enderror
+        </fieldset>
+
         <button class="rounded-full bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">Save</button>
     </form>
 </x-admin-layout>

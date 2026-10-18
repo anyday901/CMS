@@ -47,6 +47,21 @@ class InvoiceNumbering
     }
 
     /**
+     * The next number in a sequence, written in a format. Numbers $taken says
+     * are in use are passed over. Call it inside a transaction.
+     *
+     * @param  callable(string): bool  $taken
+     */
+    public static function next(string $sequence, string $format, callable $taken): string
+    {
+        do {
+            $number = self::format($format, NumberSequence::take($sequence), now());
+        } while ($taken($number));
+
+        return $number;
+    }
+
+    /**
      * Gives a proforma invoice the next paid number. Called as it is marked
      * paid, inside the payment's transaction with the invoice locked, so the
      * number is only used if the payment is. A number already taken, such as
@@ -58,12 +73,7 @@ class InvoiceNumbering
             return;
         }
 
-        $format = (string) config('billing.invoice_number_format');
-
-        do {
-            $number = self::format($format, NumberSequence::take(NumberSequence::INVOICE), now());
-        } while (Invoice::where('number', $number)->exists());
-
+        $number = self::next(NumberSequence::INVOICE, (string) config('billing.invoice_number_format'), fn (string $number) => Invoice::where('number', $number)->exists());
         $proforma = $invoice->number;
         $invoice->forceFill(['number' => $number, 'proforma' => false])->save();
         Activity::record("Numbered proforma #{$proforma} as invoice #{$number} on payment", $invoice);

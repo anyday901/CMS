@@ -61,6 +61,10 @@ class InvoiceEditor
                 throw new InvalidArgumentException("Invoice #{$invoice->number} is {$invoice->status->value} and can't be edited.");
             }
 
+            if ($invoice->creditNotes()->exists()) {
+                throw new InvalidArgumentException("Invoice #{$invoice->number} has a credit note against it and can't be edited.");
+            }
+
             $invoice->update([
                 'issue_date' => $data['issue_date'],
                 'due_date' => $data['due_date'],

@@ -124,9 +124,10 @@ class ClientController extends Controller
 
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
-            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
+            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->withSum('creditNotes as credited_amount', 'total')->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
             'quotes' => fn ($q) => $q->latest('issue_date')->latest('id'),
+            'creditNotes' => fn ($q) => $q->with(['invoice', 'user'])->latest('id'),
         ]);
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
@@ -153,7 +154,7 @@ class ClientController extends Controller
         $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid);
         $activeServices = $client->services->where('status', ServiceStatus::Active);
         $stats = [
-            'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->paid_amount),
+            'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->credited_amount - (int) $invoice->paid_amount),
             'unpaid' => $unpaid->count(),
             'overdue' => $unpaid->filter(fn ($invoice) => $invoice->due_date?->isPast() && ! $invoice->due_date->isToday())->count(),
             'activeServices' => $activeServices->count(),

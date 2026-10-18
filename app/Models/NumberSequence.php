@@ -14,6 +14,8 @@ class NumberSequence extends Model
 {
     public const INVOICE = 'invoice';
 
+    public const CREDIT_NOTE = 'credit_note';
+
     protected $primaryKey = 'name';
 
     public $incrementing = false;
