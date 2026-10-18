@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Billing\InvoiceNumbering;
 use App\Enums\InvoiceStatus;
+use App\Models\Concerns\HasTaxLevels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Invoice extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTaxLevels;
 
     protected $fillable = [
         'client_id', 'status', 'currency', 'issue_date', 'due_date', 'notes',
@@ -32,12 +33,6 @@ class Invoice extends Model
         static::creating(function (Invoice $invoice) {
             if (! $invoice->isDirty('tax_inclusive')) {
                 $invoice->tax_inclusive = (bool) config('billing.tax_inclusive');
-            }
-
-            if (! $invoice->isDirty('tax_rate') && $invoice->client) {
-                $rule = TaxRule::forClient($invoice->client);
-                $invoice->tax_name = $rule?->name;
-                $invoice->tax_rate = $rule?->rate ?? 0;
             }
 
             // Numbered on payment instead: a proforma until then.
@@ -85,12 +80,6 @@ class Invoice extends Model
         return ($this->proforma ? 'Proforma' : 'Invoice')." #{$this->number}";
     }
 
-    /** "Sales tax (8.25%)" */
-    public function taxLabel(): string
-    {
-        return ($this->tax_name ?? 'Tax').($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
-    }
-
     /** The store order this is the first invoice of, if any. */
     public function order(): HasOne
     {
@@ -117,15 +106,7 @@ class Invoice extends Model
     {
         $taxable = (int) $this->items()->where('taxable', true)->sum('amount');
         $this->subtotal = (int) $this->items()->sum('amount');
-
-        if ($this->tax_inclusive) {
-            $this->tax = TaxRule::taxIncludedIn($taxable, $this->tax_rate);
-            $this->total = $this->subtotal;
-        } else {
-            $this->tax = TaxRule::taxOn($taxable, $this->tax_rate);
-            $this->total = $this->subtotal + $this->tax;
-        }
-
+        $this->applyTax($taxable);
         $this->save();
 
         return $this;

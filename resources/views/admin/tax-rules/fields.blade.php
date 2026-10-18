@@ -5,6 +5,12 @@
 <label class="block">Rate (%)
     <input name="rate" value="{{ old('rate', $rule->exists ? Money::toInput($rule->rate) : '') }}" required placeholder="8.25" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
 </label>
+<label class="block">Level
+    <select name="level" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+        <option value="1" @selected((int) old('level', $rule->level ?? 1) === 1)>Level 1</option>
+        <option value="2" @selected((int) old('level', $rule->level ?? 1) === 2)>Level 2 (a second tax, such as provincial tax on top of federal tax)</option>
+    </select>
+</label>
 <label class="block">Country (2-letter code, blank for all)
     <input name="country" value="{{ old('country', $rule->country) }}" maxlength="2" placeholder="US" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
 </label>

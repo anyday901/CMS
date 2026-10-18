@@ -28,6 +28,8 @@ class InvoiceMergeTest extends TestCase
 
     private const URL = '/admin/invoices/merge';
 
+    private const DIFFERENT_TAX = 'These invoices have different tax rates, so they can\'t be merged.';
+
     private Client $client;
 
     protected function setUp(): void
@@ -116,13 +118,16 @@ class InvoiceMergeTest extends TestCase
         $euros->forceFill(['currency' => 'EUR'])->save();
         $untaxed = $this->invoice([[1000, true]]);
         $untaxed->forceFill(['tax_rate' => 0, 'tax_name' => null])->save();
+        $reverseCharged = $this->invoice([[1000, true]]);
+        $reverseCharged->forceFill(['reverse_charge' => true])->save();
 
         $errors = [
             [[$first->id], 'Choose at least two invoices to merge.'],
             [[$first->id, $paid->id], 'Only unpaid invoices can be merged.'],
             [[$first->id, $otherClient->id], 'Only invoices of the same client can be merged.'],
             [[$first->id, $euros->id], 'Only invoices in the same currency can be merged.'],
-            [[$first->id, $untaxed->id], 'These invoices have different tax rates, so they can\'t be merged.'],
+            [[$first->id, $untaxed->id], self::DIFFERENT_TAX],
+            [[$first->id, $reverseCharged->id], self::DIFFERENT_TAX],
         ];
 
         foreach ($errors as [$ids, $message]) {

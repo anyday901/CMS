@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Billing\VatNumbers;
 use App\Enums\ClientStatus;
 use App\Events\ClientCreated;
 use App\Http\Resources\ClientResource;
@@ -94,6 +95,7 @@ class ClientController extends ApiController
             'status' => [$client ? 'required' : 'nullable', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
             'marketing_emails' => ['boolean'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
             'custom_fields' => ['array'],
@@ -105,6 +107,9 @@ class ClientController extends ApiController
         $data = $request->validate($rules + CustomField::rules($fields), [], CustomField::attributeNames($fields));
         $data = Arr::except($data, ['marketing_emails', 'custom_fields']);
 
+        if (array_key_exists('tax_id', $data)) {
+            $data = [...$data, ...app(VatNumbers::class)->attributes($data['tax_id'], $client)];
+        }
         if (array_key_exists('tax_exempt', $data)) {
             $data['tax_exempt'] = $request->boolean('tax_exempt');
         }

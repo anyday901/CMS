@@ -24,6 +24,8 @@ class ClientResource extends JsonResource
             'state' => $this->state,
             'postcode' => $this->postcode,
             'tax_exempt' => (bool) $this->tax_exempt,
+            'tax_id' => $this->tax_id,
+            'tax_id_verified_at' => $this->tax_id_verified_at?->toIso8601String(),
             'custom_fields' => (object) ($this->custom_fields ?? []),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

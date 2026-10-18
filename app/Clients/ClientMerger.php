@@ -31,6 +31,7 @@ class ClientMerger
         'services', 'domains', 'invoices', 'quotes', 'credit_notes', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
         'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log', 'payment_methods', 'payment_attempts',
         'billable_items',
+        'gateway_logs',
     ];
 
     /** Tables with a client_id that don't move row by row: contacts are matched up, credit history is summed, and AffiliateMerger sorts out affiliates and referrals. */
@@ -179,6 +180,7 @@ class ClientMerger
             "Name: {$from->fullName()}".($from->company ? ", {$from->company}" : ''),
             "Email: {$from->email}",
             $from->phone ? "Phone: {$from->phone}" : null,
+            $from->tax_id ? "Tax ID: {$from->tax_id}" : null,
             ($address = collect([$from->address1, $from->address2, $from->city, $from->state, $from->postcode, $from->country])->filter()->join(', ')) ? "Address: {$address}" : null,
             "Client since: {$from->created_at?->format('M j, Y')}",
             $from->notes ? "Profile notes: {$from->notes}" : null,

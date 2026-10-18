@@ -4,7 +4,12 @@
     $navOn = 'bg-brand-100 font-semibold text-brand-700';
     $navOff = 'text-ink-700 hover:bg-ink-100';
     $address = collect([$client->address1, $client->address2, $client->city, $client->state, $client->postcode, $client->country])->filter()->join(', ');
-    $taxName = $client->tax_exempt ? 'Exempt' : (App\Models\TaxRule::forClient($client)?->name ?? 'None');
+    $taxName = match (true) {
+        (bool) $client->tax_exempt => 'Exempt',
+        App\Billing\VatNumbers::reverseCharged($client) => 'Reverse charge',
+        default => collect([App\Models\TaxRule::forClient($client)?->name, App\Models\TaxRule::forClient($client, 2)?->name])->filter()->join(' + ') ?: 'None',
+    };
+    $taxId = $client->tax_id ? $client->tax_id.(App\Billing\VatNumbers::prefix($client->tax_id) ? ($client->tax_id_verified_at ? ' (VIES verified)' : ' (not verified)') : '') : null;
 @endphp
 <x-admin-layout :title="$client->fullName()">
     @include('admin.clients._header')
@@ -43,6 +48,7 @@
                     <dt class="text-ink-500">Email</dt><dd class="break-words">{{ $client->email }}</dd>
                     <dt class="text-ink-500">Phone</dt><dd>{{ $client->phone ?: '—' }}</dd>
                     <dt class="text-ink-500">Company</dt><dd>{{ $client->company ?: '—' }}</dd>
+                    <dt class="text-ink-500">Tax ID</dt><dd class="break-words">{{ $taxId ?: '—' }}</dd>
                     <dt class="text-ink-500">Address</dt><dd>{{ $address ?: '—' }}</dd>
                 </dl>
             </div>
@@ -51,6 +57,7 @@
                 <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-2">
                     <dt class="text-ink-500">Client since</dt><dd>{{ $client->created_at->format('M j, Y') }}</dd>
                     <dt class="text-ink-500">Group</dt><dd>{{ $client->group?->name ?? 'None' }}</dd>
+                    <dt class="text-ink-500">Credit limit</dt><dd>@include('admin.clients._credit-limit')</dd>
                     <dt class="text-ink-500">Tax</dt><dd>{{ $taxName }}</dd>
                     <dt class="text-ink-500">Two-factor</dt><dd>{{ $client->hasTwoFactor() ? 'On' : 'Off' }}</dd>
                     <dt class="text-ink-500">Marketing emails</dt><dd>{{ $client->marketing_emails ? 'Agreed' : 'Not agreed' }}</dd>
@@ -94,6 +101,7 @@
                     @endif
                 </div>
                 <div><div class="text-ink-500">Company</div>{{ $client->company ?: '—' }}</div>
+                <div><div class="text-ink-500">Tax ID</div>{{ $taxId ?: '—' }}</div>
                 <div><div class="text-ink-500">Phone</div>{{ $client->phone ?: '—' }}</div>
                 <div><div class="text-ink-500">Address</div>{{ $address ?: '—' }}</div>
                 <div><div class="text-ink-500">Credit balance</div>{{ Money::format($client->credit_balance, $client->currency) }}</div>

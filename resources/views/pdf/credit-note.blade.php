@@ -5,18 +5,7 @@
 <meta charset="utf-8">
 <title>Credit note {{ $note->number }}</title>
 <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; }
-    h1 { font-size: 22px; margin: 0; }
-    .muted { color: #6b7280; }
-    table { width: 100%; border-collapse: collapse; }
-    .header td { vertical-align: top; }
-    .items { margin-top: 24px; }
-    .items th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 6px 4px; color: #6b7280; }
-    .items td { border-bottom: 1px solid #f3f4f6; padding: 6px 4px; }
-    .num { text-align: right; white-space: nowrap; }
-    .totals td { padding: 4px; }
-    .totals .label { text-align: right; }
-    .grand td { font-weight: bold; border-top: 1px solid #d1d5db; }
+@include('pdf._harbor')
 </style>
 </head>
 <body>
@@ -46,6 +35,7 @@
             @if ($line)<div>{{ $line }}</div>@endif
         @endforeach
         <div>{{ $client->email }}</div>
+        @if ($note->client_tax_id)<div>Tax ID: {{ $note->client_tax_id }}</div>@endif
     </div>
 
     <table class="items">
@@ -60,13 +50,15 @@
     <table class="totals" role="presentation" style="margin-top: 8px;">
         @if ($note->tax && ! $note->tax_inclusive)
             <tr><td class="label">Subtotal</td><td class="num" style="width: 120px;">{{ Money::format($note->subtotal, $note->currency) }}</td></tr>
-            <tr><td class="label">{{ $note->taxLabel() }}</td><td class="num">{{ Money::format($note->tax, $note->currency) }}</td></tr>
+            @foreach ($note->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">{{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $note->currency) }}</td></tr>@endforeach
         @endif
         <tr class="grand"><td class="label">Total credited</td><td class="num" style="width: 120px;">{{ Money::format($note->total, $note->currency) }}</td></tr>
         @if ($note->tax && $note->tax_inclusive)
-            <tr><td class="label">Includes {{ $note->taxLabel() }}</td><td class="num">{{ Money::format($note->tax, $note->currency) }}</td></tr>
+            @foreach ($note->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">Includes {{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $note->currency) }}</td></tr>@endforeach
         @endif
     </table>
+
+    @include('pdf._reverse-charge', ['document' => $note])
 
     <div style="margin-top: 24px;">
         <div class="muted">Reason</div>

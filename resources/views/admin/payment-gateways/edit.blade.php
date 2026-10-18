@@ -3,6 +3,7 @@
     <div class="mb-2 flex flex-wrap items-center gap-3">
         <h1 class="text-2xl font-semibold">Payment gateways</h1>
         <a href="{{ route('admin.automation.edit') }}" class="ml-auto text-sm text-brand-600">Automatic charging</a>
+        <a href="{{ route('admin.gateway-log.index') }}" class="text-sm text-brand-600">Gateway log</a>
         <a href="{{ route('admin.settings.edit') }}" class="text-sm text-brand-600">Back to settings</a>
     </div>
     <p class="mb-6 max-w-2xl text-sm text-ink-600">How clients pay invoices online. Each gateway set up here adds a way to pay on unpaid invoices in the client area.</p>

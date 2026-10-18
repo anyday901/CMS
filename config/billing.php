@@ -29,6 +29,12 @@ return [
     // Set to null to turn off automatic termination.
     'terminate_after_days' => env('BILLING_TERMINATE_AFTER_DAYS', 30),
 
+    // Default credit limit (e.g. "250.00", in the default currency): a client
+    // owing no more than this on unpaid invoices isn't suspended or
+    // terminated for them. A client's own limit, or their group's, wins.
+    // Empty means no limit. Can also be set on the admin Automation page.
+    'credit_limit' => env('BILLING_CREDIT_LIMIT'),
+
     // Days clients have to pay an overage invoice, which billing:run creates
     // after each month for products with usage billing on.
     'overage_due_days' => (int) env('BILLING_OVERAGE_DUE_DAYS', 7),
@@ -40,6 +46,19 @@ return [
     // the lines and show the tax they contain. Applies to invoices created
     // after the change. Can also be set on the admin Settings page.
     'tax_inclusive' => (bool) env('BILLING_TAX_INCLUSIVE', false),
+
+    // Charge level 2 tax on the amount plus level 1 tax (compound tax), as
+    // in some Canadian provinces. Off charges each level on the amount alone.
+    'tax_compound' => (bool) env('BILLING_TAX_COMPOUND', false),
+
+    // Check clients' EU VAT numbers with the European Commission's VIES
+    // service when they're saved.
+    'vat_validation' => (bool) env('BILLING_VAT_VALIDATION', false),
+
+    // Charge no VAT to business clients with a checked EU VAT number from
+    // another EU country than BILLING_COMPANY_TAX_ID's; their invoices say
+    // "Reverse charge". Turns VAT number checking on too.
+    'reverse_charge' => (bool) env('BILLING_REVERSE_CHARGE', false),
 
     // Late fee added once to invoices still unpaid this many days after the
     // due date. Set to null to turn late fees off.

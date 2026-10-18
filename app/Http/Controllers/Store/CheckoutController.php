@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Store;
 
 use App\Affiliates\Referrals;
 use App\Auth\PortalContact;
+use App\Billing\VatNumbers;
 use App\Enums\InvoiceStatus;
 use App\Events\ClientCreated;
 use App\Http\Controllers\Controller;
@@ -136,12 +137,15 @@ class CheckoutController extends Controller
             'state' => ['nullable', 'string', 'max:255'],
             'postcode' => ['required', 'string', 'max:20'],
             'country' => ['required', 'string', 'size:2'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
         ] + CustomField::rules($fields), [
             'email.unique' => __('There is already an account with this email. Log in to order with it.'),
         ], CustomField::attributeNames($fields));
 
         $client = new Client([
             ...collect($data)->except('password')->all(),
+            // VIES being down never stops a sign-up; the number is kept unverified.
+            ...app(VatNumbers::class)->attributes($data['tax_id'] ?? null),
             'country' => strtoupper($data['country']),
             // The currency they saw the store and cart in.
             'currency' => Checkout::currencyFor(null),

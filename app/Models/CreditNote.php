@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTaxLevels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,11 +16,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class CreditNote extends Model
 {
+    use HasTaxLevels;
+
     /** How the money goes back, as RefundService's refund modes. */
     public const MODES = ['credit', 'gateway', 'manual'];
 
     protected $fillable = [
         'number', 'client_id', 'invoice_id', 'currency', 'subtotal', 'tax', 'tax_name', 'tax_rate', 'tax_inclusive', 'total',
+        'tax2_name', 'tax2_rate', 'tax2', 'tax2_compound', 'reverse_charge', 'client_tax_id',
         'reason', 'refund_mode', 'user_id',
     ];
 
@@ -66,12 +70,6 @@ class CreditNote extends Model
     public function isVoided(): bool
     {
         return $this->voided_at !== null;
-    }
-
-    /** "Sales tax (8.25%)" */
-    public function taxLabel(): string
-    {
-        return ($this->tax_name ?? 'Tax').($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
     }
 
     /** How the money went back, for staff. */

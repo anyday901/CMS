@@ -11,6 +11,7 @@ use App\Events\InvoiceIssued;
 use App\Events\ServiceActivated;
 use App\Models\Activity;
 use App\Models\Client;
+use App\Models\ClientGroup;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Order;
@@ -142,7 +143,7 @@ class OrderService
             }
             $service = $this->createService($client, $line, $services, $start, $promotion, $order, $period);
             if ($first !== null) {
-                $this->invoiceFirstPeriod($first, $service, $line, $period, $promotion);
+                $this->invoiceFirstPeriod($first, $service, $line, $period, $promotion, $client->group);
             }
             $services[] = $service;
         }
@@ -249,8 +250,8 @@ class OrderService
         return $service;
     }
 
-    /** The service's lines on the order's invoice: its first period, any discount and any setup fee. */
-    private function invoiceFirstPeriod(Invoice $first, Service $service, PricedLine $priced, FirstPeriod $period, ?Promotion $promotion): void
+    /** The service's lines on the order's invoice: its first period, any discounts and any setup fee. */
+    private function invoiceFirstPeriod(Invoice $first, Service $service, PricedLine $priced, FirstPeriod $period, ?Promotion $promotion, ?ClientGroup $group): void
     {
         $line = $priced->line;
         $discount = $promotion?->appliesTo($line->product) ? $promotion->discountOn($priced->recurring) : 0;
@@ -281,6 +282,7 @@ class OrderService
                 'taxable' => $taxable,
             ]);
         }
+        GroupDiscount::addTo($first, $service, $group, $period->amount - $firstDiscount, $taxable);
 
         if ($priced->setupFee > 0) {
             $first->items()->create([

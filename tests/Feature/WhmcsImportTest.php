@@ -320,7 +320,8 @@ class WhmcsImportTest extends TestCase
         $client = Client::sole();
 
         $this->assertSame(['Resellers', '#aa00ff'], [$client->group->name, $client->group->colour]);
-        $this->assertStringContainsString('a 10% discount, no automatic suspension or termination', $report->toMarkdown());
+        $this->assertSame([1000, false, true, false], [$client->group->discount_percent, $client->group->discount_renewals, $client->group->exempt_suspension, $client->group->separate_invoices]);
+        $this->assertStringContainsString('Group Resellers gets its 10% discount on new orders', $report->toMarkdown());
         $this->assertTrue($client->marketing_emails);
 
         $note = $client->clientNotes()->sole();
