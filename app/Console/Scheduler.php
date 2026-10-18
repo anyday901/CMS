@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Models\GatewayLog;
 use App\Models\InboundEmail;
 use App\Models\IpBan;
 use App\Models\KnownDevice;
@@ -52,8 +53,8 @@ class Scheduler
         }
         $schedule->command('activity:prune')->dailyAt('03:15')
             ->description('Delete old activity log entries');
-        $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class, WebhookDelivery::class, SmsLog::class]])->dailyAt('03:25')
-            ->description('Delete old ticket email, logins, ended IP bans, forgotten browsers, task runs, webhook deliveries and texts');
+        $schedule->command('model:prune', ['--model' => [InboundEmail::class, LoginAttempt::class, IpBan::class, KnownDevice::class, ScheduledTaskRun::class, WebhookDelivery::class, SmsLog::class, GatewayLog::class]])->dailyAt('03:25')
+            ->description('Delete old ticket email, logins, ended IP bans, forgotten browsers, task runs, webhook deliveries, texts and gateway log entries past the activity log retention');
     }
 
     /** The billing run's time of day, "HH:MM". */

@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasAffiliateProgram;
 use App\Models\Concerns\HasBillingRecords;
+use App\Models\Concerns\HasCreditLimit;
 use App\Models\Concerns\HasSavedPaymentMethods;
 use App\Models\Concerns\HasTwoFactor;
 use App\Models\Concerns\OwnsServices;
@@ -17,12 +18,12 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasAffiliateProgram, HasBillingRecords, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
+    use HasAffiliateProgram, HasBillingRecords, HasCreditLimit, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields', 'client_group_id', 'language',
+        'currency', 'tax_exempt', 'tax_id', 'tax_id_verified_at', 'status', 'notes', 'custom_fields', 'client_group_id', 'language',
     ];
 
     protected $hidden = ['password', 'legacy_password', 'remember_token'];
@@ -55,6 +56,7 @@ class Client extends Authenticatable
             'status' => ClientStatus::class,
             'credit_balance' => 'integer',
             'tax_exempt' => 'boolean',
+            'tax_id_verified_at' => 'datetime',
             'custom_fields' => 'array',
             'email_verified_at' => 'datetime',
             'anonymised_at' => 'datetime',

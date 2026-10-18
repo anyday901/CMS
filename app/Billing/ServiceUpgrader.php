@@ -300,7 +300,10 @@ class ServiceUpgrader
             return $amount;
         }
 
-        return $amount + TaxRule::taxOn($amount, TaxRule::forClient($service->client)?->rate ?? 0);
+        $client = $service->client;
+        $level2 = TaxRule::forClient($client, 2);
+
+        return $amount + array_sum(TaxRule::levels($amount, TaxRule::forClient($client)?->rate ?? 0, $level2?->rate ?? 0, $level2 !== null && (bool) config('billing.tax_compound')));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\VatNumbers;
 use App\Enums\ClientStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
@@ -20,6 +21,7 @@ use App\Models\Tld;
 use App\Support\ClientSearch;
 use App\Support\Csv;
 use App\Support\Language;
+use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -105,6 +107,7 @@ class ClientController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $client = new Client($this->validated($request));
+        $this->setCreditLimit($request, $client);
         if ($request->boolean('marketing_emails')) {
             $client->setMarketingConsent(true);
         }
@@ -210,6 +213,7 @@ class ClientController extends Controller
     public function update(Request $request, Client $client): RedirectResponse
     {
         $client->fill($this->validated($request, $client));
+        $this->setCreditLimit($request, $client);
         if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
             Activity::record($client->marketing_emails ? 'Agreed to marketing emails (set by staff)' : 'Opted out of marketing emails (set by staff)', $client);
         }
@@ -234,6 +238,17 @@ class ClientController extends Controller
             : __($status));
     }
 
+    /** The client's own credit limit, from the edit form; blank falls back to their group's or the default. */
+    private function setCreditLimit(Request $request, Client $client): void
+    {
+        if (! $request->has('credit_limit')) {
+            return;
+        }
+
+        $request->validate(['credit_limit' => ['nullable', Money::rule()]]);
+        $client->credit_limit = $request->filled('credit_limit') ? Money::parse((string) $request->input('credit_limit')) : null;
+    }
+
     private function validated(Request $request, ?Client $client = null): array
     {
         $fields = CustomField::forClients()->get();
@@ -253,6 +268,7 @@ class ClientController extends Controller
             'status' => ['required', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
             'language' => ['nullable', Rule::in(Language::all())],
             'currency' => ['nullable', Rule::in(array_filter([...Currency::codes(), $client?->currency]))],
@@ -269,6 +285,7 @@ class ClientController extends Controller
             'client_group_id' => $data['client_group_id'] ?? null,
             'language' => $data['language'] ?? null,
             'tax_exempt' => $request->boolean('tax_exempt'),
+            ...app(VatNumbers::class)->attributes($data['tax_id'] ?? null, $client),
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client?->custom_fields),
         ];
     }

@@ -6,7 +6,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 
 ## What it does (v1 goals)
 
-- Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
+- Client accounts and a client portal, with client groups (with discounts, their own billing settings and credit limits), staff notes, merging duplicate accounts and marketing email consent
 - Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
@@ -214,7 +214,7 @@ The **Search** box in the admin menu looks through everything at once: clients (
 
 A client's page shows their credit balance, what they owe, active services and open tickets across the top, with a side menu of sections (summary, profile, contacts, login and privacy, services, domains, orders, invoices, credit, tickets, emails, notes, to-dos and the activity log) that shows one at a time. The open section is kept in the address, so a link such as `/admin/clients/12?tab=invoices` opens straight to it.
 
-**Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. Groups are labels only: discounts and exemptions from automatic suspension aren't tied to them.
+**Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. A group can also give its clients a percent off new orders (and, if ticked, renewals), after any promotion code, and settings of its own: no late fees, no overdue suspension or termination, and a separate renewal invoice for each service. A **credit limit** (per client, per group, or a default under **Automation settings**) lets a client run up unpaid invoices to that amount before overdue suspension kicks in; the client's page shows how much of it is used. See `docs/admin/client-groups.md`.
 
 A client's page has **Notes**: dated notes by staff, which only staff see. Tick **Pin to the top of the page** to show one as a banner above the client's details. The older single notes field is still on the edit form as **Profile notes**.
 
@@ -293,7 +293,7 @@ For GDPR requests, a client's page has **Export personal data** (a JSON file of 
 - Income: annual income by month, monthly transactions (payments, fees and refunds), daily performance, and an income forecast from active services' renewals.
 - Sales: income by product, new orders and new clients by month, promotion usage, and top clients by income.
 - Invoices: aging (not yet due, 1 to 30, 31 to 60, 61 to 90 and over 90 days overdue), credits given and used, and a statement for one client with a running balance.
-- Tax: tax collected by country and rate, on invoices paid or issued in the dates, optionally only for EU clients (sales tax liability and EU VAT returns).
+- Tax: tax collected by country and rate (with each tax level, and reverse-charge sales on their own row), on invoices paid or issued in the dates, optionally only for EU clients (sales tax liability and EU VAT returns).
 - Clients and services: clients by country and by group, client growth and churn, retention time by product, suspensions and cancellations by reason, and server revenue.
 - Support: tickets opened and closed, first response and resolution times, replies by staff, ratings and feedback comments, and ticket tags.
 
@@ -348,6 +348,8 @@ See [docs/admin/system.md](docs/admin/system.md).
 ### Settings
 
 Admins change tax-inclusive pricing, whether invoice emails attach the PDF, and how long to keep the activity log under **Settings**, which also links to ticket departments and email templates. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
+
+Tax rules have two levels, like WHMCS's Tax Level 1 and Level 2: a client is taxed by one rule of each, and **Compound tax** charges level 2 on the amount plus level 1 tax. Clients have a tax ID / VAT number on their profile (set by staff, in the portal or at checkout), printed on their invoices and quotes. **Check EU VAT numbers with VIES** checks EU VAT numbers with the European Commission's VIES service (VIES being down never blocks checkout; the number is kept unverified), and **Reverse charge EU VAT** charges no VAT to verified business clients in another EU country, with "Reverse charge" and both VAT numbers on the invoice. See [docs/admin/tax.md](docs/admin/tax.md).
 
 ### Provisioning modules
 
@@ -470,7 +472,7 @@ Use **New invoice** on a client's page to bill anything that isn't a service ren
 
 Invoice numbers are the invoice's id by default. To number paid invoices in order with no gaps, with a proforma number before payment, turn on sequential paid numbers under **Settings > Invoice numbering**; see [docs/admin/invoice-numbering.md](docs/admin/invoice-numbering.md).
 
-Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
+Staff and clients can download any invoice they can see as a PDF. Invoice, quote, credit note and statement PDFs use the Harbor colours, kept dark enough to read printed in greyscale. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -486,6 +488,14 @@ Open a client and choose **Billing > Quotes > New quote** to make a priced propo
 ### Billable items
 
 Open a client and choose **Billing > Billable items** to add a charge by hand: an amount, or hours at an hourly rate, with an invoice action that says when the nightly billing run invoices it (the next run, on the client's next renewal invoice, on a due date, or recurring every so many days, weeks, months or years, a set number of times or until stopped). Each item records the invoice it went on, so it's never billed twice, and stays editable until it's invoiced. See [docs/admin/billable-items.md](docs/admin/billable-items.md).
+
+### Account statements
+
+Clients, and contacts with the billing permission, open **Invoices > Account statement** in the portal to see their invoices, payments, refunds and credit applied between two dates they pick, with the opening balance, what they owed after each line, the closing balance and the changes to their credit balance, and download it as a PDF. Staff see the same statement under **Reports > Client statement**. See [docs/admin/statements.md](docs/admin/statements.md).
+
+### Gateway log
+
+**Settings > Payment gateways > Gateway log** lists every webhook, return and payment confirmation PayPal, Stripe and Square sent, with the outcome (accepted, rejected or error), the reason and the payload, with secrets and card data redacted. Filter by gateway and outcome. Entries are kept as long as the activity log. See [docs/admin/gateway-log.md](docs/admin/gateway-log.md).
 
 ### Activity log
 
@@ -530,6 +540,9 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_LATE_FEE_TYPE` | `fixed` | `fixed` for a set amount, `percent` for a share of the invoice total |
 | `BILLING_LATE_FEE_AMOUNT` | `0` | The fee, e.g. `5.00`, or `10` for 10% |
 | `BILLING_TAX_INCLUSIVE` | `false` | Prices include tax |
+| `BILLING_TAX_COMPOUND` | `false` | Charge level 2 tax on the amount plus level 1 tax |
+| `BILLING_VAT_VALIDATION` | `false` | Check clients' EU VAT numbers with VIES when they're saved |
+| `BILLING_REVERSE_CHARGE` | `false` | No VAT for verified EU business clients in another EU country than `BILLING_COMPANY_TAX_ID`; turns VIES checks on too |
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |

@@ -67,16 +67,19 @@ class Checkout
             if ($first->trial) {
                 $trialsTaken[] = $line->product->id;
             }
+            $discount = $promotion?->appliesTo($line->product) ? $promotion->discountOn($first->amount) : 0;
             $rows[] = [
                 'key' => $keys[$i],
                 'priced' => $priced,
                 'first' => $first,
-                'discount' => $promotion?->appliesTo($line->product) ? $promotion->discountOn($first->amount) : 0,
+                'discount' => $discount,
+                // Taken from what the promotion leaves, as on the invoice.
+                'group_discount' => $client?->group?->discountOn($first->amount - $discount) ?? 0,
                 'addon' => $line->parentLine !== null || $line->parentService !== null,
             ];
         }
 
-        return new CartQuote($currency, $rows, $errors + $domainErrors, $promotion, $promotionError, $domains);
+        return new CartQuote($currency, $rows, $errors + $domainErrors, $promotion, $promotionError, $domains, $client?->group);
     }
 
     /**

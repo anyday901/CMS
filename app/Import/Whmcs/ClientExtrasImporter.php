@@ -2,6 +2,7 @@
 
 namespace App\Import\Whmcs;
 
+use App\Models\TaxRule;
 use App\Models\Todo;
 use Illuminate\Support\Facades\DB;
 
@@ -44,21 +45,21 @@ class ClientExtrasImporter
             $name = Whmcs::short($row->groupname ?? '') ?? "Group {$row->id}";
             $colour = preg_match('/^#[0-9a-f]{6}$/i', trim((string) ($row->groupcolour ?? ''))) ? strtolower(trim($row->groupcolour)) : '#64748b';
 
+            $discount = max(0, min(10000, (int) round((float) ($row->discountpercent ?? 0) * 100)));
             $this->groups[(int) $row->id] = (int) (DB::table('client_groups')->where('name', $name)->value('id') ?? DB::table('client_groups')->insertGetId([
                 'name' => $name,
                 'colour' => $colour,
+                'discount_percent' => $discount,
+                'exempt_suspension' => Whmcs::on($row->susptermexempt ?? ''),
+                'separate_invoices' => Whmcs::on($row->separateinvoices ?? ''),
                 'created_at' => $this->run->now,
                 'updated_at' => $this->run->now,
             ]));
             $this->run->report->imported(self::GROUPS);
 
-            $extras = array_filter([
-                (float) ($row->discountpercent ?? 0) > 0 ? 'a '.rtrim(rtrim(number_format((float) $row->discountpercent, 2, '.', ''), '0'), '.').'% discount' : null,
-                Whmcs::on($row->susptermexempt ?? '') ? 'no automatic suspension or termination' : null,
-                Whmcs::on($row->separateinvoices ?? '') ? 'a separate invoice for each service' : null,
-            ]);
-            if ($extras !== []) {
-                $this->run->report->note(self::GROUPS, "Group {$name} gave its clients ".implode(', ', $extras).' in WHMCS. Groups here are labels and a search filter only, so set that up another way.');
+            if ($discount > 0) {
+                // WHMCS took the discount off each service's recurring amount when it was ordered, and those amounts come over as they are.
+                $this->run->report->note(self::GROUPS, "Group {$name} gets its ".TaxRule::formatRate($discount).' discount on new orders. Imported services already have it in their price, so it isn\'t taken off renewals unless you tick that on the group.');
             }
         }
     }

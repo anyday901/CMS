@@ -23,7 +23,12 @@ class InvoiceResource extends JsonResource
         return Payload::invoice($this->resource) + [
             'tax_name' => $this->tax_name,
             'tax_rate' => (int) $this->tax_rate,
+            'tax2_name' => $this->tax2_name,
+            'tax2_rate' => (int) $this->tax2_rate,
+            'tax2' => (int) $this->tax2,
             'tax_inclusive' => (bool) $this->tax_inclusive,
+            'reverse_charge' => (bool) $this->reverse_charge,
+            'client_tax_id' => $this->client_tax_id,
             'notes' => $this->notes,
             'created_at' => $this->created_at?->toIso8601String(),
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn (InvoiceItem $item) => [

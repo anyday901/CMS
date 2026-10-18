@@ -59,7 +59,7 @@ class CreditNoteIssuer
             }
 
             $items = $this->items($invoice, $lines);
-            [$subtotal, $tax, $total] = $this->totals($invoice, $items);
+            [$subtotal, $tax, $total, $tax2] = $this->totals($invoice, $items);
             $most = min($invoice->amountPaid(), $invoice->total - $invoice->credited());
 
             if ($total > $most) {
@@ -76,6 +76,12 @@ class CreditNoteIssuer
                 'tax_name' => $invoice->tax_name,
                 'tax_rate' => $invoice->tax_rate,
                 'tax_inclusive' => $invoice->tax_inclusive,
+                'tax2_name' => $invoice->tax2_name,
+                'tax2_rate' => $invoice->tax2_rate,
+                'tax2' => $tax2,
+                'tax2_compound' => $invoice->tax2_compound,
+                'reverse_charge' => $invoice->reverse_charge,
+                'client_tax_id' => $invoice->client_tax_id,
                 'total' => $total,
                 'reason' => trim($reason),
                 'refund_mode' => $mode,
@@ -162,23 +168,20 @@ class CreditNoteIssuer
     }
 
     /**
-     * Subtotal, tax and total, worked out the same way as the invoice's.
+     * Subtotal, tax of both levels, total and the level 2 part of the tax,
+     * worked out the same way as the invoice's.
      *
      * @param  list<array{amount: int, taxable: bool}>  $items
-     * @return array{0: int, 1: int, 2: int}
+     * @return array{0: int, 1: int, 2: int, 3: int}
      */
     private function totals(Invoice $invoice, array $items): array
     {
         $subtotal = array_sum(array_column($items, 'amount'));
         $taxable = array_sum(array_column(array_filter($items, fn ($item) => $item['taxable']), 'amount'));
+        [$tax1, $tax2] = TaxRule::levels($taxable, (int) $invoice->tax_rate, (int) $invoice->tax2_rate, (bool) $invoice->tax2_compound, (bool) $invoice->tax_inclusive);
+        $tax = $tax1 + $tax2;
 
-        if ($invoice->tax_inclusive) {
-            return [$subtotal, TaxRule::taxIncludedIn($taxable, $invoice->tax_rate), $subtotal];
-        }
-
-        $tax = TaxRule::taxOn($taxable, $invoice->tax_rate);
-
-        return [$subtotal, $tax, $subtotal + $tax];
+        return [$subtotal, $tax, $invoice->tax_inclusive ? $subtotal : $subtotal + $tax, $tax2];
     }
 
     private function giveBack(CreditNote $note, Invoice $invoice, string $mode, ?Transaction $payment): void

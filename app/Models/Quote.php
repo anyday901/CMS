@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\QuoteStage;
+use App\Models\Concerns\HasTaxLevels;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Quote extends Model
 {
+    use HasTaxLevels;
+
     /** Days a new quote stays open for. */
     public const VALID_DAYS = 30;
 
@@ -35,12 +38,6 @@ class Quote extends Model
         static::creating(function (Quote $quote) {
             if (! $quote->isDirty('tax_inclusive')) {
                 $quote->tax_inclusive = (bool) config('billing.tax_inclusive');
-            }
-
-            if (! $quote->isDirty('tax_rate') && $quote->client) {
-                $rule = TaxRule::forClient($quote->client);
-                $quote->tax_name = $rule?->name;
-                $quote->tax_rate = $rule?->rate ?? 0;
             }
         });
 
@@ -89,12 +86,6 @@ class Quote extends Model
         return $query->whereIn('stage', QuoteStage::VISIBLE);
     }
 
-    /** "Sales tax (8.25%)" */
-    public function taxLabel(): string
-    {
-        return ($this->tax_name ?? 'Tax').($this->tax_rate ? ' ('.TaxRule::formatRate($this->tax_rate).')' : '');
-    }
-
     /**
      * Recompute subtotal, tax and total from the lines, the same way as
      * Invoice::recalculate(): with tax-inclusive pricing the lines already
@@ -104,15 +95,7 @@ class Quote extends Model
     {
         $taxable = (int) $this->items()->where('taxable', true)->sum('amount');
         $this->subtotal = (int) $this->items()->sum('amount');
-
-        if ($this->tax_inclusive) {
-            $this->tax = TaxRule::taxIncludedIn($taxable, $this->tax_rate);
-            $this->total = $this->subtotal;
-        } else {
-            $this->tax = TaxRule::taxOn($taxable, $this->tax_rate);
-            $this->total = $this->subtotal + $this->tax;
-        }
-
+        $this->applyTax($taxable);
         $this->save();
 
         return $this;

@@ -5,22 +5,7 @@
 <meta charset="utf-8">
 <title>{{ $invoice->label() }}</title>
 <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; }
-    h1 { font-size: 22px; margin: 0; }
-    .muted { color: #6b7280; }
-    .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 10px; }
-    .status-paid { background: #dcfce7; color: #166534; }
-    .status-unpaid { background: #fef9c3; color: #854d0e; }
-    .status-other { background: #f3f4f6; color: #374151; }
-    table { width: 100%; border-collapse: collapse; }
-    .header td { vertical-align: top; }
-    .items { margin-top: 24px; }
-    .items th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 6px 4px; color: #6b7280; }
-    .items td { border-bottom: 1px solid #f3f4f6; padding: 6px 4px; }
-    .num { text-align: right; white-space: nowrap; }
-    .totals td { padding: 4px; }
-    .totals .label { text-align: right; }
-    .grand td { font-weight: bold; border-top: 1px solid #d1d5db; }
+@include('pdf._harbor')
 </style>
 </head>
 <body>
@@ -53,6 +38,7 @@
             @if ($line)<div>{{ $line }}</div>@endif
         @endforeach
         <div>{{ $client->email }}</div>
+        @if ($invoice->client_tax_id)<div>Tax ID: {{ $invoice->client_tax_id }}</div>@endif
     </div>
 
     <table class="items">
@@ -67,17 +53,19 @@
     <table class="totals" role="presentation" style="margin-top: 8px;">
         @if ($invoice->tax && ! $invoice->tax_inclusive)
             <tr><td class="label">Subtotal</td><td class="num" style="width: 120px;">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
-            <tr><td class="label">{{ $invoice->taxLabel() }}</td><td class="num">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>
+            @foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">{{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach
         @endif
         <tr class="grand"><td class="label">Total</td><td class="num" style="width: 120px;">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
         @if ($invoice->tax && $invoice->tax_inclusive)
-            <tr><td class="label">Includes {{ $invoice->taxLabel() }}</td><td class="num">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>
+            @foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">Includes {{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach
         @endif
         @if ($invoice->amountPaid())
             <tr><td class="label">Paid</td><td class="num">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>
         @endif
         <tr class="grand"><td class="label">Balance due</td><td class="num">{{ Money::format(max(0, $invoice->balance()), $invoice->currency) }}</td></tr>
     </table>
+
+    @include('pdf._reverse-charge', ['document' => $invoice])
 
     @if ($invoice->transactions->isNotEmpty())
         <div style="margin-top: 24px;">

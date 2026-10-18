@@ -8,6 +8,7 @@
                 'first_name' => __('First name'), 'last_name' => __('Last name'), 'company' => __('Company'), 'email' => __('Email'),
                 'phone' => __('Phone'), 'address1' => __('Address'), 'address2' => __('Address line 2'), 'city' => __('City'),
                 'state' => __('State'), 'postcode' => __('ZIP / postcode'), 'country' => __('Country (2-letter code)'),
+                'tax_id' => __('Tax ID / VAT number (optional)'),
             ] as $field => $label)
                 <label class="block">{{ $label }}
                     <input name="{{ $field }}" value="{{ old($field, $client->$field) }}" @required(in_array($field, ['first_name', 'last_name', 'email']))

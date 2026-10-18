@@ -39,6 +39,7 @@
             <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">
                 <div class="grid grid-cols-2 gap-2">
                     <div><span class="text-ink-500">Client:</span> <a href="{{ route('admin.clients.show', $invoice->client) }}" class="text-brand-600">{{ $invoice->client->fullName() }}</a></div>
+                    @if ($invoice->client_tax_id)<div><span class="text-ink-500">Client tax ID:</span> {{ $invoice->client_tax_id }}</div>@endif
                     <div><span class="text-ink-500">Issued:</span> {{ $invoice->issue_date->format('M j, Y') }}</div>
                     <div><span class="text-ink-500">Due:</span> {{ $invoice->due_date->format('M j, Y') }}</div>
                     @if ($invoice->paid_at)<div><span class="text-ink-500">Paid:</span> {{ $invoice->paid_at->format('M j, Y') }}</div>@endif
@@ -61,14 +62,15 @@
                     </tbody>
                     <tfoot class="font-medium">
                         @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
-                        @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax && ! $invoice->tax_inclusive)@foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right">{{ $taxLabel }}</td><td class="px-4 py-2 text-right">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach @endif
                         <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
-                @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-ink-500">Includes {{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                @if ($invoice->tax && $invoice->tax_inclusive)@foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right font-normal text-ink-500">Includes {{ $taxLabel }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach @endif
                         @if ($invoice->creditNotes->isNotEmpty())<tr><td class="px-4 py-2 text-right">Credited</td><td class="px-4 py-2 text-right">{{ Money::format(-$invoice->creditNotes->sum('total'), $invoice->currency) }}</td></tr>@endif
                         <tr><td class="px-4 py-2 text-right">Balance due</td><td class="px-4 py-2 text-right">{{ Money::format(max(0, $invoice->balance()), $invoice->currency) }}</td></tr>
                     </tfoot>
                 </table>
             </div>
+            <x-reverse-charge :document="$invoice" />
 
             <div>
                 <h2 class="mb-2 font-semibold">Payments</h2>
