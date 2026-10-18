@@ -23,7 +23,7 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Payment gateways</legend>
-            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. Bank transfer and mail-in instructions are <a href="#offline-payments" class="text-brand-600">further down</a>. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>.</p>
+            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. Bank transfer and mail-in instructions are <a href="#offline-payments" class="text-brand-600">further down</a>. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a> · <a href="{{ route('admin.gateway-log.index') }}" class="text-brand-600">Gateway log</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">
@@ -183,7 +183,7 @@
             <legend class="mb-1 text-base font-semibold">Activity log</legend>
             <label class="block">Keep entries for this many days
                 <input type="number" name="activity_retention_days" min="1" max="36500" value="{{ old('activity_retention_days', $activityRetentionDays) }}" placeholder="Forever" class="mt-1 block w-28 rounded-md px-3 py-2 ring-1 ring-ink-300">
-                <span class="text-ink-500">Older entries are deleted every night. Leave blank to keep them forever.</span>
+                <span class="text-ink-500">Older entries, and older gateway log entries, are deleted every night. Leave blank to keep them forever.</span>
             </label>
         </fieldset>
 

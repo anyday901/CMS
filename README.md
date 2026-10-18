@@ -485,6 +485,10 @@ Open a client and choose **Billing > Quotes > New quote** to make a priced propo
 
 Clients, and contacts with the billing permission, open **Invoices > Account statement** in the portal to see their invoices, payments, refunds and credit applied between two dates they pick, with the opening balance, what they owed after each line, the closing balance and the changes to their credit balance, and download it as a PDF. Staff see the same statement under **Reports > Client statement**. See [docs/admin/statements.md](docs/admin/statements.md).
 
+### Gateway log
+
+**Settings > Payment gateways > Gateway log** lists every webhook, return and payment confirmation PayPal, Stripe and Square sent, with the outcome (accepted, rejected or error), the reason and the payload, with secrets and card data redacted. Filter by gateway and outcome. Entries are kept as long as the activity log. See [docs/admin/gateway-log.md](docs/admin/gateway-log.md).
+
 ### Activity log
 
 Admins can see who did what under **Activity**: staff and client logins, changes to clients, products, tax rules and staff, invoices created, edited, published and cancelled, payments, refunds, late fees, service status changes and ticket activity. Each entry records the person (or "System" for the nightly billing run and payment webhooks) and their IP address. A client's page shows their 20 most recent entries.

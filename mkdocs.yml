@@ -73,6 +73,7 @@ nav:
       - Mail settings: admin/mail.md
       - Quotes: admin/quotes.md
       - Account statements: admin/statements.md
+      - Gateway log: admin/gateway-log.md
       - Stripe and automatic charging: admin/stripe.md
       - Health, maintenance, backups and updates: admin/system.md
       - Marketplace: admin/marketplace.md
