@@ -36,11 +36,14 @@ class InvoiceItem extends Model
 
     public const TYPE_DOMAIN_RENEW = 'domain_renew';
 
+    /** A billable item staff added to the client, see BillableItem. */
+    public const TYPE_BILLABLE = 'billable';
+
     public const DOMAIN_TYPES = [self::TYPE_DOMAIN_REGISTER, self::TYPE_DOMAIN_TRANSFER, self::TYPE_DOMAIN_RENEW];
 
     protected $fillable = [
         'invoice_id', 'service_id', 'domain_id', 'type', 'description', 'amount', 'taxable',
-        'period_start', 'period_end',
+        'period_start', 'period_end', 'billable_item_id',
     ];
 
     protected function casts(): array
@@ -85,5 +88,10 @@ class InvoiceItem extends Model
     public function domain(): BelongsTo
     {
         return $this->belongsTo(Domain::class);
+    }
+
+    public function billableItem(): BelongsTo
+    {
+        return $this->belongsTo(BillableItem::class);
     }
 }

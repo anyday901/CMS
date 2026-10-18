@@ -5,7 +5,7 @@
         <a href="{{ route('admin.cron.show') }}" class="ml-auto text-sm text-brand-600">Cron status</a>
         <a href="{{ route('admin.settings.edit') }}" class="text-sm text-brand-600">Back to settings</a>
     </div>
-    <p class="mb-6 max-w-2xl text-sm text-ink-600">Once a day the billing run carries out cancellations, creates renewal and overage invoices, charges saved cards, adds late fees, sends overdue reminders, and suspends and terminates overdue services, in that order. These are the days it works by.</p>
+    <p class="mb-6 max-w-2xl text-sm text-ink-600">Once a day the billing run carries out cancellations, creates renewal, billable item and overage invoices, charges saved cards, adds late fees, sends overdue reminders, and suspends and terminates overdue services, in that order. These are the days it works by.</p>
 
     <form method="POST" action="{{ route('admin.automation.update') }}" class="max-w-2xl space-y-6 rounded-lg border border-ink-200 bg-white p-6 text-sm">
         @csrf

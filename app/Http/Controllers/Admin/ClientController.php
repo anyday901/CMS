@@ -34,7 +34,7 @@ class ClientController extends Controller
     public const SECTIONS = [
         'Account' => ['summary' => 'Summary', 'profile' => 'Profile', 'contacts' => 'Contacts', 'security' => 'Login and privacy'],
         'Products' => ['services' => 'Services', 'domains' => 'Domains', 'orders' => 'Orders'],
-        'Billing' => ['invoices' => 'Invoices', 'quotes' => 'Quotes', 'credit' => 'Credit', 'payment-methods' => 'Payment methods'],
+        'Billing' => ['invoices' => 'Invoices', 'billable-items' => 'Billable items', 'quotes' => 'Quotes', 'credit' => 'Credit', 'payment-methods' => 'Payment methods'],
         'Support' => ['tickets' => 'Tickets', 'emails' => 'Emails'],
         'Staff' => ['notes' => 'Notes', 'todos' => 'To-dos'],
         'History' => ['activity' => 'Activity log'],
@@ -143,7 +143,7 @@ class ClientController extends Controller
 
         $logins = $client->loginAttempts()->with('account')->latest('created_at')->latest('id')->limit(5)->get();
 
-        $client->load(['group', 'clientNotes.user', 'paymentMethods']);
+        $client->load(['group', 'clientNotes.user', 'paymentMethods', 'billableItems' => fn ($q) => $q->with(['invoice', 'user'])->latest('id')]);
 
         $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
 
@@ -187,6 +187,7 @@ class ClientController extends Controller
                 'orders' => $client->orders()->count(),
                 'invoices' => $client->invoices()->count(),
                 'quotes' => $client->quotes()->count(),
+                'billable-items' => $client->billableItems()->count(),
                 'payment-methods' => $client->paymentMethods()->count(),
                 'tickets' => $client->tickets()->listed()->count(),
                 'emails' => $client->emailLogs()->count(),

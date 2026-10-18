@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 class InvoiceGenerator
 {
-    public function __construct(private CreditApplier $credit) {}
+    public function __construct(private CreditApplier $credit, private BillableItemBiller $billableItems) {}
 
     /** @return Collection<int, Invoice> */
     public function generate(CarbonInterface $today): Collection
@@ -110,6 +110,8 @@ class InvoiceGenerator
                     ]);
                 }
             }
+
+            $this->billableItems->addTo($invoice, $cutoff);
 
             $invoice->recalculate();
             Activity::record("Generated invoice #{$invoice->number} for ".Money::format($invoice->total, $invoice->currency), $invoice);

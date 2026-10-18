@@ -250,6 +250,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
             Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
             Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
+            Route::post('clients/{client}/billable-items', [Admin\BillableItemController::class, 'store'])->name('billable-items.store');
+            Route::resource('billable-items', Admin\BillableItemController::class)->only(['update', 'destroy'])->parameters(['billable-items' => 'item']);
         });
 
         // Every staff role can look, and keep a to-do list.

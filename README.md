@@ -11,7 +11,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, quotes, payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Invoices, quotes, billable items (one-off or recurring charges added to invoices), payments, credits, refunds and overdue handling, in several currencies with exchange rates
 - Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
@@ -480,6 +480,10 @@ Staff and clients can download any invoice they can see as a PDF. The company de
 ### Quotes
 
 Open a client and choose **Billing > Quotes > New quote** to make a priced proposal with line items, a valid-until date and proposal text, taxed as on invoices. **Send to client** emails it with the PDF attached and shows it in the client's portal, where they can accept or decline it. Accepting, or **Convert to invoice** in the admin area, turns it into an unpaid invoice with the same lines. Every quote is listed under **Quotes** in the admin menu. See [docs/admin/quotes.md](docs/admin/quotes.md).
+
+### Billable items
+
+Open a client and choose **Billing > Billable items** to add a charge by hand: an amount, or hours at an hourly rate, with an invoice action that says when the nightly billing run invoices it (the next run, on the client's next renewal invoice, on a due date, or recurring every so many days, weeks, months or years, a set number of times or until stopped). Each item records the invoice it went on, so it's never billed twice, and stays editable until it's invoiced. See [docs/admin/billable-items.md](docs/admin/billable-items.md).
 
 ### Activity log
 
