@@ -6,12 +6,14 @@ use App\Billing\InvoicePdf;
 use App\Billing\QuotePdf;
 use App\Mail\LoggedEmail;
 use App\Models\EmailLog;
+use App\Support\Language;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Jobs\SyncJob;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Traits\Localizable;
 use Throwable;
 
 /**
@@ -20,7 +22,7 @@ use Throwable;
  */
 class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
 {
-    use Queueable;
+    use Localizable, Queueable;
 
     public int $tries = 3;
 
@@ -46,11 +48,12 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
         }
 
         try {
-            $pdf = match (true) {
+            // The PDF is in the client's language, like the email it goes with.
+            $pdf = $this->withLocale(Language::forClient($log->client), fn () => match (true) {
                 $log->attach_invoice_pdf && $log->invoice !== null => ['data' => $pdfs->output($log->invoice), 'name' => $pdfs->filename($log->invoice)],
                 $log->quote !== null => ['data' => app(QuotePdf::class)->output($log->quote), 'name' => app(QuotePdf::class)->filename($log->quote)],
                 default => null,
-            };
+            });
 
             Mail::to($log->to)->cc($log->cc ?? [])->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf, $log->list_unsubscribe));
         } catch (Throwable $e) {

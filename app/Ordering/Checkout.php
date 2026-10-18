@@ -18,6 +18,7 @@ use App\Models\Product;
 use App\Models\Promotion;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /** Prices the cart and turns it into an order with one invoice. */
@@ -100,7 +101,7 @@ class Checkout
             throw new InvalidArgumentException(reset($errors));
         }
         if ($lines === [] && $domains === []) {
-            throw new InvalidArgumentException('Your cart is empty.');
+            throw new InvalidArgumentException(__('Your cart is empty.'));
         }
 
         $result = DB::transaction(function () use ($cart, $client, $lines, $domains, $ip, $acceptedTerms) {
@@ -161,8 +162,8 @@ class Checkout
     {
         return match (true) {
             $product->hasStock($quantity) => null,
-            $product->stock_quantity > 0 => "Only {$product->stock_quantity} of {$product->name} left in stock.",
-            default => "{$product->name} is out of stock.",
+            $product->stock_quantity > 0 => __('Only :count of :product left in stock.', ['count' => $product->stock_quantity, 'product' => $product->name]),
+            default => __(':product is out of stock.', ['product' => $product->name]),
         };
     }
 
@@ -192,13 +193,13 @@ class Checkout
     private function promotionProblem(?Promotion $promotion, string $code, array $lines, ?Client $client, string $currency): ?string
     {
         if ($promotion === null) {
-            return "The code {$code} isn't valid.";
+            return __("The code :code isn't valid.", ['code' => $code]);
         }
 
         $applies = collect($lines)->contains(fn (OrderLine $line) => $promotion->appliesTo($line->product));
 
         return $promotion->problem($client, $currency, today())
-            ?? ($applies ? null : "The code {$code} doesn't apply to anything in your cart.");
+            ?? ($applies ? null : __("The code :code doesn't apply to anything in your cart.", ['code' => $code]));
     }
 
     /**
@@ -223,7 +224,7 @@ class Checkout
                 if ($data['parent_service_id'] ?? null) {
                     $pair = $data['parent_service_id'].'-'.$data['product_id'];
                     if (isset($addonsForServices[$pair])) {
-                        throw new InvalidArgumentException("{$resolved[0]->product->name} is already in your cart for {$resolved[0]->parentService->description()}.");
+                        throw new InvalidArgumentException(__(':product is already in your cart for :service.', ['product' => $resolved[0]->product->name, 'service' => $resolved[0]->parentService->description()]));
                     }
                     $addonsForServices[$pair] = true;
                 }
@@ -294,16 +295,16 @@ class Checkout
     private function productWithAddons(array $data, int $offset, string $currency): array
     {
         $product = Product::orderable()->with('addons')->find($data['product_id'] ?? null)
-            ?? throw new InvalidArgumentException('A product in your cart is no longer available. Remove it to carry on.');
+            ?? throw new InvalidArgumentException(__('A product in your cart is no longer available. Remove it to carry on.'));
         $cycle = BillingCycle::tryFrom((string) ($data['billing_cycle'] ?? ''))
-            ?? throw new InvalidArgumentException("Choose a billing cycle for {$product->name}.");
+            ?? throw new InvalidArgumentException(__('Choose a billing cycle for :product.', ['product' => $product->name]));
 
         $lines = [new OrderLine($product, $cycle, new OrderChoices((array) ($data['options'] ?? []), $data['custom_fields'] ?? null), $data['label'] ?? null)];
 
         foreach (array_unique(array_map('intval', (array) ($data['addons'] ?? []))) as $addonId) {
             $addon = $this->addonProduct($product, $addonId);
             $addonCycle = $addon->addonCycleFor($cycle, $currency)
-                ?? throw new InvalidArgumentException("{$addon->name} isn't sold with a {$cycle->label()} {$product->name}.");
+                ?? throw new InvalidArgumentException(__(":addon isn't sold with :product billed :cycle.", ['addon' => $addon->name, 'product' => $product->name, 'cycle' => Str::lower(__($cycle->label()))]));
             $lines[] = new OrderLine($addon, $addonCycle, parentLine: $offset);
         }
 
@@ -313,19 +314,19 @@ class Checkout
     private function addonForService(array $data, ?Client $client, string $currency): OrderLine
     {
         $service = $client?->services()->with('product.addons')->find($data['parent_service_id'])
-            ?? throw new InvalidArgumentException('Log in to order add-ons for your services.');
+            ?? throw new InvalidArgumentException(__('Log in to order add-ons for your services.'));
 
         if ($service->status !== ServiceStatus::Active) {
-            throw new InvalidArgumentException("Add-ons can only be added to active services, and {$service->description()} is {$service->status->value}.");
+            throw new InvalidArgumentException(__('Add-ons can only be added to active services, and :service is :status.', ['service' => $service->description(), 'status' => Str::lower(__(ucfirst($service->status->value)))]));
         }
 
         $addon = $this->addonProduct($service->product, (int) ($data['product_id'] ?? 0));
 
         if ($service->addons()->where('product_id', $addon->id)->whereIn('status', [ServiceStatus::Pending, ServiceStatus::Active, ServiceStatus::Suspended])->exists()) {
-            throw new InvalidArgumentException("{$service->description()} already has {$addon->name}.");
+            throw new InvalidArgumentException(__(':service already has :addon.', ['service' => $service->description(), 'addon' => $addon->name]));
         }
         $cycle = $addon->addonCycleFor($service->billing_cycle, $currency)
-            ?? throw new InvalidArgumentException("{$addon->name} isn't sold for {$service->description()}.");
+            ?? throw new InvalidArgumentException(__(":addon isn't sold for :service.", ['addon' => $addon->name, 'service' => $service->description()]));
 
         return new OrderLine($addon, $cycle, parentService: $service);
     }
@@ -335,7 +336,7 @@ class Checkout
         $addon = $product->addons->firstWhere('id', $addonId);
 
         if ($addon === null || ! $addon->active) {
-            throw new InvalidArgumentException("An add-on for {$product->name} is no longer available. Remove it to carry on.");
+            throw new InvalidArgumentException(__('An add-on for :product is no longer available. Remove it to carry on.', ['product' => $product->name]));
         }
 
         return $addon;

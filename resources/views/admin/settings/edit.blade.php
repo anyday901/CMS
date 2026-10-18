@@ -12,7 +12,7 @@
         @can('manage-system')
             <fieldset class="space-y-2">
                 <legend class="mb-1 text-base font-semibold">System</legend>
-                <p class="text-ink-600">Check the server is in order, take the portal offline for maintenance, back up the database, update CMS, and add modules and themes. <a href="{{ route('admin.system.health') }}" class="text-brand-600">System health</a> · <a href="{{ route('admin.maintenance.edit') }}" class="text-brand-600">Maintenance</a> · <a href="{{ route('admin.backups.index') }}" class="text-brand-600">Backups</a> · <a href="{{ route('admin.updates.index') }}" class="text-brand-600">Updates</a> · <a href="{{ route('admin.marketplace.index') }}" class="text-brand-600">Marketplace</a>.</p>
+                <p class="text-ink-600">Check the server is in order, take the portal offline for maintenance, back up the database, clean up old logs and attachments, read the logs, update CMS, and add modules and themes. <a href="{{ route('admin.system.health') }}" class="text-brand-600">System health</a> · <a href="{{ route('admin.maintenance.edit') }}" class="text-brand-600">Maintenance</a> · <a href="{{ route('admin.backups.index') }}" class="text-brand-600">Backups</a> · <a href="{{ route('admin.cleanup.show') }}" class="text-brand-600">Cleanup</a> · <a href="{{ route('admin.system.logs.index') }}" class="text-brand-600">Logs</a> · <a href="{{ route('admin.system.php') }}" class="text-brand-600">PHP info</a> · <a href="{{ route('admin.updates.index') }}" class="text-brand-600">Updates</a> · <a href="{{ route('admin.marketplace.index') }}" class="text-brand-600">Marketplace</a>.</p>
             </fieldset>
         @endcan
 

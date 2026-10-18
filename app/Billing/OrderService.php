@@ -173,7 +173,7 @@ class OrderService
     {
         $product = $line->product;
         $price = $product->priceFor($line->cycle, $currency)
-            ?? throw new InvalidArgumentException("{$product->name} has no {$line->cycle->label()} price in {$currency}.");
+            ?? throw new InvalidArgumentException(__(':product has no :cycle price in :currency.', ['product' => $product->name, 'cycle' => Str::lower(__($line->cycle->label())), 'currency' => $currency]));
         $selected = $this->options->select($product, $line->choices->options, $line->cycle, currency: $currency);
         $this->options->assertCurrency($selected, $currency);
 

@@ -570,4 +570,20 @@ Route::prefix('admin/settings/gateway-log')->name('admin.gateway-log.')->middlew
         Route::get('{entry}', 'show')->whereNumber('entry')->name('show');
     });
 
+// Settings > Logs and PHP info, next to the other system pages: the app's log files and how PHP is set up.
+Route::prefix('admin/settings')->name('admin.system.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-system'])
+    ->controller(Admin\LogController::class)->group(function () {
+        Route::get('logs', 'index')->name('logs.index');
+        Route::get('logs/{name}', 'show')->where('name', '[A-Za-z0-9._-]+')->name('logs.show');
+        Route::get('logs/{name}/download', 'download')->where('name', '[A-Za-z0-9._-]+')->middleware('throttle:20,1')->name('logs.download');
+        Route::get('php', 'php')->name('php');
+    });
+
+// System cleanup: delete old logs and ticket attachments, under Settings > System. Kept outside the admin group above; same checks as backups.
+Route::prefix('admin/settings/cleanup')->name('admin.cleanup.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-system'])
+    ->controller(Admin\CleanupController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::delete('/', 'run')->middleware('throttle:10,1')->name('run');
+    });
+
 require __DIR__.'/platform.php';

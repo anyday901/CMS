@@ -1,4 +1,4 @@
-# System: health, maintenance, backups and updates
+# System: health, maintenance, backups, cleanup, logs and updates
 
 The **System** pages are under **Settings**. They need the **Back up the database, install updates, themes and marketplace packages** permission (`manage-system`), which admins have; give it to other staff roles under **Staff**.
 
@@ -41,6 +41,43 @@ sudo -u www-data php artisan backup:restore backup-2026-10-15-013000.sql.gz
 ```
 
 It asks before replacing the database, and puts the site in maintenance mode while it runs. `php artisan backup:run` makes a backup from the command line.
+
+## Logs
+
+**Settings > Logs** lists the log files Laravel writes in `storage/logs` (with `LOG_STACK=daily`, one a day, kept for `LOG_DAILY_DAYS` days), with each one's size and when it was last written. It also links to the other logs: the **activity log**, the **email log**, the **gateway log** and **cron status**, which need the settings permission.
+
+Open a file to see its entries newest first: the level, the time and the message, with the stack trace or anything else written after it under **Details**. Filter by level (error, warning, info and the rest, each with how many there are), search the messages and stack traces, and page through 50 at a time. Only the last 2 MB of a file is read, so a big log can't slow the page down; **Download** gives the whole file. Change how much is read with `logging.viewer.max_bytes` in `config/logging.php`.
+
+Only `.log` files directly in the log folder are listed, read or downloaded. Logs can hold client details and server paths, so each download is written to the activity log.
+
+## PHP info
+
+**Settings > PHP info** shows the PHP that runs CMS under the web server: its version, server API, operating system and `php.ini`, the settings that most often need changing (memory limit, execution time, upload and post sizes, input vars, timezone, OPcache and others), and the loaded extensions. Below that is `phpinfo()` itself, without its environment and request variables, since those hold the secrets in `.env`. The command line (cron and the queue worker) may use a different `php.ini`; check it with `php -i` on the server.
+
+Logs and PHP info are off in demo mode.
+
+## Cleanup
+
+**Settings > Cleanup** deletes old data that only takes up room, like WHMCS's System Cleanup. Pick a date and press **Count** to see how much was made before it in each of:
+
+- ticket attachments (the files on disk and their records; the messages stay),
+- the email log, the activity log and the gateway log,
+- login history and the ticket email log (piped and fetched email),
+- webhook deliveries, the text message log, scheduled task runs and failed queue jobs.
+
+Tick what to delete and press **Delete ticked**; it asks before deleting, and it can't be undone, so take a backup first if you might want something back. Invoices, payments, credit notes, credit and other financial records are never deleted. Emails, texts and webhook deliveries still waiting to go out are kept whatever their date. Each cleanup is written to the activity log with how many of each went.
+
+Some of these are already trimmed every night: login history after the days set under **Security**, ticket email and texts after 90 days, webhook deliveries and task runs after 30 days, and the activity and gateway logs after **Activity log retention** on the main settings page, when that is set (`activity:prune` uses the same cleanup code).
+
+From the command line:
+
+```sh
+php artisan system:cleanup --days=365 --dry-run                 # only count
+php artisan system:cleanup --before=2026-01-01 --only=attachments --only=emails
+php artisan system:cleanup --days=365 --force                   # don't ask
+```
+
+Targets for `--only` are `attachments`, `emails`, `activity`, `gateway_log`, `login_attempts`, `inbound_emails`, `webhook_deliveries`, `sms_log`, `task_runs` and `failed_jobs`.
 
 ## Updates
 

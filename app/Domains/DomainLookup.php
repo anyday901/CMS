@@ -28,7 +28,7 @@ class DomainLookup
         $tlds = Tld::sold()->with('prices')->get();
 
         if ($tlds->isEmpty()) {
-            return ['name' => null, 'results' => [], 'error' => 'No domains are for sale yet.'];
+            return ['name' => null, 'results' => [], 'error' => __('No domains are for sale yet.')];
         }
 
         $parsed = DomainName::parse($input, $tlds);
@@ -38,8 +38,8 @@ class DomainLookup
             $normalised = DomainName::normalise($input);
 
             return ['name' => $normalised, 'results' => [], 'error' => $normalised === null
-                ? "That isn't a domain name. Use letters, numbers and hyphens, such as example.com."
-                : "We don't sell that extension. Try one of: ".$tlds->take(self::SUGGESTIONS)->map->label()->join(', ').'.'];
+                ? __("That isn't a domain name. Use letters, numbers and hyphens, such as example.com.")
+                : __("We don't sell that extension. Try one of: :extensions.", ['extensions' => $tlds->take(self::SUGGESTIONS)->map->label()->join(', ')])];
         }
 
         $sld = $parsed?->sld ?? $bare;

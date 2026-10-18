@@ -15,10 +15,10 @@ use App\Console\Scheduler;
 use App\Domains\DomainReminders;
 use App\Domains\DomainRenewals;
 use App\Domains\DomainSync;
-use App\Models\Activity;
 use App\Models\Department;
 use App\Monitoring\ServerMonitor;
 use App\Provisioning\UsageCollector;
+use App\System\SystemCleanup;
 use App\Tickets\InactiveTicketCloser;
 use App\Tickets\InboundMail;
 use App\Tickets\TicketEscalator;
@@ -57,7 +57,7 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
     $this->info("Cancelled {$expired} unpaid mass payment invoice(s).");
 })->purpose('Carry out cancellation requests, generate renewal, billable item and overage invoices, charge saved cards, add late fees, send overdue reminders, process overdue services, check pending refunds and cancel stale mass payments');
 
-Artisan::command('activity:prune', function () {
+Artisan::command('activity:prune', function (SystemCleanup $cleanup) {
     $days = config('activity.retention_days');
 
     if (blank($days)) {
@@ -66,7 +66,7 @@ Artisan::command('activity:prune', function () {
         return;
     }
 
-    $deleted = Activity::where('created_at', '<', now()->subDays((int) $days))->delete();
+    $deleted = $cleanup->run(now()->subDays((int) $days), [SystemCleanup::ACTIVITY])[SystemCleanup::ACTIVITY];
     $this->info("Deleted {$deleted} activity log entr".($deleted === 1 ? 'y' : 'ies')." older than {$days} days.");
 })->purpose('Delete activity log entries older than the retention setting');
 
