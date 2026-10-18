@@ -13,6 +13,10 @@ return [
         'subject' => 'Factura n.º {invoice_number} de {company_name}',
         'body' => "Hola, {client_first_name}:\n\nHemos emitido la factura n.º {invoice_number} por {invoice_total}, con vencimiento el {invoice_due_date}.\n\n[Ver y pagar la factura]({invoice_url})\n\nGracias,\n{company_name}",
     ],
+    'quote_delivered' => [
+        'subject' => 'Presupuesto n.º {quote_number} de {company_name}: {quote_subject}',
+        'body' => "Hola, {client_first_name}:\n\nAquí tiene nuestro presupuesto n.º {quote_number} para {quote_subject}: {quote_total}, válido hasta el {quote_valid_until}. Adjuntamos el PDF.\n\n[Ver y aceptar el presupuesto]({quote_url})\n\nSi tiene alguna pregunta, responda a este correo.\n\nGracias,\n{company_name}",
+    ],
     'order_confirmation' => [
         'subject' => 'Confirmación del pedido n.º {order_number}',
         'body' => "Hola, {client_first_name}:\n\nGracias por su pedido. Esto es lo que pidió el {order_date}:\n\n{order_items}\n\nTotal del pedido: {order_total}\n\n[Ver la factura]({invoice_url})\n\nLe avisaremos cuando cada servicio esté listo.\n\nGracias,\n{company_name}",
@@ -28,6 +32,10 @@ return [
     'payment_receipt' => [
         'subject' => 'Recibo de la factura n.º {invoice_number}',
         'body' => "Hola, {client_first_name}:\n\nGracias por su pago. La factura n.º {invoice_number} por {invoice_total} ya está pagada en su totalidad.\n\n[Ver la factura]({invoice_url})\n\n{company_name}",
+    ],
+    'payment_failed' => [
+        'subject' => 'No se pudo cobrar la factura n.º {invoice_number}',
+        'body' => "Hola, {client_first_name}:\n\nIntentamos cobrar {invoice_balance} de la factura n.º {invoice_number} a su {payment_method}, pero el pago no se completó: {failure_reason}\n\n[Pagar la factura]({invoice_url})\n\nPara usar otra tarjeta en los próximos pagos, [actualice sus métodos de pago]({payment_methods_url}).\n\nGracias,\n{company_name}",
     ],
     'service_welcome' => [
         'subject' => 'Su {service_name} está listo',

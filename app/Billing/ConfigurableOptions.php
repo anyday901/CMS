@@ -12,7 +12,7 @@ use InvalidArgumentException;
 
 /**
  * Turns submitted configurable option values into the choices a service
- * gets, and prices them. Option prices are set in the billing currency only.
+ * gets, and prices them in the client's currency.
  */
 class ConfigurableOptions
 {
@@ -22,16 +22,17 @@ class ConfigurableOptions
      *
      * @param  array<int|string, mixed>  $input  Option id => choice id (dropdown), "1" (checkbox) or a number (quantity).
      * @param  Collection<int, ServiceOption>|null  $current  The service's options, when changing them.
+     * @param  string|null  $currency  The client's currency; null for the default currency.
      * @return Collection<int, ServiceOption> Unsaved, with option and choice loaded.
      */
-    public function select(Product $product, array $input, BillingCycle $cycle, ?Collection $current = null): Collection
+    public function select(Product $product, array $input, BillingCycle $cycle, ?Collection $current = null, ?string $currency = null): Collection
     {
         return $product->options()->with('choices')->get()
             ->map(fn (ProductOption $option) => $this->selectOne($option, $input[$option->id] ?? null))
             ->filter()
-            ->each(function (ServiceOption $chosen) use ($cycle, $current) {
+            ->each(function (ServiceOption $chosen) use ($cycle, $current, $currency) {
                 $kept = $current?->first(fn (ServiceOption $old) => $old->product_option_choice_id === $chosen->product_option_choice_id);
-                $chosen->unit_price = $kept?->unit_price ?? $chosen->choice->priceFor($cycle);
+                $chosen->unit_price = $kept?->unit_price ?? $chosen->choice->priceFor($cycle, $currency);
             })
             ->values();
     }
@@ -83,21 +84,24 @@ class ConfigurableOptions
     }
 
     /** @param  Collection<int, ServiceOption>  $selected */
-    public function setupFee(Collection $selected): int
+    public function setupFee(Collection $selected, ?string $currency = null): int
     {
-        return (int) $selected->sum(fn (ServiceOption $chosen) => $chosen->choice->setup_fee * $chosen->quantity);
+        return (int) $selected->sum(fn (ServiceOption $chosen) => $chosen->choice->setupFeeFor($currency) * $chosen->quantity);
     }
 
     /**
-     * Option prices exist only in the billing currency, so a client billed in
-     * another currency can only have free options.
+     * A choice with a price in the default currency needs its prices set in
+     * the client's currency too (under the option, or with Update product
+     * prices on the Currencies page) before it can be sold in it.
      *
      * @param  Collection<int, ServiceOption>  $selected
      */
     public function assertCurrency(Collection $selected, string $currency): void
     {
-        if ($currency !== config('billing.currency') && ($this->recurring($selected) > 0 || $this->setupFee($selected) > 0)) {
-            throw new InvalidArgumentException('Configurable option prices are only set in '.config('billing.currency').", but this client is billed in {$currency}.");
+        $unpriced = $selected->first(fn (ServiceOption $chosen) => ! $chosen->choice->pricedIn($currency));
+
+        if ($unpriced !== null) {
+            throw new InvalidArgumentException("{$unpriced->option->name} has no prices in {$currency} yet.");
         }
     }
 

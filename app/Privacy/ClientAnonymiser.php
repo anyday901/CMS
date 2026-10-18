@@ -2,6 +2,7 @@
 
 namespace App\Privacy;
 
+use App\Billing\PaymentMethods;
 use App\Enums\ClientStatus;
 use App\Enums\DomainStatus;
 use App\Enums\ServiceStatus;
@@ -52,6 +53,9 @@ class ClientAnonymiser
         $emails = $client->contacts()->pluck('email')->push($oldEmail)->filter()->all();
         $files = [];
 
+        // Saved cards are removed at their gateway too, before the details that identify them go.
+        app(PaymentMethods::class)->removeAll($client);
+
         DB::transaction(function () use ($client, $oldEmail, $emails, &$files) {
             $client->forceFill([
                 'first_name' => 'Anonymised',
@@ -73,6 +77,8 @@ class ClientAnonymiser
                 'marketing_emails' => false,
                 'marketing_consent_at' => null,
                 'sms_notifications' => false,
+                'gateway_customers' => null,
+                'auto_charge' => false,
                 'anonymised_at' => now(),
             ])->save();
             $client->disableTwoFactor();

@@ -19,7 +19,7 @@ use InvalidArgumentException;
 
 /**
  * Merges one client account into another: everything on the first account
- * (services, domains, invoices, payments, orders, tickets, contacts, notes, to-dos,
+ * (services, domains, invoices, quotes, payments, orders, tickets, contacts, notes, to-dos,
  * emails, logins, activity and affiliate records) moves to the second, its credit balance is
  * added there, and the first account is deleted. Its details are kept in a
  * note on the account it was merged into.
@@ -28,8 +28,8 @@ class ClientMerger
 {
     /** Tables whose rows belong to a client and move with the merge. Credit history is summed up instead. */
     public const MOVES = [
-        'services', 'domains', 'invoices', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
-        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log',
+        'services', 'domains', 'invoices', 'quotes', 'transactions', 'orders', 'tickets', 'ticket_messages', 'ticket_feedback',
+        'email_logs', 'activity_log', 'login_attempts', 'client_notes', 'todos', 'sms_log', 'payment_methods', 'payment_attempts',
     ];
 
     /** Tables with a client_id that don't move row by row: contacts are matched up, credit history is summed, and AffiliateMerger sorts out affiliates and referrals. */
@@ -58,6 +58,7 @@ class ClientMerger
             'services' => $from->services()->count(),
             'domains' => $from->domains()->count(),
             'invoices' => $from->invoices()->count(),
+            'quotes' => $from->quotes()->count(),
             'orders' => $from->orders()->count(),
             'tickets' => $from->tickets()->count(),
             'contacts' => $from->contacts()->count(),
@@ -87,6 +88,11 @@ class ClientMerger
             $this->keepDetails($from, $into);
 
             $this->affiliates->merge($from, $into);
+
+            // Saved cards keep the gateway customer they're attached to; the account keeps one default.
+            if (DB::table('payment_methods')->where('client_id', $into->id)->where('is_default', true)->exists()) {
+                DB::table('payment_methods')->where('client_id', $from->id)->update(['is_default' => false]);
+            }
 
             foreach (self::MOVES as $table) {
                 DB::table($table)->where('client_id', $from->id)->update(['client_id' => $into->id]);

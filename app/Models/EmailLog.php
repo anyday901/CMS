@@ -15,7 +15,7 @@ class EmailLog extends Model
     public const FAILED = 'failed';
 
     protected $fillable = [
-        'whmcs_id', 'client_id', 'invoice_id', 'ticket_id', 'mass_mail_id', 'template', 'to', 'cc', 'subject', 'body',
+        'whmcs_id', 'client_id', 'invoice_id', 'quote_id', 'ticket_id', 'mass_mail_id', 'template', 'to', 'cc', 'subject', 'body',
         'status', 'error', 'attach_invoice_pdf', 'reply_to', 'list_unsubscribe', 'sent_at',
     ];
 
@@ -36,6 +36,12 @@ class EmailLog extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    /** The quote whose PDF goes with the email. */
+    public function quote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class);
     }
 
     public function massMail(): BelongsTo

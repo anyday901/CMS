@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Domains\RegistrarRegistry;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
-use App\Models\ProductPrice;
+use App\Models\Currency;
 use App\Models\Tld;
 use App\Models\TldPrice;
 use App\Support\Money;
@@ -83,9 +83,9 @@ class TldController extends Controller
 
     private function form(Tld $tld): View
     {
-        $currencies = collect([config('billing.currency')])
-            ->merge(TldPrice::distinct()->pluck('currency'))
-            ->merge(ProductPrice::distinct()->pluck('currency'))
+        // Every currency, and any a price is still in, so saving doesn't drop it.
+        $currencies = collect(Currency::codes())
+            ->merge($tld->exists ? $tld->prices->pluck('currency') : [])
             ->unique()->values();
 
         return view('admin.tlds.form', [

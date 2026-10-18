@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** One checkout from the cart: the services it created and their first invoice. */
 class Order extends Model
 {
-    protected $fillable = ['client_id', 'invoice_id', 'status', 'promotion_id', 'promotion_code', 'ip_address'];
+    protected $fillable = ['client_id', 'invoice_id', 'status', 'promotion_id', 'promotion_code', 'ip_address', 'terms_accepted_at'];
 
     protected $attributes = ['status' => 'pending'];
 
@@ -19,6 +19,7 @@ class Order extends Model
         return [
             'status' => OrderStatus::class,
             'reviewed_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
         ];
     }
 

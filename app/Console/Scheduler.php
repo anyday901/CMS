@@ -21,10 +21,13 @@ class Scheduler
     /** The billing run's time of day when none is set under Automation. */
     public const BILLING_RUN_TIME = '00:05';
 
+    /** After the European Central Bank publishes its rates, around 16:00 CET. */
+    public const EXCHANGE_RATES_TIME = '16:30';
+
     public static function define(Schedule $schedule): void
     {
         $schedule->command('billing:run')->dailyAt(self::billingRunTime())->withoutOverlapping()
-            ->description('Billing run: cancellations, renewal invoices, late fees, reminders, suspensions and terminations');
+            ->description('Billing run: cancellations, renewal invoices, saved card charges, late fees, reminders, suspensions and terminations');
         $schedule->command('usage:collect')->hourlyAt(50)->withoutOverlapping()
             ->description('Read disk and bandwidth use from servers');
         $schedule->command('tickets:escalate')->everyFiveMinutes()->withoutOverlapping()
@@ -39,6 +42,8 @@ class Scheduler
             ->description('Domains: renewal invoices, renewal reminders and expiry notices');
         $schedule->command('domains:sync')->dailyAt('04:10')->withoutOverlapping()
             ->description('Sync domain expiry dates and statuses with the registrars');
+        $schedule->command('currencies:update-rates', ['--scheduled'])->dailyAt(self::EXCHANGE_RATES_TIME)->withoutOverlapping()
+            ->description('Update exchange rates from the European Central Bank, when that is on under Settings > Automation');
         $schedule->command('backup:run', ['--scheduled'])->dailyAt(self::time((string) config('backups.time'), '01:30'))->withoutOverlapping()
             ->description('Back up the database, when automatic backups are on under Settings > Backups');
         if (Demo::enabled() && (int) config('demo.reset_hours') > 0) {

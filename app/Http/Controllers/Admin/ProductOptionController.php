@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\BillingCycle;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Models\Currency;
 use App\Models\Product;
 use App\Models\ProductOption;
 use App\Models\ProductOptionChoice;
@@ -54,7 +55,12 @@ class ProductOptionController extends Controller
             $rows = array_merge($rows, array_fill(0, self::NEW_ROWS, new ProductOptionChoice));
         }
 
-        return view('admin.product-options.edit', ['option' => $option, 'rows' => $rows, 'cycles' => $this->cycles($option->product)]);
+        return view('admin.product-options.edit', [
+            'option' => $option,
+            'rows' => $rows,
+            'cycles' => $this->cycles($option->product),
+            'otherCurrencies' => array_values(array_diff(Currency::codes(), [config('billing.currency')])),
+        ]);
     }
 
     public function update(Request $request, ProductOption $productOption): RedirectResponse
@@ -71,6 +77,10 @@ class ProductOptionController extends Controller
             'choices.*.setup_fee' => ['nullable', Money::rule()],
             'choices.*.prices' => ['array'],
             'choices.*.prices.*' => ['nullable', Money::rule()],
+            'choices.*.currency_prices' => ['array'],
+            'choices.*.currency_prices.*.prices' => ['array'],
+            'choices.*.currency_prices.*.prices.*' => ['nullable', Money::rule()],
+            'choices.*.currency_prices.*.setup_fee' => ['nullable', Money::rule()],
         ]);
 
         DB::transaction(function () use ($option, $data, $request) {
@@ -127,14 +137,52 @@ class ProductOptionController extends Controller
         $attributes = [
             'name' => $name !== '' ? $name : ($choice->name ?? $option->name),
             'setup_fee' => filled($row['setup_fee'] ?? null) ? Money::parse($row['setup_fee']) : 0,
-            'prices' => collect($row['prices'] ?? [])
-                ->filter(fn ($price, $cycle) => filled($price) && BillingCycle::tryFrom($cycle) !== null)
-                ->map(fn ($price) => Money::parse($price))
-                ->all() ?: null,
+            'prices' => self::cyclePrices($row['prices'] ?? []),
             'sort_order' => $i,
         ];
+        if (isset($row['currency_prices'])) {
+            $attributes['currency_prices'] = $this->currencyPrices($choice, (array) $row['currency_prices']);
+        }
 
         $choice ? $choice->update($attributes) : $option->choices()->create($attributes);
+    }
+
+    /** @return array<string, int>|null cycle => cents, leaving out blank cycles */
+    private static function cyclePrices(mixed $prices): ?array
+    {
+        return collect((array) $prices)
+            ->filter(fn ($price, $cycle) => filled($price) && BillingCycle::tryFrom((string) $cycle) !== null)
+            ->map(fn ($price) => Money::parse($price))
+            ->all() ?: null;
+    }
+
+    /**
+     * The choice's prices in the other currencies, with those on the form
+     * replaced. A currency left wholly blank has no prices in it.
+     *
+     * @param  array<string, array{prices?: array<string, ?string>, setup_fee?: ?string}>  $input
+     * @return array<string, array{prices: array<string, int>, setup_fee: int}>|null
+     */
+    private function currencyPrices(?ProductOptionChoice $choice, array $input): ?array
+    {
+        $saved = (array) ($choice?->currency_prices ?? []);
+
+        foreach ($input as $code => $row) {
+            if (! Currency::known((string) $code) || $code === config('billing.currency')) {
+                continue;
+            }
+            $prices = self::cyclePrices($row['prices'] ?? []);
+            $setupFee = trim((string) ($row['setup_fee'] ?? ''));
+
+            if ($prices === null && $setupFee === '') {
+                unset($saved[$code]);
+
+                continue;
+            }
+            $saved[$code] = ['prices' => $prices ?? [], 'setup_fee' => $setupFee === '' ? 0 : Money::parse($setupFee)];
+        }
+
+        return $saved ?: null;
     }
 
     /** @return list<BillingCycle> The cycles the product is sold on, or every cycle when it has no prices yet. */

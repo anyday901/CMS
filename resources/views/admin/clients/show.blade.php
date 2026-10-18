@@ -236,6 +236,20 @@
             @endif
         </section>
 
+        <section {!! $panel('quotes') !!}>
+            <div class="mb-3 flex items-center gap-3">
+                <h2 class="text-lg font-semibold">Quotes</h2>
+                @can('manage-billing')
+                    <a href="{{ route('admin.quotes.create', $client) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">New quote</a>
+                @endcan
+            </div>
+            @if ($client->quotes->isEmpty())
+                <p class="text-sm text-ink-500">No quotes yet.</p>
+            @else
+                @include('admin.quotes._table', ['quotes' => $client->quotes->each->setRelation('client', $client), 'hideClient' => true])
+            @endif
+        </section>
+
         <section {!! $panel('credit') !!}>
             <h2 class="mb-3 text-lg font-semibold">Credit <span class="text-base font-normal text-ink-500">{{ Money::format($client->credit_balance, $client->currency) }} available</span></h2>
             @can('manage-billing')
@@ -280,6 +294,42 @@
                     </table>
                 </div>
             @endif
+        </section>
+
+        <section {!! $panel('payment-methods') !!}>
+            <h2 class="mb-3 text-lg font-semibold">Payment methods</h2>
+            @if ($client->paymentMethods->isEmpty())
+                <p class="mb-4 text-sm text-ink-500">No saved cards. Clients save cards in the client area under Invoices &gt; Payment methods, or when they pay.</p>
+            @else
+                <div class="mb-4 rounded-lg border border-ink-200 bg-white text-sm">
+                    @foreach ($client->paymentMethods as $method)
+                        <div class="flex flex-wrap items-center gap-3 border-b border-ink-100 px-4 py-2 last:border-b-0">
+                            <div class="grow">
+                                <span class="font-medium">{{ $method->label() }}</span>
+                                @if ($method->expiry())<span class="{{ $method->isExpired() ? 'text-red-700' : 'text-ink-500' }}">· {{ $method->isExpired() ? 'expired' : 'expires' }} {{ $method->expiry() }}</span>@endif
+                                <span class="text-ink-500">· {{ ucfirst($method->gateway) }}</span>
+                                @if ($method->is_default)<span class="ml-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">Default</span>@endif
+                            </div>
+                            @can('manage-billing')
+                                <form method="POST" action="{{ route('admin.payment-methods.destroy', $method) }}" onsubmit="return confirm('Remove this card? It is removed at the gateway too.')">
+                                    @csrf @method('DELETE')
+                                    <button class="rounded-md px-3 py-1 text-red-700 ring-1 ring-ink-300 hover:bg-red-50">Remove</button>
+                                </form>
+                            @endcan
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+            <div class="flex flex-wrap items-center gap-3 rounded-lg border border-ink-200 bg-white p-4 text-sm">
+                <span class="grow text-ink-600">Automatic charging is <strong>{{ $client->auto_charge ? 'on' : 'off' }}</strong>: @if ($client->auto_charge) unpaid invoices are charged to the default card when they fall due (see <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a>).@else the client pays each invoice themselves.@endif</span>
+                @can('manage-billing')
+                    <form method="POST" action="{{ route('admin.clients.auto-charge', $client) }}">
+                        @csrf @method('PUT')
+                        <input type="hidden" name="auto_charge" value="{{ $client->auto_charge ? 0 : 1 }}">
+                        <button class="rounded-md px-3 py-1.5 ring-1 ring-ink-300 hover:bg-ink-100">{{ $client->auto_charge ? 'Turn off' : 'Turn on' }}</button>
+                    </form>
+                @endcan
+            </div>
         </section>
 
         <section {!! $panel('tickets') !!}>

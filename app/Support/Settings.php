@@ -25,6 +25,11 @@ class Settings
         'billing.invoice_days_before_due',
         'billing.apply_credit_automatically',
         'billing.reminder_days',
+        'billing.auto_charge_days_before_due',
+        'billing.charge_retry_days',
+        'payments.stripe.publishable_key',
+        'payments.stripe.secret_key',
+        'payments.stripe.webhook_secret',
         'billing.suspend_after_days',
         'billing.terminate_after_days',
         'billing.overage_due_days',
@@ -34,6 +39,11 @@ class Settings
         'billing.tax_inclusive',
         'billing.attach_invoice_pdf',
         'billing.hold_new_orders',
+        'store.terms_url',
+        'payments.bank_transfer.instructions',
+        'payments.mail_in.instructions',
+        'billing.currency',
+        'billing.update_exchange_rates',
         'activity.retention_days',
         'tickets.close_inactive_hours',
         'tickets.business_hours',
@@ -105,16 +115,16 @@ class Settings
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled', 'domains.auto_renew_default'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'billing.update_exchange_rates', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled', 'domains.auto_renew_default'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [
-        'billing.reminder_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
+        'billing.reminder_days', 'billing.charge_retry_days', 'tickets.business_hours', 'tickets.holidays', 'tickets.spam.blocked_senders', 'tickets.spam.blocked_subjects', 'tickets.spam.blocked_phrases', 'help.languages', 'security.captcha.forms',
         'sms.staff_numbers', 'sms.staff_events', 'sms.client_events', 'domains.nameservers', 'domains.reminder_days',
     ];
 
     /** Saved encrypted, read back decrypted. */
-    private const SECRETS = ['security.captcha.secret_key', 'sms.credentials', 'mail.mailers.smtp.password', 'domains.credentials'];
+    private const SECRETS = ['payments.stripe.secret_key', 'payments.stripe.webhook_secret', 'security.captcha.secret_key', 'sms.credentials', 'mail.mailers.smtp.password', 'domains.credentials'];
 
     /** Copies saved settings over the config. Called once per request at boot. */
     public static function apply(): void

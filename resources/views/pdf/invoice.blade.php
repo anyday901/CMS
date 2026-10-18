@@ -88,6 +88,16 @@
         </div>
     @endif
 
+    @if ($invoice->status === App\Enums\InvoiceStatus::Unpaid)
+        @foreach ($offlineGateways ?? [] as $gateway)
+            <div style="margin-top: 24px;">
+                <div class="muted">{{ $gateway->label() }}</div>
+                <div>{!! nl2br(e($gateway->instructions())) !!}</div>
+                <div>Use invoice #{{ $invoice->number }} as the reference.</div>
+            </div>
+        @endforeach
+    @endif
+
     @if ($invoice->notes)
         <div style="margin-top: 24px;">
             <div class="muted">Notes</div>

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Addons\AddonManager;
 use App\Affiliates\AffiliateHooks;
+use App\Billing\SavedMethodCharger;
 use App\Billing\ServiceUpgrader;
 use App\Console\RecordsScheduledTasks;
 use App\Domains\DomainRenewals;
@@ -134,6 +135,8 @@ class AppServiceProvider extends ServiceProvider
         });
         Event::listen(OrderPlaced::class, fn (OrderPlaced $e) => app(ClientMailer::class)->orderConfirmation($e->order));
         Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(ClientMailer::class)->send($e->invoice->client, 'payment_receipt', invoice: $e->invoice));
+        // A saved-card charge the gateway was still processing has gone through.
+        Event::listen(InvoicePaid::class, fn (InvoicePaid $e) => app(SavedMethodCharger::class)->pendingSettled($e->invoice));
         Event::listen(ServiceActivated::class, function (ServiceActivated $e) {
             $service = $e->service;
             app(ClientMailer::class)->send($service->client, 'service_welcome', [

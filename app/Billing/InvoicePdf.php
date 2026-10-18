@@ -3,6 +3,8 @@
 namespace App\Billing;
 
 use App\Models\Invoice;
+use App\Payments\GatewayRegistry;
+use App\Payments\Gateways\OfflineGateway;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as Document;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +35,7 @@ class InvoicePdf
         return Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
             'company' => config('billing.company'),
+            'offlineGateways' => app(GatewayRegistry::class)->enabled()->whereInstanceOf(OfflineGateway::class),
         ])->setPaper('letter');
     }
 }

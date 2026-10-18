@@ -122,7 +122,7 @@ class ServiceController extends Controller
         $request->validate(['options' => ['array']] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         try {
-            $selected = $options->select($service->product, (array) $request->input('options', []), $service->billing_cycle, $service->options);
+            $selected = $options->select($service->product, (array) $request->input('options', []), $service->billing_cycle, $service->options, $service->client->currency);
             $options->assertCurrency($selected, $service->client->currency);
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['options' => $e->getMessage()]);

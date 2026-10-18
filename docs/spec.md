@@ -34,12 +34,14 @@ Beyond v1, the aim is a direct open source rival to WHMCS: the same breadth of f
 - PDF invoices.
 
 ### Payment gateways
-Clients pay each invoice by hand; there is no automatic charging or saved payment methods in v1.
-
-A gateway plugin interface, with three gateways in v1. Each one adds a "Pay now" option on unpaid invoices and confirms payment through the gateway's callback:
+A gateway plugin interface. Each gateway adds a "Pay now" option on unpaid invoices and confirms payment through the gateway's callback:
+- **Stripe**: card payments, with cards clients save for later.
 - **PayPal**: one-time PayPal checkout.
 - **Venmo**: offered through PayPal's checkout (US only).
 - **Cash App Pay**: one-time payment through Square's API.
+- **Bank transfer** and **mail-in payment**: instructions shown on the invoice; staff record the payment when it arrives.
+
+Saved payment methods sit behind a second interface (`ChargesSavedMethods`), so the billing core never talks to a gateway directly. With Stripe, clients can save cards, and the nightly billing run charges unpaid invoices to the client's default card on (or a set number of days before) the due date, retrying failures on set days after it. Clients can turn automatic charging off.
 
 ### Provisioning
 Corey uses no control panel, so v1 provisioning is:
@@ -87,12 +89,14 @@ Milestone 12 (platform and community) is in as well: translations of the portal 
 
 Milestone 7 (domains) is in too: domain registration, transfer and renewal orders in the store and cart, TLD pricing per term and currency, availability checks and a WHOIS lookup, a registrar module interface with Enom, Namecheap, OpenSRS and ResellerClub modules (not yet tried against live accounts), a nightly sync of expiry dates and statuses, nameserver, DNS, contact, ID protection and transfer lock management in the portal, and renewal invoices, reminders, expiry notices and auto-renew. See [Domains](admin/domains.md).
 
+Parts of milestone 6 (billing parity) are in too: multiple currencies with exchange rates from the European Central Bank and prices per currency, quotes that convert to invoices, Stripe with saved cards and automatic charging on the due date, bank transfer and mail-in payment instructions, and a terms of service checkbox at checkout.
+
 Still to come in milestone 5: fraud checks on new orders. See [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 
 ## Out of scope for v1 (planned after v1)
 These come after the switchover, as part of WHMCS parity:
 - Control panel modules.
-- Quotes, multi-currency, multi-language.
+- Multi-language.
 - Marketplace for third-party modules.
 
 ## Milestones

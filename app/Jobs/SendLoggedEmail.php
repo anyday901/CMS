@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Billing\InvoicePdf;
+use App\Billing\QuotePdf;
 use App\Mail\LoggedEmail;
 use App\Models\EmailLog;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -31,7 +32,7 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
 
     public function handle(InvoicePdf $pdfs): void
     {
-        $log = EmailLog::with(['invoice', 'massMail', 'client'])->find($this->logId);
+        $log = EmailLog::with(['invoice', 'quote', 'massMail', 'client'])->find($this->logId);
 
         if ($log === null || $log->status === EmailLog::SENT) {
             return;
@@ -45,9 +46,11 @@ class SendLoggedEmail implements ShouldBeEncrypted, ShouldQueue
         }
 
         try {
-            $pdf = $log->attach_invoice_pdf && $log->invoice
-                ? ['data' => $pdfs->output($log->invoice), 'name' => $pdfs->filename($log->invoice)]
-                : null;
+            $pdf = match (true) {
+                $log->attach_invoice_pdf && $log->invoice !== null => ['data' => $pdfs->output($log->invoice), 'name' => $pdfs->filename($log->invoice)],
+                $log->quote !== null => ['data' => app(QuotePdf::class)->output($log->quote), 'name' => app(QuotePdf::class)->filename($log->quote)],
+                default => null,
+            };
 
             Mail::to($log->to)->cc($log->cc ?? [])->send(new LoggedEmail($log->subject, $this->body ?? $log->body, $log->reply_to, $pdf, $log->list_unsubscribe));
         } catch (Throwable $e) {

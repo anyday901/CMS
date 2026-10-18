@@ -339,7 +339,7 @@ class ServiceUpgrader
         $currency = $service->client->currency;
         $price = $product->priceFor($cycle, $currency)
             ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$currency}.");
-        $selected = $this->options->select($product, $options, $cycle);
+        $selected = $this->options->select($product, $options, $cycle, currency: $currency);
         $this->options->assertCurrency($selected, $currency);
         $recurring = $price->price + $this->options->recurring($selected);
 

@@ -88,6 +88,12 @@ class Invoice extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    /** Tries at charging a saved payment method for this invoice, newest first. */
+    public function paymentAttempts(): HasMany
+    {
+        return $this->hasMany(PaymentAttempt::class)->latest('id');
+    }
+
     /**
      * Recompute subtotal, tax and total from the line items. With
      * tax-inclusive pricing the line amounts already contain the tax, so the

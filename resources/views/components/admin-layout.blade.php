@@ -28,6 +28,7 @@
                         'admin.domains.index' => App\Models\Tld::exists() || App\Models\Domain::exists() ? 'Domains' : null,
                         'admin.orders.index' => 'Orders'.(($pendingOrders = App\Models\Order::where('status', App\Enums\OrderStatus::Pending)->count()) ? " ({$pendingOrders})" : ''),
                         'admin.invoices.index' => 'Invoices',
+                        'admin.quotes.index' => auth()->user()->can('manage-billing') || App\Models\Quote::exists() ? 'Quotes' : null,
                         'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
                         'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),
@@ -46,7 +47,7 @@
                     // Pages that light up a menu item besides its own.
                     $alsoActive = [
                         'admin.clients.index' => ['admin.mass-mail.*'],
-                        'admin.settings.edit' => ['admin.mail.*', 'admin.appearance.*', 'admin.languages.*', 'admin.system.*', 'admin.maintenance.*', 'admin.backups.*', 'admin.updates.*', 'admin.marketplace.*', 'admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.tlds.*', 'admin.domain-settings.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
+                        'admin.settings.edit' => ['admin.mail.*', 'admin.appearance.*', 'admin.languages.*', 'admin.system.*', 'admin.maintenance.*', 'admin.backups.*', 'admin.updates.*', 'admin.marketplace.*', 'admin.whmcs-import.*', 'admin.security.*', 'admin.client-groups.*', 'admin.automation.*', 'admin.cron.*', 'admin.currencies.*', 'admin.payment-gateways.*', 'admin.tlds.*', 'admin.domain-settings.*', 'admin.addons.*', 'admin.webhooks.*', 'admin.chat-channels.*', 'admin.sms.*', 'admin.api-keys.*'],
                         'admin.kb.index' => ['admin.kb-*', 'admin.announcements.*', 'admin.network-issues.*', 'admin.downloads.*', 'admin.download-categories.*'],
                     ];
                 @endphp

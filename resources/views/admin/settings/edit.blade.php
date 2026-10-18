@@ -18,7 +18,12 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Automation</legend>
-            <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
+            <p class="text-ink-600">When the nightly billing run happens, and the days it works by: renewal invoices, automatic card charges, overdue reminders, late fees, suspension and termination. <a href="{{ route('admin.automation.edit') }}" class="text-brand-600">Automation settings</a> · <a href="{{ route('admin.cron.show') }}" class="text-brand-600">Cron status</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Payment gateways</legend>
+            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. Bank transfer and mail-in instructions are <a href="#offline-payments" class="text-brand-600">further down</a>. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">
@@ -29,6 +34,11 @@
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Integrations</legend>
             <p class="text-ink-600">Optional modules, and telling other systems and people when things happen. <a href="{{ route('admin.addons.index') }}" class="text-brand-600">Add-ons</a> · <a href="{{ route('admin.webhooks.index') }}" class="text-brand-600">Webhooks</a> · <a href="{{ route('admin.chat-channels.index') }}" class="text-brand-600">Chat notifications</a> · <a href="{{ route('admin.sms.edit') }}" class="text-brand-600">SMS</a> · <a href="{{ route('admin.api-keys.index') }}" class="text-brand-600">API keys</a> · <a href="{{ route('admin.affiliates.settings') }}" class="text-brand-600">Affiliates</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Currencies</legend>
+            <p class="text-ink-600">The currencies clients can be billed in, the default currency and exchange rates. <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">
@@ -57,6 +67,22 @@
                 <input type="checkbox" name="hold_new_orders" value="1" class="mt-1" @checked(old('hold_new_orders', $holdNewOrders))>
                 <span>Hold new orders for review. Services from the store stay pending, even once paid, until staff accept the order under <a href="{{ route('admin.orders.index') }}" class="text-brand-600">Orders</a>.</span>
             </label>
+            <label class="block">Terms of service link
+                <input type="url" name="terms_url" value="{{ old('terms_url', $termsUrl) }}" maxlength="255" placeholder="https://example.com/terms" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
+                <span class="text-ink-500">When set, clients tick a box agreeing to your terms before they can place an order or accept a quote, and the order records when they did. Leave blank for no checkbox.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="offline-payments" class="space-y-3">
+            <legend class="mb-1 text-base font-semibold">Bank transfer and mail-in payments</legend>
+            <p class="text-ink-600">Each one shows on unpaid invoices in the portal and on invoice PDFs once it has instructions. Clients are asked to use the invoice number as the reference, and you record the payment on the invoice when it arrives.</p>
+            <label class="block">Bank transfer instructions
+                <textarea name="bank_transfer_instructions" rows="4" maxlength="5000" placeholder="Bank: Example Bank&#10;Account name: Example Hosting LLC&#10;Account number: 12345678&#10;Routing number: 021000021" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('bank_transfer_instructions', $bankTransferInstructions) }}</textarea>
+            </label>
+            <label class="block">Mail-in payment instructions
+                <textarea name="mail_in_instructions" rows="4" maxlength="5000" placeholder="Make cheques payable to Example Hosting LLC and post them to:&#10;1 Main Street, Springfield" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">{{ old('mail_in_instructions', $mailInInstructions) }}</textarea>
+            </label>
+            <span class="block text-ink-500">Leave either blank to hide it.</span>
         </fieldset>
 
         <fieldset class="space-y-2">

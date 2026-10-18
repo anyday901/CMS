@@ -67,9 +67,12 @@ nav:
       - Running a demo instance: demo.md
   - Admin guide:
       - Appearance and white-label: admin/appearance.md
+      - Currencies: admin/currencies.md
       - Domains: admin/domains.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
+      - Quotes: admin/quotes.md
+      - Stripe and automatic charging: admin/stripe.md
       - Health, maintenance, backups and updates: admin/system.md
       - Marketplace: admin/marketplace.md
       - WHMCS modules: admin/whmcs-modules.md

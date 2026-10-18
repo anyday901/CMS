@@ -15,14 +15,17 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, GatewayRegistry $gateways): View
     {
         $invoices = $request->user('client')->invoices()
             ->where('status', '!=', InvoiceStatus::Draft)
             ->latest('issue_date')->latest('id')
             ->paginate(20);
 
-        return view('portal.invoices.index', compact('invoices'));
+        // Link to the Payment methods page when cards can be saved, or some already are.
+        $savedCards = $gateways->savingMethods()->isNotEmpty() || $request->user('client')->paymentMethods()->exists();
+
+        return view('portal.invoices.index', compact('invoices', 'savedCards'));
     }
 
     public function applyCredit(Request $request, int $invoice, CreditApplier $credit): RedirectResponse
@@ -51,9 +54,14 @@ class InvoiceController extends Controller
             ->with(['items', 'transactions'])
             ->findOrFail($invoice);
 
+        $client = $request->user('client');
+        $card = $invoice->status === InvoiceStatus::Unpaid && $client->auto_charge ? $client->defaultPaymentMethod() : null;
+
         return view('portal.invoices.show', [
             'invoice' => $invoice,
             'gateways' => $invoice->status === InvoiceStatus::Unpaid ? $gateways->enabled() : collect(),
+            // The card the billing run will charge, when automatic charging applies.
+            'autoChargeCard' => $card && $gateways->charger($card->gateway) ? $card : null,
         ]);
     }
 }

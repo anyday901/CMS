@@ -13,6 +13,7 @@ use App\Models\Activity;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\ClientGroup;
+use App\Models\Currency;
 use App\Models\CustomField;
 use App\Models\Tld;
 use App\Support\ClientSearch;
@@ -23,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -32,7 +34,7 @@ class ClientController extends Controller
     public const SECTIONS = [
         'Account' => ['summary' => 'Summary', 'profile' => 'Profile', 'contacts' => 'Contacts', 'security' => 'Login and privacy'],
         'Products' => ['services' => 'Services', 'domains' => 'Domains', 'orders' => 'Orders'],
-        'Billing' => ['invoices' => 'Invoices', 'credit' => 'Credit'],
+        'Billing' => ['invoices' => 'Invoices', 'quotes' => 'Quotes', 'credit' => 'Credit', 'payment-methods' => 'Payment methods'],
         'Support' => ['tickets' => 'Tickets', 'emails' => 'Emails'],
         'Staff' => ['notes' => 'Notes', 'todos' => 'To-dos'],
         'History' => ['activity' => 'Activity log'],
@@ -124,6 +126,7 @@ class ClientController extends Controller
             'services' => fn ($q) => $q->with('product')->latest(),
             'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
+            'quotes' => fn ($q) => $q->latest('issue_date')->latest('id'),
         ]);
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
@@ -140,7 +143,7 @@ class ClientController extends Controller
 
         $logins = $client->loginAttempts()->with('account')->latest('created_at')->latest('id')->limit(5)->get();
 
-        $client->load(['group', 'clientNotes.user']);
+        $client->load(['group', 'clientNotes.user', 'paymentMethods']);
 
         $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
 
@@ -183,6 +186,8 @@ class ClientController extends Controller
                 'domains' => $client->domains()->count(),
                 'orders' => $client->orders()->count(),
                 'invoices' => $client->invoices()->count(),
+                'quotes' => $client->quotes()->count(),
+                'payment-methods' => $client->paymentMethods()->count(),
                 'tickets' => $client->tickets()->listed()->count(),
                 'emails' => $client->emailLogs()->count(),
                 'notes' => $client->clientNotes()->count(),
@@ -244,7 +249,14 @@ class ClientController extends Controller
             'tax_exempt' => ['boolean'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
             'language' => ['nullable', Rule::in(Language::all())],
+            'currency' => ['nullable', Rule::in(array_filter([...Currency::codes(), $client?->currency]))],
         ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
+
+        if (blank($data['currency'] ?? null)) {
+            unset($data['currency']);
+        } elseif ($client !== null && $data['currency'] !== $client->currency && $client->currencyLocked()) {
+            throw ValidationException::withMessages(['currency' => "{$client->fullName()} already has invoices, payments or credit in {$client->currency}, so their currency can't be changed. Add a new client account for billing in {$data['currency']}."]);
+        }
 
         return [
             ...$data,

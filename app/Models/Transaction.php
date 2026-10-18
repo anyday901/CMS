@@ -34,6 +34,7 @@ class Transaction extends Model
             'cashapp' => 'Cash App',
             'credit' => 'Account credit',
             'bank_transfer' => 'Bank transfer',
+            'mail_in' => 'Mail-in payment',
             default => ucfirst(str_replace('_', ' ', $this->payment_method ?? $this->gateway)),
         };
     }

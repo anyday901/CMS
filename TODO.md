@@ -79,6 +79,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Stock control on products
 - [x] Pending orders queue: accept, cancel or mark fraud
 - [ ] Fraud checks on new orders (pluggable, e.g. MaxMind)
+- [x] Terms of service checkbox at checkout
 - [x] Client cancellation requests (immediate or end of period)
 - [x] Order and invoice email templates for new orders
 - [x] Staff upgrades and downgrades from the admin service page, and a billing cycle change with the move
@@ -86,13 +87,16 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Compact, searchable add-on and upgrade pickers on the product form, with select all and clear
 
 ## Milestone 6: Billing parity
-- [ ] Multiple currencies with exchange rates and per-currency prices
-- [ ] Quotes that convert to invoices once accepted
+- [x] Multiple currencies with exchange rates and per-currency prices
+- [x] Quotes that convert to invoices once accepted
 - [ ] Credit notes
 - [ ] Add funds (prepay into credit) and mass pay of several invoices at once
-- [ ] Saved payment methods and automatic charging on the due date
-- [ ] Stripe gateway (cards, wallets, ACH and SEPA)
-- [ ] Bank transfer and cheque gateways with payment instructions
+- [x] Saved payment methods and automatic charging on the due date
+- [x] Stripe gateway (cards and the wallets Stripe's Payment Element offers)
+- [ ] Stripe ACH and SEPA debits, and saving them for automatic charging
+- [ ] Try Stripe, saved cards and automatic charging with a Stripe test account (built from Stripe's API docs and tested with mocked replies; the card form hasn't been run in a browser)
+- [ ] Import WHMCS currencies and exchange rates
+- [x] Bank transfer and cheque (mail-in) gateways with payment instructions
 - [ ] Direct debit gateway (e.g. GoCardless)
 - [ ] Billable items: one-off or recurring charges and time tracking added to the next invoice
 - [ ] Merge unpaid invoices

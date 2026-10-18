@@ -46,6 +46,14 @@ class EmailTemplates
                 'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url'],
             ],
+            'quote_delivered' => [
+                'name' => 'Quote delivered',
+                'description' => 'Sent when staff press Send to client on a quote, with the quote PDF attached. The client can accept or decline it in the portal.',
+                'subject' => 'Quote #{quote_number} from {company_name}: {quote_subject}',
+                'body' => "Hello {client_first_name},\n\nHere is our quote #{quote_number} for {quote_subject}: {quote_total}, valid until {quote_valid_until}. The PDF is attached.\n\n[View and accept the quote]({quote_url})\n\nIf you have any questions, just reply to this email.\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => ['quote_number', 'quote_subject', 'quote_total', 'quote_valid_until', 'quote_url'],
+            ],
             'order_confirmation' => [
                 'name' => 'Order confirmation',
                 'description' => 'Sent when a client places an order in the store, listing what they ordered.',
@@ -77,6 +85,14 @@ class EmailTemplates
                 'body' => "Hello {client_first_name},\n\nThank you for your payment. Invoice #{invoice_number} for {invoice_total} is now paid in full.\n\n[View the invoice]({invoice_url})\n\n{company_name}",
                 'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_url'],
+            ],
+            'payment_failed' => [
+                'name' => 'Payment failed',
+                'description' => 'Sent when the billing run could not charge an invoice to the client\'s saved card. It tries again on the retry days set under Automation.',
+                'subject' => 'Payment for invoice #{invoice_number} failed',
+                'body' => "Hello {client_first_name},\n\nWe tried to charge {invoice_balance} for invoice #{invoice_number} to your {payment_method}, but the payment didn't go through: {failure_reason}\n\n[Pay the invoice]({invoice_url})\n\nTo use another card for future payments, [update your payment methods]({payment_methods_url}).\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url', 'payment_method', 'failure_reason', 'payment_methods_url'],
             ],
             'service_welcome' => [
                 'name' => 'Service welcome',

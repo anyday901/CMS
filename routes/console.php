@@ -1,6 +1,7 @@
 <?php
 
 use App\Affiliates\Commissions;
+use App\Billing\AutoCharger;
 use App\Billing\InvoiceGenerator;
 use App\Billing\InvoiceReminders;
 use App\Billing\LateFeeProcessor;
@@ -22,7 +23,7 @@ use App\Tickets\TicketEscalator;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 
-Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, OverageBiller $overages, LateFeeProcessor $lateFees, OverdueProcessor $overdue, RefundReconciler $refunds, InvoiceReminders $reminders) {
+Artisan::command('billing:run', function (ServiceCanceller $cancellations, InvoiceGenerator $generator, OverageBiller $overages, AutoCharger $autoCharger, LateFeeProcessor $lateFees, OverdueProcessor $overdue, InvoiceReminders $reminders) {
     $cancelled = $cancellations->run(today());
     $this->info("Cancelled {$cancelled} service(s) at the end of their billing period.");
 
@@ -31,6 +32,9 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
 
     $overageInvoices = $overages->run(today());
     $this->info("Generated {$overageInvoices->count()} overage invoice(s).");
+
+    $attempts = $autoCharger->run(today());
+    $this->info("Charged saved cards: {$attempts['succeeded']} paid, {$attempts['failed']} failed, {$attempts['pending']} processing.");
 
     $charged = $lateFees->run(today());
     $this->info("Added late fees to {$charged} invoice(s).");
@@ -41,9 +45,9 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
     $reminded = $reminders->run(today());
     $this->info("Sent {$reminded} overdue reminder(s).");
 
-    $settled = $refunds->run();
+    $settled = app(RefundReconciler::class)->run();
     $this->info("Pending refunds: {$settled['completed']} completed, {$settled['failed']} failed.");
-})->purpose('Carry out cancellation requests, generate renewal and overage invoices, add late fees, send overdue reminders, process overdue services and check pending refunds');
+})->purpose('Carry out cancellation requests, generate renewal and overage invoices, charge saved cards, add late fees, send overdue reminders, process overdue services and check pending refunds');
 
 Artisan::command('activity:prune', function () {
     $days = config('activity.retention_days');

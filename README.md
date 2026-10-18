@@ -8,11 +8,11 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 
 - Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
 - Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
-- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, and client cancellation requests
+- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, payments, credits, refunds and overdue handling
-- Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
+- Invoices, quotes, payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
 - Support tickets with email piping, a spam filter, tickets from people without an account (by email or a contact form), custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
@@ -111,7 +111,12 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Free trials**: set **Free trial days** on the product form. A client's first service of that product on a recurring cycle is free for that many days: the order invoice shows the trial at no charge (plus any setup fee), the service starts at once, and the first renewal invoice comes when the trial ends. A client who has had the product before pays from the start. Upgrades and downgrades open once the trial is over.
 - **Stock control**: tick **Count stock** on the product form and set how many are in stock. Each store order takes one per service, the store shows the product as out of stock at none, and the cart and checkout stop orders for more than is left. Cancelling an order or marking it as fraud puts its stock back.
 - **Orders**: every checkout is saved as an order. **Orders** in the admin area lists them by status and finds them by order number or the client's name, company or email; a client's page shows their latest orders.
+- **Terms of service**: set **Terms of service link** under **Settings > Orders** (or `STORE_TERMS_URL`) and checkout asks clients to tick a box agreeing to it before the order is placed, and before a new client's account is made. The order page shows that they agreed.
 - **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
+
+### Currencies
+
+CMS bills each client in one currency. Add currencies under **Settings > Currencies**, take today's exchange rates from the European Central Bank (by hand or daily), and set prices per currency on the product, option and TLD pages, or convert them all from the default currency in one click. Guests choose a currency in the store and are billed in it when they sign up. See [docs/admin/currencies.md](docs/admin/currencies.md).
 
 ## Domains
 
@@ -121,7 +126,7 @@ Auto-renewing domains get a renewal invoice before they expire (30 days by defau
 
 ## Online payments
 
-Clients pay each invoice from the portal. A payment method appears on unpaid invoices once its settings are in `.env`. Leave them blank to hide it.
+Clients pay each invoice from the portal, and with Stripe can save a card that's charged automatically when invoices fall due. A payment method appears on unpaid invoices once its settings are in `.env` (or, for Stripe, bank transfer and mail-in payments, in the admin area). Leave them blank to hide it.
 
 ### PayPal and Venmo
 
@@ -162,6 +167,26 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=...
 With the webhook, refunds issued from the Square dashboard are recorded on the invoice, pending refunds are confirmed or undone as soon as Square knows, and disputed payments are flagged on the admin invoice page. A lost or accepted dispute is recorded as a refund of the disputed amount.
 
 Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
+
+### Stripe
+
+Stripe takes card payments on invoices, lets clients save cards, and charges saved cards automatically when invoices fall due.
+
+1. In the [Stripe dashboard](https://dashboard.stripe.com/apikeys), under **Developers > API keys**, copy the publishable key (`pk_...`) and the secret key (`sk_...`). Start with the test keys and [Stripe's test cards](https://docs.stripe.com/testing).
+2. Under **Developers > Webhooks**, add an endpoint pointing at `https://your-domain/webhooks/stripe` with the `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `setup_intent.succeeded` and `payment_method.detached` events, and copy its signing secret (`whsec_...`).
+3. Enter the three values under **Settings > Payment gateways** (secrets are stored encrypted), or in `.env`. Values saved in the admin area win.
+
+```dotenv
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Clients manage saved cards under **Invoices > Payment methods**, where they can also turn automatic payments off. The billing run charges the default card on the due date and retries failed charges 1, 3 and 5 days later; change these days under **Settings > Automation** (or `BILLING_AUTO_CHARGE_DAYS_BEFORE_DUE` and `BILLING_CHARGE_RETRY_DAYS`). A failed automatic charge emails the client the **Payment failed** template. Answer disputes in the Stripe dashboard. See [docs/admin/stripe.md](docs/admin/stripe.md).
+
+### Bank transfer and mail-in payments
+
+Write your bank details, or where to post a cheque, under **Settings > Bank transfer and mail-in payments** (or set `PAYMENTS_BANK_TRANSFER_INSTRUCTIONS` and `PAYMENTS_MAIL_IN_INSTRUCTIONS`). Each one with instructions shows on unpaid invoices in the portal and on invoice PDFs, asking the client to use the invoice number as the reference. Record the payment with **Record payment** on the invoice (method **Bank transfer** or **Mail-in payment**) when it arrives; that marks the invoice paid and starts its services as usual.
 
 ## Look and feel
 
@@ -451,6 +476,10 @@ Staff and clients can download any invoice they can see as a PDF. The company de
 | `BILLING_COMPANY_ADDRESS` | (blank) | Postal address; wrap it in double quotes and use `\n` for new lines |
 | `BILLING_COMPANY_EMAIL` | (blank) | Billing contact email |
 | `BILLING_COMPANY_TAX_ID` | (blank) | Tax or business registration number |
+
+### Quotes
+
+Open a client and choose **Billing > Quotes > New quote** to make a priced proposal with line items, a valid-until date and proposal text, taxed as on invoices. **Send to client** emails it with the PDF attached and shows it in the client's portal, where they can accept or decline it. Accepting, or **Convert to invoice** in the admin area, turns it into an unpaid invoice with the same lines. Every quote is listed under **Quotes** in the admin menu. See [docs/admin/quotes.md](docs/admin/quotes.md).
 
 ### Activity log
 
