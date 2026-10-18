@@ -535,4 +535,23 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     });
 });
 
+// Invoice numbering: sequential numbers for paid invoices, with a proforma number before payment.
+Route::prefix('admin/settings/invoice-numbering')->name('admin.invoice-numbering.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])
+    ->controller(Admin\InvoiceNumberingController::class)->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+    });
+
+// Credit notes: issued against a paid invoice in the admin area, and downloaded by staff and the client.
+Route::get('portal/credit-notes/{creditNote}/pdf', [Portal\CreditNoteController::class, 'pdf'])->whereNumber('creditNote')
+    ->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:billing'])->name('portal.credit-notes.pdf');
+Route::prefix('admin')->name('admin.credit-notes.')->middleware(['auth:web', RequireStaffTwoFactor::class])->controller(Admin\CreditNoteController::class)->group(function () {
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('invoices/{invoice}/credit-notes/create', 'create')->name('create');
+        Route::post('invoices/{invoice}/credit-notes', 'store')->name('store');
+    });
+    // Every staff role can look, as with invoices.
+    Route::get('credit-notes/{creditNote}/pdf', 'pdf')->name('pdf');
+});
+
 require __DIR__.'/platform.php';

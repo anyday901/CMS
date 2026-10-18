@@ -50,7 +50,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): View
     {
-        $invoice->load(['client.paymentMethods', 'items.service', 'transactions.refunds', 'paymentAttempts']);
+        $invoice->load(['client.paymentMethods', 'items.service', 'transactions.refunds', 'transactions.creditNote', 'paymentAttempts', 'creditNotes.user']);
 
         return view('admin.invoices.show', [
             'invoice' => $invoice,

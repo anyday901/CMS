@@ -11,7 +11,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, quotes, billable items (one-off or recurring charges added to invoices), payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Invoices, quotes, billable items (one-off or recurring charges added to invoices), payments, credits, refunds, credit notes and overdue handling, in several currencies with exchange rates, with optional sequential numbering of paid invoices
 - Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
@@ -468,6 +468,8 @@ Every client email is listed under **Emails** with its status (queued, sent or f
 
 Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
 
+Invoice numbers are the invoice's id by default. To number paid invoices in order with no gaps, with a proforma number before payment, turn on sequential paid numbers under **Settings > Invoice numbering**; see [docs/admin/invoice-numbering.md](docs/admin/invoice-numbering.md).
+
 Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
@@ -501,6 +503,8 @@ Overpayments and refunds to credit go to the client's credit balance. Staff with
 
 To refund a payment, open its invoice and use **Refund** under the payment. PayPal, Venmo and Cash App payments can be sent back through the gateway (if the gateway reports the refund as pending, the nightly billing run checks it and undoes the record if it later fails); any payment can be recorded as refunded outside the app or moved to account credit. A fully refunded invoice is marked refunded. Services are left as they are, so suspend or terminate them yourself if needed.
 
+To give money back with a document for the books, use **Issue credit note** on a paid or part paid invoice instead: credit some or all of its lines with a reason, and the money goes to account credit or back as a refund of a payment. Credit notes have their own numbers and PDF, and clients see them in the portal. See [docs/admin/credit-notes.md](docs/admin/credit-notes.md).
+
 ### Add funds, mass payment and merging invoices
 
 Turn on **Let clients add funds** under **Settings** (or `BILLING_ADD_FUNDS=true`) and clients can prepay into their credit balance from the portal's **Invoices** page, by paying an add funds invoice with any gateway, within the least and most per payment and the most credit balance set there. Clients can also tick several unpaid invoices and pay them together on one mass payment invoice; paying it marks each of them paid, and an unpaid one is cancelled by the billing run once it's stale (`BILLING_MASS_PAY=false` turns this off). Staff merge a client's unpaid invoices into one from the client page or the invoice list with **Merge selected**; the others are cancelled with a note, and anything paid on them moves to the merged invoice through credit. See [docs/admin/add-funds-and-mass-payment.md](docs/admin/add-funds-and-mass-payment.md).
@@ -529,6 +533,9 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
+| `BILLING_SEQUENTIAL_PAID_NUMBERS` | `false` | Number invoices in order only once paid, with a proforma number before payment |
+| `BILLING_INVOICE_NUMBER_FORMAT` | `INV-{YEAR}-{NUMBER}` | How paid invoice numbers are written |
+| `BILLING_CREDIT_NOTE_NUMBER_FORMAT` | `CN-{NUMBER}` | How credit note numbers are written |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 | `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |

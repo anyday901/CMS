@@ -33,11 +33,14 @@ class InvoiceController extends Controller
         $massPayable = MassPayment::enabled() ? $massPayments->payable($client)->pluck('id') : collect();
         $massPayable = $massPayable->count() >= 2 ? $massPayable->all() : [];
 
+        $creditNotes = $client->creditNotes()->with('invoice')->latest('id')->get();
+
         return view('portal.invoices.index', [
             'invoices' => $invoices,
             'savedCards' => $savedCards,
             'massPayable' => $massPayable,
             'addFunds' => AddFunds::enabled(),
+            'creditNotes' => $creditNotes,
         ]);
     }
 
@@ -87,7 +90,7 @@ class InvoiceController extends Controller
     {
         $invoice = $request->user('client')->invoices()
             ->where('status', '!=', InvoiceStatus::Draft)
-            ->with(['items', 'transactions'])
+            ->with(['items', 'transactions', 'creditNotes'])
             ->findOrFail($invoice);
 
         $client = $request->user('client');

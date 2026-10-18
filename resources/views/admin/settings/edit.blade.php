@@ -51,6 +51,11 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Invoice numbers</legend>
+            <p class="text-ink-600">Number invoices in order only once they're paid, with a proforma number before payment, and the format and next number. <a href="{{ route('admin.invoice-numbering.edit') }}" class="text-brand-600">Invoice numbering</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Invoice emails</legend>
             <input type="hidden" name="attach_invoice_pdf" value="0">
             <label class="flex items-start gap-2">

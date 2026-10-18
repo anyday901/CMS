@@ -1,7 +1,8 @@
 @php use App\Support\Money; @endphp
-<x-portal-layout :title="__('Invoice #:number', ['number' => $invoice->number])">
+@php $title = $invoice->proforma ? __('Proforma #:number', ['number' => $invoice->number]) : __('Invoice #:number', ['number' => $invoice->number]); @endphp
+<x-portal-layout :title="$title">
     <div class="mb-6 flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold">{{ __('Invoice #:number', ['number' => $invoice->number]) }}</h1>
+        <h1 class="text-2xl font-semibold">{{ $title }}</h1>
         <x-status-badge :status="$invoice->status->value === 'unpaid' && $invoice->due_date->lt(today()) ? 'overdue' : $invoice->status" />
         <a href="{{ route('portal.invoices.pdf', $invoice) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">{{ __('Download PDF') }}</a>
     </div>
@@ -25,6 +26,7 @@
                         @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                 <tr><td class="px-4 py-2 text-right">{{ __('Total') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
                 @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-ink-500">{{ __('Includes :tax', ['tax' => $invoice->taxLabel()]) }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                @if ($invoice->creditNotes->isNotEmpty())<tr><td class="px-4 py-2 text-right">{{ __('Credited') }}</td><td class="px-4 py-2 text-right">{{ Money::format(-$invoice->creditNotes->sum('total'), $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->amountPaid())<tr><td class="px-4 py-2 text-right">{{ __('Paid') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->status->value === 'unpaid')<tr><td class="px-4 py-2 text-right">{{ __('Balance due') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->balance(), $invoice->currency) }}</td></tr>@endif
             </tfoot>
@@ -67,6 +69,13 @@
             @foreach ($invoice->transactions as $transaction)
                 <div>{{ $transaction->created_at->translatedFormat('M j, Y') }} · @if ($transaction->isRefund()){{ __('Refund to :method', ['method' => __($transaction->methodLabel())]) }}@else{{ __($transaction->methodLabel()) }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}</div>
             @endforeach
+        </div>
+    @endif
+
+    @if ($invoice->creditNotes->isNotEmpty())
+        <div class="mt-6 text-sm">
+            <h2 class="mb-2 font-semibold">{{ __('Credit notes') }}</h2>
+            @include('portal.credit-notes._table', ['creditNotes' => $invoice->creditNotes, 'hideInvoice' => true])
         </div>
     @endif
 </x-portal-layout>

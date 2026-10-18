@@ -11,7 +11,7 @@
                         {{-- Ticked boxes belong to the merge form outside the table. --}}
                         <td class="px-4 py-2">@if ($invoice->status->value === 'unpaid' && ! $invoice->is_funds)<input type="checkbox" name="invoices[]" value="{{ $invoice->id }}" form="merge-invoices" aria-label="Merge invoice {{ $invoice->number }}">@endif</td>
                     @endif
-                    <td class="px-4 py-2"><a href="{{ route('admin.invoices.show', $invoice) }}" class="text-brand-600">{{ $invoice->number }}</a></td>
+                    <td class="px-4 py-2"><a href="{{ route('admin.invoices.show', $invoice) }}" class="text-brand-600">{{ $invoice->number }}</a>@if ($invoice->proforma) <span class="text-ink-500">proforma</span>@endif</td>
                     <td class="px-4 py-2">{{ $invoice->client->fullName() }}</td>
                     <td class="px-4 py-2">{{ $invoice->issue_date->format('M j, Y') }}</td>
                     <td class="px-4 py-2">{{ $invoice->due_date->format('M j, Y') }}</td>

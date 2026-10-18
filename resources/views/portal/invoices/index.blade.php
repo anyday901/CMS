@@ -25,4 +25,8 @@
         @include('portal.invoices._table')
         <div class="mt-4">{{ $invoices->links() }}</div>
     @endif
+    @if ($creditNotes->isNotEmpty())
+        <h2 class="mb-3 mt-8 text-lg font-semibold">{{ __('Credit notes') }}</h2>
+        @include('portal.credit-notes._table')
+    @endif
 </x-portal-layout>

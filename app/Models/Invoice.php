@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Billing\InvoiceNumbering;
 use App\Enums\InvoiceStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -38,6 +39,11 @@ class Invoice extends Model
                 $invoice->tax_name = $rule?->name;
                 $invoice->tax_rate = $rule?->rate ?? 0;
             }
+
+            // Numbered on payment instead: a proforma until then.
+            if (! $invoice->isDirty('proforma') && $invoice->number === null) {
+                $invoice->proforma = InvoiceNumbering::enabled() && in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+            }
         });
 
         static::created(function (Invoice $invoice) {
@@ -52,6 +58,7 @@ class Invoice extends Model
         return [
             'status' => InvoiceStatus::class,
             'tax_inclusive' => 'boolean',
+            'proforma' => 'boolean',
             'issue_date' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
@@ -70,6 +77,12 @@ class Invoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    /** "Invoice #42", or "Proforma #42" until an invoice numbered on payment is paid. */
+    public function label(): string
+    {
+        return ($this->proforma ? 'Proforma' : 'Invoice')." #{$this->number}";
     }
 
     /** "Sales tax (8.25%)" */
@@ -118,10 +131,10 @@ class Invoice extends Model
         return $this;
     }
 
-    /** Drafts and unpaid invoices can still have their lines changed. */
+    /** Drafts and unpaid invoices can still have their lines changed, until a credit note is issued against them. */
     public function isEditable(): bool
     {
-        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true) && ! $this->creditNotes()->exists();
     }
 
     /**
@@ -150,8 +163,20 @@ class Invoice extends Model
         return (int) $this->transactions()->sum('amount');
     }
 
+    /** What's left to pay. Credit notes take their amount off what's owed, as their refunds take it off what's paid. */
     public function balance(): int
     {
-        return $this->total - $this->amountPaid();
+        return $this->total - $this->credited() - $this->amountPaid();
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class);
+    }
+
+    /** The total of the credit notes issued against this invoice. */
+    public function credited(): int
+    {
+        return (int) $this->creditNotes()->sum('total');
     }
 }

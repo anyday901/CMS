@@ -46,18 +46,21 @@ class InvoiceAging extends Report
     {
         $today = CarbonImmutable::today();
         $paid = DB::table('transactions')->select('invoice_id', DB::raw('SUM(amount) as paid'))->whereNotNull('invoice_id')->groupBy('invoice_id');
+        // Credit notes take their amount off what's owed, as their refunds take it off what's paid.
+        $credited = DB::table('credit_notes')->select('invoice_id', DB::raw('SUM(total) as credited'))->groupBy('invoice_id');
 
         $invoices = DB::table('invoices')
             ->join('clients', 'clients.id', '=', 'invoices.client_id')
             ->leftJoinSub($paid, 'paid', 'paid.invoice_id', '=', 'invoices.id')
+            ->leftJoinSub($credited, 'credited', 'credited.invoice_id', '=', 'invoices.id')
             ->where('invoices.status', InvoiceStatus::Unpaid->value)
             ->where('invoices.currency', $filters->currency)
             ->orderBy('invoices.id')
-            ->get(['invoices.client_id', 'invoices.due_date', 'invoices.total', 'paid.paid', 'clients.first_name', 'clients.last_name', 'clients.company']);
+            ->get(['invoices.client_id', 'invoices.due_date', 'invoices.total', 'paid.paid', 'credited.credited', 'clients.first_name', 'clients.last_name', 'clients.company']);
 
         $clients = [];
         foreach ($invoices as $invoice) {
-            $balance = (int) $invoice->total - (int) $invoice->paid;
+            $balance = (int) $invoice->total - (int) $invoice->credited - (int) $invoice->paid;
             if ($balance <= 0) {
                 continue;
             }

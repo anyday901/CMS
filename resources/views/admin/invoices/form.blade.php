@@ -1,6 +1,6 @@
 @php use App\Support\Money; @endphp
-<x-admin-layout :title="$invoice->exists ? 'Edit invoice #'.$invoice->number : 'New invoice'">
-    <h1 class="mb-1 text-2xl font-semibold">{{ $invoice->exists ? 'Edit invoice #'.$invoice->number : 'New invoice' }}</h1>
+<x-admin-layout :title="$invoice->exists ? 'Edit '.lcfirst($invoice->label()) : 'New invoice'">
+    <h1 class="mb-1 text-2xl font-semibold">{{ $invoice->exists ? 'Edit '.lcfirst($invoice->label()) : 'New invoice' }}</h1>
     <p class="mb-6 text-sm text-ink-600">For <a href="{{ route('admin.clients.show', $client) }}" class="text-brand-600">{{ $client->fullName() }}</a>. Tax is worked out from the client's address and your tax rules. Use a negative amount for a discount.</p>
 
     <form method="POST" action="{{ $invoice->exists ? route('admin.invoices.update', $invoice) : route('admin.invoices.store', $client) }}" class="space-y-6 text-sm">
