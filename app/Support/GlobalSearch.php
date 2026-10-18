@@ -7,6 +7,7 @@ use App\Models\ClientContact;
 use App\Models\Domain;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\Quote;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Models\User;
@@ -15,8 +16,8 @@ use Illuminate\Support\Collection;
 
 /**
  * The admin search box: one query across clients (and their contacts),
- * services, domains, invoices, orders and tickets. Numbers match ids and
- * invoice, order and ticket numbers exactly; words match names, emails,
+ * services, domains, invoices, quotes, orders and tickets. Numbers match ids and
+ * invoice, quote, order and ticket numbers exactly; words match names, emails,
  * domains and subjects. Each section is limited, and staff only see the
  * sections their role can open.
  */
@@ -61,6 +62,7 @@ class GlobalSearch
             'services' => $this->services(),
             'domains' => $this->domains(),
             'invoices' => $this->invoices(),
+            'quotes' => $this->quotes(),
             'orders' => $this->orders(),
         ];
 
@@ -119,6 +121,16 @@ class GlobalSearch
                 ->where('number', $this->query)
                 ->when($this->number, fn (Builder $query, int $id) => $query->orWhere('number', (string) $id)->orWhere('id', $id))
                 ->orWhere('notes', 'like', $this->like))
+            ->latest('issue_date')->latest('id');
+    }
+
+    /** Quotes by number or subject. */
+    private function quotes(): Builder
+    {
+        return Quote::with('client')
+            ->where(fn (Builder $query) => $query
+                ->where('number', ltrim($this->query, '#'))
+                ->orWhere('subject', 'like', $this->like))
             ->latest('issue_date')->latest('id');
     }
 

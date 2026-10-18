@@ -13,6 +13,10 @@ return [
         'subject' => 'Facture n° {invoice_number} de {company_name}',
         'body' => "Bonjour {client_first_name},\n\nNous avons émis la facture n° {invoice_number} d’un montant de {invoice_total}, à régler avant le {invoice_due_date}.\n\n[Consulter et payer la facture]({invoice_url})\n\nMerci,\n{company_name}",
     ],
+    'quote_delivered' => [
+        'subject' => 'Devis n° {quote_number} de {company_name} : {quote_subject}',
+        'body' => "Bonjour {client_first_name},\n\nVoici notre devis n° {quote_number} pour {quote_subject} : {quote_total}, valable jusqu’au {quote_valid_until}. Le PDF est joint à cet e-mail.\n\n[Consulter et accepter le devis]({quote_url})\n\nPour toute question, il suffit de répondre à cet e-mail.\n\nMerci,\n{company_name}",
+    ],
     'order_confirmation' => [
         'subject' => 'Confirmation de la commande n° {order_number}',
         'body' => "Bonjour {client_first_name},\n\nMerci pour votre commande. Voici ce que vous avez commandé le {order_date} :\n\n{order_items}\n\nTotal de la commande : {order_total}\n\n[Consulter la facture]({invoice_url})\n\nNous vous préviendrons dès que chaque service sera prêt.\n\nMerci,\n{company_name}",

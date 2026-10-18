@@ -236,6 +236,20 @@
             @endif
         </section>
 
+        <section {!! $panel('quotes') !!}>
+            <div class="mb-3 flex items-center gap-3">
+                <h2 class="text-lg font-semibold">Quotes</h2>
+                @can('manage-billing')
+                    <a href="{{ route('admin.quotes.create', $client) }}" class="ml-auto rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">New quote</a>
+                @endcan
+            </div>
+            @if ($client->quotes->isEmpty())
+                <p class="text-sm text-ink-500">No quotes yet.</p>
+            @else
+                @include('admin.quotes._table', ['quotes' => $client->quotes->each->setRelation('client', $client), 'hideClient' => true])
+            @endif
+        </section>
+
         <section {!! $panel('credit') !!}>
             <h2 class="mb-3 text-lg font-semibold">Credit <span class="text-base font-normal text-ink-500">{{ Money::format($client->credit_balance, $client->currency) }} available</span></h2>
             @can('manage-billing')

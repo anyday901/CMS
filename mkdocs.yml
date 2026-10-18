@@ -70,6 +70,7 @@ nav:
       - Domains: admin/domains.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
+      - Quotes: admin/quotes.md
       - Health, maintenance, backups and updates: admin/system.md
       - Marketplace: admin/marketplace.md
       - WHMCS modules: admin/whmcs-modules.md

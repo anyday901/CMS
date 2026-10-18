@@ -28,6 +28,7 @@
                         'admin.domains.index' => App\Models\Tld::exists() || App\Models\Domain::exists() ? 'Domains' : null,
                         'admin.orders.index' => 'Orders'.(($pendingOrders = App\Models\Order::where('status', App\Enums\OrderStatus::Pending)->count()) ? " ({$pendingOrders})" : ''),
                         'admin.invoices.index' => 'Invoices',
+                        'admin.quotes.index' => auth()->user()->can('manage-billing') || App\Models\Quote::exists() ? 'Quotes' : null,
                         'admin.tickets.index' => auth()->user()->can('manage-tickets') ? 'Tickets'.(($waiting = App\Models\Ticket::awaitingStaff()->count()) ? " ({$waiting})" : '') : null,
                         'admin.kb.index' => auth()->user()->can('manage-tickets') ? 'Support' : null,
                         'admin.tasks.index' => 'Tasks'.(($openTasks = App\Models\FulfillmentTask::open()->count()) ? " ({$openTasks})" : ''),

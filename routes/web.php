@@ -466,4 +466,32 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     });
 });
 
+// Quotes: the client's quotes in the portal, and making, sending and converting them in the admin area.
+Route::prefix('portal/quotes')->name('portal.quotes.')->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:billing'])
+    ->controller(Portal\QuoteController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('{quote}', 'show')->whereNumber('quote')->name('show');
+        Route::get('{quote}/pdf', 'pdf')->whereNumber('quote')->name('pdf');
+        Route::middleware('throttle:10,1')->group(function () {
+            Route::post('{quote}/accept', 'accept')->whereNumber('quote')->name('accept');
+            Route::post('{quote}/decline', 'decline')->whereNumber('quote')->name('decline');
+        });
+    });
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class])->controller(Admin\QuoteController::class)->group(function () {
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('clients/{client}/quotes/create', 'create')->name('quotes.create');
+        Route::post('clients/{client}/quotes', 'store')->name('quotes.store');
+        Route::get('quotes/{quote}/edit', 'edit')->name('quotes.edit');
+        Route::put('quotes/{quote}', 'update')->name('quotes.update');
+        Route::delete('quotes/{quote}', 'destroy')->name('quotes.destroy');
+        Route::post('quotes/{quote}/duplicate', 'duplicate')->name('quotes.duplicate');
+        Route::post('quotes/{quote}/send', 'send')->name('quotes.send');
+        Route::post('quotes/{quote}/convert', 'convert')->name('quotes.convert');
+    });
+    // Every staff role can look, as with invoices.
+    Route::get('quotes', 'index')->name('quotes.index');
+    Route::get('quotes/{quote}', 'show')->whereNumber('quote')->name('quotes.show');
+    Route::get('quotes/{quote}/pdf', 'pdf')->name('quotes.pdf');
+});
+
 require __DIR__.'/platform.php';

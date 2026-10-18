@@ -32,7 +32,7 @@ class ClientController extends Controller
     public const SECTIONS = [
         'Account' => ['summary' => 'Summary', 'profile' => 'Profile', 'contacts' => 'Contacts', 'security' => 'Login and privacy'],
         'Products' => ['services' => 'Services', 'domains' => 'Domains', 'orders' => 'Orders'],
-        'Billing' => ['invoices' => 'Invoices', 'credit' => 'Credit'],
+        'Billing' => ['invoices' => 'Invoices', 'quotes' => 'Quotes', 'credit' => 'Credit'],
         'Support' => ['tickets' => 'Tickets', 'emails' => 'Emails'],
         'Staff' => ['notes' => 'Notes', 'todos' => 'To-dos'],
         'History' => ['activity' => 'Activity log'],
@@ -124,6 +124,7 @@ class ClientController extends Controller
             'services' => fn ($q) => $q->with('product')->latest(),
             'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
+            'quotes' => fn ($q) => $q->latest('issue_date')->latest('id'),
         ]);
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
@@ -183,6 +184,7 @@ class ClientController extends Controller
                 'domains' => $client->domains()->count(),
                 'orders' => $client->orders()->count(),
                 'invoices' => $client->invoices()->count(),
+                'quotes' => $client->quotes()->count(),
                 'tickets' => $client->tickets()->listed()->count(),
                 'emails' => $client->emailLogs()->count(),
                 'notes' => $client->clientNotes()->count(),

@@ -11,7 +11,7 @@
     @else
         @php
             $found = collect($results)->sum('total');
-            $labels = ['clients' => 'Clients', 'services' => 'Services', 'domains' => 'Domains', 'invoices' => 'Invoices', 'orders' => 'Orders', 'tickets' => 'Tickets'];
+            $labels = ['clients' => 'Clients', 'services' => 'Services', 'domains' => 'Domains', 'invoices' => 'Invoices', 'quotes' => 'Quotes', 'orders' => 'Orders', 'tickets' => 'Tickets'];
         @endphp
         <h1 class="mb-1 text-2xl font-semibold">{{ $found }} {{ Str::plural('result', $found) }} for “{{ $query }}”</h1>
         @if ($found > 0)
@@ -84,6 +84,9 @@
                         @break
                     @case('invoices')
                         @include('admin.invoices._table', ['invoices' => $section['items']])
+                        @break
+                    @case('quotes')
+                        @include('admin.quotes._table', ['quotes' => $section['items']])
                         @break
                     @case('orders')
                         @include('admin.orders._table', ['orders' => $section['items']])
