@@ -177,11 +177,10 @@ class CreditNoteTest extends TestCase
         $payment = $invoice->transactions()->first();
         $issuer = app(CreditNoteIssuer::class);
 
-        try {
-            $issuer->issue($invoice, $this->allLines($invoice), self::REASON, 'gateway', $payment);
-            $this->fail('The refund was refused.');
-        } catch (InvalidArgumentException) {
-        }
+        $this->assertThrows(
+            fn () => $issuer->issue($invoice, $this->allLines($invoice), self::REASON, 'gateway', $payment),
+            InvalidArgumentException::class,
+        );
         $this->assertSame(0, CreditNote::count());
 
         $note = $issuer->issue($invoice, $this->allLines($invoice), self::REASON, 'gateway', $payment);

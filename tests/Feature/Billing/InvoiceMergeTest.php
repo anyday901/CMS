@@ -24,6 +24,8 @@ class InvoiceMergeTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const MERGE_BUTTON = 'Merge selected';
+
     private const URL = '/admin/invoices/merge';
 
     private Client $client;
@@ -56,7 +58,7 @@ class InvoiceMergeTest extends TestCase
         $first->recalculate();
 
         $this->actingAs(User::factory()->create(), 'web');
-        $this->get("/admin/clients/{$this->client->id}?tab=invoices")->assertSee('Merge selected')->assertSee('form="merge-invoices"', false);
+        $this->get("/admin/clients/{$this->client->id}?tab=invoices")->assertSee(self::MERGE_BUTTON)->assertSee('form="merge-invoices"', false);
         $response = $this->post(self::URL, ['invoices' => [$second->id, $first->id]]);
 
         // The oldest is kept, with every line, one tax figure and the earliest due date.
@@ -142,11 +144,11 @@ class InvoiceMergeTest extends TestCase
         $second = $this->invoice([[1000, true]]);
 
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
-        $this->get('/admin/invoices')->assertOk()->assertDontSee('Merge selected');
+        $this->get('/admin/invoices')->assertOk()->assertDontSee(self::MERGE_BUTTON);
         $this->post(self::URL, ['invoices' => [$first->id, $second->id]])->assertForbidden();
 
         $this->actingAs(User::factory()->create(), 'web');
-        $this->get('/admin/invoices')->assertSee('Merge selected');
+        $this->get('/admin/invoices')->assertSee(self::MERGE_BUTTON);
         $this->post(self::URL, ['invoices' => [$first->id]])->assertSessionHasErrors('invoices');
         $this->post(self::URL, ['invoices' => [$first->id, $second->id]])->assertRedirect("/admin/invoices/{$first->id}");
     }

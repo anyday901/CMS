@@ -17,6 +17,8 @@ class AddFundsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SETTINGS = '/admin/settings';
+
     private const PAGE = '/portal/add-funds';
 
     private function client(int $credit = 0): Client
@@ -112,8 +114,8 @@ class AddFundsTest extends TestCase
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->get('/admin/settings')->assertOk()->assertSee('Add funds and mass payment');
-        $this->put('/admin/settings', ['add_funds_enabled' => '1', 'add_funds_minimum' => '5', 'add_funds_maximum' => '', 'add_funds_maximum_balance' => '250.00', 'mass_pay' => '0'])
+        $this->get(self::SETTINGS)->assertOk()->assertSee('Add funds and mass payment');
+        $this->put(self::SETTINGS, ['add_funds_enabled' => '1', 'add_funds_minimum' => '5', 'add_funds_maximum' => '', 'add_funds_maximum_balance' => '250.00', 'mass_pay' => '0'])
             ->assertSessionHasNoErrors();
 
         $this->assertTrue(config('billing.add_funds.enabled'));
@@ -122,7 +124,7 @@ class AddFundsTest extends TestCase
         $this->assertSame('250.00', config('billing.add_funds.maximum_balance'));
         $this->assertFalse(config('billing.mass_pay'));
 
-        $this->put('/admin/settings', ['add_funds_minimum' => '50', 'add_funds_maximum' => '20'])
+        $this->put(self::SETTINGS, ['add_funds_minimum' => '50', 'add_funds_maximum' => '20'])
             ->assertSessionHasErrors(['add_funds_maximum']);
     }
 

@@ -238,27 +238,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 ->name('services.action');
         });
 
-        Route::middleware('can:manage-billing')->group(function () {
-            Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
-            Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
-            Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
-            Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
-            Route::post('invoices/merge', [Admin\InvoiceController::class, 'merge'])->name('invoices.merge');
-            Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
-            Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
-            Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
-            Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
-            Route::post('invoices/{invoice}/charge', [Admin\PaymentMethodController::class, 'charge'])->name('invoices.charge');
-            Route::delete('payment-methods/{method}', [Admin\PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
-            Route::put('clients/{client}/auto-charge', [Admin\PaymentMethodController::class, 'autoCharge'])->name('clients.auto-charge');
-            Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
-            Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
-            Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
-            Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
-            Route::post('clients/{client}/billable-items', [Admin\BillableItemController::class, 'store'])->name('billable-items.store');
-            Route::resource('billable-items', Admin\BillableItemController::class)->only(['update', 'destroy'])->parameters(['billable-items' => 'item']);
-        });
-
         // Every staff role can look, and keep a to-do list.
         Route::get('search', Admin\SearchController::class)->name('search');
         Route::resource('todos', Admin\TodoController::class)->except(['show', 'create']);
@@ -341,6 +320,28 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('settings/payment-gateways', [Admin\PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
         });
     });
+});
+
+// Invoices, payments and orders; kept outside the admin group above so it stays readable.
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-billing'])->group(function () {
+    Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
+    Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
+    Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
+    Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
+    Route::post('invoices/merge', [Admin\InvoiceController::class, 'merge'])->name('invoices.merge');
+    Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
+    Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
+    Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
+    Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+    Route::post('invoices/{invoice}/charge', [Admin\PaymentMethodController::class, 'charge'])->name('invoices.charge');
+    Route::delete('payment-methods/{method}', [Admin\PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+    Route::put('clients/{client}/auto-charge', [Admin\PaymentMethodController::class, 'autoCharge'])->name('clients.auto-charge');
+    Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
+    Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
+    Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
+    Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
+    Route::post('clients/{client}/billable-items', [Admin\BillableItemController::class, 'store'])->name('billable-items.store');
+    Route::resource('billable-items', Admin\BillableItemController::class)->only(['update', 'destroy'])->parameters(['billable-items' => 'item']);
 });
 
 // Kept outside the admin group above so that group stays readable; same login and two-factor checks.

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasAffiliateProgram;
+use App\Models\Concerns\HasBillingRecords;
 use App\Models\Concerns\HasCreditLimit;
 use App\Models\Concerns\HasSavedPaymentMethods;
 use App\Models\Concerns\HasTwoFactor;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasAffiliateProgram, HasCreditLimit, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
+    use HasAffiliateProgram, HasBillingRecords, HasCreditLimit, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
@@ -87,31 +88,6 @@ class Client extends Authenticatable
         return $this->hasMany(Todo::class);
     }
 
-    public function invoices(): HasMany
-    {
-        return $this->hasMany(Invoice::class);
-    }
-
-    public function quotes(): HasMany
-    {
-        return $this->hasMany(Quote::class);
-    }
-
-    public function billableItems(): HasMany
-    {
-        return $this->hasMany(BillableItem::class);
-    }
-
-    public function creditNotes(): HasMany
-    {
-        return $this->hasMany(CreditNote::class);
-    }
-
-    public function creditEntries(): HasMany
-    {
-        return $this->hasMany(CreditEntry::class);
-    }
-
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
@@ -120,20 +96,6 @@ class Client extends Authenticatable
     public function emailLogs(): HasMany
     {
         return $this->hasMany(EmailLog::class);
-    }
-
-    public function transactions(): HasMany
-    {
-        return $this->hasMany(Transaction::class);
-    }
-
-    /**
-     * Invoices, payments and credit are in the client's currency, so as in
-     * WHMCS it can't be changed once there are any.
-     */
-    public function currencyLocked(): bool
-    {
-        return $this->exists && ($this->credit_balance !== 0 || $this->invoices()->exists() || $this->transactions()->exists());
     }
 
     public function sendPasswordResetNotification($token): void

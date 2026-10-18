@@ -19,6 +19,12 @@ class BillableItemTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const TODAY = '2026-10-20';
+
+    private const LATER = '2026-10-25';
+
+    private const OCT_1 = '2026-10-01';
+
     private Client $client;
 
     protected function setUp(): void
@@ -40,15 +46,15 @@ class BillableItemTest extends TestCase
 
     public function test_items_set_for_the_next_run_are_invoiced_once(): void
     {
-        $item = $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'due_date' => '2026-10-25']);
+        $item = $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'due_date' => self::LATER]);
         $this->item(['invoice_action' => BillableItem::DONT_INVOICE, 'description' => 'Not yet']);
 
-        $invoices = $this->bill('2026-10-20');
+        $invoices = $this->bill(self::TODAY);
 
         $this->assertCount(1, $invoices);
         $invoice = $invoices->first();
         $this->assertSame(5000, $invoice->total);
-        $this->assertSame('2026-10-25', $invoice->due_date->toDateString());
+        $this->assertSame(self::LATER, $invoice->due_date->toDateString());
         $this->assertSame(InvoiceStatus::Unpaid, $invoice->status);
         $line = $invoice->items->sole();
         $this->assertSame(InvoiceItem::TYPE_BILLABLE, $line->type);
@@ -57,16 +63,16 @@ class BillableItemTest extends TestCase
         $this->assertSame($invoice->id, $item->refresh()->invoice_id);
         $this->assertTrue($item->isInvoiced());
 
-        $this->assertCount(0, $this->bill('2026-10-20'));
+        $this->assertCount(0, $this->bill(self::TODAY));
         $this->assertCount(0, $this->bill('2026-10-21'));
         $this->assertSame(1, InvoiceItem::count());
     }
 
     public function test_an_item_for_the_next_run_with_a_past_due_date_is_due_today(): void
     {
-        $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'due_date' => '2026-10-01']);
+        $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'due_date' => self::OCT_1]);
 
-        $this->assertSame('2026-10-20', $this->bill('2026-10-20')->first()->due_date->toDateString());
+        $this->assertSame(self::TODAY, $this->bill(self::TODAY)->first()->due_date->toDateString());
     }
 
     public function test_items_on_a_due_date_wait_until_it_is_within_the_invoicing_window(): void
@@ -84,7 +90,7 @@ class BillableItemTest extends TestCase
     {
         $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'description' => 'Consulting', 'hours' => '1.50', 'rate' => 7500, 'amount' => BillableItem::cost('1.5', 7500)]);
 
-        $line = $this->bill('2026-10-20')->first()->items->sole();
+        $line = $this->bill(self::TODAY)->first()->items->sole();
 
         $this->assertSame(11250, $line->amount);
         $this->assertSame('Consulting (1.50 hours at $75.00/hr)', $line->description);
@@ -101,7 +107,7 @@ class BillableItemTest extends TestCase
     {
         $this->item(['invoice_action' => BillableItem::NEXT_CRON, 'taxable' => false]);
 
-        $this->assertFalse($this->bill('2026-10-20')->first()->items->sole()->taxable);
+        $this->assertFalse($this->bill(self::TODAY)->first()->items->sole()->taxable);
     }
 
     public function test_items_are_grouped_into_one_invoice_per_client(): void
@@ -110,7 +116,7 @@ class BillableItemTest extends TestCase
         $this->item(['invoice_action' => BillableItem::DUE_DATE, 'due_date' => '2026-10-22', 'amount' => 2500]);
         Client::factory()->create()->billableItems()->create(['description' => 'Other', 'amount' => 100, 'invoice_action' => BillableItem::NEXT_CRON]);
 
-        $invoices = $this->bill('2026-10-20');
+        $invoices = $this->bill(self::TODAY);
 
         $this->assertCount(2, $invoices);
         $this->assertSame(7500, $invoices->firstWhere('client_id', $this->client->id)->total);
@@ -136,9 +142,9 @@ class BillableItemTest extends TestCase
 
     public function test_items_recurring_for_ever_keep_going(): void
     {
-        $item = $this->item(['invoice_action' => BillableItem::RECUR, 'due_date' => '2026-10-01', 'recur_every' => 2, 'recur_unit' => 'week']);
+        $item = $this->item(['invoice_action' => BillableItem::RECUR, 'due_date' => self::OCT_1, 'recur_every' => 2, 'recur_unit' => 'week']);
 
-        foreach (['2026-10-01', '2026-10-15', '2026-10-29', '2026-11-12'] as $day) {
+        foreach ([self::OCT_1, '2026-10-15', '2026-10-29', '2026-11-12'] as $day) {
             $this->assertCount(1, $this->bill($day), $day);
         }
 
@@ -154,16 +160,16 @@ class BillableItemTest extends TestCase
         Service::factory()->for($this->client)->create(['recurring_amount' => 2000, 'next_due_date' => '2026-11-01']);
 
         // Nothing is due yet, and items for the next invoice wait for one.
-        $this->assertCount(0, $this->bill('2026-10-20'));
-        $this->assertCount(0, app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-20')));
+        $this->assertCount(0, $this->bill(self::TODAY));
+        $this->assertCount(0, app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::TODAY)));
 
-        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse('2026-10-25'))->sole();
+        $invoice = app(InvoiceGenerator::class)->generate(CarbonImmutable::parse(self::LATER))->sole();
 
         $this->assertSame(8000, $invoice->total);
         $this->assertSame('2026-11-01', $invoice->due_date->toDateString());
         $this->assertSame($invoice->id, $item->refresh()->invoice_id);
         $this->assertSame($invoice->id, $due->refresh()->invoice_id);
-        $this->assertCount(0, $this->bill('2026-10-25'));
+        $this->assertCount(0, $this->bill(self::LATER));
     }
 
     public function test_the_nightly_billing_run_invoices_billable_items(): void
