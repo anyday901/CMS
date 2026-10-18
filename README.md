@@ -468,7 +468,7 @@ Every client email is listed under **Emails** with its status (queued, sent or f
 
 Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
 
-Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
+Staff and clients can download any invoice they can see as a PDF. Invoice and quote PDFs use the Harbor colours, kept dark enough to read printed in greyscale. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |

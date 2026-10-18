@@ -19,7 +19,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Activity log
 - [x] Client portal: login, password setup and reset, invoices, services, account
 - [x] Own visual theme (Harbor) for the admin area and client portal
-- [ ] Use the Harbor colors on PDF invoices
+- [x] Use the Harbor colors on PDF invoices
 - [x] Client 2FA
 - [x] Client sign-up and ordering from the portal
 - [x] PayPal gateway (one-time checkout per invoice)
