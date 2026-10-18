@@ -14,6 +14,14 @@
                        @if ($field === 'email') type="email" @endif class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
             </label>
         @endforeach
+        <label class="block">Tax ID / VAT number
+            <input name="tax_id" value="{{ old('tax_id', $client->tax_id) }}" maxlength="100" placeholder="DE123456789" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+            <span class="mt-1 block text-ink-500">Printed on their invoices and quotes.@if (App\Billing\VatNumbers::checking()) EU VAT numbers are checked with VIES on save.@endif
+                @if ($client->tax_id && App\Billing\VatNumbers::prefix($client->tax_id))
+                    {{ $client->tax_id_verified_at ? 'VIES confirmed it on '.$client->tax_id_verified_at->format('M j, Y').'.' : 'Not verified with VIES yet: save again to check it.' }}
+                @endif
+            </span>
+        </label>
         <label class="block">Status
             <select name="status" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 @foreach (App\Enums\ClientStatus::cases() as $status)

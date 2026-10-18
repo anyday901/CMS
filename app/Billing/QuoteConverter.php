@@ -51,6 +51,7 @@ class QuoteConverter
                 'tax_name' => $quote->tax_name,
                 'tax_rate' => $quote->tax_rate,
                 'tax_inclusive' => $quote->tax_inclusive,
+                ...$quote->only(['tax2_name', 'tax2_rate', 'tax2_compound', 'reverse_charge', 'client_tax_id']),
             ])->save();
 
             foreach ($quote->items()->orderBy('id')->get() as $item) {

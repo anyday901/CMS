@@ -178,6 +178,7 @@ class ClientMerger
             "Name: {$from->fullName()}".($from->company ? ", {$from->company}" : ''),
             "Email: {$from->email}",
             $from->phone ? "Phone: {$from->phone}" : null,
+            $from->tax_id ? "Tax ID: {$from->tax_id}" : null,
             ($address = collect([$from->address1, $from->address2, $from->city, $from->state, $from->postcode, $from->country])->filter()->join(', ')) ? "Address: {$address}" : null,
             "Client since: {$from->created_at?->format('M j, Y')}",
             $from->notes ? "Profile notes: {$from->notes}" : null,

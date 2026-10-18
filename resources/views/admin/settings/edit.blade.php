@@ -48,6 +48,21 @@
                 <input type="checkbox" name="tax_inclusive" value="1" class="mt-1" @checked(old('tax_inclusive', $taxInclusive))>
                 <span>Prices include tax. Invoice totals equal the sum of their lines, and the invoice shows how much of that is tax. Applies to invoices created from now on.</span>
             </label>
+            <input type="hidden" name="tax_compound" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="tax_compound" value="1" class="mt-1" @checked(old('tax_compound', $taxCompound))>
+                <span>Compound tax. Level 2 tax rules are charged on the amount plus level 1 tax, instead of on the amount alone. Set up the levels under <a href="{{ route('admin.tax-rules.index') }}" class="text-brand-600">Tax rules</a>.</span>
+            </label>
+            <input type="hidden" name="vat_validation" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="vat_validation" value="1" class="mt-1" @checked(old('vat_validation', $vatValidation))>
+                <span>Check EU VAT numbers with the European Commission's VIES service when clients or staff save them. Numbers VIES says don't exist are refused; if VIES is down, the number is saved unverified.</span>
+            </label>
+            <input type="hidden" name="reverse_charge" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="reverse_charge" value="1" class="mt-1" @checked(old('reverse_charge', $reverseCharge))>
+                <span>Reverse charge EU VAT. Clients with a checked VAT number from another EU country than your own (the company tax ID under Appearance) pay no VAT, and their invoices say "Reverse charge" with both VAT numbers. Turns VAT number checking on too.</span>
+            </label>
         </fieldset>
 
         <fieldset class="space-y-2">

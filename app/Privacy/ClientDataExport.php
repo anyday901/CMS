@@ -51,7 +51,7 @@ class ClientDataExport
             'note' => 'Amounts are in minor units (cents) of the currency shown. Passwords and security codes are not included.',
             'client' => $this->only($client, [
                 'id', 'first_name', 'last_name', 'company', 'email', 'email_verified_at', 'phone', 'address1', 'address2',
-                'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'status', 'credit_balance', 'custom_fields',
+                'city', 'state', 'postcode', 'country', 'currency', 'tax_exempt', 'tax_id', 'status', 'credit_balance', 'custom_fields',
                 'marketing_emails', 'marketing_consent_at', 'sms_notifications', 'created_at',
             ]) + ['group' => $client->group?->name, 'two_factor_enabled' => $client->hasTwoFactor()],
             'contacts' => $client->contacts->map(fn (ClientContact $contact) => $this->only($contact, [

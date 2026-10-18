@@ -10,6 +10,7 @@
         <div><span class="text-ink-500">{{ __('Date:') }}</span> {{ $invoice->issue_date->translatedFormat('M j, Y') }}</div>
         <div><span class="text-ink-500">{{ __('Due:') }}</span> {{ $invoice->due_date->translatedFormat('M j, Y') }}</div>
         @if ($invoice->paid_at)<div><span class="text-ink-500">{{ __('Paid:') }}</span> {{ $invoice->paid_at->translatedFormat('M j, Y') }}</div>@endif
+        @if ($invoice->client_tax_id)<div><span class="text-ink-500">{{ __('Tax ID:') }}</span> {{ $invoice->client_tax_id }}</div>@endif
     </div>
 
     <div class="mb-6 overflow-x-auto rounded-lg border border-ink-200 bg-white">
@@ -22,14 +23,16 @@
             </tbody>
             <tfoot class="font-medium">
                 @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ __('Subtotal') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>@endif
-                        @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->tax && ! $invoice->tax_inclusive)@foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right">{{ $taxLabel }}</td><td class="px-4 py-2 text-right">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach @endif
                 <tr><td class="px-4 py-2 text-right">{{ __('Total') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
-                @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-ink-500">{{ __('Includes :tax', ['tax' => $invoice->taxLabel()]) }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                @if ($invoice->tax && $invoice->tax_inclusive)@foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right font-normal text-ink-500">{{ __('Includes :tax', ['tax' => $taxLabel]) }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach @endif
                 @if ($invoice->amountPaid())<tr><td class="px-4 py-2 text-right">{{ __('Paid') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>@endif
                 @if ($invoice->status->value === 'unpaid')<tr><td class="px-4 py-2 text-right">{{ __('Balance due') }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->balance(), $invoice->currency) }}</td></tr>@endif
             </tfoot>
         </table>
     </div>
+
+    <x-reverse-charge :document="$invoice" class="mb-6" />
 
     @if ($invoice->status->value === 'unpaid')
         <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">

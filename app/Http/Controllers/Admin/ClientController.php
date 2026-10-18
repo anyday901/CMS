@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\VatNumbers;
 use App\Enums\ClientStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\ServiceStatus;
@@ -247,6 +248,7 @@ class ClientController extends Controller
             'status' => ['required', Rule::enum(ClientStatus::class)],
             'notes' => ['nullable', 'string'],
             'tax_exempt' => ['boolean'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
             'client_group_id' => ['nullable', 'integer', Rule::exists('client_groups', 'id')],
             'language' => ['nullable', Rule::in(Language::all())],
             'currency' => ['nullable', Rule::in(array_filter([...Currency::codes(), $client?->currency]))],
@@ -263,6 +265,7 @@ class ClientController extends Controller
             'client_group_id' => $data['client_group_id'] ?? null,
             'language' => $data['language'] ?? null,
             'tax_exempt' => $request->boolean('tax_exempt'),
+            ...app(VatNumbers::class)->attributes($data['tax_id'] ?? null, $client),
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client?->custom_fields),
         ];
     }

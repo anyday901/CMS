@@ -1,6 +1,7 @@
 <x-admin-layout title="Tax rules">
     <h1 class="mb-2 text-2xl font-semibold">Tax rules</h1>
-    <p class="mb-6 max-w-2xl text-sm text-ink-600">New invoices use the most specific rule that matches the client's address: country and state first, then country, then a rule with neither. Tax applies to taxable products only, and tax-exempt clients are never taxed. Changing a rule doesn't change invoices already created.</p>
+    <p class="mb-2 max-w-2xl text-sm text-ink-600">New invoices use the most specific rule that matches the client's address: country and state first, then country, then a rule with neither. Tax applies to taxable products only, and tax-exempt clients are never taxed. Changing a rule doesn't change invoices already created.</p>
+    <p class="mb-6 max-w-2xl text-sm text-ink-600">A client can be taxed by one level 1 rule and one level 2 rule, each picked the same way, and the invoice shows both. Level 2 is charged on the amount alone, or on the amount plus level 1 tax when compound tax is on under <a href="{{ route('admin.settings.edit') }}" class="text-brand-600">Settings</a>.</p>
 
     <div class="grid gap-6 md:grid-cols-3">
         <div class="md:col-span-2">
@@ -9,12 +10,13 @@
             @else
                 <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Rate</th><th class="px-4 py-2">Applies to</th><th class="px-4 py-2"></th></tr></thead>
+                        <thead class="bg-ink-50 text-left text-ink-500"><tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Rate</th><th class="px-4 py-2">Level</th><th class="px-4 py-2">Applies to</th><th class="px-4 py-2"></th></tr></thead>
                         <tbody class="divide-y divide-ink-100">
                             @foreach ($rules as $taxRule)
                                 <tr>
                                     <td class="px-4 py-2"><a href="{{ route('admin.tax-rules.edit', $taxRule) }}" class="text-brand-600">{{ $taxRule->name }}</a></td>
                                     <td class="px-4 py-2">{{ $taxRule->rateLabel() }}</td>
+                                    <td class="px-4 py-2">{{ $taxRule->level }}</td>
                                     <td class="px-4 py-2">{{ collect([$taxRule->state, $taxRule->country])->filter()->join(', ') ?: 'Everywhere' }}</td>
                                     <td class="px-4 py-2 text-right">
                                         <form method="POST" action="{{ route('admin.tax-rules.destroy', $taxRule) }}" onsubmit="return confirm('Delete this tax rule?')">

@@ -43,6 +43,7 @@
                 <div class="grid grid-cols-2 gap-2">
                     <div class="col-span-2"><span class="text-ink-500">Subject:</span> {{ $quote->subject }}</div>
                     <div><span class="text-ink-500">Client:</span> <a href="{{ route('admin.clients.show', $quote->client) }}" class="text-brand-600">{{ $quote->client->fullName() }}</a></div>
+                    @if ($quote->client_tax_id)<div><span class="text-ink-500">Client tax ID:</span> {{ $quote->client_tax_id }}</div>@endif
                     <div><span class="text-ink-500">Issued:</span> {{ $quote->issue_date->format('M j, Y') }}</div>
                     <div><span class="text-ink-500">Valid until:</span> <span class="{{ $quote->awaitsClient() && $quote->isExpired() ? 'text-red-700' : '' }}">{{ $quote->valid_until->format('M j, Y') }}</span></div>
                     @if ($quote->delivered_at)<div><span class="text-ink-500">Delivered:</span> {{ $quote->delivered_at->format('M j, Y') }}</div>@endif
@@ -62,12 +63,14 @@
                     </tbody>
                     <tfoot class="font-medium">
                         @if ($quote->tax && ! $quote->tax_inclusive)<tr><td class="px-4 py-2 text-right">Subtotal</td><td class="px-4 py-2 text-right">{{ Money::format($quote->subtotal, $quote->currency) }}</td></tr>@endif
-                        @if ($quote->tax && ! $quote->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $quote->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($quote->tax, $quote->currency) }}</td></tr>@endif
+                        @if ($quote->tax && ! $quote->tax_inclusive)@foreach ($quote->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right">{{ $taxLabel }}</td><td class="px-4 py-2 text-right">{{ Money::format($taxAmount, $quote->currency) }}</td></tr>@endforeach @endif
                         <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($quote->total, $quote->currency) }}</td></tr>
-                        @if ($quote->tax && $quote->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-ink-500">Includes {{ $quote->taxLabel() }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($quote->tax, $quote->currency) }}</td></tr>@endif
+                        @if ($quote->tax && $quote->tax_inclusive)@foreach ($quote->taxLines() as [$taxLabel, $taxAmount])<tr><td class="px-4 py-2 text-right font-normal text-ink-500">Includes {{ $taxLabel }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($taxAmount, $quote->currency) }}</td></tr>@endforeach @endif
                     </tfoot>
                 </table>
             </div>
+
+            <x-reverse-charge :document="$quote" />
 
             @if ($quote->notes)
                 <div class="rounded-lg border border-ink-200 bg-white p-4 text-sm">
