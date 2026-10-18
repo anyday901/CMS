@@ -25,7 +25,7 @@
                         {{ Money::format($row['priced']->recurring, $quote->currency) }} <span class="text-ink-500">{{ Str::lower(__($line->cycle->label())) }}</span>
                         @if ($row['priced']->setupFee)<div class="text-ink-500">{{ __('+ :amount setup', ['amount' => Money::format($row['priced']->setupFee, $quote->currency)]) }}</div>@endif
                     </td>
-                    <td class="whitespace-nowrap px-4 py-3 text-right">{{ Money::format($row['first']->amount + $row['priced']->setupFee - $row['discount'], $quote->currency) }}</td>
+                    <td class="whitespace-nowrap px-4 py-3 text-right">{{ Money::format($row['first']->amount + $row['priced']->setupFee - $row['discount'] - $row['group_discount'], $quote->currency) }}</td>
                     @if ($removable)
                         <td class="px-4 py-3 text-right">
                             @if ($first)
@@ -59,9 +59,14 @@
             @endforeach
         </tbody>
         <tfoot class="border-t border-ink-200">
-            @if ($quote->discount())
+            @if ($quote->discount() || $quote->groupDiscount())
                 <tr><td class="px-4 py-1 pt-3 text-right" colspan="2">{{ __('Subtotal') }}</td><td class="px-4 py-1 pt-3 text-right">{{ Money::format($quote->subtotal(), $quote->currency) }}</td>@if ($removable)<td></td>@endif</tr>
+            @endif
+            @if ($quote->discount())
                 <tr><td class="px-4 py-1 text-right" colspan="2">{{ __('Discount (:code)', ['code' => $quote->promotion->code]) }}</td><td class="px-4 py-1 text-right">-{{ Money::format($quote->discount(), $quote->currency) }}</td>@if ($removable)<td></td>@endif</tr>
+            @endif
+            @if ($quote->groupDiscount())
+                <tr><td class="px-4 py-1 text-right" colspan="2">{{ __('Your :percent account discount', ['percent' => $quote->group->discountLabel()]) }}</td><td class="px-4 py-1 text-right">-{{ Money::format($quote->groupDiscount(), $quote->currency) }}</td>@if ($removable)<td></td>@endif</tr>
             @endif
             <tr class="font-semibold"><td class="px-4 py-3 text-right" colspan="2">{{ __('Total due today') }}</td><td class="px-4 py-3 text-right">{{ Money::format($quote->total(), $quote->currency) }}</td>@if ($removable)<td></td>@endif</tr>
         </tfoot>

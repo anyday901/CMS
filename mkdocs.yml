@@ -70,6 +70,7 @@ nav:
       - Appearance and white-label: admin/appearance.md
       - Billable items: admin/billable-items.md
       - Credit notes: admin/credit-notes.md
+      - Client groups and credit limits: admin/client-groups.md
       - Currencies: admin/currencies.md
       - Domains: admin/domains.md
       - Invoice numbering: admin/invoice-numbering.md

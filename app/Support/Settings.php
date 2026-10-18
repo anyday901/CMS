@@ -32,6 +32,7 @@ class Settings
         'payments.stripe.webhook_secret',
         'billing.suspend_after_days',
         'billing.terminate_after_days',
+        'billing.credit_limit',
         'billing.overage_due_days',
         'billing.late_fee_after_days',
         'billing.late_fee_type',

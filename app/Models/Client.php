@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ClientStatus;
 use App\Mail\ClientMailer;
 use App\Models\Concerns\HasAffiliateProgram;
+use App\Models\Concerns\HasCreditLimit;
 use App\Models\Concerns\HasSavedPaymentMethods;
 use App\Models\Concerns\HasTwoFactor;
 use App\Models\Concerns\OwnsServices;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Client extends Authenticatable
 {
-    use HasAffiliateProgram, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
+    use HasAffiliateProgram, HasCreditLimit, HasFactory, HasSavedPaymentMethods, HasTwoFactor, Notifiable, OwnsServices;
 
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',

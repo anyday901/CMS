@@ -656,6 +656,7 @@
     "You're signed in as :name, a contact on this account. These settings are for your own login.": "Vous êtes connecté en tant que :name, contact de ce compte. Ces paramètres concernent votre propre accès.",
     "You're signed in to :account's account as a contact.": "Vous êtes connecté au compte de :account en tant que contact.",
     "You're unsubscribed": "Vous êtes désabonné",
+    "Your :percent account discount": "Votre remise client de :percent",
     "Your account": "Votre compte",
     "Your account credit is at its limit of :amount, so no more can be added.": "Votre crédit a atteint sa limite de :amount, vous ne pouvez donc plus en ajouter.",
     "Your affiliate account is turned off, so your link isn't being tracked. Please :link if you have questions.": "Votre compte d’affiliation est désactivé : votre lien n’est donc pas suivi. Veuillez :link si vous avez des questions.",

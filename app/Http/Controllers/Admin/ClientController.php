@@ -21,6 +21,7 @@ use App\Models\Tld;
 use App\Support\ClientSearch;
 use App\Support\Csv;
 use App\Support\Language;
+use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -106,6 +107,7 @@ class ClientController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $client = new Client($this->validated($request));
+        $this->setCreditLimit($request, $client);
         if ($request->boolean('marketing_emails')) {
             $client->setMarketingConsent(true);
         }
@@ -211,6 +213,7 @@ class ClientController extends Controller
     public function update(Request $request, Client $client): RedirectResponse
     {
         $client->fill($this->validated($request, $client));
+        $this->setCreditLimit($request, $client);
         if ($client->setMarketingConsent($request->boolean('marketing_emails'))) {
             Activity::record($client->marketing_emails ? 'Agreed to marketing emails (set by staff)' : 'Opted out of marketing emails (set by staff)', $client);
         }
@@ -233,6 +236,17 @@ class ClientController extends Controller
         return back()->with('status', $status === Password::RESET_LINK_SENT
             ? "Password setup link sent to {$client->email}."
             : __($status));
+    }
+
+    /** The client's own credit limit, from the edit form; blank falls back to their group's or the default. */
+    private function setCreditLimit(Request $request, Client $client): void
+    {
+        if (! $request->has('credit_limit')) {
+            return;
+        }
+
+        $request->validate(['credit_limit' => ['nullable', Money::rule()]]);
+        $client->credit_limit = $request->filled('credit_limit') ? Money::parse((string) $request->input('credit_limit')) : null;
     }
 
     private function validated(Request $request, ?Client $client = null): array

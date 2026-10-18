@@ -1,7 +1,7 @@
 <x-admin-layout title="Client groups">
     <p class="mb-2 text-sm"><a href="{{ route('admin.settings.edit') }}" class="text-brand-600">Settings</a></p>
     <h1 class="mb-2 text-2xl font-semibold">Client groups</h1>
-    <p class="mb-6 max-w-2xl text-sm text-ink-600">Sort clients into groups, such as resellers or VIPs. A client's group shows as a coloured label on their page and in the clients list, and the clients search can filter by it. Put a client in a group on their edit page.</p>
+    <p class="mb-6 max-w-2xl text-sm text-ink-600">Sort clients into groups, such as resellers or VIPs. A client's group shows as a coloured label on their page and in the clients list, and the clients search can filter by it. Put a client in a group on their edit page. A group can also give its clients a discount, its own late fee, suspension and invoice settings, and a credit limit.</p>
 
     <div class="grid gap-6 md:grid-cols-3">
         <div class="md:col-span-2">
@@ -17,6 +17,7 @@
                                     <td class="px-4 py-2">
                                         <a href="{{ route('admin.client-groups.edit', $clientGroup) }}"><x-client-group-badge :group="$clientGroup" /></a>
                                         @if ($clientGroup->description)<span class="ml-2 text-ink-500">{{ $clientGroup->description }}</span>@endif
+                                        @if ($clientGroup->settingsSummary() !== '')<div class="mt-1 text-xs text-ink-500">{{ ucfirst($clientGroup->settingsSummary()) }}</div>@endif
                                     </td>
                                     <td class="px-4 py-2"><a href="{{ route('admin.clients.index', ['group' => $clientGroup->id, 'show_closed' => 1]) }}" class="text-brand-600">{{ $clientGroup->clients_count }}</a></td>
                                     <td class="px-4 py-2 text-right">

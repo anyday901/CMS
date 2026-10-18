@@ -29,6 +29,12 @@ return [
     // Set to null to turn off automatic termination.
     'terminate_after_days' => env('BILLING_TERMINATE_AFTER_DAYS', 30),
 
+    // Default credit limit (e.g. "250.00", in the default currency): a client
+    // owing no more than this on unpaid invoices isn't suspended or
+    // terminated for them. A client's own limit, or their group's, wins.
+    // Empty means no limit. Can also be set on the admin Automation page.
+    'credit_limit' => env('BILLING_CREDIT_LIMIT'),
+
     // Days clients have to pay an overage invoice, which billing:run creates
     // after each month for products with usage billing on.
     'overage_due_days' => (int) env('BILLING_OVERAGE_DUE_DAYS', 7),
