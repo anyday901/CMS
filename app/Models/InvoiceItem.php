@@ -41,9 +41,18 @@ class InvoiceItem extends Model
 
     public const DOMAIN_TYPES = [self::TYPE_DOMAIN_REGISTER, self::TYPE_DOMAIN_TRANSFER, self::TYPE_DOMAIN_RENEW];
 
+    /** Money the client prepays into their credit balance. */
+    public const TYPE_ADD_FUNDS = 'add_funds';
+
+    /** A mass payment's line for one of the invoices it pays, which paid_invoice_id points at. */
+    public const TYPE_MASS_PAY = 'mass_pay';
+
+    /** Lines whose payment goes to the client's credit balance rather than paying for anything. */
+    public const FUNDS_TYPES = [self::TYPE_ADD_FUNDS, self::TYPE_MASS_PAY];
+
     protected $fillable = [
         'invoice_id', 'service_id', 'domain_id', 'type', 'description', 'amount', 'taxable',
-        'period_start', 'period_end', 'billable_item_id',
+        'period_start', 'period_end', 'billable_item_id', 'paid_invoice_id',
     ];
 
     protected function casts(): array
@@ -93,5 +102,11 @@ class InvoiceItem extends Model
     public function billableItem(): BelongsTo
     {
         return $this->belongsTo(BillableItem::class);
+    }
+
+    /** The invoice a mass payment line pays. */
+    public function paidInvoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'paid_invoice_id');
     }
 }

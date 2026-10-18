@@ -106,6 +106,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
         // Contacts only see what their login allows; the account holder sees everything.
         Route::middleware('contact.can:billing')->group(function () {
             Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('invoices/mass-pay', [Portal\InvoiceController::class, 'massPay'])->middleware('throttle:20,1')->name('invoices.mass-pay');
+            Route::get('add-funds', [Portal\AddFundsController::class, 'create'])->name('add-funds.create');
+            Route::post('add-funds', [Portal\AddFundsController::class, 'store'])->middleware('throttle:20,1')->name('add-funds.store');
             Route::prefix('invoices/{invoice}')->group(function () {
                 Route::get('/', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
                 Route::post('credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
@@ -239,6 +242,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
             Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
             Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
+            Route::post('invoices/merge', [Admin\InvoiceController::class, 'merge'])->name('invoices.merge');
             Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
             Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
             Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');

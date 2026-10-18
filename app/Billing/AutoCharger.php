@@ -43,7 +43,8 @@ class AutoCharger
         // Days from the due date to each try: the first one is before or on it.
         $tries = self::tries();
 
-        Invoice::where('status', InvoiceStatus::Unpaid)
+        // A mass payment would charge again what its invoices are charged for.
+        Invoice::where('status', InvoiceStatus::Unpaid)->withoutFunds()
             ->whereDate('due_date', '<=', $today->copy()->subDays($tries->first()))
             ->whereDate('due_date', '>=', $today->copy()->subDays($tries->last() + self::CATCH_UP_DAYS))
             ->whereHas('client', fn ($client) => $client->where('auto_charge', true)

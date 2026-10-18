@@ -22,7 +22,7 @@ class DashboardController extends Controller
             'client' => $client,
             'contact' => PortalContact::current(),
             'can' => collect(array_keys(ClientContact::PERMISSIONS))->mapWithKeys(fn (string $permission) => [$permission => PortalContact::allows($permission)])->all(),
-            'unpaid' => $client->invoices()->where('status', InvoiceStatus::Unpaid)->orderBy('due_date')->get(),
+            'unpaid' => $client->invoices()->where('status', InvoiceStatus::Unpaid)->withoutFunds()->orderBy('due_date')->get(),
             'services' => $client->services()->with('product')
                 ->whereIn('status', [ServiceStatus::Active, ServiceStatus::Suspended, ServiceStatus::Pending])
                 ->orderBy('next_due_date')->get(),

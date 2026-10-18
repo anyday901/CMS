@@ -112,10 +112,15 @@ class Settings
         'domains.invoice_days_before_expiry',
         'domains.reminder_days',
         'domains.auto_renew_default',
+        'billing.add_funds.enabled',
+        'billing.add_funds.minimum',
+        'billing.add_funds.maximum',
+        'billing.add_funds.maximum_balance',
+        'billing.mass_pay',
     ];
 
     /** Saved as 0 or 1, read back as booleans. */
-    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'billing.update_exchange_rates', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled', 'domains.auto_renew_default'];
+    private const BOOLEANS = ['billing.apply_credit_automatically', 'billing.tax_inclusive', 'billing.attach_invoice_pdf', 'billing.hold_new_orders', 'billing.update_exchange_rates', 'tickets.guest_tickets', 'tickets.spam.use_spam_headers', 'security.staff_two_factor', 'security.new_device_emails', 'affiliates.enabled', 'affiliates.first_invoice_only', 'affiliates.self_signup', 'branding.hide_powered_by', 'maintenance.enabled', 'domains.auto_renew_default', 'billing.add_funds.enabled', 'billing.mass_pay'];
 
     /** Saved as JSON, read back as arrays. */
     private const ARRAYS = [

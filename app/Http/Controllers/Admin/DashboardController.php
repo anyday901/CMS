@@ -49,7 +49,8 @@ class DashboardController extends Controller
     public function __invoke(Request $request, UpdateChecker $updates): View
     {
         $user = $request->user();
-        $unpaid = Invoice::where('status', InvoiceStatus::Unpaid);
+        // Mass payment and add funds invoices would count money twice, or money not owed.
+        $unpaid = Invoice::where('status', InvoiceStatus::Unpaid)->withoutFunds();
         $overview = SystemOverview::fromRequest($request->query('period'));
         $release = $updates->cached();
 

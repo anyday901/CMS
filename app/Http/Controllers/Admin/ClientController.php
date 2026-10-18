@@ -15,6 +15,7 @@ use App\Models\ClientContact;
 use App\Models\ClientGroup;
 use App\Models\Currency;
 use App\Models\CustomField;
+use App\Models\InvoiceItem;
 use App\Models\Tld;
 use App\Support\ClientSearch;
 use App\Support\Csv;
@@ -124,7 +125,9 @@ class ClientController extends Controller
 
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
-            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
+            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')
+                ->withExists(['items as is_funds' => fn ($items) => $items->whereIn('type', InvoiceItem::FUNDS_TYPES)])
+                ->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
             'quotes' => fn ($q) => $q->latest('issue_date')->latest('id'),
         ]);
@@ -150,7 +153,8 @@ class ClientController extends Controller
         ['sections' => $sections, 'counts' => $counts] = self::frame($client);
         $section = collect($sections)->collapse()->has($request->query('tab')) ? $request->query('tab') : 'summary';
 
-        $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid);
+        // Add funds and mass payment invoices aren't owed on top of the rest.
+        $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid)->reject->is_funds;
         $activeServices = $client->services->where('status', ServiceStatus::Active);
         $stats = [
             'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->paid_amount),

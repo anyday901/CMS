@@ -151,6 +151,15 @@ class PaymentRecorder
             'paid_at' => now(),
         ])->save();
 
+        // Add funds and mass payment lines pay into the client's credit, in the
+        // same transaction as the payment; a mass payment then uses it on the
+        // invoices it covers once paid (see MassPayment::paid()).
+        $funds = min($invoice->total, (int) $invoice->items()->whereIn('type', InvoiceItem::FUNDS_TYPES)->sum('amount'));
+
+        if ($funds > 0) {
+            $this->ledger->change($invoice->client_id, $funds, ($invoice->isMassPayment() ? 'Mass payment' : 'Added funds')." with invoice #{$invoice->number}", $invoice);
+        }
+
         $items = $invoice->items()
             ->where('type', InvoiceItem::TYPE_SERVICE)
             ->with('service')

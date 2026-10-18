@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Ticket;
 use App\Support\Language;
+use App\Support\Money;
 use App\Support\Settings;
 use App\Tickets\BusinessHours;
 use App\Tickets\SpamFilter;
@@ -23,6 +24,8 @@ class SettingsController extends Controller
             'attachInvoicePdf' => (bool) config('billing.attach_invoice_pdf'),
             'holdNewOrders' => (bool) config('billing.hold_new_orders'),
             'termsUrl' => config('store.terms_url'),
+            'addFunds' => config('billing.add_funds'),
+            'massPay' => (bool) config('billing.mass_pay'),
             'bankTransferInstructions' => config('payments.bank_transfer.instructions'),
             'mailInInstructions' => config('payments.mail_in.instructions'),
             'activityRetentionDays' => config('activity.retention_days'),
@@ -49,6 +52,11 @@ class SettingsController extends Controller
             'attach_invoice_pdf' => ['boolean'],
             'hold_new_orders' => ['boolean'],
             'terms_url' => ['nullable', 'url:http,https', 'max:255'],
+            'add_funds_enabled' => ['boolean'],
+            'add_funds_minimum' => ['nullable', 'string', 'max:20', Money::rule()],
+            'add_funds_maximum' => ['nullable', 'string', 'max:20', Money::rule()],
+            'add_funds_maximum_balance' => ['nullable', 'string', 'max:20', Money::rule()],
+            'mass_pay' => ['boolean'],
             'bank_transfer_instructions' => ['nullable', 'string', 'max:5000'],
             'mail_in_instructions' => ['nullable', 'string', 'max:5000'],
             'activity_retention_days' => ['nullable', 'integer', 'min:1', 'max:36500'],
@@ -77,6 +85,8 @@ class SettingsController extends Controller
             'billing.attach_invoice_pdf' => $request->boolean('attach_invoice_pdf'),
             'billing.hold_new_orders' => $request->boolean('hold_new_orders'),
             'store.terms_url' => ($data['terms_url'] ?? null) ?: null,
+            'billing.mass_pay' => $request->boolean('mass_pay', (bool) config('billing.mass_pay')),
+            ...$this->addFunds($request, $data),
             'payments.bank_transfer.instructions' => trim((string) ($data['bank_transfer_instructions'] ?? '')) ?: null,
             'payments.mail_in.instructions' => trim((string) ($data['mail_in_instructions'] ?? '')) ?: null,
             'activity.retention_days' => filled($data['activity_retention_days'] ?? null) ? (int) $data['activity_retention_days'] : null,
@@ -103,6 +113,8 @@ class SettingsController extends Controller
             'attach_invoice_pdf' => (bool) config('billing.attach_invoice_pdf'),
             'hold_new_orders' => (bool) config('billing.hold_new_orders'),
             'terms_url' => config('store.terms_url'),
+            'add_funds' => config('billing.add_funds'),
+            'mass_pay' => (bool) config('billing.mass_pay'),
             'bank_transfer_instructions' => filled(config('payments.bank_transfer.instructions')),
             'mail_in_instructions' => filled(config('payments.mail_in.instructions')),
             'activity_retention_days' => config('activity.retention_days'),
@@ -117,6 +129,43 @@ class SettingsController extends Controller
         ]);
 
         return redirect()->route('admin.settings.edit')->with('status', 'Settings saved.');
+    }
+
+    /**
+     * The add funds settings from the form, with amounts saved like "10.00"
+     * and blank meaning no limit. Left out of the form: keep what's saved.
+     *
+     * @return array<string, bool|string|null>
+     *
+     * @throws ValidationException when a limit is below the least per payment
+     */
+    private function addFunds(Request $request, array $data): array
+    {
+        $enabled = ['billing.add_funds.enabled' => $request->boolean('add_funds_enabled', (bool) config('billing.add_funds.enabled'))];
+
+        if (! $request->has('add_funds_minimum')) {
+            return $enabled;
+        }
+
+        $amount = fn (string $key) => filled($data[$key] ?? null) ? Money::parse($data[$key]) : null;
+        [$minimum, $maximum, $balance] = [$amount('add_funds_minimum'), $amount('add_funds_maximum'), $amount('add_funds_maximum_balance')];
+
+        $errors = array_filter([
+            'add_funds_maximum' => $maximum !== null && $maximum < (int) $minimum ? 'The most per payment can\'t be less than the least.' : null,
+            'add_funds_maximum_balance' => $balance !== null && $balance < (int) $minimum ? 'The most credit balance can\'t be less than the least per payment.' : null,
+        ]);
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        $input = fn (?int $cents) => $cents === null ? null : Money::toInput($cents);
+
+        return $enabled + [
+            'billing.add_funds.minimum' => $input($minimum),
+            'billing.add_funds.maximum' => $input($maximum),
+            'billing.add_funds.maximum_balance' => $input($balance),
+        ];
     }
 
     /**

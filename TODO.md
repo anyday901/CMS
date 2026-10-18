@@ -90,7 +90,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Multiple currencies with exchange rates and per-currency prices
 - [x] Quotes that convert to invoices once accepted
 - [ ] Credit notes
-- [ ] Add funds (prepay into credit) and mass pay of several invoices at once
+- [x] Add funds (prepay into credit) and mass pay of several invoices at once
 - [x] Saved payment methods and automatic charging on the due date
 - [x] Stripe gateway (cards and the wallets Stripe's Payment Element offers)
 - [ ] Stripe ACH and SEPA debits, and saving them for automatic charging
@@ -99,7 +99,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Bank transfer and cheque (mail-in) gateways with payment instructions
 - [ ] Direct debit gateway (e.g. GoCardless)
 - [x] Billable items: one-off or recurring charges and time tracking added to the next invoice
-- [ ] Merge unpaid invoices
+- [x] Merge unpaid invoices
 - [ ] Sequential invoice numbers for paid invoices only, with a proforma number before payment
 - [ ] Compound and multi-level tax, EU VAT number validation and reverse charge
 - [ ] Account statements for a date range
