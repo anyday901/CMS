@@ -99,7 +99,7 @@ class InvoiceMerger
             $invoices->pluck('client_id')->unique()->count() > 1 => 'Only invoices of the same client can be merged.',
             $invoices->pluck('currency')->unique()->count() > 1 => 'Only invoices in the same currency can be merged.',
             // One invoice has one tax rate, so merging different ones would change the tax owed.
-            $invoices->contains(fn (Invoice $invoice) => $invoice->tax_rate !== $first->tax_rate || $invoice->tax_inclusive !== $first->tax_inclusive || $invoice->tax_name !== $first->tax_name) => 'These invoices have different tax rates, so they can\'t be merged.',
+            $invoices->contains(fn (Invoice $invoice) => self::taxSnapshot($invoice) !== self::taxSnapshot($first)) => 'These invoices have different tax rates, so they can\'t be merged.',
             $invoices->contains(fn (Invoice $invoice) => $invoice->isAddFunds() || $invoice->isMassPayment()) => 'Add funds and mass payment invoices can\'t be merged.',
             // Its lines would move without what was credited on them.
             $invoices->contains(fn (Invoice $invoice) => $invoice->creditNotes()->exists()) => 'Invoices with a credit note can\'t be merged.',
@@ -109,6 +109,12 @@ class InvoiceMerger
         if ($error !== null) {
             throw new InvalidArgumentException($error);
         }
+    }
+
+    /** @return list<mixed> */
+    private static function taxSnapshot(Invoice $invoice): array
+    {
+        return [$invoice->tax_name, (int) $invoice->tax_rate, (bool) $invoice->tax_inclusive, $invoice->tax2_name, (int) $invoice->tax2_rate, (bool) $invoice->tax2_compound, (bool) $invoice->reverse_charge];
     }
 
     /**

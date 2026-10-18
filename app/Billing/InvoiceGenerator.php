@@ -83,12 +83,15 @@ class InvoiceGenerator
 
             $batches = $client->group?->separate_invoices ? $services->chunk(1) : [$services];
 
-            return collect($batches)->map(fn (Collection $batch) => $this->createInvoice($client, $batch, $cutoff, $today))->all();
+            return collect($batches)->values()->map(fn (Collection $batch, int $i) => $this->createInvoice($client, $batch, $today, $i === 0 ? $cutoff : null))->all();
         });
     }
 
-    /** @param  Collection<int, Service>  $services */
-    private function createInvoice(Client $client, Collection $services, CarbonInterface $cutoff, CarbonInterface $today): Invoice
+    /**
+     * @param  Collection<int, Service>  $services
+     * @param  CarbonInterface|null  $billableCutoff  adds the client's billable items due by then; only the first of a client's invoices gets one
+     */
+    private function createInvoice(Client $client, Collection $services, CarbonInterface $today, ?CarbonInterface $billableCutoff): Invoice
     {
         $invoice = Invoice::create([
             'client_id' => $client->id,
@@ -128,8 +131,9 @@ class InvoiceGenerator
             GroupDiscount::addTo($invoice, $service, $group, $service->recurring_amount - $promotion, $service->product->taxable);
         }
 
-        // The client's due billable items go on the first of their invoices.
-        $this->billableItems->addTo($invoice, $cutoff);
+        if ($billableCutoff !== null) {
+            $this->billableItems->addTo($invoice, $billableCutoff);
+        }
 
         $invoice->recalculate();
         Activity::record("Generated invoice #{$invoice->number} for ".Money::format($invoice->total, $invoice->currency), $invoice);

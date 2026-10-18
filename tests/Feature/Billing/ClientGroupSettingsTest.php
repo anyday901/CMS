@@ -7,6 +7,7 @@ use App\Billing\LateFeeProcessor;
 use App\Billing\OverdueProcessor;
 use App\Billing\PaymentRecorder;
 use App\Enums\ServiceStatus;
+use App\Models\BillableItem;
 use App\Models\Client;
 use App\Models\ClientGroup;
 use App\Models\Invoice;
@@ -123,6 +124,22 @@ class ClientGroupSettingsTest extends TestCase
         $this->assertSame([1, 1], $client->invoices()->withCount('items')->pluck('items_count')->all());
         $this->assertSame([2], $together->invoices()->withCount('items')->pluck('items_count')->all());
         $this->assertCount(0, $this->renew());
+    }
+
+    public function test_billable_items_go_on_only_the_first_separate_invoice(): void
+    {
+        $separate = $this->clientIn($this->group(['separate_invoices' => true]));
+        $together = Client::factory()->create();
+
+        foreach ([$separate, $together] as $client) {
+            Service::factory()->count(2)->create(['client_id' => $client->id]);
+            $client->billableItems()->create(['description' => 'Daily backups', 'amount' => 100, 'invoice_action' => BillableItem::RECUR, 'due_date' => self::RENEWAL_RUN, 'recur_every' => 1, 'recur_unit' => 'day']);
+        }
+        $this->renew();
+
+        $billed = fn (Client $client) => InvoiceItem::whereIn('invoice_id', $client->invoices()->select('id'))->where('type', InvoiceItem::TYPE_BILLABLE)->count();
+        $this->assertGreaterThan(0, $billed($together));
+        $this->assertSame($billed($together), $billed($separate));
     }
 
     public function test_group_can_be_exempt_from_late_fees(): void
