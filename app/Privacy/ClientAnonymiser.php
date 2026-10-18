@@ -61,6 +61,8 @@ class ClientAnonymiser
                 'first_name' => 'Anonymised',
                 'last_name' => "client {$client->id}",
                 'company' => null,
+                'tax_id' => null,
+                'tax_id_verified_at' => null,
                 'email' => "anonymised-{$client->id}@anonymised.invalid",
                 'email_verified_at' => null,
                 'phone' => null,

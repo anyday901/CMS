@@ -194,6 +194,8 @@ Clients are in id order.
     "state": "IL",
     "postcode": "62701",
     "tax_exempt": false,
+    "tax_id": null,
+    "tax_id_verified_at": null,
     "custom_fields": { "3": "Reseller" },
     "updated_at": "2026-10-12T09:30:00+00:00"
   }
@@ -204,7 +206,7 @@ Clients are in id order.
 
 #### `POST /api/v1/clients` (`clients:write`)
 
-Fields: `first_name`, `last_name` and `email` are required; `company`, `phone`, `address1`, `address2`, `city`, `state`, `postcode`, `country` (two letters), `status` (`active` when left out), `notes`, `tax_exempt`, `marketing_emails` (only set it when the client agreed), `client_group_id` and `custom_fields` are optional. Required custom fields have to be sent.
+Fields: `first_name`, `last_name` and `email` are required; `company`, `phone`, `address1`, `address2`, `city`, `state`, `postcode`, `country` (two letters), `status` (`active` when left out), `notes`, `tax_exempt`, `tax_id` (checked with VIES like the client form when that's on), `marketing_emails` (only set it when the client agreed), `client_group_id` and `custom_fields` are optional. Required custom fields have to be sent.
 
 ```json
 {
@@ -295,7 +297,12 @@ Filters: `client_id`, `status` (`draft`, `unpaid`, `paid`, `cancelled`, `refunde
     "paid_at": null,
     "tax_name": null,
     "tax_rate": 0,
+    "tax2_name": null,
+    "tax2_rate": 0,
+    "tax2": 0,
     "tax_inclusive": false,
+    "reverse_charge": false,
+    "client_tax_id": null,
     "notes": null,
     "created_at": "2026-10-01T00:05:00+00:00",
     "items": [
@@ -330,7 +337,7 @@ Filters: `client_id`, `status` (`draft`, `unpaid`, `paid`, `cancelled`, `refunde
 }
 ```
 
-`items` and `payments` are only on a single invoice. Refunds are payments with a negative amount and a `refund_of_id`. `tax_rate` is in hundredths of a percent.
+`items` and `payments` are only on a single invoice. Refunds are payments with a negative amount and a `refund_of_id`. `tax_rate` and `tax2_rate` are in hundredths of a percent. `tax` is the tax of both levels, and `tax2` the level 2 part of it.
 
 #### `POST /api/v1/invoices/{id}/payments` (`invoices:write`)
 

@@ -21,7 +21,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'first_name', 'last_name', 'company', 'email', 'password', 'phone',
         'address1', 'address2', 'city', 'state', 'postcode', 'country',
-        'currency', 'tax_exempt', 'status', 'notes', 'custom_fields', 'client_group_id', 'language',
+        'currency', 'tax_exempt', 'tax_id', 'tax_id_verified_at', 'status', 'notes', 'custom_fields', 'client_group_id', 'language',
     ];
 
     protected $hidden = ['password', 'legacy_password', 'remember_token'];
@@ -54,6 +54,7 @@ class Client extends Authenticatable
             'status' => ClientStatus::class,
             'credit_balance' => 'integer',
             'tax_exempt' => 'boolean',
+            'tax_id_verified_at' => 'datetime',
             'custom_fields' => 'array',
             'email_verified_at' => 'datetime',
             'anonymised_at' => 'datetime',

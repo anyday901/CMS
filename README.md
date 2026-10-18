@@ -293,7 +293,7 @@ For GDPR requests, a client's page has **Export personal data** (a JSON file of 
 - Income: annual income by month, monthly transactions (payments, fees and refunds), daily performance, and an income forecast from active services' renewals.
 - Sales: income by product, new orders and new clients by month, promotion usage, and top clients by income.
 - Invoices: aging (not yet due, 1 to 30, 31 to 60, 61 to 90 and over 90 days overdue), credits given and used, and a statement for one client with a running balance.
-- Tax: tax collected by country and rate, on invoices paid or issued in the dates, optionally only for EU clients (sales tax liability and EU VAT returns).
+- Tax: tax collected by country and rate (with each tax level, and reverse-charge sales on their own row), on invoices paid or issued in the dates, optionally only for EU clients (sales tax liability and EU VAT returns).
 - Clients and services: clients by country and by group, client growth and churn, retention time by product, suspensions and cancellations by reason, and server revenue.
 - Support: tickets opened and closed, first response and resolution times, replies by staff, ratings and feedback comments, and ticket tags.
 
@@ -348,6 +348,8 @@ See [docs/admin/system.md](docs/admin/system.md).
 ### Settings
 
 Admins change tax-inclusive pricing, whether invoice emails attach the PDF, and how long to keep the activity log under **Settings**, which also links to ticket departments and email templates. Values saved there replace the matching `.env` settings below. With tax-inclusive pricing on, line amounts already include tax: an invoice's total is the sum of its lines, and the invoice shows how much of it is tax. Invoices keep the setting they were created with.
+
+Tax rules have two levels, like WHMCS's Tax Level 1 and Level 2: a client is taxed by one rule of each, and **Compound tax** charges level 2 on the amount plus level 1 tax. Clients have a tax ID / VAT number on their profile (set by staff, in the portal or at checkout), printed on their invoices and quotes. **Check EU VAT numbers with VIES** checks EU VAT numbers with the European Commission's VIES service (VIES being down never blocks checkout; the number is kept unverified), and **Reverse charge EU VAT** charges no VAT to verified business clients in another EU country, with "Reverse charge" and both VAT numbers on the invoice. See [docs/admin/tax.md](docs/admin/tax.md).
 
 ### Provisioning modules
 
@@ -530,6 +532,9 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_LATE_FEE_TYPE` | `fixed` | `fixed` for a set amount, `percent` for a share of the invoice total |
 | `BILLING_LATE_FEE_AMOUNT` | `0` | The fee, e.g. `5.00`, or `10` for 10% |
 | `BILLING_TAX_INCLUSIVE` | `false` | Prices include tax |
+| `BILLING_TAX_COMPOUND` | `false` | Charge level 2 tax on the amount plus level 1 tax |
+| `BILLING_VAT_VALIDATION` | `false` | Check clients' EU VAT numbers with VIES when they're saved |
+| `BILLING_REVERSE_CHARGE` | `false` | No VAT for verified EU business clients in another EU country than `BILLING_COMPANY_TAX_ID`; turns VIES checks on too |
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |

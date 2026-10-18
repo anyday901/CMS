@@ -27,6 +27,10 @@
                 <label class="block sm:col-span-2">{{ __('Company (optional)') }}
                     <input name="company" value="{{ old('company') }}" autocomplete="organization" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 </label>
+                <label class="block sm:col-span-2">{{ __('Tax ID / VAT number (optional)') }}
+                    <input name="tax_id" value="{{ old('tax_id') }}" maxlength="100" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    @if (config('billing.reverse_charge'))<span class="mt-1 block text-ink-500">{{ __('EU businesses: enter your VAT number with its country code, such as DE123456789.') }}</span>@endif
+                </label>
                 <label class="block sm:col-span-2">{{ __('Address') }}
                     <input name="address1" value="{{ old('address1') }}" required autocomplete="address-line1" class="mt-1 w-full rounded-md px-3 py-2 ring-1 ring-ink-300">
                 </label>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Billing\VatNumbers;
 use App\Http\Controllers\Controller;
 use App\Integrations\Sms\Sms;
 use App\Models\Activity;
@@ -28,7 +29,7 @@ class AccountController extends Controller
         ]);
     }
 
-    public function update(Request $request, EmailVerification $verification): RedirectResponse
+    public function update(Request $request, EmailVerification $verification, VatNumbers $vatNumbers): RedirectResponse
     {
         $client = $request->user('client');
         $fields = CustomField::forClients()->where('admin_only', false)->get();
@@ -45,10 +46,12 @@ class AccountController extends Controller
             'state' => ['nullable', 'string', 'max:255'],
             'postcode' => ['nullable', 'string', 'max:20'],
             'country' => ['nullable', 'string', 'size:2'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
         ] + CustomField::rules($fields), [], CustomField::attributeNames($fields));
 
         $client->fill([
             ...$data,
+            ...$vatNumbers->attributes($data['tax_id'] ?? null, $client),
             'custom_fields' => CustomField::merge($fields, (array) $request->input('custom_fields', []), $client->custom_fields),
         ]);
         $emailChanged = $client->isDirty('email');
@@ -57,7 +60,7 @@ class AccountController extends Controller
         }
         $client->save();
 
-        Activity::record('Updated their contact details', $client, ['changed' => array_keys(Arr::except($client->getChanges(), 'email_verified_at'))]);
+        Activity::record('Updated their contact details', $client, ['changed' => array_keys(Arr::except($client->getChanges(), ['email_verified_at', 'tax_id_verified_at']))]);
 
         if ($emailChanged) {
             $verification->send($client);

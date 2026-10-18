@@ -21,6 +21,9 @@ class SettingsController extends Controller
     {
         return view('admin.settings.edit', [
             'taxInclusive' => (bool) config('billing.tax_inclusive'),
+            'taxCompound' => (bool) config('billing.tax_compound'),
+            'vatValidation' => (bool) config('billing.vat_validation'),
+            'reverseCharge' => (bool) config('billing.reverse_charge'),
             'attachInvoicePdf' => (bool) config('billing.attach_invoice_pdf'),
             'holdNewOrders' => (bool) config('billing.hold_new_orders'),
             'termsUrl' => config('store.terms_url'),
@@ -49,6 +52,9 @@ class SettingsController extends Controller
     {
         $data = $request->validate([
             'tax_inclusive' => ['boolean'],
+            'tax_compound' => ['boolean'],
+            'vat_validation' => ['boolean'],
+            'reverse_charge' => ['boolean'],
             'attach_invoice_pdf' => ['boolean'],
             'hold_new_orders' => ['boolean'],
             'terms_url' => ['nullable', 'url:http,https', 'max:255'],
@@ -82,6 +88,9 @@ class SettingsController extends Controller
         $hoursBefore = [config('tickets.business_hours'), config('tickets.holidays'), config('tickets.timezone')];
         Settings::save([
             'billing.tax_inclusive' => $request->boolean('tax_inclusive'),
+            'billing.tax_compound' => $request->boolean('tax_compound'),
+            'billing.vat_validation' => $request->boolean('vat_validation'),
+            'billing.reverse_charge' => $request->boolean('reverse_charge'),
             'billing.attach_invoice_pdf' => $request->boolean('attach_invoice_pdf'),
             'billing.hold_new_orders' => $request->boolean('hold_new_orders'),
             'store.terms_url' => ($data['terms_url'] ?? null) ?: null,
@@ -110,6 +119,9 @@ class SettingsController extends Controller
 
         Activity::record('Updated settings', null, [
             'tax_inclusive' => (bool) config('billing.tax_inclusive'),
+            'tax_compound' => (bool) config('billing.tax_compound'),
+            'vat_validation' => (bool) config('billing.vat_validation'),
+            'reverse_charge' => (bool) config('billing.reverse_charge'),
             'attach_invoice_pdf' => (bool) config('billing.attach_invoice_pdf'),
             'hold_new_orders' => (bool) config('billing.hold_new_orders'),
             'terms_url' => config('store.terms_url'),

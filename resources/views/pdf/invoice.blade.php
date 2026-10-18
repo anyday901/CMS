@@ -53,6 +53,7 @@
             @if ($line)<div>{{ $line }}</div>@endif
         @endforeach
         <div>{{ $client->email }}</div>
+        @if ($invoice->client_tax_id)<div>Tax ID: {{ $invoice->client_tax_id }}</div>@endif
     </div>
 
     <table class="items">
@@ -67,17 +68,19 @@
     <table class="totals" role="presentation" style="margin-top: 8px;">
         @if ($invoice->tax && ! $invoice->tax_inclusive)
             <tr><td class="label">Subtotal</td><td class="num" style="width: 120px;">{{ Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
-            <tr><td class="label">{{ $invoice->taxLabel() }}</td><td class="num">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>
+            @foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">{{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach
         @endif
         <tr class="grand"><td class="label">Total</td><td class="num" style="width: 120px;">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
         @if ($invoice->tax && $invoice->tax_inclusive)
-            <tr><td class="label">Includes {{ $invoice->taxLabel() }}</td><td class="num">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>
+            @foreach ($invoice->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">Includes {{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $invoice->currency) }}</td></tr>@endforeach
         @endif
         @if ($invoice->amountPaid())
             <tr><td class="label">Paid</td><td class="num">{{ Money::format($invoice->amountPaid(), $invoice->currency) }}</td></tr>
         @endif
         <tr class="grand"><td class="label">Balance due</td><td class="num">{{ Money::format(max(0, $invoice->balance()), $invoice->currency) }}</td></tr>
     </table>
+
+    @include('pdf._reverse-charge', ['document' => $invoice])
 
     @if ($invoice->transactions->isNotEmpty())
         <div style="margin-top: 24px;">

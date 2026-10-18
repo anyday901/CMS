@@ -15,7 +15,7 @@ class TaxRuleController extends Controller
 {
     public function index(): View
     {
-        $rules = TaxRule::orderBy('country')->orderBy('state')->orderBy('name')->get();
+        $rules = TaxRule::orderBy('level')->orderBy('country')->orderBy('state')->orderBy('name')->get();
 
         return view('admin.tax-rules.index', ['rules' => $rules, 'rule' => new TaxRule]);
     }
@@ -23,7 +23,7 @@ class TaxRuleController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $rule = TaxRule::create($this->validated($request));
-        Activity::record("Added tax rule {$rule->name}", $rule, ['rate' => $rule->rate, 'country' => $rule->country, 'state' => $rule->state]);
+        Activity::record("Added tax rule {$rule->name}", $rule, ['rate' => $rule->rate, 'level' => $rule->level, 'country' => $rule->country, 'state' => $rule->state]);
 
         return redirect()->route('admin.tax-rules.index')->with('status', 'Tax rule added.');
     }
@@ -36,7 +36,7 @@ class TaxRuleController extends Controller
     public function update(Request $request, TaxRule $taxRule): RedirectResponse
     {
         $taxRule->update($this->validated($request));
-        Activity::record("Updated tax rule {$taxRule->name}", $taxRule, ['rate' => $taxRule->rate, 'country' => $taxRule->country, 'state' => $taxRule->state]);
+        Activity::record("Updated tax rule {$taxRule->name}", $taxRule, ['rate' => $taxRule->rate, 'level' => $taxRule->level, 'country' => $taxRule->country, 'state' => $taxRule->state]);
 
         return redirect()->route('admin.tax-rules.index')->with('status', 'Tax rule updated.');
     }
@@ -54,6 +54,7 @@ class TaxRuleController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'rate' => ['required', Money::rule()],
+            'level' => ['nullable', 'integer', 'in:1,2'],
             // A state code alone is ambiguous across countries.
             'country' => ['nullable', 'required_with:state', 'string', 'size:2'],
             'state' => ['nullable', 'string', 'max:255'],
@@ -69,6 +70,7 @@ class TaxRuleController extends Controller
         return [
             'name' => $data['name'],
             'rate' => $rate,
+            'level' => (int) ($data['level'] ?? 1),
             'country' => filled($data['country'] ?? null) ? strtoupper($data['country']) : null,
             'state' => filled($data['state'] ?? null) ? trim($data['state']) : null,
         ];

@@ -101,7 +101,10 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Billable items: one-off or recurring charges and time tracking added to the next invoice
 - [x] Merge unpaid invoices
 - [x] Sequential invoice numbers for paid invoices only, with a proforma number before payment
-- [ ] Compound and multi-level tax, EU VAT number validation and reverse charge
+- [x] Compound and multi-level tax, EU VAT number validation and reverse charge
+- [x] Client tax ID / VAT number on the client profile, invoices and quotes
+- [ ] Import WHMCS's level 2 tax rules, compound setting and client tax IDs
+- [ ] Re-check unverified EU VAT numbers with VIES automatically
 - [ ] Account statements for a date range
 - [ ] Gateway log of every callback and webhook
 - [ ] Client groups with discounts and their own settings

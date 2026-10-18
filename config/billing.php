@@ -41,6 +41,19 @@ return [
     // after the change. Can also be set on the admin Settings page.
     'tax_inclusive' => (bool) env('BILLING_TAX_INCLUSIVE', false),
 
+    // Charge level 2 tax on the amount plus level 1 tax (compound tax), as
+    // in some Canadian provinces. Off charges each level on the amount alone.
+    'tax_compound' => (bool) env('BILLING_TAX_COMPOUND', false),
+
+    // Check clients' EU VAT numbers with the European Commission's VIES
+    // service when they're saved.
+    'vat_validation' => (bool) env('BILLING_VAT_VALIDATION', false),
+
+    // Charge no VAT to business clients with a checked EU VAT number from
+    // another EU country than BILLING_COMPANY_TAX_ID's; their invoices say
+    // "Reverse charge". Turns VAT number checking on too.
+    'reverse_charge' => (bool) env('BILLING_REVERSE_CHARGE', false),
+
     // Late fee added once to invoices still unpaid this many days after the
     // due date. Set to null to turn late fees off.
     'late_fee_after_days' => env('BILLING_LATE_FEE_AFTER_DAYS'),

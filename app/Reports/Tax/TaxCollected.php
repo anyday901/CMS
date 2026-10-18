@@ -18,6 +18,9 @@ class TaxCollected extends Report
     /** The European Union's member states, for VAT returns. */
     public const EU = ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'];
 
+    /** Each row is one combination of these: the client's country and the tax saved on the invoice. */
+    private const RATE_COLUMNS = ['clients.country', 'invoices.tax_name', 'invoices.tax_rate', 'invoices.tax2_name', 'invoices.tax2_rate', 'invoices.reverse_charge'];
+
     public function key(): string
     {
         return 'tax-collected';
@@ -59,30 +62,36 @@ class TaxCollected extends Report
                 fn ($query) => $query->whereBetween('invoices.paid_at', $filters->between()));
 
         $rows = [];
-        foreach ($query->groupBy('clients.country', 'invoices.tax_name', 'invoices.tax_rate')
+        foreach ($query->groupBy(...self::RATE_COLUMNS)
             ->get([
-                'clients.country', 'invoices.tax_name', 'invoices.tax_rate',
+                ...self::RATE_COLUMNS,
                 DB::raw('COUNT(*) as invoices'),
                 DB::raw('SUM(invoices.total - invoices.tax) as sales'),
                 DB::raw('SUM(invoices.tax) as tax'),
+                DB::raw('SUM(invoices.tax2) as tax2'),
             ]) as $row) {
-            $this->addTo($rows, $row, (int) $row->invoices, (int) $row->sales, (int) $row->tax);
+            $this->addTo($rows, $row, (int) $row->invoices, (int) $row->sales, (int) $row->tax, (int) $row->tax2);
         }
 
         foreach ($this->refunds($filters) as $refund) {
             // The refunded share of the invoice's tax, in proportion to the amount refunded.
-            $tax = (int) $refund->total > 0 ? (int) round(-(int) $refund->amount * (int) $refund->tax / (int) $refund->total) : 0;
-            $this->addTo($rows, $refund, 0, (int) $refund->amount + $tax, -$tax);
+            $share = fn (int $tax) => (int) $refund->total > 0 ? (int) round(-(int) $refund->amount * $tax / (int) $refund->total) : 0;
+            $tax = $share((int) $refund->tax);
+            $this->addTo($rows, $refund, 0, (int) $refund->amount + $tax, -$tax, -$share((int) $refund->tax2));
         }
 
         ksort($rows);
 
+        // Level 2 columns only appear once an invoice in the period has level 2 tax.
+        $levels = collect($rows)->contains(fn (array $row) => $row['rate2'] > 0);
         $table = new ReportTable([
             'country' => ['Country', ReportTable::TEXT],
             'tax_name' => ['Tax', ReportTable::TEXT],
             'rate' => ['Rate', ReportTable::PERCENT],
+            ...($levels ? ['tax2_name' => ['Level 2 tax', ReportTable::TEXT], 'rate2' => ['Level 2 rate', ReportTable::PERCENT]] : []),
             'invoices' => ['Invoices', ReportTable::NUMBER],
             'sales' => ['Sales before tax', ReportTable::MONEY],
+            ...($levels ? ['tax1' => ['Level 1', ReportTable::MONEY], 'tax2' => ['Level 2', ReportTable::MONEY]] : []),
             'tax' => ['Tax', ReportTable::MONEY],
         ], currency: $filters->currency);
         $table->chart = 'tax';
@@ -94,7 +103,7 @@ class TaxCollected extends Report
                 ? 'Invoices issued in these dates, paid or not (accrual basis). Cancelled invoices are left out.'
                 : 'Invoices paid in these dates (cash basis).')
             ->note('Refunds made in these dates take their share of the invoice\'s tax back, in the period they were made, so earlier periods don\'t change.')
-            ->note('By the country on the client\'s account today and the tax rate saved on each invoice. Tax-exempt clients and reverse-charge sales show under No tax.');
+            ->note('By the country on the client\'s account today and the tax rates saved on each invoice. Tax-exempt clients show under No tax, and EU sales with no VAT charged under Reverse charge.');
     }
 
     private function invoices(ReportFilters $filters): Builder
@@ -113,27 +122,40 @@ class TaxCollected extends Report
             ->where('transactions.amount', '<', 0)
             ->where('transactions.pending', false)
             ->whereBetween('transactions.created_at', $filters->between())
-            ->get(['clients.country', 'invoices.tax_name', 'invoices.tax_rate', 'invoices.total', 'invoices.tax', 'transactions.amount']);
+            ->get([...self::RATE_COLUMNS, 'invoices.total', 'invoices.tax', 'invoices.tax2', 'transactions.amount']);
     }
 
     /** @param  array<string, array<string, mixed>>  $rows */
-    private function addTo(array &$rows, object $row, int $invoices, int $sales, int $tax): void
+    private function addTo(array &$rows, object $row, int $invoices, int $sales, int $tax, int $tax2): void
     {
         $rate = (int) $row->tax_rate;
+        $rate2 = (int) $row->tax2_rate;
         $taxName = $row->tax_name ?: 'Tax';
+        $tax2Name = $rate2 > 0 ? ($row->tax2_name ?: 'Tax') : '';
         $country = $row->country ?: 'Unknown';
-        $key = sprintf('%s|%06d|%s', $country, 999999 - $rate, $taxName);
+        $key = sprintf('%s|%06d|%s|%06d|%s|%d', $country, 999999 - $rate, $taxName, 999999 - $rate2, $tax2Name, $row->reverse_charge);
 
         $rows[$key] ??= [
             'country' => $country,
-            'tax_name' => $rate > 0 ? $taxName : 'No tax',
+            'tax_name' => match (true) {
+                $rate > 0 => $taxName,
+                (bool) $row->reverse_charge => 'Reverse charge',
+                $rate2 > 0 => '',
+                default => 'No tax',
+            },
             'rate' => $rate / 100,
+            'tax2_name' => $tax2Name,
+            'rate2' => $rate2 / 100,
             'invoices' => 0,
             'sales' => 0,
+            'tax1' => 0,
+            'tax2' => 0,
             'tax' => 0,
         ];
         $rows[$key]['invoices'] += $invoices;
         $rows[$key]['sales'] += $sales;
+        $rows[$key]['tax1'] += $tax - $tax2;
+        $rows[$key]['tax2'] += $tax2;
         $rows[$key]['tax'] += $tax;
     }
 }

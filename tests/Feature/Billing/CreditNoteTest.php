@@ -309,4 +309,17 @@ class CreditNoteTest extends TestCase
         $this->assertSame($this->allLines($invoice), CreditNoteIssuer::creditableLines($invoice));
         $this->assertTrue(Activity::where('description', 'Voided credit note CN-1 because its gateway refund failed')->exists());
     }
+
+    public function test_a_credit_note_carries_both_tax_levels_of_its_invoice(): void
+    {
+        config(['billing.tax_compound' => true]);
+        TaxRule::create(['name' => 'Provincial tax', 'rate' => 500, 'country' => 'US', 'level' => 2]);
+        $invoice = $this->paid();
+        $this->assertGreaterThan(0, $invoice->tax2);
+
+        $note = app(CreditNoteIssuer::class)->issue($invoice, $this->allLines($invoice), self::REASON, 'credit');
+
+        $this->assertSame([$invoice->tax, $invoice->tax2, $invoice->total, true], [$note->tax, $note->tax2, $note->total, $note->tax2_compound]);
+        $this->assertSame($invoice->taxLines(), $note->taxLines());
+    }
 }
