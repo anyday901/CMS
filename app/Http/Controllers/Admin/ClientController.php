@@ -113,8 +113,13 @@ class ClientController extends Controller
         return redirect()->route('admin.clients.show', $client)->with('status', 'Client created.');
     }
 
-    public function show(Request $request, Client $client): View
+    public function show(Request $request, Client $client): View|RedirectResponse
     {
+        // The service picker on a service page sends the chosen service here.
+        if ($request->filled('service') && $service = $client->services()->find($request->integer('service'))) {
+            return redirect()->route('admin.services.show', $service);
+        }
+
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
             'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
@@ -139,10 +144,7 @@ class ClientController extends Controller
 
         $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
 
-        $sections = self::SECTIONS;
-        if ($client->domains->isEmpty() && ! Tld::exists()) {
-            unset($sections['Products']['domains']);
-        }
+        ['sections' => $sections, 'counts' => $counts] = self::frame($client);
         $section = collect($sections)->collapse()->has($request->query('tab')) ? $request->query('tab') : 'summary';
 
         $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid);
@@ -157,19 +159,36 @@ class ClientController extends Controller
             'awaitingReply' => $client->tickets()->listed()->awaitingStaff()->count(),
         ];
 
-        $counts = [
-            'contacts' => $client->contacts()->count(),
-            'services' => $client->services->count(),
-            'domains' => $client->domains->count(),
-            'orders' => $client->orders()->count(),
-            'invoices' => $client->invoices->count(),
-            'tickets' => $client->tickets()->listed()->count(),
-            'emails' => $client->emailLogs()->count(),
-            'notes' => $client->clientNotes->count(),
-            'todos' => $client->todos()->unfinished()->count(),
-        ];
-
         return view('admin.clients.show', compact('client', 'activity', 'credit', 'tickets', 'emails', 'fields', 'orders', 'logins', 'todos', 'sections', 'section', 'stats', 'counts'));
+    }
+
+    /**
+     * The client page's section menu and the counts beside it, shared with
+     * pages shown inside the client page, such as one of their services.
+     *
+     * @return array{sections: array<string, array<string, string>>, counts: array<string, int>}
+     */
+    public static function frame(Client $client): array
+    {
+        $sections = self::SECTIONS;
+        if (! $client->domains()->exists() && ! Tld::exists()) {
+            unset($sections['Products']['domains']);
+        }
+
+        return [
+            'sections' => $sections,
+            'counts' => [
+                'contacts' => $client->contacts()->count(),
+                'services' => $client->services()->count(),
+                'domains' => $client->domains()->count(),
+                'orders' => $client->orders()->count(),
+                'invoices' => $client->invoices()->count(),
+                'tickets' => $client->tickets()->listed()->count(),
+                'emails' => $client->emailLogs()->count(),
+                'notes' => $client->clientNotes()->count(),
+                'todos' => $client->todos()->unfinished()->count(),
+            ],
+        ];
     }
 
     public function edit(Client $client): View

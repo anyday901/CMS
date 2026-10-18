@@ -53,7 +53,7 @@ class ServiceServerTest extends TestCase
 
         $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertSee('example')->assertSee(self::OLD_PASSWORD);
 
-        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $other->id, 'label' => self::NEW_DOMAIN, 'username' => 'exampl2', 'password' => self::PASSWORD])
+        $this->put("/admin/services/{$this->service->id}/details", ['server_id' => $other->id, 'label' => self::NEW_DOMAIN, 'username' => 'exampl2', 'password' => self::PASSWORD])
             ->assertSessionHas('status', 'Saved. The new password is being set on the server.');
 
         // The working password stays until the server has taken the new one.
@@ -61,7 +61,7 @@ class ServiceServerTest extends TestCase
         $this->assertSame([$other->id, self::NEW_DOMAIN, 'exampl2', self::OLD_PASSWORD, self::PASSWORD], [$service->server_id, $service->label, $service->username, $service->password, $service->new_password]);
         $this->get("/admin/services/{$service->id}")->assertSee('A new password is waiting to be set on the server');
         Queue::assertPushed(RunProvisioningAction::class, fn (RunProvisioningAction $job) => $job->action === 'change_password');
-        $this->assertSame(['label', 'server_id', 'username', 'new_password'], Activity::where('description', 'like', 'Changed the server details%')->sole()->properties['changed']);
+        $this->assertSame(['label', 'server_id', 'username', 'new_password'], Activity::where('description', 'like', 'Changed the details%')->sole()->properties['changed']);
     }
 
     public function test_the_new_password_replaces_the_old_one_once_the_server_takes_it(): void
@@ -71,7 +71,7 @@ class ServiceServerTest extends TestCase
             ->push(['metadata' => ['result' => 1], 'data' => []])]);
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'username' => 'example', 'password' => self::PASSWORD]);
+        $this->put("/admin/services/{$this->service->id}/details", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'username' => 'example', 'password' => self::PASSWORD]);
 
         $service = $this->service->fresh();
         $this->assertSame('WHM: The password is too weak.', $service->provisioning_error);
@@ -91,7 +91,7 @@ class ServiceServerTest extends TestCase
         $this->service->forceFill(['provisioned_at' => null, 'status' => ServiceStatus::Pending])->save();
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'password' => self::PASSWORD])
+        $this->put("/admin/services/{$this->service->id}/details", ['server_id' => $this->server->id, 'label' => self::DOMAIN, 'password' => self::PASSWORD])
             ->assertSessionHas('status', 'Saved.');
 
         Queue::assertNothingPushed();
@@ -103,7 +103,7 @@ class ServiceServerTest extends TestCase
         $proxmox = Server::factory()->create(['module' => 'proxmox']);
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put("/admin/services/{$this->service->id}/server", ['server_id' => $proxmox->id, 'label' => 'not a domain', 'username' => 'two words', 'password' => 'short'])
+        $this->put("/admin/services/{$this->service->id}/details", ['server_id' => $proxmox->id, 'label' => 'not a domain', 'username' => 'two words', 'password' => 'short'])
             ->assertSessionHasErrors(['server_id', 'label', 'username', 'password']);
         $this->assertSame($this->server->id, $this->service->fresh()->server_id);
     }
@@ -112,8 +112,8 @@ class ServiceServerTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => StaffRole::Support]), 'web');
 
-        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertDontSee(self::OLD_PASSWORD)->assertDontSee('Change server or login');
-        $this->put("/admin/services/{$this->service->id}/server", ['label' => self::NEW_DOMAIN])->assertForbidden();
+        $this->get("/admin/services/{$this->service->id}")->assertOk()->assertSee('cp1')->assertDontSee(self::OLD_PASSWORD)->assertDontSee('Save changes');
+        $this->put("/admin/services/{$this->service->id}/details", ['label' => self::NEW_DOMAIN])->assertForbidden();
     }
 
     public function test_the_store_asks_for_the_domain_of_hosting(): void

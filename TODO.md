@@ -181,6 +181,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [x] Merge two client accounts
 - [x] Marketing email opt-in and opt-out
 - [x] Client page in sections with a side menu and totals across the top, like WHMCS's client tabs
+- [x] Admin service page inside the client page, with a service picker, WHMCS's two-column layout and in-place editing of server, login, dates, amount and cycle
 - [x] Admin dashboard laid out like WHMCS's: shortcuts and system information on the side, four counts, the orders and income chart, billing, client activity, automation overview and activity
 - [ ] Let staff hide, move and collapse dashboard panels, like WHMCS's widgets
 - [ ] An account holder reaching other accounts with their own login too (WHMCS 8 users who own one client and are users of another)
