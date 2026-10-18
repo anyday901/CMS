@@ -26,9 +26,11 @@ use App\Provisioning\Provisioner;
 use App\Provisioning\ServerAccount;
 use App\Provisioning\SingleSignOn;
 use App\Provisioning\UsesServers;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -78,7 +80,7 @@ class ServiceController extends Controller
 
     public function show(Service $service, ServiceUpgrader $upgrader, ServiceCanceller $canceller, ModuleRegistry $modules, AccountMover $mover): View
     {
-        $service->load(['client', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server', 'openMove.fromServer', 'openMove.fromProduct']);
+        $service->load(['client.group', 'client.clientNotes.user', 'product.options.choices', 'options', 'invoiceItems.invoice', 'promotion', 'order', 'parent.product', 'addons.product', 'upgrades.toProduct', 'upgrades.invoice', 'pendingCancellation.requester', 'server', 'openMove.fromServer', 'openMove.fromProduct']);
         $module = $modules->find($service->product->module);
         $servers = $module instanceof UsesServers ? Server::where('module', $module->key())->withAccountCount()->orderBy('name')->get() : null;
         $moveTo = $servers !== null && $mover->problem($service) === null
@@ -87,6 +89,13 @@ class ServiceController extends Controller
 
         return view('admin.services.show', [
             'service' => $service,
+            'client' => $service->client,
+            // The client page's menu, which the service is shown inside.
+            ...ClientController::frame($service->client),
+            // The client's other services, for the picker.
+            'clientServices' => $service->client->services()->with('product')->latest()->get(),
+            // Servers it can be put on: of its module's kind when the module uses them, otherwise any.
+            'serverChoices' => $servers ?? Server::orderBy('name')->get(),
             'module' => $module,
             // Servers the service can be put on, for modules that use them.
             'servers' => $servers,
@@ -158,40 +167,48 @@ class ServiceController extends Controller
     }
 
     /**
-     * The server, domain and login of a service whose module uses servers.
-     * Choosing another server doesn't move the account. Once the account
-     * exists, a new password is set on the server, and waits in new_password
-     * until that works so the client keeps a password that logs in.
+     * The fields staff edit on the service page, as in WHMCS: the server,
+     * domain and login, and the dates, amount and cycle it bills on. Any
+     * service can be put on a server, of its module's kind when the module
+     * uses servers; choosing another server doesn't move the account. Once a
+     * module's account exists, a new password is set on the server, and
+     * waits in new_password until that works so the client keeps a password
+     * that logs in. Only the fields sent are changed, and billing changes
+     * take effect from the next invoice.
      */
-    public function server(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
+    public function details(Request $request, Service $service, Provisioner $provisioner, ModuleRegistry $modules): RedirectResponse
     {
         $module = $modules->find($service->product->module);
-        abort_unless($module instanceof UsesServers, 422, 'This service\'s product doesn\'t use servers.');
+        $usesServers = $module instanceof UsesServers;
 
         $data = $request->validate([
-            'server_id' => ['nullable', Rule::exists('servers', 'id')->where('module', $module->key())],
-            'label' => ['nullable', 'string', 'max:255', ...($module->needsDomain() ? [ServerAccount::domainRule()] : [])],
-            'username' => ['nullable', 'string', 'max:64', 'regex:/^\S+$/'],
-            'password' => ['nullable', 'string', 'min:8', 'max:64'],
-        ], ['username.regex' => 'The username can\'t contain spaces.']);
+            'server_id' => ['nullable', $usesServers ? Rule::exists('servers', 'id')->where('module', $module->key()) : Rule::exists('servers', 'id')],
+            'label' => ['nullable', 'string', 'max:255', ...($usesServers && $module->needsDomain() ? [ServerAccount::domainRule()] : [])],
+            // A module's username has to work on the server; one kept for reference, such as from WHMCS, can be anything.
+            'username' => $usesServers ? ['nullable', 'string', 'max:64', 'regex:/^\S+$/'] : ['nullable', 'string', 'max:255'],
+            'password' => $usesServers ? ['nullable', 'string', 'min:8', 'max:64'] : ['nullable', 'string', 'max:255'],
+            'registration_date' => ['sometimes', 'required', 'date'],
+            'next_due_date' => ['sometimes', 'nullable', 'date', Rule::requiredIf(fn () => BillingCycle::tryFrom((string) $request->input('billing_cycle', $service->billing_cycle->value))?->isRecurring())],
+            'recurring_amount' => ['sometimes', 'required', Money::rule()],
+            'billing_cycle' => ['sometimes', 'required', Rule::enum(BillingCycle::class)],
+        ], ['username.regex' => 'The username can\'t contain spaces.', 'next_due_date.required' => 'A recurring service needs a next due date.']);
 
         $newPassword = filled($data['password'] ?? null) && $data['password'] !== $service->password;
         // Before the account exists, create uses the new password anyway.
-        $push = $newPassword && $service->provisioned_at !== null && Provisioner::canChangePassword($module, $service)
+        $push = $newPassword && $usesServers && $service->provisioned_at !== null && Provisioner::canChangePassword($module, $service)
             && in_array($service->status, [ServiceStatus::Active, ServiceStatus::Suspended], true);
 
         $passwordColumn = $push ? 'new_password' : 'password';
         $service->forceFill([
-            'server_id' => $data['server_id'] ?? null,
-            'label' => $data['label'] ?? null,
-            'username' => $data['username'] ?? null,
+            ...Arr::only($data, ['server_id', 'label', 'username', 'registration_date', 'next_due_date', 'billing_cycle']),
             ...($newPassword ? [$passwordColumn => $data['password']] : []),
+            ...(isset($data['recurring_amount']) ? ['recurring_amount' => Money::parse($data['recurring_amount'])] : []),
         ]);
         $changed = array_keys($service->getDirty());
         $service->save();
 
         if ($changed !== []) {
-            Activity::record("Changed the server details of {$service->description()}", $service, ['changed' => $changed]);
+            Activity::record("Changed the details of {$service->description()}", $service, ['changed' => $changed]);
         }
 
         if ($push) {
@@ -199,33 +216,6 @@ class ServiceController extends Controller
         }
 
         return back()->with('status', $push ? 'Saved. The new password is being set on the server.' : 'Saved.');
-    }
-
-    /**
-     * The username and password of a service whose module doesn't use
-     * servers, kept for reference (WHMCS keeps one on every service).
-     */
-    public function login(Request $request, Service $service, ModuleRegistry $modules): RedirectResponse
-    {
-        abort_if($modules->find($service->product->module) instanceof UsesServers, 422, 'Change this service\'s login with its server details.');
-
-        $data = $request->validate([
-            'username' => ['nullable', 'string', 'max:255'],
-            'password' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $service->forceFill([
-            'username' => $data['username'] ?? null,
-            ...(filled($data['password'] ?? null) ? ['password' => $data['password']] : []),
-        ]);
-        $changed = array_keys($service->getDirty());
-        $service->save();
-
-        if ($changed !== []) {
-            Activity::record("Changed the login of {$service->description()}", $service, ['changed' => $changed]);
-        }
-
-        return back()->with('status', 'Saved.');
     }
 
     /** Opens the service's control panel, logged in as its account, for staff helping the client. */

@@ -59,7 +59,7 @@ class CpanelModuleTest extends TestCase
             && $request['contactemail'] === 'ada@example.test');
 
         $this->actingAs(User::factory()->create(), 'web');
-        $this->get("/admin/services/{$service->id}")->assertOk()->assertSee('cp1')->assertSee('Change server or login');
+        $this->get("/admin/services/{$service->id}")->assertOk()->assertSee('cp1')->assertSee('Save changes');
     }
 
     public function test_an_account_an_earlier_run_made_is_kept(): void

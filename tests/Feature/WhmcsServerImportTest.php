@@ -120,10 +120,8 @@ class WhmcsServerImportTest extends TestCase
 
         $this->actingAs(User::factory()->create(), 'web');
         $this->get('/admin/services/42')->assertOk()->assertSee('Login')->assertSee('ada-mail')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);
-        $this->put('/admin/services/42/login', ['username' => 'ada-box', 'password' => ''])->assertRedirect();
+        $this->put('/admin/services/42/details', ['username' => 'ada-box', 'password' => ''])->assertRedirect();
         $this->assertSame(['ada-box', WhmcsDatabase::MAILBOX_PASSWORD], [$service->fresh()->username, $service->fresh()->password]);
-        // A service on a server changes its login with its server details instead.
-        $this->put('/admin/services/40/login', ['username' => 'x'])->assertStatus(422);
 
         $this->actingAs($service->client, 'client');
         $this->get('/portal/services/42')->assertOk()->assertSee('Logging in')->assertSee('ada-box')->assertSee(WhmcsDatabase::MAILBOX_PASSWORD);

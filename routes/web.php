@@ -207,8 +207,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post("{$service}/cancellations", [Admin\CancellationController::class, 'store'])->name('cancellations.store');
             Route::delete('cancellations/{cancellation}', [Admin\CancellationController::class, 'destroy'])->name('cancellations.destroy');
             Route::post('services/{service}/provision', [Admin\ServiceController::class, 'provision'])->name('services.provision');
-            Route::put("{$service}/server", [Admin\ServiceController::class, 'server'])->name('services.server');
-            Route::put("{$service}/login", [Admin\ServiceController::class, 'login'])->name('services.login');
+            Route::put("{$service}/details", [Admin\ServiceController::class, 'details'])->name('services.details');
             Route::post("{$service}/control-panel", [Admin\ServiceController::class, 'controlPanel'])->name('services.control-panel');
             Route::post("{$service}/account-moves", [Admin\AccountMoveController::class, 'store'])->name('account-moves.store');
             Route::post('account-moves/{move}/finish', [Admin\AccountMoveController::class, 'finish'])->name('account-moves.finish');
