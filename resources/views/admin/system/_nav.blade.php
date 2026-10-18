@@ -3,6 +3,7 @@
         'admin.system.health' => 'Health',
         'admin.maintenance.edit' => 'Maintenance',
         'admin.backups.index' => 'Backups',
+        'admin.cleanup.show' => 'Cleanup',
         'admin.updates.index' => 'Updates',
         'admin.marketplace.index' => 'Marketplace',
         'admin.whmcs-modules.index' => 'WHMCS modules',
