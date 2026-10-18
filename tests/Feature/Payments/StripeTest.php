@@ -10,6 +10,7 @@ use App\Models\PaymentMethod;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Payments\Gateways\Stripe;
+use App\Payments\Gateways\StripeApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -274,8 +275,8 @@ class StripeTest extends TestCase
         $time = time();
         $good = hash_hmac('sha256', "{$time}.{$body}", self::SECRET);
 
-        $this->assertTrue(app(Stripe::class)->verifyWebhook($body, "t={$time},v1=deadbeef,v1={$good},v0=old"));
-        $this->assertFalse(app(Stripe::class)->verifyWebhook($body.' ', "t={$time},v1={$good}"));
+        $this->assertTrue(app(StripeApi::class)->verifyWebhook($body, "t={$time},v1=deadbeef,v1={$good},v0=old"));
+        $this->assertFalse(app(StripeApi::class)->verifyWebhook($body.' ', "t={$time},v1={$good}"));
     }
 
     public function test_payment_intent_succeeded_is_recorded_once(): void
@@ -375,9 +376,9 @@ class StripeTest extends TestCase
     public function test_amount_conversion(): void
     {
         $this->assertSame([2500, 1500, 16, 12340], [
-            Stripe::toStripe(2500, 'USD'), Stripe::toStripe(150000, 'JPY'), Stripe::toStripe(1501, 'krw'), Stripe::toStripe(1234, 'KWD'),
+            StripeApi::toStripe(2500, 'USD'), StripeApi::toStripe(150000, 'JPY'), StripeApi::toStripe(1501, 'krw'), StripeApi::toStripe(1234, 'KWD'),
         ]);
-        $this->assertSame([2500, 150000, 1234], [Stripe::fromStripe(2500, 'usd'), Stripe::fromStripe(1500, 'JPY'), Stripe::fromStripe(12340, 'KWD')]);
+        $this->assertSame([2500, 150000, 1234], [StripeApi::fromStripe(2500, 'usd'), StripeApi::fromStripe(1500, 'JPY'), StripeApi::fromStripe(12340, 'KWD')]);
     }
 
     public function test_cards_added_or_removed_at_stripe_follow_from_webhooks(): void

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Payments\GatewayRegistry;
 use App\Payments\Gateways\Stripe;
+use App\Payments\Gateways\StripeCards;
 use App\Payments\PaymentFailed;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -61,25 +62,25 @@ class PaymentMethodController extends Controller
     }
 
     /** Starts adding a card with Stripe. */
-    public function stripeSetup(Request $request, Stripe $stripe): JsonResponse
+    public function stripeSetup(Request $request, Stripe $stripe, StripeCards $cards): JsonResponse
     {
         abort_unless($stripe->isEnabled(), 404);
 
         try {
-            return response()->json(['client_secret' => $stripe->createSetupIntent($request->user('client'))]);
+            return response()->json(['client_secret' => $cards->createSetupIntent($request->user('client'))]);
         } catch (PaymentFailed $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
     }
 
     /** Saves the card Stripe.js confirmed in the browser. */
-    public function stripeConfirm(Request $request, Stripe $stripe): JsonResponse
+    public function stripeConfirm(Request $request, Stripe $stripe, StripeCards $cards): JsonResponse
     {
         $data = $request->validate(['setup_intent' => ['required', 'string', 'max:255', 'regex:/^seti_[A-Za-z0-9]+$/']]);
         abort_unless($stripe->isEnabled(), 404);
 
         try {
-            $method = $stripe->confirmSetup($request->user('client'), $data['setup_intent']);
+            $method = $cards->confirmSetup($request->user('client'), $data['setup_intent']);
         } catch (PaymentFailed $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -91,7 +92,7 @@ class PaymentMethodController extends Controller
     }
 
     /** Where Stripe sends the client back when saving a card needed a redirect. */
-    public function stripeReturn(Request $request, Stripe $stripe): RedirectResponse
+    public function stripeReturn(Request $request, Stripe $stripe, StripeCards $cards): RedirectResponse
     {
         $intent = (string) $request->query('setup_intent');
         $back = redirect()->route('portal.payment-methods.index');
@@ -101,7 +102,7 @@ class PaymentMethodController extends Controller
         }
 
         try {
-            $method = $stripe->confirmSetup($request->user('client'), $intent);
+            $method = $cards->confirmSetup($request->user('client'), $intent);
         } catch (PaymentFailed $e) {
             return $back->withErrors(['payment_method' => $e->getMessage()]);
         }

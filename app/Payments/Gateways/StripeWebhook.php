@@ -24,6 +24,8 @@ class StripeWebhook
 {
     public function __construct(
         private Stripe $stripe,
+        private StripeApi $api,
+        private StripeCards $cards,
         private RefundService $refunds,
         private RefundReconciler $reconciler,
         private DisputeRecorder $disputes,
@@ -78,18 +80,18 @@ class StripeWebhook
             return;
         }
 
-        foreach ($this->stripe->refundsFor($intentId) as $refund) {
+        foreach ($this->api->refundsFor($intentId) as $refund) {
             if (! isset($refund['id'])) {
                 continue;
             }
 
-            $status = Stripe::refundState($refund['status'] ?? null);
+            $status = StripeApi::refundState($refund['status'] ?? null);
             $recorded = Transaction::where('gateway', Stripe::KEY)->where('gateway_reference', $refund['id'])->first();
 
             if ($recorded) {
                 $this->reconciler->settle($recorded, $status);
             } elseif ($status !== GatewayRefund::FAILED) {
-                $this->refunds->recordFromGateway($payment, Stripe::fromStripe((int) ($refund['amount'] ?? 0), $payment->currency), new GatewayRefund($refund['id'], $status));
+                $this->refunds->recordFromGateway($payment, StripeApi::fromStripe((int) ($refund['amount'] ?? 0), $payment->currency), new GatewayRefund($refund['id'], $status));
             }
         }
     }
@@ -107,7 +109,7 @@ class StripeWebhook
             $dispute['id'],
             // An inquiry closed without becoming a chargeback keeps the money with you.
             $dispute['status'] === 'warning_closed' ? 'closed' : $dispute['status'],
-            Stripe::fromStripe((int) ($dispute['amount'] ?? 0), $payment->currency),
+            StripeApi::fromStripe((int) ($dispute['amount'] ?? 0), $payment->currency),
             $dispute['reason'] ?? null,
         );
     }
@@ -122,7 +124,7 @@ class StripeWebhook
         }
 
         try {
-            $this->stripe->confirmSetup($client, (string) $intent['id']);
+            $this->cards->confirmSetup($client, (string) $intent['id']);
         } catch (PaymentFailed $e) {
             Log::warning('Could not save a card from a Stripe webhook', ['client' => $client->id, 'reason' => $e->getMessage()]);
         }

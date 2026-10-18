@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Payments\Gateways\PayPal;
 use App\Payments\Gateways\SquareWebhook;
 use App\Payments\Gateways\Stripe;
+use App\Payments\Gateways\StripeApi;
 use App\Payments\Gateways\StripeWebhook;
 use App\Payments\PaymentFailed;
 use Illuminate\Http\Request;
@@ -52,9 +53,9 @@ class WebhookController extends Controller
         return response('', 200);
     }
 
-    public function stripe(Request $request, Stripe $stripe, StripeWebhook $webhook): Response
+    public function stripe(Request $request, Stripe $stripe, StripeApi $api, StripeWebhook $webhook): Response
     {
-        if (! $stripe->isEnabled() || ! $stripe->verifyWebhook($request->getContent(), $request->header('Stripe-Signature'))) {
+        if (! $stripe->isEnabled() || ! $api->verifyWebhook($request->getContent(), $request->header('Stripe-Signature'))) {
             Log::warning('Rejected Stripe webhook', ['id' => $request->json('id')]);
 
             return response('', 400);

@@ -14,11 +14,7 @@ use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
 use App\Payments\SavedCharge;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -28,9 +24,7 @@ use InvalidArgumentException;
  * Card details go from the browser straight to Stripe; this app only keeps
  * Stripe's ids and the brand, last four digits and expiry.
  *
- * Amounts: this app keeps every currency in hundredths. Stripe wants whole
- * units for zero-decimal currencies such as JPY and thousandths for
- * three-decimal ones such as KWD, so toStripe() and fromStripe() convert.
+ * StripeApi makes the requests; StripeCards keeps customers and cards.
  */
 class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
 {
@@ -38,18 +32,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
 
     public const KEY = 'stripe';
 
-    /** Currencies Stripe takes in whole units. */
-    public const ZERO_DECIMAL = ['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'];
-
-    /** Currencies Stripe takes in thousandths. */
-    public const THREE_DECIMAL = ['BHD', 'JOD', 'KWD', 'OMR', 'TND'];
-
-    /** Stripe ids look like "pi_3Abc..."; anything else could change the request path. */
-    private const ID_PATTERN = '/^(%s)_[A-Za-z0-9]{1,250}$/';
-
-    private const DECLINED = 'Your card was declined. Please try another card or another way to pay.';
-
-    public function __construct(private PaymentRecorder $payments) {}
+    public function __construct(private PaymentRecorder $payments, private StripeApi $api, private StripeCards $cards) {}
 
     public function key(): string
     {
@@ -75,7 +58,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
     {
         return [
             'publishableKey' => config('payments.stripe.publishable_key'),
-            'stripeAmount' => self::toStripe($invoice->balance(), $invoice->currency),
+            'stripeAmount' => StripeApi::toStripe($invoice->balance(), $invoice->currency),
             'savedMethods' => $invoice->client->paymentMethods()->where('gateway', self::KEY)->get()->reject->isExpired(),
         ];
     }
@@ -90,27 +73,6 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         return ['publishableKey' => config('payments.stripe.publishable_key'), 'currency' => strtolower($client->currency)];
     }
 
-    /** Our hundredths as Stripe's amount in the currency's smallest unit. */
-    public static function toStripe(int $cents, string $currency): int
-    {
-        return match (true) {
-            // Rounded up, so the payment covers the balance; anything over goes to credit.
-            in_array(strtoupper($currency), self::ZERO_DECIMAL, true) => intdiv($cents + 99, 100),
-            in_array(strtoupper($currency), self::THREE_DECIMAL, true) => $cents * 10,
-            default => $cents,
-        };
-    }
-
-    /** Stripe's amount in the currency's smallest unit as our hundredths. */
-    public static function fromStripe(int $amount, string $currency): int
-    {
-        return match (true) {
-            in_array(strtoupper($currency), self::ZERO_DECIMAL, true) => $amount * 100,
-            in_array(strtoupper($currency), self::THREE_DECIMAL, true) => intdiv($amount + 5, 10),
-            default => $amount,
-        };
-    }
-
     /**
      * Creates a PaymentIntent for the invoice's balance, for the portal's
      * card form to confirm, and returns its client secret. With $save the
@@ -118,15 +80,15 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
      */
     public function createIntent(Invoice $invoice, bool $save): string
     {
-        $customer = $save ? $this->customerFor($invoice->client) : $invoice->client->gatewayCustomer(self::KEY);
+        $customer = $save ? $this->cards->customerFor($invoice->client) : $invoice->client->gatewayCustomer(self::KEY);
 
-        $response = $this->api()->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + array_filter([
+        $response = $this->api->request()->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + array_filter([
             'automatic_payment_methods' => ['enabled' => 'true'],
             'customer' => $customer,
             'setup_future_usage' => $save ? 'off_session' : null,
         ]));
 
-        return $this->ok($response, 'create a payment')->json('client_secret');
+        return $this->api->ok($response, 'create a payment')->json('client_secret');
     }
 
     /**
@@ -167,7 +129,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         $declines = "stripe-saved-declines-{$invoice->id}";
         $key = "invoice-{$invoice->id}-saved-{$method->id}-{$amount}-".Cache::get($declines, 0);
 
-        $response = $this->api()
+        $response = $this->api->request()
             ->withHeaders(['Idempotency-Key' => $key])
             ->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
                 'customer' => $method->gateway_customer_id,
@@ -182,7 +144,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
             Log::warning('Stripe could not charge a saved card', ['invoice' => $invoice->id, 'status' => $response->status(), 'error' => $response->json('error.code')]);
             Cache::put($declines, (int) Cache::get($declines, 0) + 1, now()->addDay());
 
-            throw new PaymentFailed($this->declineMessage($response->json('error')));
+            throw new PaymentFailed($this->api->declineMessage($response->json('error')));
         }
 
         if (($intent['status'] ?? null) === 'requires_action') {
@@ -199,7 +161,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
      */
     public function confirm(Invoice $invoice, string $intentId): ?Transaction
     {
-        $intent = $this->retrieve('payment_intents', 'pi', $intentId, ['payment_method', 'latest_charge.balance_transaction']);
+        $intent = $this->api->retrieve('payment_intents', 'pi', $intentId, ['payment_method', 'latest_charge.balance_transaction']);
 
         if (($intent['metadata']['invoice_id'] ?? null) !== (string) $invoice->id) {
             Log::warning('Stripe payment does not match invoice', ['invoice' => $invoice->id, 'intent' => $intentId]);
@@ -210,38 +172,9 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         return $this->settle($invoice, $intent);
     }
 
-    /** Creates a SetupIntent for adding a card in the portal and returns its client secret. */
-    public function createSetupIntent(Client $client): string
-    {
-        $response = $this->api()->post('/v1/setup_intents', [
-            'customer' => $this->customerFor($client),
-            'usage' => 'off_session',
-            'payment_method_types' => ['card'],
-            'metadata' => ['client_id' => (string) $client->id],
-        ]);
-
-        return $this->ok($response, 'start adding a card')->json('client_secret');
-    }
-
-    /** Saves the card of a SetupIntent the browser confirmed. */
-    public function confirmSetup(Client $client, string $setupIntentId): PaymentMethod
-    {
-        $intent = $this->retrieve('setup_intents', 'seti', $setupIntentId, ['payment_method']);
-
-        if (($intent['metadata']['client_id'] ?? null) !== (string) $client->id || ! is_array($intent['payment_method'] ?? null)) {
-            throw new PaymentFailed('This card could not be found. Please try again.');
-        }
-
-        if (($intent['status'] ?? null) !== 'succeeded') {
-            throw new PaymentFailed($this->declineMessage($intent['last_setup_error'] ?? null, 'Your card could not be saved. Please try another card.'));
-        }
-
-        return $this->saveMethod($client, $intent['payment_method'], (string) $intent['customer']);
-    }
-
     public function charge(Invoice $invoice, PaymentMethod $method, string $idempotencyKey): SavedCharge
     {
-        $response = $this->api()
+        $response = $this->api->request()
             ->withHeaders(['Idempotency-Key' => $idempotencyKey])
             ->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
                 'customer' => $method->gateway_customer_id,
@@ -255,7 +188,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         if ($response->failed()) {
             Log::warning('Stripe automatic charge failed', ['invoice' => $invoice->id, 'status' => $response->status(), 'error' => $response->json('error.code'), 'decline' => $response->json('error.decline_code')]);
 
-            throw new PaymentFailed($this->declineMessage($response->json('error')));
+            throw new PaymentFailed($this->api->declineMessage($response->json('error')));
         }
 
         $intent = $response->json();
@@ -269,8 +202,8 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
 
     public function removeMethod(PaymentMethod $method): void
     {
-        $this->id('pm', $method->gateway_reference);
-        $response = $this->api()->post("/v1/payment_methods/{$method->gateway_reference}/detach");
+        $this->api->id('pm', $method->gateway_reference);
+        $response = $this->api->request()->post("/v1/payment_methods/{$method->gateway_reference}/detach");
 
         // Already removed at Stripe, from its dashboard for example.
         if ($response->failed() && $response->status() !== 404 && ! str_contains((string) $response->json('error.message'), 'not attached')) {
@@ -284,11 +217,11 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
     {
         $reference = (string) $payment->gateway_reference;
         $field = str_starts_with($reference, 'ch_') ? 'charge' : 'payment_intent';
-        $this->id($field === 'charge' ? 'ch' : 'pi', $reference);
+        $this->api->id($field === 'charge' ? 'ch' : 'pi', $reference);
 
-        $response = $this->api()
+        $response = $this->api->request()
             ->withHeaders(['Idempotency-Key' => $idempotencyKey])
-            ->post('/v1/refunds', [$field => $reference, 'amount' => self::toStripe($amount, $payment->currency)]);
+            ->post('/v1/refunds', [$field => $reference, 'amount' => StripeApi::toStripe($amount, $payment->currency)]);
 
         if ($response->failed()) {
             Log::error('Stripe refund failed', ['transaction' => $payment->id, 'status' => $response->status(), 'error' => $response->json('error')]);
@@ -301,115 +234,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
 
     public function refundStatus(string $refundId): GatewayRefund
     {
-        return $this->refundResult($this->retrieve('refunds', 're|pyr', $refundId));
-    }
-
-    /**
-     * Every refund of a payment, as Stripe reports them.
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function refundsFor(string $intentId): array
-    {
-        $this->id('pi', $intentId);
-        $response = $this->api()->get('/v1/refunds', ['payment_intent' => $intentId, 'limit' => 100]);
-
-        return (array) $this->ok($response, 'list refunds')->json('data', []);
-    }
-
-    /** What our refund statuses call a Stripe refund's status. */
-    public static function refundState(?string $status): string
-    {
-        return match ($status) {
-            'succeeded' => GatewayRefund::COMPLETED,
-            'pending', 'requires_action' => GatewayRefund::PENDING,
-            default => GatewayRefund::FAILED, // failed or canceled
-        };
-    }
-
-    /**
-     * Checks a webhook's Stripe-Signature header: an HMAC-SHA256 of
-     * "{timestamp}.{body}" with the endpoint's signing secret, and a
-     * timestamp close enough to now that an old request can't be replayed.
-     */
-    public function verifyWebhook(string $body, ?string $header, ?int $now = null): bool
-    {
-        $secret = config('payments.stripe.webhook_secret');
-
-        if (blank($secret) || blank($header)) {
-            return false;
-        }
-
-        $timestamp = null;
-        $signatures = [];
-
-        foreach (explode(',', $header) as $part) {
-            [$name, $value] = array_pad(explode('=', trim($part), 2), 2, '');
-
-            match ($name) {
-                't' => $timestamp = ctype_digit($value) ? (int) $value : null,
-                'v1' => $signatures[] = $value,
-                default => null,
-            };
-        }
-
-        if ($timestamp === null || $signatures === [] || abs(($now ?? time()) - $timestamp) > (int) config('payments.stripe.webhook_tolerance', 300)) {
-            return false;
-        }
-
-        $expected = hash_hmac('sha256', "{$timestamp}.{$body}", (string) $secret);
-
-        return collect($signatures)->contains(fn (string $signature) => hash_equals($expected, $signature));
-    }
-
-    /** The client's Stripe customer, created the first time they save a card. */
-    public function customerFor(Client $client): string
-    {
-        if ($customer = $client->gatewayCustomer(self::KEY)) {
-            return $customer;
-        }
-
-        $response = $this->api()
-            ->withHeaders(['Idempotency-Key' => "customer-client-{$client->id}"])
-            ->post('/v1/customers', array_filter([
-                'email' => $client->email,
-                'name' => $client->fullName(),
-                'metadata' => ['client_id' => (string) $client->id],
-            ]));
-
-        $customer = (string) $this->ok($response, 'create a customer')->json('id');
-        $client->setGatewayCustomer(self::KEY, $customer);
-
-        return $customer;
-    }
-
-    /** Keeps a card Stripe has attached to the client's customer. The first one becomes the default. */
-    public function saveMethod(Client $client, array $method, string $customer): PaymentMethod
-    {
-        return DB::transaction(function () use ($client, $method, $customer) {
-            $saved = PaymentMethod::firstOrNew(['gateway' => self::KEY, 'gateway_reference' => $method['id']]);
-
-            if ($saved->exists && $saved->client_id !== $client->id) {
-                throw new PaymentFailed('This card could not be saved. Please contact us.');
-            }
-
-            $card = $method['card'] ?? [];
-            $saved->fill([
-                'client_id' => $client->id,
-                'gateway_customer_id' => $customer,
-                'type' => $method['type'] ?? 'card',
-                'brand' => $card['brand'] ?? null,
-                'last4' => $card['last4'] ?? null,
-                'exp_month' => $card['exp_month'] ?? null,
-                'exp_year' => $card['exp_year'] ?? null,
-            ])->save();
-
-            if (! $client->paymentMethods()->where('is_default', true)->exists()) {
-                $saved->makeDefault();
-            }
-
-            return $saved;
-        });
+        return $this->refundResult($this->api->retrieve('refunds', 're|pyr', $refundId));
     }
 
     /**
@@ -426,7 +251,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         }
 
         if ($status !== 'succeeded') {
-            throw new PaymentFailed($this->declineMessage($intent['last_payment_error'] ?? null, 'The payment was not completed. Please try again.'));
+            throw new PaymentFailed($this->api->declineMessage($intent['last_payment_error'] ?? null, 'The payment was not completed. Please try again.'));
         }
 
         if (strtoupper((string) ($intent['currency'] ?? '')) !== $invoice->currency) {
@@ -436,16 +261,16 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         }
 
         if (($intent['setup_future_usage'] ?? null) && is_array($intent['payment_method'] ?? null) && filled($intent['customer'] ?? null) && $invoice->client) {
-            $this->saveMethod($invoice->client, $intent['payment_method'], is_array($intent['customer']) ? $intent['customer']['id'] : $intent['customer']);
+            $this->cards->saveMethod($invoice->client, $intent['payment_method'], is_array($intent['customer']) ? $intent['customer']['id'] : $intent['customer']);
         }
 
         try {
             return $this->payments->record(
                 $invoice,
-                self::fromStripe((int) $intent['amount_received'], $invoice->currency),
+                StripeApi::fromStripe((int) $intent['amount_received'], $invoice->currency),
                 $this->key(),
                 $intent['id'],
-                $this->fee($intent, $invoice->currency),
+                StripeApi::fee($intent, $invoice->currency),
             );
         } catch (InvalidArgumentException $e) {
             // The money has moved but the invoice can't take it (already paid
@@ -456,84 +281,18 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         }
     }
 
-    /** Stripe's fee from the charge's balance transaction, when it's in the invoice's currency. */
-    private function fee(array $intent, string $currency): int
-    {
-        $balance = $intent['latest_charge']['balance_transaction'] ?? null;
-
-        if (! is_array($balance) || strtoupper((string) ($balance['currency'] ?? '')) !== $currency) {
-            return 0;
-        }
-
-        return self::fromStripe((int) ($balance['fee'] ?? 0), $currency);
-    }
-
     private function intentParams(Invoice $invoice): array
     {
         return [
-            'amount' => self::toStripe($invoice->balance(), $invoice->currency),
+            'amount' => StripeApi::toStripe($invoice->balance(), $invoice->currency),
             'currency' => strtolower($invoice->currency),
             'description' => config('app.name')." invoice #{$invoice->number}",
             'metadata' => ['invoice_id' => (string) $invoice->id, 'client_id' => (string) $invoice->client_id],
         ];
     }
 
-    /** A decline or error message from Stripe that is fine to show the client. */
-    private function declineMessage(?array $error, string $default = self::DECLINED): string
-    {
-        return match (true) {
-            ($error['code'] ?? null) === 'authentication_required' => 'Your bank asked to confirm this payment. Please pay the invoice in the client area.',
-            // Card errors are written for the cardholder; other errors could show how the app talks to Stripe.
-            ($error['type'] ?? null) === 'card_error' && filled($error['message'] ?? null) => $error['message'],
-            default => $default,
-        };
-    }
-
     private function refundResult(array $refund): GatewayRefund
     {
-        return new GatewayRefund($refund['id'], self::refundState($refund['status'] ?? null));
-    }
-
-    /** @param  list<string>  $expand */
-    private function retrieve(string $resource, string $prefix, string $id, array $expand = []): array
-    {
-        $this->id($prefix, $id);
-        $response = $this->api()->get("/v1/{$resource}/{$id}", $expand ? ['expand' => $expand] : []);
-
-        if ($response->failed()) {
-            Log::warning("Stripe could not find {$id}", ['status' => $response->status(), 'error' => $response->json('error.message')]);
-
-            throw new PaymentFailed('This payment could not be found. Please try again.');
-        }
-
-        return $response->json();
-    }
-
-    private function id(string $prefix, string $id): void
-    {
-        if (! preg_match(sprintf(self::ID_PATTERN, $prefix), $id)) {
-            throw new PaymentFailed('This payment could not be found. Please try again.');
-        }
-    }
-
-    private function api(): PendingRequest
-    {
-        return Http::baseUrl('https://api.stripe.com')
-            ->withToken((string) config('payments.stripe.secret_key'))
-            ->withHeaders(['Stripe-Version' => (string) config('payments.stripe.api_version', '2024-06-20')])
-            ->acceptJson()
-            ->asForm()
-            ->timeout(30);
-    }
-
-    private function ok(Response $response, string $action): Response
-    {
-        if ($response->failed()) {
-            Log::error("Stripe could not {$action}", ['status' => $response->status(), 'error' => $response->json('error')]);
-
-            throw new PaymentFailed('The card payment could not be started. Please try again or contact us.');
-        }
-
-        return $response;
+        return new GatewayRefund($refund['id'], StripeApi::refundState($refund['status'] ?? null));
     }
 }
