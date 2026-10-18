@@ -79,7 +79,7 @@ class Affiliate extends Model
         [$type, $value] = $this->commissionRate();
 
         return $type === self::FIXED
-            ? Money::format($value, $this->client?->currency ?? config('billing.currency')).' per invoice'
+            ? __(':amount per invoice', ['amount' => Money::format($value, $this->client?->currency ?? config('billing.currency'))])
             : TaxRule::formatRate($value);
     }
 

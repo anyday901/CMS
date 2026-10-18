@@ -80,11 +80,11 @@ class Promotion extends Model
     {
         return match (true) {
             ! $this->active,
-            $this->starts_on !== null && $today->lt($this->starts_on) => "The code {$this->code} isn't valid.",
-            $this->expires_on !== null && $today->gt($this->expires_on) => "The code {$this->code} has expired.",
-            $this->max_uses !== null && $this->uses >= $this->max_uses => "The code {$this->code} has been used up.",
-            $this->type === self::FIXED && $currency !== config('billing.currency') => "The code {$this->code} can't be used with {$currency} prices.",
-            $this->once_per_client && $client !== null && $this->orders()->where('client_id', $client->id)->exists() => "You've already used the code {$this->code}.",
+            $this->starts_on !== null && $today->lt($this->starts_on) => __("The code :code isn't valid.", ['code' => $this->code]),
+            $this->expires_on !== null && $today->gt($this->expires_on) => __('The code :code has expired.', ['code' => $this->code]),
+            $this->max_uses !== null && $this->uses >= $this->max_uses => __('The code :code has been used up.', ['code' => $this->code]),
+            $this->type === self::FIXED && $currency !== config('billing.currency') => __("The code :code can't be used with :currency prices.", ['code' => $this->code, 'currency' => $currency]),
+            $this->once_per_client && $client !== null && $this->orders()->where('client_id', $client->id)->exists() => __("You've already used the code :code.", ['code' => $this->code]),
             default => null,
         };
     }
@@ -100,6 +100,8 @@ class Promotion extends Model
     /** "10% off the first payment" or "$5.00 off every payment" */
     public function summary(): string
     {
-        return $this->valueLabel().' off '.($this->recurring ? 'every payment' : 'the first payment');
+        return $this->recurring
+            ? __(':amount off every payment', ['amount' => $this->valueLabel()])
+            : __(':amount off the first payment', ['amount' => $this->valueLabel()]);
     }
 }

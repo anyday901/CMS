@@ -18,7 +18,7 @@
         <div class="bg-brand-700 px-4 py-2 text-center text-sm text-white">{{ __('This is a demo. Sign in as :email with the password :password, and look around.', ['email' => config('demo.client_email'), 'password' => config('demo.password')]) }}</div>
     @endif
     @if (config('maintenance.enabled') && auth('web')->check())
-        <div class="bg-sun-300/60 px-4 py-2 text-center text-sm text-amber-900">Maintenance mode is on. Visitors see the maintenance notice; you see the portal because you're signed in to the admin area.</div>
+        <div class="bg-sun-300/60 px-4 py-2 text-center text-sm text-amber-900">{{ __("Maintenance mode is on. Visitors see the maintenance notice; you see the portal because you're signed in to the admin area.") }}</div>
     @endif
     @if (App\Support\Impersonation::active())
         <div class="bg-sun-300/60 text-sm text-amber-900">

@@ -77,7 +77,7 @@ class Invoice extends Model
     /** "Invoice #42", or "Proforma #42" until an invoice numbered on payment is paid. */
     public function label(): string
     {
-        return ($this->proforma ? 'Proforma' : 'Invoice')." #{$this->number}";
+        return $this->proforma ? __('Proforma #:number', ['number' => $this->number]) : __('Invoice #:number', ['number' => $this->number]);
     }
 
     /** The store order this is the first invoice of, if any. */

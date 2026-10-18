@@ -122,7 +122,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Try the Enom, Namecheap, OpenSRS and ResellerClub modules against live (or test environment) reseller accounts
 - [ ] Import domains, TLD pricing and registrar settings from WHMCS
 - [ ] Domains in the REST API, webhooks and reports
-- [ ] Translate the new domain pages in the portal and store (their emails are translated)
+- [x] Translate the new domain pages in the portal and store (their emails are translated)
 
 ## Milestone 8: Provisioning modules
 - [x] Servers and server groups, with fill-up and least-used assignment
@@ -232,7 +232,8 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Publish the docs site and marketplace registry (turn on GitHub Pages and set DOCS_DEPLOY=true; see docs/release.md)
 - [ ] Host a public demo instance (DEMO_MODE=true; see docs/demo.md)
 - [ ] Try the one-click updater against a real tagged release
-- [ ] Translate the remaining English-only portal text: cart and upgrade errors, promotion and affiliate summaries, tax labels, usage and duration labels, CAPTCHA and rating widgets, and Laravel's validation and pagination messages
+- [x] Translate the remaining English-only portal text: cart and upgrade errors, promotion and affiliate summaries, tax labels, CAPTCHA and rating widgets, and Laravel's validation and pagination messages
+- [ ] Translate the project time format ("1h 30m") in the project management add-on, which is also written into invoice lines
 
 ## Open questions
 - AGPL-3.0 or MIT license (AGPL assumed for now).

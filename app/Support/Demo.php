@@ -20,7 +20,7 @@ final class Demo
     public static function refuse(): void
     {
         if (self::enabled()) {
-            throw ValidationException::withMessages(['demo' => 'This is a demo, so this can\'t be changed here. Everything else works, and the demo resets itself every few hours.']);
+            throw ValidationException::withMessages(['demo' => __("This is a demo, so this can't be changed here. Everything else works, and the demo resets itself every few hours.")]);
         }
     }
 }

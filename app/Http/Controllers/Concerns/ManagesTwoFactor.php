@@ -49,20 +49,20 @@ trait ManagesTwoFactor
         $secret = $request->session()->get(self::SETUP_KEY);
 
         if ($secret === null) {
-            return $this->backToTwoFactor()->withErrors(['code' => 'Start again: scan the new QR code, then type the code it shows.']);
+            return $this->backToTwoFactor()->withErrors(['code' => __('Start again: scan the new QR code, then type the code it shows.')]);
         }
 
         $codes = $this->twoFactorAccount()->enableTwoFactor($secret, $request->input('code'));
 
         if ($codes === null) {
-            throw ValidationException::withMessages(['code' => 'That code isn\'t right. Type the six digits the app shows now.']);
+            throw ValidationException::withMessages(['code' => __("That code isn't right. Type the six digits the app shows now.")]);
         }
 
         $request->session()->forget(self::SETUP_KEY);
         Activity::record('Turned on two-factor authentication', $this->twoFactorSubject());
 
         return $this->backToTwoFactor()
-            ->with('status', 'Two-factor authentication is on. Keep your recovery codes somewhere safe.')
+            ->with('status', __('Two-factor authentication is on. Keep your recovery codes somewhere safe.'))
             ->with('recovery_codes', $codes);
     }
 
@@ -79,7 +79,7 @@ trait ManagesTwoFactor
         $this->twoFactorAccount()->disableTwoFactor();
         Activity::record('Turned off two-factor authentication', $this->twoFactorSubject());
 
-        return $this->backToTwoFactor()->with('status', 'Two-factor authentication is off.');
+        return $this->backToTwoFactor()->with('status', __('Two-factor authentication is off.'));
     }
 
     public function recoveryCodes(Request $request): RedirectResponse
@@ -89,7 +89,7 @@ trait ManagesTwoFactor
         Activity::record('Made new two-factor recovery codes', $this->twoFactorSubject());
 
         return $this->backToTwoFactor()
-            ->with('status', 'Here are your new recovery codes. The old ones no longer work.')
+            ->with('status', __('Here are your new recovery codes. The old ones no longer work.'))
             ->with('recovery_codes', $codes);
     }
 
@@ -98,7 +98,7 @@ trait ManagesTwoFactor
         $request->validate(['current_password' => ['required', 'string']]);
 
         if (! Hash::check($request->input('current_password'), (string) $this->twoFactorAccount()->password)) {
-            throw ValidationException::withMessages(['current_password' => 'That isn\'t your current password.']);
+            throw ValidationException::withMessages(['current_password' => __("That isn't your current password.")]);
         }
     }
 }

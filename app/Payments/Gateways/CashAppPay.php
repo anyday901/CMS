@@ -78,7 +78,7 @@ class CashAppPay implements Gateway, RefundsPayments
         if ($response->failed() || ($payment['status'] ?? null) !== 'COMPLETED') {
             Log::warning('Cash App Pay charge failed', ['invoice' => $invoice->id, 'status' => $response->status(), 'body' => $response->json()]);
 
-            throw new PaymentFailed('Cash App could not complete the payment. Please try again or choose another way to pay.');
+            throw new PaymentFailed(__('Cash App could not complete the payment. Please try again or choose another way to pay.'));
         }
 
         $fee = collect($payment['processing_fee'] ?? [])->sum(fn ($f) => $f['amount_money']['amount'] ?? 0);
@@ -96,7 +96,7 @@ class CashAppPay implements Gateway, RefundsPayments
             // or cancelled). Staff need to apply or refund it by hand.
             Log::critical('Cash App payment received but not applied', ['invoice' => $invoice->id, 'payment' => $payment['id'], 'reason' => $e->getMessage()]);
 
-            throw new PaymentFailed('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.');
+            throw new PaymentFailed(__('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.'));
         }
     }
 

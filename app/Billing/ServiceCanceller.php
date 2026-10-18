@@ -30,8 +30,8 @@ class ServiceCanceller
     public function problem(Service $service): ?string
     {
         return match (true) {
-            ! in_array($service->status, ServiceStatus::billable(), true) => 'Only active or suspended services can be cancelled.',
-            $service->pendingCancellation()->exists() => 'Cancellation has already been requested for this service.',
+            ! in_array($service->status, ServiceStatus::billable(), true) => __('Only active or suspended services can be cancelled.'),
+            $service->pendingCancellation()->exists() => __('Cancellation has already been requested for this service.'),
             default => null,
         };
     }
@@ -90,7 +90,9 @@ class ServiceCanceller
             $request = CancellationRequest::lockForUpdate()->with('service.product')->findOrFail($request->id);
 
             if ($request->status !== CancellationRequest::PENDING) {
-                throw new InvalidArgumentException('This cancellation request has already been '.$request->status.'.');
+                throw new InvalidArgumentException($request->status === CancellationRequest::WITHDRAWN
+                    ? __('This cancellation request has already been withdrawn.')
+                    : __('This cancellation request has already been carried out.'));
             }
 
             $request->update(['status' => CancellationRequest::WITHDRAWN]);
@@ -132,11 +134,11 @@ class ServiceCanceller
         }
 
         if ($type !== CancellationRequest::END_OF_PERIOD) {
-            throw new InvalidArgumentException('Choose when to cancel.');
+            throw new InvalidArgumentException(__('Choose when to cancel.'));
         }
 
         if (! $service->billing_cycle->isRecurring() || $service->next_due_date === null) {
-            throw new InvalidArgumentException('One-time services can only be cancelled straight away.');
+            throw new InvalidArgumentException(__('One-time services can only be cancelled straight away.'));
         }
 
         // An overdue service has no paid time left, so it goes now.

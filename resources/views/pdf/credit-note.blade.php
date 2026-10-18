@@ -1,9 +1,9 @@
 @php use App\Support\Money; @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}">
 <head>
 <meta charset="utf-8">
-<title>Credit note {{ $note->number }}</title>
+<title>{{ __('Credit note :number', ['number' => $note->number]) }}</title>
 <style>
 @include('pdf._harbor')
 </style>
@@ -16,18 +16,18 @@
                 <h1>{{ $company['name'] }}</h1>
                 @if ($company['address'])<div>{!! nl2br(e(str_replace('\n', "\n", $company['address']))) !!}</div>@endif
                 @if ($company['email'])<div>{{ $company['email'] }}</div>@endif
-                @if ($company['tax_id'])<div>Tax ID: {{ $company['tax_id'] }}</div>@endif
+                @if ($company['tax_id'])<div>{{ __('Tax ID:') }} {{ $company['tax_id'] }}</div>@endif
             </td>
             <td style="text-align: right;">
-                <h1>Credit note {{ $note->number }}</h1>
-                <div style="margin-top: 6px;">Date: {{ $note->created_at->format('M j, Y') }}</div>
-                <div>Against invoice #{{ $note->invoice->number }} of {{ $note->invoice->issue_date->format('M j, Y') }}</div>
+                <h1>{{ __('Credit note :number', ['number' => $note->number]) }}</h1>
+                <div style="margin-top: 6px;">{{ __('Date: :date', ['date' => $note->created_at->translatedFormat('M j, Y')]) }}</div>
+                <div>{{ __('Against invoice #:number of :date', ['number' => $note->invoice->number, 'date' => $note->invoice->issue_date->translatedFormat('M j, Y')]) }}</div>
             </td>
         </tr>
     </table>
 
     <div style="margin-top: 24px;">
-        <div class="muted">Credit to</div>
+        <div class="muted">{{ __('Credit to') }}</div>
         @php $client = $note->client; @endphp
         <div><strong>{{ $client->company ?: $client->fullName() }}</strong></div>
         @if ($client->company)<div>{{ $client->fullName() }}</div>@endif
@@ -35,11 +35,11 @@
             @if ($line)<div>{{ $line }}</div>@endif
         @endforeach
         <div>{{ $client->email }}</div>
-        @if ($note->client_tax_id)<div>Tax ID: {{ $note->client_tax_id }}</div>@endif
+        @if ($note->client_tax_id)<div>{{ __('Tax ID:') }} {{ $note->client_tax_id }}</div>@endif
     </div>
 
     <table class="items">
-        <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
+        <thead><tr><th>{{ __('Description') }}</th><th class="num">{{ __('Amount') }}</th></tr></thead>
         <tbody>
             @foreach ($note->items as $item)
                 <tr><td>{{ $item->description }}</td><td class="num">{{ Money::format($item->amount, $note->currency) }}</td></tr>
@@ -49,29 +49,29 @@
 
     <table class="totals" role="presentation" style="margin-top: 8px;">
         @if ($note->tax && ! $note->tax_inclusive)
-            <tr><td class="label">Subtotal</td><td class="num" style="width: 120px;">{{ Money::format($note->subtotal, $note->currency) }}</td></tr>
+            <tr><td class="label">{{ __('Subtotal') }}</td><td class="num" style="width: 120px;">{{ Money::format($note->subtotal, $note->currency) }}</td></tr>
             @foreach ($note->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">{{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $note->currency) }}</td></tr>@endforeach
         @endif
-        <tr class="grand"><td class="label">Total credited</td><td class="num" style="width: 120px;">{{ Money::format($note->total, $note->currency) }}</td></tr>
+        <tr class="grand"><td class="label">{{ __('Total credited') }}</td><td class="num" style="width: 120px;">{{ Money::format($note->total, $note->currency) }}</td></tr>
         @if ($note->tax && $note->tax_inclusive)
-            @foreach ($note->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">Includes {{ $taxLabel }}</td><td class="num">{{ Money::format($taxAmount, $note->currency) }}</td></tr>@endforeach
+            @foreach ($note->taxLines() as [$taxLabel, $taxAmount])<tr><td class="label">{{ __('Includes :tax', ['tax' => $taxLabel]) }}</td><td class="num">{{ Money::format($taxAmount, $note->currency) }}</td></tr>@endforeach
         @endif
     </table>
 
     @include('pdf._reverse-charge', ['document' => $note])
 
     <div style="margin-top: 24px;">
-        <div class="muted">Reason</div>
+        <div class="muted">{{ __('Reason') }}</div>
         <div>{!! nl2br(e($note->reason)) !!}</div>
     </div>
 
     <div style="margin-top: 24px;">
-        <div class="muted">Paid back</div>
+        <div class="muted">{{ __('Paid back') }}</div>
         @if ($note->refund_mode === 'credit')
-            <div>Added to your account credit.</div>
+            <div>{{ __('Added to your account credit.') }}</div>
         @else
             @foreach ($note->refunds as $refund)
-                <div>Refunded to your {{ $refund->methodLabel() }} payment{{ $refund->refundOf ? ' of '.$refund->refundOf->created_at->format('M j, Y') : '' }}.</div>
+                <div>{{ $refund->refundOf ? __('Refunded to your :method payment of :date.', ['method' => $refund->methodLabel(), 'date' => $refund->refundOf->created_at->translatedFormat('M j, Y')]) : __('Refunded to your :method payment.', ['method' => $refund->methodLabel()]) }}</div>
             @endforeach
         @endif
     </div>

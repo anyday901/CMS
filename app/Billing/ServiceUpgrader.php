@@ -51,7 +51,7 @@ class ServiceUpgrader
     public function problem(Service $service): ?string
     {
         if ($service->status !== ServiceStatus::Active) {
-            return 'Only active services can be upgraded or downgraded.';
+            return __('Only active services can be upgraded or downgraded.');
         }
 
         return $this->moveProblem($service) ?? $this->prorateProblem($service);
@@ -79,7 +79,7 @@ class ServiceUpgrader
         }
 
         if (! $service->product->upgrades()->whereKey($product->id)->where('active', true)->exists()) {
-            throw new InvalidArgumentException("{$service->product->name} can't be moved to {$product->name}.");
+            throw new InvalidArgumentException(__(":from can't be moved to :to.", ['from' => $service->product->name, 'to' => $product->name]));
         }
 
         return $this->price($service, $product, $service->billing_cycle, $options, true);
@@ -341,13 +341,13 @@ class ServiceUpgrader
     {
         $currency = $service->client->currency;
         $price = $product->priceFor($cycle, $currency)
-            ?? throw new InvalidArgumentException("{$product->name} has no {$cycle->label()} price in {$currency}.");
+            ?? throw new InvalidArgumentException(__(':product has no :cycle price in :currency.', ['product' => $product->name, 'cycle' => Str::lower(__($cycle->label())), 'currency' => $currency]));
         $selected = $this->options->select($product, $options, $cycle, currency: $currency);
         $this->options->assertCurrency($selected, $currency);
         $recurring = $price->price + $this->options->recurring($selected);
 
         if ($product->id === $service->product_id && $cycle === $service->billing_cycle) {
-            throw new InvalidArgumentException('Choose a different product or billing cycle.');
+            throw new InvalidArgumentException(__('Choose a different product or billing cycle.'));
         }
 
         // A recurring promotion carries over if it covers the new product too.
@@ -375,9 +375,9 @@ class ServiceUpgrader
     private function moveProblem(Service $service): ?string
     {
         return match (true) {
-            ! $service->billing_cycle->isRecurring() || $service->next_due_date === null => 'One-time services can\'t be upgraded or downgraded.',
-            $service->pendingCancellation()->exists() => 'This service is set to be cancelled.',
-            $service->accountMoves()->open()->exists() => 'This service\'s account is still moving. Finish or cancel that move first.',
+            ! $service->billing_cycle->isRecurring() || $service->next_due_date === null => __("One-time services can't be upgraded or downgraded."),
+            $service->pendingCancellation()->exists() => __('This service is set to be cancelled.'),
+            $service->accountMoves()->open()->exists() => __("This service's account is still moving. Finish or cancel that move first."),
             default => null,
         };
     }
@@ -386,9 +386,9 @@ class ServiceUpgrader
     private function prorateProblem(Service $service): ?string
     {
         return match (true) {
-            $service->next_due_date->lte(today()) => 'Pay the renewal for this service first.',
-            $service->inTrial() => 'Upgrades and downgrades are available once the free trial ends.',
-            $this->hasUnpaidInvoice($service) => 'This service has an unpaid invoice. Pay or wait for it to be cancelled first.',
+            $service->next_due_date->lte(today()) => __('Pay the renewal for this service first.'),
+            $service->inTrial() => __('Upgrades and downgrades are available once the free trial ends.'),
+            $this->hasUnpaidInvoice($service) => __('This service has an unpaid invoice. Pay or wait for it to be cancelled first.'),
             default => null,
         };
     }

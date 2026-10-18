@@ -98,7 +98,7 @@ class PayPal implements Gateway, RefundsPayments
         // The id goes into the request path, so anything but a plain PayPal
         // order id could point this authenticated call at another endpoint.
         if (! preg_match(self::ID_PATTERN, $orderId)) {
-            throw new PaymentFailed('This payment could not be found. Please try again.');
+            throw new PaymentFailed(__('This payment could not be found. Please try again.'));
         }
 
         $response = $this->api()
@@ -110,7 +110,7 @@ class PayPal implements Gateway, RefundsPayments
 
         if ($capture === null || ($capture['custom_id'] ?? null) !== (string) $invoice->id) {
             Log::warning('PayPal capture does not match invoice', ['invoice' => $invoice->id, 'order' => $orderId]);
-            throw new PaymentFailed('This payment does not match the invoice. Please contact us.');
+            throw new PaymentFailed(__('This payment does not match the invoice. Please contact us.'));
         }
 
         if ($capture['status'] === 'PENDING') {
@@ -118,7 +118,7 @@ class PayPal implements Gateway, RefundsPayments
         }
 
         if ($capture['status'] !== 'COMPLETED') {
-            throw new PaymentFailed('PayPal declined this payment. Please try another payment method.');
+            throw new PaymentFailed(__('PayPal declined this payment. Please try another payment method.'));
         }
 
         $method = array_key_exists('venmo', $order['payment_source'] ?? []) ? 'venmo' : 'paypal';
@@ -261,7 +261,7 @@ class PayPal implements Gateway, RefundsPayments
     private function record(Invoice $invoice, array $capture, ?string $method): Transaction
     {
         if (($capture['amount']['currency_code'] ?? null) !== $invoice->currency) {
-            throw new PaymentFailed('This payment was made in the wrong currency. Please contact us.');
+            throw new PaymentFailed(__('This payment was made in the wrong currency. Please contact us.'));
         }
 
         $fee = $capture['seller_receivable_breakdown']['paypal_fee']['value'] ?? '0';
@@ -280,7 +280,7 @@ class PayPal implements Gateway, RefundsPayments
             // or cancelled). Staff need to apply or refund it by hand.
             Log::critical('PayPal payment received but not applied', ['invoice' => $invoice->id, 'capture' => $capture['id'], 'reason' => $e->getMessage()]);
 
-            throw new PaymentFailed('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.');
+            throw new PaymentFailed(__('We received your payment but could not apply it to this invoice automatically. We will sort it out and contact you.'));
         }
     }
 
@@ -319,7 +319,7 @@ class PayPal implements Gateway, RefundsPayments
         if ($response->failed()) {
             Log::error("PayPal could not {$action}", ['status' => $response->status(), 'body' => $response->json()]);
 
-            throw new PaymentFailed('PayPal could not complete the payment. Please try again or contact us.');
+            throw new PaymentFailed(__('PayPal could not complete the payment. Please try again or contact us.'));
         }
 
         return $response;
