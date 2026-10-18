@@ -570,4 +570,13 @@ Route::prefix('admin/settings/gateway-log')->name('admin.gateway-log.')->middlew
         Route::get('{entry}', 'show')->whereNumber('entry')->name('show');
     });
 
+// Settings > Logs and PHP info, next to the other system pages: the app's log files and how PHP is set up.
+Route::prefix('admin/settings')->name('admin.system.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-system'])
+    ->controller(Admin\LogController::class)->group(function () {
+        Route::get('logs', 'index')->name('logs.index');
+        Route::get('logs/{name}', 'show')->where('name', '[A-Za-z0-9._-]+')->name('logs.show');
+        Route::get('logs/{name}/download', 'download')->where('name', '[A-Za-z0-9._-]+')->middleware('throttle:20,1')->name('logs.download');
+        Route::get('php', 'php')->name('php');
+    });
+
 require __DIR__.'/platform.php';
