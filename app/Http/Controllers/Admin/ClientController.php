@@ -15,6 +15,7 @@ use App\Models\ClientContact;
 use App\Models\ClientGroup;
 use App\Models\Currency;
 use App\Models\CustomField;
+use App\Models\InvoiceItem;
 use App\Models\Tld;
 use App\Support\ClientSearch;
 use App\Support\Csv;
@@ -34,7 +35,7 @@ class ClientController extends Controller
     public const SECTIONS = [
         'Account' => ['summary' => 'Summary', 'profile' => 'Profile', 'contacts' => 'Contacts', 'security' => 'Login and privacy'],
         'Products' => ['services' => 'Services', 'domains' => 'Domains', 'orders' => 'Orders'],
-        'Billing' => ['invoices' => 'Invoices', 'quotes' => 'Quotes', 'credit' => 'Credit', 'payment-methods' => 'Payment methods'],
+        'Billing' => ['invoices' => 'Invoices', 'billable-items' => 'Billable items', 'quotes' => 'Quotes', 'credit' => 'Credit', 'payment-methods' => 'Payment methods'],
         'Support' => ['tickets' => 'Tickets', 'emails' => 'Emails'],
         'Staff' => ['notes' => 'Notes', 'todos' => 'To-dos'],
         'History' => ['activity' => 'Activity log'],
@@ -124,9 +125,12 @@ class ClientController extends Controller
 
         $client->load([
             'services' => fn ($q) => $q->with('product')->latest(),
-            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->latest('issue_date')->latest('id'),
+            'invoices' => fn ($q) => $q->withSum('transactions as paid_amount', 'amount')->withSum('creditNotes as credited_amount', 'total')
+                ->withExists(['items as is_funds' => fn ($items) => $items->whereIn('type', InvoiceItem::FUNDS_TYPES)])
+                ->latest('issue_date')->latest('id'),
             'domains' => fn ($q) => $q->orderBy('name'),
             'quotes' => fn ($q) => $q->latest('issue_date')->latest('id'),
+            'creditNotes' => fn ($q) => $q->with(['invoice', 'user'])->latest('id'),
         ]);
 
         $activity = Activity::where('client_id', $client->id)->latest('created_at')->latest('id')->limit(20)->get();
@@ -143,17 +147,18 @@ class ClientController extends Controller
 
         $logins = $client->loginAttempts()->with('account')->latest('created_at')->latest('id')->limit(5)->get();
 
-        $client->load(['group', 'clientNotes.user', 'paymentMethods']);
+        $client->load(['group', 'clientNotes.user', 'paymentMethods', 'billableItems' => fn ($q) => $q->with(['invoice', 'user'])->latest('id')]);
 
         $todos = $client->todos()->with('user')->orderByRaw("status = 'done'")->orderByRaw('due_on is null')->orderBy('due_on')->latest('id')->limit(10)->get();
 
         ['sections' => $sections, 'counts' => $counts] = self::frame($client);
         $section = collect($sections)->collapse()->has($request->query('tab')) ? $request->query('tab') : 'summary';
 
-        $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid);
+        // Add funds and mass payment invoices aren't owed on top of the rest.
+        $unpaid = $client->invoices->where('status', InvoiceStatus::Unpaid)->reject->is_funds;
         $activeServices = $client->services->where('status', ServiceStatus::Active);
         $stats = [
-            'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->paid_amount),
+            'owed' => $unpaid->sum(fn ($invoice) => $invoice->total - (int) $invoice->credited_amount - (int) $invoice->paid_amount),
             'unpaid' => $unpaid->count(),
             'overdue' => $unpaid->filter(fn ($invoice) => $invoice->due_date?->isPast() && ! $invoice->due_date->isToday())->count(),
             'activeServices' => $activeServices->count(),
@@ -187,6 +192,7 @@ class ClientController extends Controller
                 'orders' => $client->orders()->count(),
                 'invoices' => $client->invoices()->count(),
                 'quotes' => $client->quotes()->count(),
+                'billable-items' => $client->billableItems()->count(),
                 'payment-methods' => $client->paymentMethods()->count(),
                 'tickets' => $client->tickets()->listed()->count(),
                 'emails' => $client->emailLogs()->count(),

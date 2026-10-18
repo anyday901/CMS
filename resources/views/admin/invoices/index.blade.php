@@ -9,6 +9,10 @@
     @if ($invoices->isEmpty())
         <p class="text-sm text-ink-500">No invoices.</p>
     @else
+        @php $mergeable = auth()->user()->can('manage-billing') && $invoices->where('status', App\Enums\InvoiceStatus::Unpaid)->reject->is_funds->count() >= 2; @endphp
+        @if ($mergeable)
+            @include('admin.invoices._merge-form')
+        @endif
         @include('admin.invoices._table')
         <div class="mt-4">{{ $invoices->links() }}</div>
     @endif

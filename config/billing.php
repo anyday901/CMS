@@ -71,4 +71,34 @@ return [
     // staff accept the order in the pending orders queue. Can also be set
     // on the admin Settings page.
     'hold_new_orders' => (bool) env('BILLING_HOLD_NEW_ORDERS', false),
+
+    // Let clients prepay into their credit balance from the portal, paying
+    // an add funds invoice. Amounts are in the default currency (converted
+    // for clients in others); blank means no limit. Can also be set on the
+    // admin Settings page.
+    'add_funds' => [
+        'enabled' => (bool) env('BILLING_ADD_FUNDS', false),
+        'minimum' => env('BILLING_ADD_FUNDS_MINIMUM', '10.00'),
+        'maximum' => env('BILLING_ADD_FUNDS_MAXIMUM', '500.00'),
+        'maximum_balance' => env('BILLING_ADD_FUNDS_MAXIMUM_BALANCE', '1000.00'),
+    ],
+
+    // Let clients tick several unpaid invoices in the portal and pay them
+    // together on one mass payment invoice.
+    'mass_pay' => (bool) env('BILLING_MASS_PAY', true),
+
+    // Number invoices in order only once they are paid, like WHMCS's
+    // "Sequential Paid Invoice Numbering". Until then an invoice is a
+    // proforma, shown with its id. Can also be set on the admin Invoice
+    // numbering page, along with the next number.
+    'sequential_paid_numbers' => (bool) env('BILLING_SEQUENTIAL_PAID_NUMBERS', false),
+
+    // How paid invoice numbers are written. {NUMBER} is the next number in
+    // the sequence; {YEAR}, {MONTH} and {DAY} are the payment date. It needs
+    // a letter or symbol, so a paid number never looks like a proforma's id.
+    'invoice_number_format' => env('BILLING_INVOICE_NUMBER_FORMAT', 'INV-{YEAR}-{NUMBER}'),
+
+    // How credit note numbers are written, with the same placeholders. Credit
+    // notes have their own sequence, set on the Invoice numbering page.
+    'credit_note_number_format' => env('BILLING_CREDIT_NOTE_NUMBER_FORMAT', 'CN-{NUMBER}'),
 ];

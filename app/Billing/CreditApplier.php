@@ -26,7 +26,8 @@ class CreditApplier
             $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
             $client = Client::lockForUpdate()->findOrFail($invoice->client_id);
 
-            if ($invoice->status !== InvoiceStatus::Unpaid || $client->currency !== $invoice->currency) {
+            // Paying an add funds invoice from credit would only put the credit back.
+            if ($invoice->status !== InvoiceStatus::Unpaid || $client->currency !== $invoice->currency || $invoice->isAddFunds()) {
                 return null;
             }
 

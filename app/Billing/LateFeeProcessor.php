@@ -29,6 +29,7 @@ class LateFeeProcessor
 
         return Invoice::query()
             ->where('status', InvoiceStatus::Unpaid)
+            ->withoutFunds()
             ->whereDate('due_date', '<=', $dueOnOrBefore)
             ->whereDoesntHave('items', fn ($items) => $items->where('type', InvoiceItem::TYPE_LATE_FEE))
             ->pluck('id')

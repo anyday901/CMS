@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Billing\CreditApplier;
 use App\Billing\InvoiceCanceller;
 use App\Billing\InvoiceEditor;
+use App\Billing\InvoiceMerger;
 use App\Billing\InvoicePdf;
 use App\Billing\PaymentRecorder;
 use App\Billing\RefundService;
@@ -12,6 +13,7 @@ use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Transaction;
 use App\Payments\GatewayRegistry;
 use App\Payments\RefundsPayments;
@@ -32,6 +34,8 @@ class InvoiceController extends Controller
 
         $invoices = Invoice::query()
             ->with('client')
+            // Add funds and mass payment invoices can't be merged, so get no checkbox.
+            ->withExists(['items as is_funds' => fn ($items) => $items->whereIn('type', InvoiceItem::FUNDS_TYPES)])
             ->when($status === 'overdue', fn ($q) => $q
                 ->where('status', InvoiceStatus::Unpaid)
                 ->whereDate('due_date', '<', today()))
@@ -46,7 +50,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): View
     {
-        $invoice->load(['client.paymentMethods', 'items.service', 'transactions.refunds', 'paymentAttempts']);
+        $invoice->load(['client.paymentMethods', 'items.service', 'transactions.refunds', 'transactions.creditNote', 'paymentAttempts', 'creditNotes.user']);
 
         return view('admin.invoices.show', [
             'invoice' => $invoice,
@@ -187,6 +191,23 @@ class InvoiceController extends Controller
         ])->all();
 
         return $data;
+    }
+
+    /** Merges the ticked unpaid invoices of one client into one. */
+    public function merge(Request $request, InvoiceMerger $merger): RedirectResponse
+    {
+        $data = $request->validate([
+            'invoices' => ['required', 'array', 'min:2', 'max:100'],
+            'invoices.*' => ['integer'],
+        ], ['invoices.required' => 'Tick at least two invoices to merge.', 'invoices.min' => 'Tick at least two invoices to merge.']);
+
+        try {
+            $invoice = $merger->merge(array_values(array_unique(array_map('intval', $data['invoices']))));
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['invoices' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.invoices.show', $invoice)->with('status', 'Invoices merged into this one. The others are cancelled.');
     }
 
     public function cancel(Invoice $invoice, InvoiceCanceller $canceller): RedirectResponse

@@ -51,6 +51,11 @@
         </fieldset>
 
         <fieldset class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Invoice numbers</legend>
+            <p class="text-ink-600">Number invoices in order only once they're paid, with a proforma number before payment, and the format and next number. <a href="{{ route('admin.invoice-numbering.edit') }}" class="text-brand-600">Invoice numbering</a>.</p>
+        </fieldset>
+
+        <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Invoice emails</legend>
             <input type="hidden" name="attach_invoice_pdf" value="0">
             <label class="flex items-start gap-2">
@@ -70,6 +75,28 @@
             <label class="block">Terms of service link
                 <input type="url" name="terms_url" value="{{ old('terms_url', $termsUrl) }}" maxlength="255" placeholder="https://example.com/terms" class="mt-1 block w-full max-w-md rounded-md px-3 py-2 ring-1 ring-ink-300">
                 <span class="text-ink-500">When set, clients tick a box agreeing to your terms before they can place an order or accept a quote, and the order records when they did. Leave blank for no checkbox.</span>
+            </label>
+        </fieldset>
+
+        <fieldset id="add-funds" class="space-y-2">
+            <legend class="mb-1 text-base font-semibold">Add funds and mass payment</legend>
+            <input type="hidden" name="add_funds_enabled" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="add_funds_enabled" value="1" class="mt-1" @checked(old('add_funds_enabled', $addFunds['enabled']))>
+                <span>Let clients add funds. They prepay into their account credit from the portal by paying an add funds invoice, through any payment gateway.</span>
+            </label>
+            <div class="flex flex-wrap gap-3">
+                @foreach (['minimum' => 'Least per payment', 'maximum' => 'Most per payment', 'maximum_balance' => 'Most credit balance'] as $key => $label)
+                    <label class="block">{{ $label }}
+                        <input type="text" name="add_funds_{{ $key }}" value="{{ old('add_funds_'.$key, $addFunds[$key]) }}" inputmode="decimal" maxlength="20" class="mt-1 block w-32 rounded-md px-3 py-2 ring-1 ring-ink-300">
+                    </label>
+                @endforeach
+            </div>
+            <span class="block text-ink-500">In {{ App\Models\Currency::defaultCode() }}, converted for clients in other currencies. Leave the most per payment or most credit balance blank for no limit; the balance limit counts unpaid add funds invoices too.</span>
+            <input type="hidden" name="mass_pay" value="0">
+            <label class="flex items-start gap-2">
+                <input type="checkbox" name="mass_pay" value="1" class="mt-1" @checked(old('mass_pay', $massPay))>
+                <span>Let clients tick several unpaid invoices in the portal and pay them together, on one mass payment invoice.</span>
             </label>
         </fieldset>
 

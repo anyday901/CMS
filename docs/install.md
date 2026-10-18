@@ -181,7 +181,7 @@ Payment webhooks (PayPal, Square) need HTTPS, so do this before setting them up.
 
 ## 6. Cron for the scheduler
 
-The scheduler runs the nightly billing run (renewal and overage invoices, late fees, reminders, suspensions), the database backups, activity log clean-up, the hourly read of disk and bandwidth use from your servers and the five-minute server status checks. Add it to the web server user's crontab:
+The scheduler runs the nightly billing run (renewal, billable item and overage invoices, late fees, reminders, suspensions), the database backups, activity log clean-up, the hourly read of disk and bandwidth use from your servers and the five-minute server status checks. Add it to the web server user's crontab:
 
 ```sh
 sudo crontab -u www-data -e

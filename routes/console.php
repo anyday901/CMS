@@ -2,9 +2,11 @@
 
 use App\Affiliates\Commissions;
 use App\Billing\AutoCharger;
+use App\Billing\BillableItemBiller;
 use App\Billing\InvoiceGenerator;
 use App\Billing\InvoiceReminders;
 use App\Billing\LateFeeProcessor;
+use App\Billing\MassPayment;
 use App\Billing\OverageBiller;
 use App\Billing\OverdueProcessor;
 use App\Billing\RefundReconciler;
@@ -30,6 +32,9 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
     $invoices = $generator->generate(today());
     $this->info("Generated {$invoices->count()} invoice(s).");
 
+    $billableInvoices = app(BillableItemBiller::class)->run(today());
+    $this->info("Generated {$billableInvoices->count()} invoice(s) for billable items.");
+
     $overageInvoices = $overages->run(today());
     $this->info("Generated {$overageInvoices->count()} overage invoice(s).");
 
@@ -47,7 +52,10 @@ Artisan::command('billing:run', function (ServiceCanceller $cancellations, Invoi
 
     $settled = app(RefundReconciler::class)->run();
     $this->info("Pending refunds: {$settled['completed']} completed, {$settled['failed']} failed.");
-})->purpose('Carry out cancellation requests, generate renewal and overage invoices, charge saved cards, add late fees, send overdue reminders, process overdue services and check pending refunds');
+
+    $expired = app(MassPayment::class)->expire(today());
+    $this->info("Cancelled {$expired} unpaid mass payment invoice(s).");
+})->purpose('Carry out cancellation requests, generate renewal, billable item and overage invoices, charge saved cards, add late fees, send overdue reminders, process overdue services, check pending refunds and cancel stale mass payments');
 
 Artisan::command('activity:prune', function () {
     $days = config('activity.retention_days');

@@ -106,6 +106,9 @@ Route::prefix('portal')->name('portal.')->group(function () {
         // Contacts only see what their login allows; the account holder sees everything.
         Route::middleware('contact.can:billing')->group(function () {
             Route::get('invoices', [Portal\InvoiceController::class, 'index'])->name('invoices.index');
+            Route::post('invoices/mass-pay', [Portal\InvoiceController::class, 'massPay'])->middleware('throttle:20,1')->name('invoices.mass-pay');
+            Route::get('add-funds', [Portal\AddFundsController::class, 'create'])->name('add-funds.create');
+            Route::post('add-funds', [Portal\AddFundsController::class, 'store'])->middleware('throttle:20,1')->name('add-funds.store');
             Route::prefix('invoices/{invoice}')->group(function () {
                 Route::get('/', [Portal\InvoiceController::class, 'show'])->name('invoices.show');
                 Route::post('credit', [Portal\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
@@ -234,24 +237,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 ->name('services.action');
         });
 
-        Route::middleware('can:manage-billing')->group(function () {
-            Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
-            Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
-            Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
-            Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
-            Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
-            Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
-            Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
-            Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
-            Route::post('invoices/{invoice}/charge', [Admin\PaymentMethodController::class, 'charge'])->name('invoices.charge');
-            Route::delete('payment-methods/{method}', [Admin\PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
-            Route::put('clients/{client}/auto-charge', [Admin\PaymentMethodController::class, 'autoCharge'])->name('clients.auto-charge');
-            Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
-            Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
-            Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
-            Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
-        });
-
         // Every staff role can look, and keep a to-do list.
         Route::get('search', Admin\SearchController::class)->name('search');
         Route::resource('todos', Admin\TodoController::class)->except(['show', 'create']);
@@ -334,6 +319,28 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('settings/payment-gateways', [Admin\PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
         });
     });
+});
+
+// Invoices, payments and orders; kept outside the admin group above so it stays readable.
+Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-billing'])->group(function () {
+    Route::get('clients/{client}/invoices/create', [Admin\InvoiceController::class, 'create'])->name('invoices.create');
+    Route::post('clients/{client}/invoices', [Admin\InvoiceController::class, 'store'])->name('invoices.store');
+    Route::resource('invoices', Admin\InvoiceController::class)->only(['edit', 'update']);
+    Route::post('clients/{client}/credit', [Admin\CreditController::class, 'store'])->name('clients.credit');
+    Route::post('invoices/merge', [Admin\InvoiceController::class, 'merge'])->name('invoices.merge');
+    Route::post('invoices/{invoice}/publish', [Admin\InvoiceController::class, 'publish'])->name('invoices.publish');
+    Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
+    Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
+    Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+    Route::post('invoices/{invoice}/charge', [Admin\PaymentMethodController::class, 'charge'])->name('invoices.charge');
+    Route::delete('payment-methods/{method}', [Admin\PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+    Route::put('clients/{client}/auto-charge', [Admin\PaymentMethodController::class, 'autoCharge'])->name('clients.auto-charge');
+    Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
+    Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
+    Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
+    Route::post('orders/{order}/fraud', [Admin\OrderController::class, 'fraud'])->name('orders.fraud');
+    Route::post('clients/{client}/billable-items', [Admin\BillableItemController::class, 'store'])->name('billable-items.store');
+    Route::resource('billable-items', Admin\BillableItemController::class)->only(['update', 'destroy'])->parameters(['billable-items' => 'item']);
 });
 
 // Kept outside the admin group above so that group stays readable; same login and two-factor checks.
@@ -527,6 +534,25 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
         Route::get('/', 'show')->whereNumber('quote')->name('show');
         Route::get('pdf', 'pdf')->name('pdf');
     });
+});
+
+// Invoice numbering: sequential numbers for paid invoices, with a proforma number before payment.
+Route::prefix('admin/settings/invoice-numbering')->name('admin.invoice-numbering.')->middleware(['auth:web', RequireStaffTwoFactor::class, 'can:manage-settings'])
+    ->controller(Admin\InvoiceNumberingController::class)->group(function () {
+        Route::get('/', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+    });
+
+// Credit notes: issued against a paid invoice in the admin area, and downloaded by staff and the client.
+Route::get('portal/credit-notes/{creditNote}/pdf', [Portal\CreditNoteController::class, 'pdf'])->whereNumber('creditNote')
+    ->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:billing'])->name('portal.credit-notes.pdf');
+Route::prefix('admin')->name('admin.credit-notes.')->middleware(['auth:web', RequireStaffTwoFactor::class])->controller(Admin\CreditNoteController::class)->group(function () {
+    Route::middleware('can:manage-billing')->group(function () {
+        Route::get('invoices/{invoice}/credit-notes/create', 'create')->name('create');
+        Route::post('invoices/{invoice}/credit-notes', 'store')->name('store');
+    });
+    // Every staff role can look, as with invoices.
+    Route::get('credit-notes/{creditNote}/pdf', 'pdf')->name('pdf');
 });
 
 require __DIR__.'/platform.php';

@@ -64,6 +64,12 @@ class Transaction extends Model
         return $this->belongsTo(self::class, 'refund_of_id');
     }
 
+    /** The credit note this refund gave money back for, if any. */
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(CreditNote::class);
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);

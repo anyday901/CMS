@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Billing\InvoiceNumbering;
 use App\Enums\InvoiceStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,6 +39,11 @@ class Invoice extends Model
                 $invoice->tax_name = $rule?->name;
                 $invoice->tax_rate = $rule?->rate ?? 0;
             }
+
+            // Numbered on payment instead: a proforma until then.
+            if (! $invoice->isDirty('proforma') && $invoice->number === null) {
+                $invoice->proforma = InvoiceNumbering::enabled() && in_array($invoice->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+            }
         });
 
         static::created(function (Invoice $invoice) {
@@ -51,6 +58,7 @@ class Invoice extends Model
         return [
             'status' => InvoiceStatus::class,
             'tax_inclusive' => 'boolean',
+            'proforma' => 'boolean',
             'issue_date' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
@@ -69,6 +77,12 @@ class Invoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    /** "Invoice #42", or "Proforma #42" until an invoice numbered on payment is paid. */
+    public function label(): string
+    {
+        return ($this->proforma ? 'Proforma' : 'Invoice')." #{$this->number}";
     }
 
     /** "Sales tax (8.25%)" */
@@ -117,10 +131,31 @@ class Invoice extends Model
         return $this;
     }
 
-    /** Drafts and unpaid invoices can still have their lines changed. */
+    /** Drafts and unpaid invoices can still have their lines changed, until a credit note is issued against them. */
     public function isEditable(): bool
     {
-        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true);
+        return in_array($this->status, [InvoiceStatus::Draft, InvoiceStatus::Unpaid], true) && ! $this->creditNotes()->exists();
+    }
+
+    /**
+     * Leaves out add funds and mass payment invoices. Their money only goes
+     * into credit, so they are not chased, charged or counted as owed.
+     */
+    public function scopeWithoutFunds(Builder $query): void
+    {
+        $query->whereDoesntHave('items', fn (Builder $items) => $items->whereIn('type', InvoiceItem::FUNDS_TYPES));
+    }
+
+    /** An add funds invoice: paying it adds to the client's credit balance. */
+    public function isAddFunds(): bool
+    {
+        return $this->items()->where('type', InvoiceItem::TYPE_ADD_FUNDS)->exists();
+    }
+
+    /** A mass payment invoice: paying it pays the invoices on its lines. */
+    public function isMassPayment(): bool
+    {
+        return $this->items()->where('type', InvoiceItem::TYPE_MASS_PAY)->exists();
     }
 
     public function amountPaid(): int
@@ -128,8 +163,20 @@ class Invoice extends Model
         return (int) $this->transactions()->sum('amount');
     }
 
+    /** What's left to pay. Credit notes take their amount off what's owed, as their refunds take it off what's paid. */
     public function balance(): int
     {
-        return $this->total - $this->amountPaid();
+        return $this->total - $this->credited() - $this->amountPaid();
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class)->whereNull('voided_at');
+    }
+
+    /** The total of the credit notes issued against this invoice. */
+    public function credited(): int
+    {
+        return (int) $this->creditNotes()->sum('total');
     }
 }

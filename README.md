@@ -11,7 +11,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, quotes, payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Invoices, quotes, billable items (one-off or recurring charges added to invoices), payments, credits, refunds, credit notes and overdue handling, in several currencies with exchange rates, with optional sequential numbering of paid invoices
 - Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
@@ -200,7 +200,7 @@ The portal, store, public support pages and client emails come in the languages 
 
 ## Admin area
 
-The admin area at `/admin` covers the dashboard, a search box for everything, a staff to-do list, clients with their contacts, groups and notes (and merging two accounts), the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel), support tickets, tax rules, client emails and templates, staff, account security (login history, IP bans, CAPTCHA, GDPR export and anonymising) and the activity log.
+The admin area at `/admin` covers the dashboard, a search box for everything, a staff to-do list, clients with their contacts, groups and notes (and merging two accounts), the knowledge base, announcements, network status and downloads (under **Support**), products with pricing, configurable options, groups, add-ons and upgrade paths, billing days, free trials and stock, promotion codes, orders and the pending orders queue, custom fields, services (add, upgrade or downgrade, change billing cycle, suspend, unsuspend, terminate, cancel), logging in to the portal as a client, manual fulfillment tasks, invoices (create, edit, view, download as PDF, record payments, apply credit, refund, cancel, merge), support tickets, tax rules, client emails and templates, staff, account security (login history, IP bans, CAPTCHA, GDPR export and anonymising) and the activity log.
 
 The dashboard follows WHMCS's layout. Down the side are shortcuts, system information (company, licence, version, and a note when an update is out), a search box and the staff signed in in the last 15 minutes. Across the top are pending orders, tickets waiting, pending cancellations and open fulfillment tasks. Under them, the **System Overview** chart shows new orders, accepted orders and income for today by hour, the last 30 days or the last year; **Billing** has income today, this month, this year and all time (in the default currency, as is the chart's income; pending refunds and credit payments don't count); **Payments to review** counts payments still clearing at the gateway and open disputes; and **Client Activity** shows active clients, clients signed in to the portal in the last hour and the latest portal logins. On the right, **Automation Overview** counts what the scheduled tasks did today (invoices generated, overdue terminations and suspensions, inactive tickets closed, overdue reminders, cancellations carried out) with a line for the last 7 days, and when the billing run last ran; the **Activity** log is below it for staff who can see it. The work queues follow underneath.
 
@@ -468,6 +468,8 @@ Every client email is listed under **Emails** with its status (queued, sent or f
 
 Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
 
+Invoice numbers are the invoice's id by default. To number paid invoices in order with no gaps, with a proforma number before payment, turn on sequential paid numbers under **Settings > Invoice numbering**; see [docs/admin/invoice-numbering.md](docs/admin/invoice-numbering.md).
+
 Staff and clients can download any invoice they can see as a PDF. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
@@ -480,6 +482,10 @@ Staff and clients can download any invoice they can see as a PDF. The company de
 ### Quotes
 
 Open a client and choose **Billing > Quotes > New quote** to make a priced proposal with line items, a valid-until date and proposal text, taxed as on invoices. **Send to client** emails it with the PDF attached and shows it in the client's portal, where they can accept or decline it. Accepting, or **Convert to invoice** in the admin area, turns it into an unpaid invoice with the same lines. Every quote is listed under **Quotes** in the admin menu. See [docs/admin/quotes.md](docs/admin/quotes.md).
+
+### Billable items
+
+Open a client and choose **Billing > Billable items** to add a charge by hand: an amount, or hours at an hourly rate, with an invoice action that says when the nightly billing run invoices it (the next run, on the client's next renewal invoice, on a due date, or recurring every so many days, weeks, months or years, a set number of times or until stopped). Each item records the invoice it went on, so it's never billed twice, and stays editable until it's invoiced. See [docs/admin/billable-items.md](docs/admin/billable-items.md).
 
 ### Activity log
 
@@ -496,6 +502,12 @@ Add tax rules under **Tax**. Each rule has a rate and optionally a country, or a
 Overpayments and refunds to credit go to the client's credit balance. Staff with the billing or admin role can add or remove credit by hand under **Adjust credit** on a client's page, with a reason. Every change to the balance, by hand or automatic, is listed in the client's credit history, and clients see theirs on the portal home page. The balance can't go below zero. New invoices are paid from credit automatically (turn this off with `BILLING_APPLY_CREDIT=false`), and staff or the client can apply credit to an unpaid invoice by hand. Credit payments don't count as income on the dashboard.
 
 To refund a payment, open its invoice and use **Refund** under the payment. PayPal, Venmo and Cash App payments can be sent back through the gateway (if the gateway reports the refund as pending, the nightly billing run checks it and undoes the record if it later fails); any payment can be recorded as refunded outside the app or moved to account credit. A fully refunded invoice is marked refunded. Services are left as they are, so suspend or terminate them yourself if needed.
+
+To give money back with a document for the books, use **Issue credit note** on a paid or part paid invoice instead: credit some or all of its lines with a reason, and the money goes to account credit or back as a refund of a payment. Credit notes have their own numbers and PDF, and clients see them in the portal. See [docs/admin/credit-notes.md](docs/admin/credit-notes.md).
+
+### Add funds, mass payment and merging invoices
+
+Turn on **Let clients add funds** under **Settings** (or `BILLING_ADD_FUNDS=true`) and clients can prepay into their credit balance from the portal's **Invoices** page, by paying an add funds invoice with any gateway, within the least and most per payment and the most credit balance set there. Clients can also tick several unpaid invoices and pay them together on one mass payment invoice; paying it marks each of them paid, and an unpaid one is cancelled by the billing run once it's stale (`BILLING_MASS_PAY=false` turns this off). Staff merge a client's unpaid invoices into one from the client page or the invoice list with **Merge selected**; the others are cancelled with a note, and anything paid on them moves to the merged invoice through credit. See [docs/admin/add-funds-and-mass-payment.md](docs/admin/add-funds-and-mass-payment.md).
 
 ## Scheduled jobs
 
@@ -521,6 +533,9 @@ Add the Laravel scheduler to cron so billing and activity log clean-up run daily
 | `BILLING_REMINDER_DAYS` | `1,7` | Days overdue to email a reminder, comma separated; blank for none |
 | `BILLING_ATTACH_INVOICE_PDF` | `true` | Attach the PDF to new invoice emails |
 | `BILLING_HOLD_NEW_ORDERS` | `false` | Keep the services of paid store orders pending until staff accept the order |
+| `BILLING_SEQUENTIAL_PAID_NUMBERS` | `false` | Number invoices in order only once paid, with a proforma number before payment |
+| `BILLING_INVOICE_NUMBER_FORMAT` | `INV-{YEAR}-{NUMBER}` | How paid invoice numbers are written |
+| `BILLING_CREDIT_NOTE_NUMBER_FORMAT` | `CN-{NUMBER}` | How credit note numbers are written |
 | `ACTIVITY_RETENTION_DAYS` | (forever) | Days to keep activity log entries |
 | `TICKETS_INBOUND_SECRET` | (off) | Secret for tickets by email over HTTP |
 | `TICKETS_CLOSE_INACTIVE_HOURS` | (off) | Close answered tickets the client hasn't replied to in this many hours |

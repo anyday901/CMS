@@ -18,7 +18,7 @@ use InvalidArgumentException;
 
 class PaymentRecorder
 {
-    public function __construct(private ServiceLifecycle $lifecycle, private CreditLedger $ledger) {}
+    public function __construct(private ServiceLifecycle $lifecycle, private CreditLedger $ledger, private InvoiceNumbering $numbering) {}
 
     /**
      * Record a payment against an invoice. A repeated gateway reference returns
@@ -146,10 +146,20 @@ class PaymentRecorder
 
     private function markPaid(Invoice $invoice): void
     {
+        $this->numbering->assign($invoice);
         $invoice->forceFill([
             'status' => InvoiceStatus::Paid,
             'paid_at' => now(),
         ])->save();
+
+        // Add funds and mass payment lines pay into the client's credit, in the
+        // same transaction as the payment; a mass payment then uses it on the
+        // invoices it covers once paid (see MassPayment::paid()).
+        $funds = min($invoice->total, (int) $invoice->items()->whereIn('type', InvoiceItem::FUNDS_TYPES)->sum('amount'));
+
+        if ($funds > 0) {
+            $this->ledger->change($invoice->client_id, $funds, ($invoice->isMassPayment() ? 'Mass payment' : 'Added funds')." with invoice #{$invoice->number}", $invoice);
+        }
 
         $items = $invoice->items()
             ->where('type', InvoiceItem::TYPE_SERVICE)

@@ -66,9 +66,13 @@ nav:
       - Installing: install.md
       - Running a demo instance: demo.md
   - Admin guide:
+      - Add funds, mass payment and merging invoices: admin/add-funds-and-mass-payment.md
       - Appearance and white-label: admin/appearance.md
+      - Billable items: admin/billable-items.md
+      - Credit notes: admin/credit-notes.md
       - Currencies: admin/currencies.md
       - Domains: admin/domains.md
+      - Invoice numbering: admin/invoice-numbering.md
       - Languages: admin/languages.md
       - Mail settings: admin/mail.md
       - Quotes: admin/quotes.md

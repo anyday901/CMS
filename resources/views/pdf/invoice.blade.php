@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Invoice {{ $invoice->number }}</title>
+<title>{{ $invoice->label() }}</title>
 <style>
     body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; }
     h1 { font-size: 22px; margin: 0; }
@@ -34,7 +34,7 @@
                 @if ($company['tax_id'])<div>Tax ID: {{ $company['tax_id'] }}</div>@endif
             </td>
             <td style="text-align: right;">
-                <h1>Invoice #{{ $invoice->number }}</h1>
+                <h1>{{ $invoice->label() }}</h1>
                 @php $status = $invoice->status->value; @endphp
                 <div style="margin: 6px 0;"><span class="status {{ in_array($status, ['paid', 'unpaid']) ? 'status-'.$status : 'status-other' }}">{{ $status }}</span></div>
                 <div>Date: {{ $invoice->issue_date->format('M j, Y') }}</div>

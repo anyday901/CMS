@@ -1,7 +1,7 @@
 @php use App\Support\Money; @endphp
-<x-admin-layout :title="'Invoice '.$invoice->number">
+<x-admin-layout :title="$invoice->label()">
     <div class="mb-6 flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold">Invoice #{{ $invoice->number }}</h1>
+        <h1 class="text-2xl font-semibold">{{ $invoice->label() }}</h1>
         <x-status-badge :status="$invoice->status" />
         <div class="ml-auto flex flex-wrap items-center gap-2">
             <a href="{{ route('admin.invoices.pdf', $invoice) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Download PDF</a>
@@ -15,6 +15,9 @@
                         <button class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Cancel invoice</button>
                     </form>
                 @endif
+                @if (App\Billing\CreditNoteIssuer::canCredit($invoice))
+                    <a href="{{ route('admin.credit-notes.create', $invoice) }}" class="rounded-md px-3 py-1.5 text-sm ring-1 ring-ink-300 hover:bg-ink-100">Issue credit note</a>
+                @endif
                 @if ($invoice->status->value === 'draft')
                     <form method="POST" action="{{ route('admin.invoices.publish', $invoice) }}" onsubmit="return confirm('Publish this invoice? The client will be able to see and pay it.')">
                         @csrf
@@ -24,6 +27,9 @@
             @endcan
         </div>
     </div>
+    @if ($invoice->proforma && in_array($invoice->status->value, ['draft', 'unpaid'], true))
+        <p class="mb-6 rounded-md bg-ink-50 px-4 py-3 text-sm text-ink-700">A proforma: it takes the next paid invoice number once it's paid. See <a href="{{ route('admin.invoice-numbering.edit') }}" class="text-brand-600">Invoice numbering</a>.</p>
+    @endif
     @if ($invoice->status->value === 'draft')
         <p class="mb-6 rounded-md bg-yellow-50 px-4 py-3 text-sm text-yellow-800">This is a draft. The client can't see it until you publish it.</p>
     @endif
@@ -37,6 +43,7 @@
                     <div><span class="text-ink-500">Due:</span> {{ $invoice->due_date->format('M j, Y') }}</div>
                     @if ($invoice->paid_at)<div><span class="text-ink-500">Paid:</span> {{ $invoice->paid_at->format('M j, Y') }}</div>@endif
                 </div>
+                @if ($invoice->notes)<div class="mt-2 border-t border-ink-100 pt-2"><span class="text-ink-500">Notes:</span> {!! nl2br(e($invoice->notes)) !!}</div>@endif
             </div>
 
             <div class="overflow-x-auto rounded-lg border border-ink-200 bg-white">
@@ -46,7 +53,7 @@
                         @foreach ($invoice->items as $item)
                             <tr>
                                 <td class="px-4 py-2">
-                                    @if ($item->service)<a href="{{ route('admin.services.show', $item->service) }}" class="text-brand-600">{{ $item->description }}</a>@else{{ $item->description }}@endif
+                                    @if ($item->service)<a href="{{ route('admin.services.show', $item->service) }}" class="text-brand-600">{{ $item->description }}<span class="sr-only"> (service)</span></a>@elseif ($item->paid_invoice_id)<a href="{{ route('admin.invoices.show', $item->paid_invoice_id) }}" class="text-brand-600">{{ $item->description }}<span class="sr-only"> (invoice)</span></a>@else{{ $item->description }}@endif
                                 </td>
                                 <td class="px-4 py-2 text-right">{{ Money::format($item->amount, $invoice->currency) }}</td>
                             </tr>
@@ -57,6 +64,7 @@
                         @if ($invoice->tax && ! $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right">{{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
                         <tr><td class="px-4 py-2 text-right">Total</td><td class="px-4 py-2 text-right">{{ Money::format($invoice->total, $invoice->currency) }}</td></tr>
                 @if ($invoice->tax && $invoice->tax_inclusive)<tr><td class="px-4 py-2 text-right font-normal text-ink-500">Includes {{ $invoice->taxLabel() }}</td><td class="px-4 py-2 text-right font-normal text-ink-500">{{ Money::format($invoice->tax, $invoice->currency) }}</td></tr>@endif
+                        @if ($invoice->creditNotes->isNotEmpty())<tr><td class="px-4 py-2 text-right">Credited</td><td class="px-4 py-2 text-right">{{ Money::format(-$invoice->creditNotes->sum('total'), $invoice->currency) }}</td></tr>@endif
                         <tr><td class="px-4 py-2 text-right">Balance due</td><td class="px-4 py-2 text-right">{{ Money::format(max(0, $invoice->balance()), $invoice->currency) }}</td></tr>
                     </tfoot>
                 </table>
@@ -66,7 +74,7 @@
                 <h2 class="mb-2 font-semibold">Payments</h2>
                 @forelse ($invoice->transactions as $transaction)
                     <div class="border-b border-ink-100 py-2 text-sm">
-                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif @if ($transaction->dispute_status)<span class="font-medium text-red-700">Disputed: {{ str_replace('_', ' ', $transaction->dispute_status) }}</span>@endif</div>
+                        <div>{{ $transaction->created_at->format('M j, Y') }} · @if ($transaction->isRefund())Refund to {{ $transaction->methodLabel() }}@else{{ $transaction->methodLabel() }}@endif · {{ Money::format($transaction->amount, $transaction->currency) }}@if ($transaction->fee) (fee {{ Money::format($transaction->fee, $transaction->currency) }})@endif @if ($transaction->gateway_reference) · {{ $transaction->gateway_reference }}@endif @if ($transaction->creditNote) · credit note {{ $transaction->creditNote->number }}@endif @if ($transaction->pending)<span class="text-yellow-700">(pending at {{ $transaction->methodLabel() }})</span>@endif @if ($transaction->dispute_status)<span class="font-medium text-red-700">Disputed: {{ str_replace('_', ' ', $transaction->dispute_status) }}</span>@endif</div>
                         @if ($transaction->refundable() > 0 && auth()->user()->can('manage-billing'))
                             <details class="mt-1" @if ($errors->has("refund.{$transaction->id}")) open @endif>
                                 <summary class="cursor-pointer text-brand-600">Refund</summary>
@@ -96,6 +104,13 @@
                     <p class="text-sm text-ink-500">No payments yet.</p>
                 @endforelse
             </div>
+
+            @if ($invoice->creditNotes->isNotEmpty())
+                <div>
+                    <h2 class="mb-2 font-semibold">Credit notes</h2>
+                    @include('admin.credit-notes._table', ['creditNotes' => $invoice->creditNotes, 'hideInvoice' => true])
+                </div>
+            @endif
 
             @if ($invoice->paymentAttempts->isNotEmpty())
                 <div>

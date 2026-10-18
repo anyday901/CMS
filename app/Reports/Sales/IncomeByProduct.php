@@ -22,6 +22,7 @@ class IncomeByProduct extends Report
         InvoiceItem::TYPE_PROMOTION => 'Promotion discounts',
         InvoiceItem::TYPE_UPGRADE => 'Upgrades',
         InvoiceItem::TYPE_OVERAGE => 'Usage overages',
+        InvoiceItem::TYPE_BILLABLE => 'Billable items',
     ];
 
     public function key(): string
@@ -53,6 +54,8 @@ class IncomeByProduct extends Report
             ->where('invoices.status', InvoiceStatus::Paid->value)
             ->where('invoices.currency', $filters->currency)
             ->whereBetween('invoices.paid_at', $filters->between())
+            // Paid into credit, and counted when the credit pays an invoice.
+            ->whereNotIn('invoice_items.type', InvoiceItem::FUNDS_TYPES)
             // Lines without a product are grouped by their type; a product's lines of every type count as one.
             ->groupBy('products.id', 'products.name', DB::raw(self::OTHER_TYPE))
             ->get([

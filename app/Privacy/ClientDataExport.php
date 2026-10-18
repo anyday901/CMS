@@ -9,6 +9,8 @@ use App\Models\CancellationRequest;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\CreditEntry;
+use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use App\Models\Domain;
 use App\Models\EmailLog;
 use App\Models\Invoice;
@@ -79,6 +81,11 @@ class ClientDataExport
                 'number', 'subject', 'stage', 'currency', 'issue_date', 'valid_until', 'subtotal', 'tax', 'total', 'notes', 'accepted_at',
             ]) + [
                 'items' => $quote->items->map(fn (QuoteItem $item) => $this->only($item, ['description', 'amount']))->all(),
+            ])->all(),
+            'credit_notes' => $client->creditNotes()->with('items')->orderBy('id')->get()->map(fn (CreditNote $note) => $this->only($note, [
+                'number', 'currency', 'subtotal', 'tax', 'total', 'reason', 'refund_mode', 'created_at',
+            ]) + [
+                'items' => $note->items->map(fn (CreditNoteItem $item) => $this->only($item, ['description', 'amount']))->all(),
             ])->all(),
             'credit' => $client->creditEntries->map(fn (CreditEntry $entry) => $this->only($entry, ['amount', 'balance_after', 'description', 'created_at']))->all(),
             'tickets' => $client->tickets->map(fn (Ticket $ticket) => [

@@ -221,7 +221,8 @@ class ClientMailer
     private function invoiceValues(Invoice $invoice): array
     {
         return [
-            'invoice_number' => $invoice->number,
+            // "42 (proforma)" until an invoice numbered on payment is paid.
+            'invoice_number' => $invoice->proforma ? __(':number (proforma)', ['number' => $invoice->number]) : $invoice->number,
             'invoice_total' => Money::format($invoice->total, $invoice->currency),
             'invoice_balance' => Money::format($invoice->balance(), $invoice->currency),
             'invoice_due_date' => $invoice->due_date->translatedFormat(self::DATE_FORMAT),

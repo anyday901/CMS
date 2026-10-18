@@ -25,7 +25,7 @@ class InvoicePdf
 
     public function filename(Invoice $invoice): string
     {
-        return "invoice-{$invoice->number}.pdf";
+        return ($invoice->proforma ? 'proforma' : 'invoice')."-{$invoice->number}.pdf";
     }
 
     private function render(Invoice $invoice): Document
