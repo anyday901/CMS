@@ -597,6 +597,7 @@
     "You're signed in as :name, a contact on this account. These settings are for your own login.": "Ha iniciado sesión como :name, un contacto de esta cuenta. Estos ajustes son para su propio acceso.",
     "You're signed in to :account's account as a contact.": "Ha iniciado sesión en la cuenta de :account como contacto.",
     "You're unsubscribed": "Se ha dado de baja",
+    "Your :percent account discount": "Su descuento de cliente del :percent",
     "Your account": "Su cuenta",
     "Your affiliate account is turned off, so your link isn't being tracked. Please :link if you have questions.": "Su cuenta de afiliado está desactivada, así que su enlace no se está registrando. Por favor, :link si tiene alguna pregunta.",
     "Your cancellation request has been withdrawn.": "Su solicitud de cancelación se ha retirado.",

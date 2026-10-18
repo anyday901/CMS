@@ -30,6 +30,7 @@
             </select>
             @can('manage-settings')<span class="mt-1 block text-ink-500">Add groups under <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">Client groups</a>.</span>@endcan
         </label>
+        @include('admin.clients._credit-limit-input')
         @php
             $currencyCodes = array_values(array_unique(array_filter([...App\Models\Currency::codes(), $client->currency])));
             $currencyLocked = $client->currencyLocked();

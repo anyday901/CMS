@@ -89,6 +89,10 @@
                 </label>
             </div>
             <p class="text-ink-500">Leave either blank to turn it off.</p>
+            <label class="block">Default credit limit <span class="text-ink-500">({{ config('billing.currency') }})</span>
+                <input name="credit_limit" value="{{ old('credit_limit', $creditLimit) }}" placeholder="None" class="{{ $input }}">
+                <span class="text-ink-500">A client owing no more than this on unpaid invoices isn't suspended or terminated for them. A client's own limit, or their <a href="{{ route('admin.client-groups.index') }}" class="text-brand-600">group's</a>, wins. Leave blank for no default.</span>
+            </label>
         </fieldset>
 
         <fieldset class="space-y-3">

@@ -6,7 +6,7 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 
 ## What it does (v1 goals)
 
-- Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
+- Client accounts and a client portal, with client groups (with discounts, their own billing settings and credit limits), staff notes, merging duplicate accounts and marketing email consent
 - Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
 - A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
@@ -214,7 +214,7 @@ The **Search** box in the admin menu looks through everything at once: clients (
 
 A client's page shows their credit balance, what they owe, active services and open tickets across the top, with a side menu of sections (summary, profile, contacts, login and privacy, services, domains, orders, invoices, credit, tickets, emails, notes, to-dos and the activity log) that shows one at a time. The open section is kept in the address, so a link such as `/admin/clients/12?tab=invoices` opens straight to it.
 
-**Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. Groups are labels only: discounts and exemptions from automatic suspension aren't tied to them.
+**Settings > Client groups** holds groups such as resellers or VIPs, each with a colour. Put a client in one on their edit page; the group shows as a label on their page, in the clients list and in search results, and the clients search filters by it. A group can also give its clients a percent off new orders (and, if ticked, renewals), after any promotion code, and settings of its own: no late fees, no overdue suspension or termination, and a separate renewal invoice for each service. A **credit limit** (per client, per group, or a default under **Automation settings**) lets a client run up unpaid invoices to that amount before overdue suspension kicks in; the client's page shows how much of it is used. See `docs/admin/client-groups.md`.
 
 A client's page has **Notes**: dated notes by staff, which only staff see. Tick **Pin to the top of the page** to show one as a banner above the client's details. The older single notes field is still on the edit form as **Profile notes**.
 

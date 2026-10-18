@@ -5,15 +5,17 @@ namespace App\Ordering;
 use App\Billing\FirstPeriod;
 use App\Billing\PricedLine;
 use App\Domains\DomainLine;
+use App\Models\ClientGroup;
 use App\Models\Promotion;
 
 /** What the cart costs now, line by line, before tax. */
 readonly class CartQuote
 {
     /**
-     * @param  list<array{key: string, priced: PricedLine, first: FirstPeriod, discount: int, addon: bool}>  $rows
+     * @param  list<array{key: string, priced: PricedLine, first: FirstPeriod, discount: int, group_discount: int, addon: bool}>  $rows
      * @param  array<string, string>  $errors  Problems by cart line key; those lines aren't priced.
      * @param  array<string, DomainLine>  $domains  Domain registrations and transfers by cart key.
+     * @param  ClientGroup|null  $group  The client's group, whose discount is in each row's group_discount.
      */
     public function __construct(
         public string $currency,
@@ -22,6 +24,7 @@ readonly class CartQuote
         public ?Promotion $promotion,
         public ?string $promotionError,
         public array $domains = [],
+        public ?ClientGroup $group = null,
     ) {}
 
     /** Nothing to order: no products and no domains. */
@@ -41,8 +44,13 @@ readonly class CartQuote
         return array_sum(array_column($this->rows, 'discount'));
     }
 
+    public function groupDiscount(): int
+    {
+        return array_sum(array_column($this->rows, 'group_discount'));
+    }
+
     public function total(): int
     {
-        return $this->subtotal() - $this->discount();
+        return $this->subtotal() - $this->discount() - $this->groupDiscount();
     }
 }

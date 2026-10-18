@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\ClientGroup;
+use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
-/** Groups of clients, such as resellers or VIPs. Clients are put in one on their edit page. */
+/**
+ * Groups of clients, such as resellers or VIPs, with an optional discount and
+ * billing settings of their own. Clients are put in one on their edit page.
+ */
 class ClientGroupController extends Controller
 {
     public function index(): View
@@ -53,10 +58,28 @@ class ClientGroupController extends Controller
 
     private function validated(Request $request, ClientGroup $group): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('client_groups')->ignore($group)],
             'colour' => ['required', 'regex:/^#[0-9a-f]{6}$/i'],
             'description' => ['nullable', 'string', 'max:255'],
-        ]);
+            'discount_percent' => ['nullable', Money::rule()],
+            'credit_limit' => ['nullable', Money::rule()],
+        ], [], ['discount_percent' => 'discount']);
+
+        // Hundredths of a percent, as promotion codes keep it: "10" is 1000.
+        $discount = filled($data['discount_percent'] ?? null) ? Money::parse($data['discount_percent']) : 0;
+        if ($discount > 10000) {
+            throw ValidationException::withMessages(['discount_percent' => 'The discount can\'t be more than 100%.']);
+        }
+
+        return [
+            ...$data,
+            'discount_percent' => $discount,
+            'discount_renewals' => $request->boolean('discount_renewals'),
+            'exempt_late_fees' => $request->boolean('exempt_late_fees'),
+            'exempt_suspension' => $request->boolean('exempt_suspension'),
+            'separate_invoices' => $request->boolean('separate_invoices'),
+            'credit_limit' => filled($data['credit_limit'] ?? null) ? Money::parse($data['credit_limit']) : null,
+        ];
     }
 }

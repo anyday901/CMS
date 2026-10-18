@@ -89,7 +89,7 @@ Milestone 12 (platform and community) is in as well: translations of the portal 
 
 Milestone 7 (domains) is in too: domain registration, transfer and renewal orders in the store and cart, TLD pricing per term and currency, availability checks and a WHOIS lookup, a registrar module interface with Enom, Namecheap, OpenSRS and ResellerClub modules (not yet tried against live accounts), a nightly sync of expiry dates and statuses, nameserver, DNS, contact, ID protection and transfer lock management in the portal, and renewal invoices, reminders, expiry notices and auto-renew. See [Domains](admin/domains.md).
 
-Parts of milestone 6 (billing parity) are in too: multiple currencies with exchange rates from the European Central Bank and prices per currency, quotes that convert to invoices, Stripe with saved cards and automatic charging on the due date, bank transfer and mail-in payment instructions, and a terms of service checkbox at checkout.
+Parts of milestone 6 (billing parity) are in too: multiple currencies with exchange rates from the European Central Bank and prices per currency, quotes that convert to invoices, client groups with discounts, their own billing settings and credit limits, Stripe with saved cards and automatic charging on the due date, bank transfer and mail-in payment instructions, and a terms of service checkbox at checkout.
 
 Still to come in milestone 5: fraud checks on new orders. See [TODO.md](https://github.com/anyday901/CMS/blob/main/TODO.md).
 

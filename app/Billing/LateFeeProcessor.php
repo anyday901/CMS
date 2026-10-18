@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Adds one late fee to each invoice still unpaid a configured number of days
  * after its due date. Each invoice gets at most one fee, so repeat runs are safe.
+ * Clients in a group exempt from late fees are never charged one.
  */
 class LateFeeProcessor
 {
@@ -31,6 +32,7 @@ class LateFeeProcessor
             ->where('status', InvoiceStatus::Unpaid)
             ->whereDate('due_date', '<=', $dueOnOrBefore)
             ->whereDoesntHave('items', fn ($items) => $items->where('type', InvoiceItem::TYPE_LATE_FEE))
+            ->whereDoesntHave('client.group', fn ($group) => $group->where('exempt_late_fees', true))
             ->pluck('id')
             ->filter(fn (int $id) => $this->charge($id))
             ->count();
