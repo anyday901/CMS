@@ -15,6 +15,7 @@ Route::redirect('/', '/portal');
 
 Route::post('webhooks/paypal', [WebhookController::class, 'paypal'])->name('webhooks.paypal');
 Route::post('webhooks/square', [WebhookController::class, 'square'])->name('webhooks.square');
+Route::post('webhooks/stripe', [WebhookController::class, 'stripe'])->name('webhooks.stripe');
 Route::post('webhooks/email', InboundEmailController::class)->middleware('throttle:60,1')->name('webhooks.email');
 
 // The unsubscribe link for marketing emails, signed for each client.
@@ -113,7 +114,21 @@ Route::prefix('portal')->name('portal.')->group(function () {
                     Route::post('paypal/order', [Portal\PaymentController::class, 'paypalOrder'])->name('pay.paypal.order');
                     Route::post('paypal/capture', [Portal\PaymentController::class, 'paypalCapture'])->name('pay.paypal.capture');
                     Route::post('cashapp', [Portal\PaymentController::class, 'cashApp'])->name('pay.cashapp');
+                    Route::post('stripe/intent', [Portal\PaymentController::class, 'stripeIntent'])->name('pay.stripe.intent');
+                    Route::post('stripe/confirm', [Portal\PaymentController::class, 'stripeConfirm'])->name('pay.stripe.confirm');
+                    Route::post('stripe/saved', [Portal\PaymentController::class, 'stripeSaved'])->name('pay.stripe.saved');
                 });
+                // Where Stripe sends the client back after a payment that needed a redirect.
+                Route::get('stripe/return', [Portal\PaymentController::class, 'stripeReturn'])->name('pay.stripe.return');
+            });
+            Route::prefix('payment-methods')->name('payment-methods.')->controller(Portal\PaymentMethodController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('auto-charge', 'autoCharge')->name('auto-charge');
+                Route::post('{method}/default', 'makeDefault')->whereNumber('method')->name('default');
+                Route::delete('{method}', 'destroy')->whereNumber('method')->middleware('throttle:20,1')->name('destroy');
+                Route::post('stripe/setup', 'stripeSetup')->middleware('throttle:20,1')->name('stripe.setup');
+                Route::post('stripe/confirm', 'stripeConfirm')->middleware('throttle:20,1')->name('stripe.confirm');
+                Route::get('stripe/return', 'stripeReturn')->name('stripe.return');
             });
         });
         Route::middleware('contact.can:services')->group(function () {
@@ -228,6 +243,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('invoices/{invoice}/payments', [Admin\InvoiceController::class, 'pay'])->name('invoices.pay');
             Route::post('invoices/{invoice}/cancel', [Admin\InvoiceController::class, 'cancel'])->name('invoices.cancel');
             Route::post('invoices/{invoice}/credit', [Admin\InvoiceController::class, 'applyCredit'])->name('invoices.credit');
+            Route::post('invoices/{invoice}/charge', [Admin\PaymentMethodController::class, 'charge'])->name('invoices.charge');
+            Route::delete('payment-methods/{method}', [Admin\PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+            Route::put('clients/{client}/auto-charge', [Admin\PaymentMethodController::class, 'autoCharge'])->name('clients.auto-charge');
             Route::post('transactions/{transaction}/refund', [Admin\InvoiceController::class, 'refund'])->name('transactions.refund');
             Route::post('orders/{order}/accept', [Admin\OrderController::class, 'accept'])->name('orders.accept');
             Route::post('orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
@@ -312,6 +330,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('{currency}', 'destroy')->whereNumber('currency')->name('destroy');
                 Route::post('{currency}/default', 'makeDefault')->whereNumber('currency')->name('default');
             });
+            Route::get('settings/payment-gateways', [Admin\PaymentGatewayController::class, 'edit'])->name('payment-gateways.edit');
+            Route::put('settings/payment-gateways', [Admin\PaymentGatewayController::class, 'update'])->name('payment-gateways.update');
         });
     });
 });

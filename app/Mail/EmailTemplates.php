@@ -86,6 +86,14 @@ class EmailTemplates
                 'contacts' => 'invoice_emails',
                 'placeholders' => ['invoice_number', 'invoice_total', 'invoice_url'],
             ],
+            'payment_failed' => [
+                'name' => 'Payment failed',
+                'description' => 'Sent when the billing run could not charge an invoice to the client\'s saved card. It tries again on the retry days set under Automation.',
+                'subject' => 'Payment for invoice #{invoice_number} failed',
+                'body' => "Hello {client_first_name},\n\nWe tried to charge {invoice_balance} for invoice #{invoice_number} to your {payment_method}, but the payment didn't go through: {failure_reason}\n\n[Pay the invoice]({invoice_url})\n\nTo use another card for future payments, [update your payment methods]({payment_methods_url}).\n\nThank you,\n{company_name}",
+                'contacts' => 'invoice_emails',
+                'placeholders' => ['invoice_number', 'invoice_total', 'invoice_balance', 'invoice_due_date', 'invoice_url', 'payment_method', 'failure_reason', 'payment_methods_url'],
+            ],
             'service_welcome' => [
                 'name' => 'Service welcome',
                 'description' => 'Sent when a service is activated: once its first invoice is paid, or when staff add it without an invoice. Each product can add its own text under Products.',

@@ -27,7 +27,7 @@ class Scheduler
     public static function define(Schedule $schedule): void
     {
         $schedule->command('billing:run')->dailyAt(self::billingRunTime())->withoutOverlapping()
-            ->description('Billing run: cancellations, renewal invoices, late fees, reminders, suspensions and terminations');
+            ->description('Billing run: cancellations, renewal invoices, saved card charges, late fees, reminders, suspensions and terminations');
         $schedule->command('usage:collect')->hourlyAt(50)->withoutOverlapping()
             ->description('Read disk and bandwidth use from servers');
         $schedule->command('tickets:escalate')->everyFiveMinutes()->withoutOverlapping()

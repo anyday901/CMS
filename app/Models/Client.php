@@ -28,6 +28,7 @@ class Client extends Authenticatable
     protected $attributes = [
         'status' => 'active',
         'credit_balance' => 0,
+        'auto_charge' => true,
         'tax_exempt' => false,
     ];
 
@@ -58,6 +59,8 @@ class Client extends Authenticatable
             'marketing_emails' => 'boolean',
             'marketing_consent_at' => 'datetime',
             'sms_notifications' => 'boolean',
+            'gateway_customers' => 'array',
+            'auto_charge' => 'boolean',
         ];
     }
 
@@ -118,6 +121,29 @@ class Client extends Authenticatable
     public function currencyLocked(): bool
     {
         return $this->exists && ($this->credit_balance !== 0 || $this->invoices()->exists() || $this->transactions()->exists());
+    }
+
+    /** Saved cards and other payment methods, the default first. */
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(PaymentMethod::class)->orderByDesc('is_default')->latest('id');
+    }
+
+    /** The saved method charged automatically, if any. */
+    public function defaultPaymentMethod(): ?PaymentMethod
+    {
+        return $this->paymentMethods()->where('is_default', true)->first();
+    }
+
+    /** The client's customer id at a gateway, such as their Stripe customer. */
+    public function gatewayCustomer(string $gateway): ?string
+    {
+        return $this->gateway_customers[$gateway] ?? null;
+    }
+
+    public function setGatewayCustomer(string $gateway, string $customerId): void
+    {
+        $this->forceFill(['gateway_customers' => [$gateway => $customerId] + ($this->gateway_customers ?? [])])->save();
     }
 
     public function sendPasswordResetNotification($token): void

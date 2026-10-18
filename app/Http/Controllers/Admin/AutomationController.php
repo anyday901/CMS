@@ -34,6 +34,8 @@ class AutomationController extends Controller
             'terminateDays' => config('billing.terminate_after_days'),
             'overageDays' => config('billing.overage_due_days'),
             'updateRates' => (bool) config('billing.update_exchange_rates'),
+            'autoChargeDays' => (int) config('billing.auto_charge_days_before_due'),
+            'chargeRetryDays' => implode(', ', (array) config('billing.charge_retry_days')),
             'timezone' => config('app.timezone'),
         ]);
     }
@@ -52,11 +54,14 @@ class AutomationController extends Controller
             'terminate_after_days' => self::DAYS,
             'overage_due_days' => ['required', 'integer', 'min:0', 'max:365'],
             'update_exchange_rates' => ['boolean'],
+            'auto_charge_days_before_due' => ['nullable', 'integer', 'min:0', 'max:60'],
+            'charge_retry_days' => ['nullable', 'string', 'max:200'],
         ]);
 
         $amount = Money::parse($data['late_fee_amount'] ?? '0');
         $days = fn (string $key) => filled($data[$key] ?? null) ? (int) $data[$key] : null;
         $reminders = $this->reminderDays((string) ($data['reminder_days'] ?? ''));
+        $retries = $this->reminderDays((string) ($data['charge_retry_days'] ?? ''), 'charge_retry_days');
 
         $errors = array_filter([
             'late_fee_amount' => match (true) {
@@ -85,6 +90,8 @@ class AutomationController extends Controller
             'billing.terminate_after_days' => $days('terminate_after_days'),
             'billing.overage_due_days' => (int) $data['overage_due_days'],
             'billing.update_exchange_rates' => $request->boolean('update_exchange_rates'),
+            'billing.auto_charge_days_before_due' => (int) ($data['auto_charge_days_before_due'] ?? 0),
+            'billing.charge_retry_days' => $retries,
         ];
         Settings::save($values);
         Activity::record('Updated automation settings', null, collect($values)->mapWithKeys(fn ($value, $key) => [str_replace('billing.', '', $key) => $value])->all());
@@ -99,13 +106,13 @@ class AutomationController extends Controller
      *
      * @throws ValidationException when one isn't a whole number of days
      */
-    private function reminderDays(string $input): array
+    private function reminderDays(string $input, string $field = 'reminder_days'): array
     {
         $days = preg_split('/[\s,]+/', $input, -1, PREG_SPLIT_NO_EMPTY);
         $bad = collect($days)->first(fn (string $day) => ! ctype_digit($day) || (int) $day < 1 || (int) $day > 365);
 
         if ($bad !== null) {
-            throw ValidationException::withMessages(['reminder_days' => "\"{$bad}\" isn't a number of days from 1 to 365."]);
+            throw ValidationException::withMessages([$field => "\"{$bad}\" isn't a number of days from 1 to 365."]);
         }
 
         return collect($days)->map(fn (string $day) => (int) $day)->unique()->sort()->values()->all();

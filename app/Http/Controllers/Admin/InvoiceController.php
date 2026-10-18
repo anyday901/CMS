@@ -46,7 +46,7 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): View
     {
-        $invoice->load(['client', 'items.service', 'transactions.refunds']);
+        $invoice->load(['client.paymentMethods', 'items.service', 'transactions.refunds', 'paymentAttempts']);
 
         return view('admin.invoices.show', [
             'invoice' => $invoice,
@@ -54,6 +54,8 @@ class InvoiceController extends Controller
                 ->filter(fn ($gateway) => $gateway instanceof RefundsPayments)
                 ->map(fn ($gateway) => $gateway->key())
                 ->all(),
+            // Saved cards staff can charge now: ones whose gateway is set up.
+            'chargeable' => $invoice->client->paymentMethods->filter(fn ($method) => app(GatewayRegistry::class)->charger($method->gateway) !== null),
         ]);
     }
 
@@ -113,7 +115,7 @@ class InvoiceController extends Controller
     {
         $data = $request->validate([
             'amount' => ['required', Money::rule()],
-            'method' => ['required', Rule::in(['cash', 'check', 'bank_transfer', 'mail_in', 'paypal', 'venmo', 'cashapp', 'other'])],
+            'method' => ['required', Rule::in(['cash', 'check', 'bank_transfer', 'mail_in', 'paypal', 'venmo', 'cashapp', 'stripe', 'other'])],
             'reference' => ['nullable', 'string', 'max:255'],
         ]);
 

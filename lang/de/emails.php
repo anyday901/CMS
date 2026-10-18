@@ -33,6 +33,10 @@ return [
         'subject' => 'Zahlungsbestätigung für Rechnung Nr. {invoice_number}',
         'body' => "Hallo {client_first_name},\n\nvielen Dank für Ihre Zahlung. Die Rechnung Nr. {invoice_number} über {invoice_total} ist jetzt vollständig bezahlt.\n\n[Rechnung ansehen]({invoice_url})\n\n{company_name}",
     ],
+    'payment_failed' => [
+        'subject' => 'Zahlung für Rechnung Nr. {invoice_number} fehlgeschlagen',
+        'body' => "Hallo {client_first_name},\n\nwir wollten {invoice_balance} für die Rechnung Nr. {invoice_number} von Ihrer {payment_method} abbuchen, aber die Zahlung ist nicht durchgegangen: {failure_reason}\n\n[Rechnung bezahlen]({invoice_url})\n\nUm künftig eine andere Karte zu verwenden, [aktualisieren Sie Ihre Zahlungsmethoden]({payment_methods_url}).\n\nVielen Dank\n{company_name}",
+    ],
     'service_welcome' => [
         'subject' => 'Ihr {service_name} ist bereit',
         'body' => "Hallo {client_first_name},\n\nvielen Dank für Ihre Bestellung. Ihr {service_name} ist jetzt aktiv.\n\n{product_welcome}\n\n[Dienst ansehen]({service_url})\n\nVielen Dank\n{company_name}",
