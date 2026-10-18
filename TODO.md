@@ -102,7 +102,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Merge unpaid invoices
 - [ ] Sequential invoice numbers for paid invoices only, with a proforma number before payment
 - [ ] Compound and multi-level tax, EU VAT number validation and reverse charge
-- [ ] Account statements for a date range
+- [x] Account statements for a date range
 - [ ] Gateway log of every callback and webhook
 - [ ] Client groups with discounts and their own settings
 

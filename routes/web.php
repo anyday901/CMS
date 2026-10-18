@@ -529,4 +529,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     });
 });
 
+// Account statements: the client's invoices, payments and credit for the dates they pick.
+Route::prefix('portal/statement')->name('portal.statement.')->middleware(['auth:client', EnsureClientCanLogIn::class, 'contact.can:billing'])
+    ->controller(Portal\StatementController::class)->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::get('pdf', 'pdf')->middleware('throttle:20,1')->name('pdf');
+    });
+
 require __DIR__.'/platform.php';

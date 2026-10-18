@@ -468,7 +468,7 @@ Every client email is listed under **Emails** with its status (queued, sent or f
 
 Use **New invoice** on a client's page to bill anything that isn't a service renewal. Add as many lines as you need; negative amounts work as discounts, but the total must be above zero. **Save as draft** keeps the invoice hidden from the client until you **Publish** it; **Create invoice** makes it visible and payable right away. Draft and unpaid invoices can be edited, but not below what has already been paid. Lines for a service renewal can be changed but not removed, because they tell the billing run that period is already invoiced; cancel the invoice instead.
 
-Staff and clients can download any invoice they can see as a PDF. Invoice and quote PDFs use the Harbor colours, kept dark enough to read printed in greyscale. The company details at the top of the PDF come from `.env`:
+Staff and clients can download any invoice they can see as a PDF. Invoice, quote and statement PDFs use the Harbor colours, kept dark enough to read printed in greyscale. The company details at the top of the PDF come from `.env`:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -480,6 +480,10 @@ Staff and clients can download any invoice they can see as a PDF. Invoice and qu
 ### Quotes
 
 Open a client and choose **Billing > Quotes > New quote** to make a priced proposal with line items, a valid-until date and proposal text, taxed as on invoices. **Send to client** emails it with the PDF attached and shows it in the client's portal, where they can accept or decline it. Accepting, or **Convert to invoice** in the admin area, turns it into an unpaid invoice with the same lines. Every quote is listed under **Quotes** in the admin menu. See [docs/admin/quotes.md](docs/admin/quotes.md).
+
+### Account statements
+
+Clients, and contacts with the billing permission, open **Invoices > Account statement** in the portal to see their invoices, payments, refunds and credit applied between two dates they pick, with the opening balance, what they owed after each line, the closing balance and the changes to their credit balance, and download it as a PDF. Staff see the same statement under **Reports > Client statement**. See [docs/admin/statements.md](docs/admin/statements.md).
 
 ### Activity log
 
