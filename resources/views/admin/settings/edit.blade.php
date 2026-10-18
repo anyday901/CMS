@@ -23,7 +23,7 @@
 
         <fieldset class="space-y-2">
             <legend class="mb-1 text-base font-semibold">Payment gateways</legend>
-            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>.</p>
+            <p class="text-ink-600">How clients pay online: Stripe card payments and saved cards, and whether PayPal and Cash App Pay are set up. Bank transfer and mail-in instructions are <a href="#offline-payments" class="text-brand-600">further down</a>. <a href="{{ route('admin.payment-gateways.edit') }}" class="text-brand-600">Payment gateways</a>.</p>
         </fieldset>
 
         <fieldset class="space-y-2">

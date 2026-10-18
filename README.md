@@ -8,11 +8,11 @@ A free, self-hosted billing, client portal and support platform. It is an open s
 
 - Client accounts and a client portal, with client groups, staff notes, merging duplicate accounts and marketing email consent
 - Admin tools: a search box across clients, services and domains, invoices, orders and tickets, and a staff to-do list
-- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, and client cancellation requests
+- A public store: product catalogue, cart and checkout with sign-up, add-ons, promotion codes, upgrades and downgrades, free trials, billing on a fixed day of the month, stock control, a pending orders queue, order confirmation emails, a terms of service checkbox, and client cancellation requests
 - Domains: registration, transfer and renewal orders with TLD pricing per term and currency, availability and WHOIS lookups, Enom, Namecheap, OpenSRS and ResellerClub registrar modules, a nightly sync, renewal reminders and auto-renew, and nameserver, DNS, contact, ID protection and lock management in the portal
 - Products, services and recurring billing
-- Invoices, payments, credits, refunds and overdue handling
-- Payment gateways: PayPal, Venmo (through PayPal) and Cash App Pay (through Square)
+- Invoices, quotes, payments, credits, refunds and overdue handling, in several currencies with exchange rates
+- Payment gateways: Stripe (with saved cards and automatic charging on the due date), PayPal, Venmo (through PayPal), Cash App Pay (through Square), and bank transfer and mail-in payment instructions
 - Provisioning through manual fulfillment tasks, webhooks, or cPanel / WHM, Plesk, DirectAdmin and Proxmox VE servers, with servers grouped and filled least used first or one at a time, accounts copied between servers on a move, disk and bandwidth usage with overage billing, and server status monitoring
 - Software licensing: license keys your own software checks, locked to where they are installed
 - Support tickets with email piping, a spam filter, tickets from people without an account (by email or a contact form), custom fields per department, response time targets (SLAs) in calendar or business hours, escalation rules, tags, merging and splitting, auto-close and feedback ratings
@@ -114,6 +114,10 @@ The public store is at `/store`. It lists active products by product group (set 
 - **Terms of service**: set **Terms of service link** under **Settings > Orders** (or `STORE_TERMS_URL`) and checkout asks clients to tick a box agreeing to it before the order is placed, and before a new client's account is made. The order page shows that they agreed.
 - **Pending orders**: every checkout lands in the queue under **Orders** (also on the dashboard), oldest first. Staff with billing access **Accept** an order, **Cancel** it, or **Mark as fraud**. Cancelling or flagging cancels the unpaid invoice, cancels services that haven't started and terminates running ones, and gives back the stock and promotion code use; a paid invoice is left for staff to refund. By default services still start as soon as their invoice is paid; tick **Hold new orders for review** on the **Settings** page (or set `BILLING_HOLD_NEW_ORDERS=true`) to keep a paid order's services pending until it's accepted.
 
+### Currencies
+
+CMS bills each client in one currency. Add currencies under **Settings > Currencies**, take today's exchange rates from the European Central Bank (by hand or daily), and set prices per currency on the product, option and TLD pages, or convert them all from the default currency in one click. Guests choose a currency in the store and are billed in it when they sign up. See [docs/admin/currencies.md](docs/admin/currencies.md).
+
 ## Domains
 
 Domains are sold from the store's **Domains** page, alone or with hosting, and registered or transferred at the TLD's registrar once paid. Set them up under **Settings**: **Registrars and domain settings** for each registrar's credentials (with a **Test** button), the default nameservers, renewal invoice and reminder days and the auto-renew default; **TLDs and pricing** for each extension, its registrar, and its register, transfer, renew and ID protection prices per term and currency. Enom, Namecheap, OpenSRS and ResellerClub modules are built in; they follow each registrar's API but haven't been tried against live accounts yet, so try them in the registrar's test environment first.
@@ -122,7 +126,7 @@ Auto-renewing domains get a renewal invoice before they expire (30 days by defau
 
 ## Online payments
 
-Clients pay each invoice from the portal. A payment method appears on unpaid invoices once its settings are in `.env`. Leave them blank to hide it.
+Clients pay each invoice from the portal, and with Stripe can save a card that's charged automatically when invoices fall due. A payment method appears on unpaid invoices once its settings are in `.env` (or, for Stripe, bank transfer and mail-in payments, in the admin area). Leave them blank to hide it.
 
 ### PayPal and Venmo
 
@@ -163,6 +167,22 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=...
 With the webhook, refunds issued from the Square dashboard are recorded on the invoice, pending refunds are confirmed or undone as soon as Square knows, and disputed payments are flagged on the admin invoice page. A lost or accepted dispute is recorded as a refund of the disputed amount.
 
 Test with sandbox credentials first; both providers have sandbox accounts for fake payments.
+
+### Stripe
+
+Stripe takes card payments on invoices, lets clients save cards, and charges saved cards automatically when invoices fall due.
+
+1. In the [Stripe dashboard](https://dashboard.stripe.com/apikeys), under **Developers > API keys**, copy the publishable key (`pk_...`) and the secret key (`sk_...`). Start with the test keys and [Stripe's test cards](https://docs.stripe.com/testing).
+2. Under **Developers > Webhooks**, add an endpoint pointing at `https://your-domain/webhooks/stripe` with the `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `setup_intent.succeeded` and `payment_method.detached` events, and copy its signing secret (`whsec_...`).
+3. Enter the three values under **Settings > Payment gateways** (secrets are stored encrypted), or in `.env`. Values saved in the admin area win.
+
+```dotenv
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Clients manage saved cards under **Invoices > Payment methods**, where they can also turn automatic payments off. The billing run charges the default card on the due date and retries failed charges 1, 3 and 5 days later; change these days under **Settings > Automation** (or `BILLING_AUTO_CHARGE_DAYS_BEFORE_DUE` and `BILLING_CHARGE_RETRY_DAYS`). A failed automatic charge emails the client the **Payment failed** template. Answer disputes in the Stripe dashboard. See [docs/admin/stripe.md](docs/admin/stripe.md).
 
 ### Bank transfer and mail-in payments
 

@@ -50,6 +50,7 @@
                     <div class="text-xs text-ink-500">{{ $other['env'] }}</div>
                 </div>
             @endforeach
+            <p class="border-t border-ink-100 pt-3 text-ink-600">Bank transfer and mail-in payments are set up with their instructions on the <a href="{{ route('admin.settings.edit') }}#offline-payments" class="text-brand-600">Settings</a> page.</p>
         </div>
     </div>
 </x-admin-layout>
