@@ -66,6 +66,7 @@ nav:
       - Installing: install.md
       - Running a demo instance: demo.md
   - Admin guide:
+      - Add funds, mass payment and merging invoices: admin/add-funds-and-mass-payment.md
       - Appearance and white-label: admin/appearance.md
       - Currencies: admin/currencies.md
       - Domains: admin/domains.md
