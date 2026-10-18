@@ -457,6 +457,10 @@ Staff and clients can download any invoice they can see as a PDF. The company de
 | `BILLING_COMPANY_EMAIL` | (blank) | Billing contact email |
 | `BILLING_COMPANY_TAX_ID` | (blank) | Tax or business registration number |
 
+### Quotes
+
+Open a client and choose **Billing > Quotes > New quote** to make a priced proposal with line items, a valid-until date and proposal text, taxed as on invoices. **Send to client** emails it with the PDF attached and shows it in the client's portal, where they can accept or decline it. Accepting, or **Convert to invoice** in the admin area, turns it into an unpaid invoice with the same lines. Every quote is listed under **Quotes** in the admin menu. See [docs/admin/quotes.md](docs/admin/quotes.md).
+
 ### Activity log
 
 Admins can see who did what under **Activity**: staff and client logins, changes to clients, products, tax rules and staff, invoices created, edited, published and cancelled, payments, refunds, late fees, service status changes and ticket activity. Each entry records the person (or "System" for the nightly billing run and payment webhooks) and their IP address. A client's page shows their 20 most recent entries.
