@@ -37,6 +37,8 @@ return new class extends Migration
             $table->foreignId('client_id')->constrained()->cascadeOnDelete();
             $table->foreignId('payment_method_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('transaction_id')->nullable()->constrained()->nullOnDelete();
+            // The gateway's id for the charge, e.g. a Stripe PaymentIntent, to match its outcome later.
+            $table->string('gateway_reference')->nullable();
             // "Visa ending 4242", kept in case the method is removed later.
             $table->string('method_label');
             $table->string('gateway', 40);

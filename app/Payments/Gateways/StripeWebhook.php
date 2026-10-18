@@ -66,7 +66,7 @@ class StripeWebhook
     private function failed(array $intent): void
     {
         if ($invoice = $this->invoice($intent)) {
-            $this->charger->pendingFailed($invoice, Stripe::KEY, (string) ($intent['last_payment_error']['message'] ?? 'The payment did not go through.'));
+            $this->charger->pendingFailed($invoice, Stripe::KEY, (string) ($intent['id'] ?? ''), (string) ($intent['last_payment_error']['message'] ?? 'The payment did not go through.'));
         }
     }
 

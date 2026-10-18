@@ -5,7 +5,6 @@ namespace App\Payments;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
-use App\Models\Transaction;
 
 /**
  * A gateway that can keep a client's card (or other method) and charge it
@@ -17,13 +16,13 @@ interface ChargesSavedMethods
 {
     /**
      * Charges the invoice's balance to a saved method, with the client not
-     * present. Returns null when the gateway accepted the charge but is
-     * still processing it; its webhook records the payment later. The same
-     * idempotency key never charges twice.
+     * present. The result has no transaction when the gateway accepted the
+     * charge but is still processing it; its webhook records the payment
+     * later. The same idempotency key never charges twice.
      *
      * @throws PaymentFailed when the charge is declined or can't be made. The message is safe to show the client.
      */
-    public function charge(Invoice $invoice, PaymentMethod $method, string $idempotencyKey): ?Transaction;
+    public function charge(Invoice $invoice, PaymentMethod $method, string $idempotencyKey): SavedCharge;
 
     /**
      * Removes a saved method at the gateway, so it can't be charged again.

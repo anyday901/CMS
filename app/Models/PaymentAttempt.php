@@ -22,7 +22,7 @@ class PaymentAttempt extends Model
     public const STAFF = 'staff';
 
     protected $fillable = [
-        'invoice_id', 'client_id', 'payment_method_id', 'transaction_id', 'method_label', 'gateway',
+        'invoice_id', 'client_id', 'payment_method_id', 'transaction_id', 'gateway_reference', 'method_label', 'gateway',
         'currency', 'amount', 'status', 'message', 'source', 'attempted_on',
     ];
 

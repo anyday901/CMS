@@ -208,4 +208,30 @@ class AutoChargeTest extends TestCase
         app(PaymentRecorder::class)->record($this->invoice, 2500, 'stripe', 'pi_auto');
         $this->assertSame(PaymentAttempt::SUCCEEDED, PaymentAttempt::sole()->status);
     }
+
+    public function test_a_payment_made_another_way_leaves_a_processing_charge_pending(): void
+    {
+        Http::fake([self::STRIPE => Http::response(['id' => 'pi_auto', 'status' => 'processing', 'currency' => 'usd', 'metadata' => ['invoice_id' => (string) $this->invoice->id]])]);
+        $this->runOn(self::DUE);
+
+        // Paid by bank transfer while the card charge is still processing.
+        app(PaymentRecorder::class)->record($this->invoice, 2500, 'bank_transfer', 'BT-1');
+
+        $attempt = PaymentAttempt::sole();
+        $this->assertSame([PaymentAttempt::PENDING, 'pi_auto'], [$attempt->status, $attempt->gateway_reference]);
+    }
+
+    public function test_long_overdue_invoices_are_not_charged_when_auto_charging_is_turned_on(): void
+    {
+        $this->succeeds();
+        $old = Invoice::create(['client_id' => $this->client->id, 'currency' => 'USD', 'issue_date' => '2026-01-01', 'due_date' => '2026-01-10']);
+        $old->items()->create(['description' => 'Hosting', 'amount' => 900]);
+        $old->recalculate();
+
+        $this->runOn(self::DUE);
+
+        $this->assertSame(InvoiceStatus::Unpaid, $old->refresh()->status);
+        $this->assertSame(InvoiceStatus::Paid, $this->invoice->refresh()->status);
+        Http::assertSentCount(1);
+    }
 }

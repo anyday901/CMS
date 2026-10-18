@@ -45,13 +45,28 @@ class SavedMethodCharger
     }
 
     /**
-     * Marks the invoice's pending attempts as failed, when the gateway
-     * reports that a charge it was still processing didn't go through.
+     * Marks a pending attempt as failed, when the gateway reports that the
+     * charge it was still processing, $reference, didn't go through.
      */
-    public function pendingFailed(Invoice $invoice, string $gateway, string $message): void
+    public function pendingFailed(Invoice $invoice, string $gateway, string $reference, string $message): void
     {
-        $invoice->paymentAttempts()->where('gateway', $gateway)->where('status', PaymentAttempt::PENDING)
+        $invoice->paymentAttempts()->where('gateway', $gateway)->where('gateway_reference', $reference)->where('status', PaymentAttempt::PENDING)
             ->update(['status' => PaymentAttempt::FAILED, 'message' => $message]);
+    }
+
+    /**
+     * Marks the invoice's pending attempts as succeeded once their own charge
+     * is recorded on it. A payment made some other way leaves them pending.
+     */
+    public function pendingSettled(Invoice $invoice): void
+    {
+        foreach ($invoice->paymentAttempts()->where('status', PaymentAttempt::PENDING)->whereNotNull('gateway_reference')->get() as $attempt) {
+            $payment = $invoice->transactions()->where('gateway', $attempt->gateway)->where('gateway_reference', $attempt->gateway_reference)->first();
+
+            if ($payment !== null) {
+                $attempt->update(['status' => PaymentAttempt::SUCCEEDED, 'transaction_id' => $payment->id]);
+            }
+        }
     }
 
     private function chargeUnlocked(Invoice $invoice, PaymentMethod $method, string $source): PaymentAttempt
@@ -75,11 +90,14 @@ class SavedMethodCharger
         $key = "invoice-{$invoice->id}-method-{$method->id}-".today()->toDateString()."-{$amount}-{$tries}";
 
         try {
-            $transaction = $gateway->charge($invoice, $method, $key);
+            $charge = $gateway->charge($invoice, $method, $key);
+            $transaction = $charge->transaction;
+            $reference = $charge->reference;
             $status = $transaction ? PaymentAttempt::SUCCEEDED : PaymentAttempt::PENDING;
             $message = null;
         } catch (PaymentFailed $e) {
             $transaction = null;
+            $reference = null;
             $status = PaymentAttempt::FAILED;
             $message = $e->getMessage();
         }
@@ -88,6 +106,7 @@ class SavedMethodCharger
             'client_id' => $invoice->client_id,
             'payment_method_id' => $method->id,
             'transaction_id' => $transaction?->id,
+            'gateway_reference' => $reference,
             'method_label' => $method->label(),
             'gateway' => $method->gateway,
             'currency' => $invoice->currency,

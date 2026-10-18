@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Payments\Gateways\Stripe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -162,6 +163,29 @@ class StripeTest extends TestCase
 
         Http::assertSent(fn (Request $r) => $r['payment_method'] === 'pm_1' && $r['customer'] === 'cus_1' && $r['confirm'] === 'true' && ! isset($r['off_session']));
         $this->assertSame(InvoiceStatus::Paid, $this->invoice->refresh()->status);
+    }
+
+    public function test_a_saved_card_payment_is_not_made_twice(): void
+    {
+        $this->actingAs($this->client, 'client');
+        $card = $this->savedCard();
+        Http::fake(['api.stripe.com/v1/payment_intents' => Http::response($this->intent(['status' => 'processing']))]);
+        $url = "/portal/invoices/{$this->invoice->id}/stripe/saved";
+
+        // While another request holds the invoice, a second click charges nothing.
+        $lock = Cache::lock("charge-invoice-{$this->invoice->id}", 120);
+        $lock->get();
+        $this->postJson($url, ['payment_method' => $card->id])->assertStatus(422);
+        Http::assertNothingSent();
+        $lock->release();
+
+        // A repeat while Stripe is processing sends the same key, so Stripe returns the same payment.
+        $this->postJson($url, ['payment_method' => $card->id])->assertOk();
+        $this->postJson($url, ['payment_method' => $card->id])->assertOk();
+        $keys = collect(Http::recorded())->map(fn ($pair) => $pair[0]->header('Idempotency-Key')[0] ?? null);
+        $this->assertCount(2, $keys);
+        $this->assertNotNull($keys[0]);
+        $this->assertSame($keys[0], $keys[1]);
     }
 
     public function test_a_saved_card_payment_the_bank_wants_confirmed_goes_back_to_the_browser(): void

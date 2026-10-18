@@ -3,6 +3,7 @@
 namespace App\Payments\Gateways;
 
 use App\Billing\PaymentRecorder;
+use App\Enums\InvoiceStatus;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
@@ -12,8 +13,10 @@ use App\Payments\Gateway;
 use App\Payments\GatewayRefund;
 use App\Payments\PaymentFailed;
 use App\Payments\RefundsPayments;
+use App\Payments\SavedCharge;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -135,17 +138,49 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
      */
     public function payWithSaved(Invoice $invoice, PaymentMethod $method): array
     {
-        $response = $this->api()->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
-            'customer' => $method->gateway_customer_id,
-            'payment_method' => $method->gateway_reference,
-            'payment_method_types' => [$method->type],
-            'confirm' => 'true',
-            'expand' => ['latest_charge.balance_transaction'],
-        ]);
+        // The same lock as automatic and staff charges, so a double click or a
+        // billing run at the same moment can't charge the invoice twice.
+        $lock = Cache::lock("charge-invoice-{$invoice->id}", 120);
+
+        if (! $lock->get()) {
+            throw new PaymentFailed('This invoice is being charged right now. Please check it again in a minute.');
+        }
+
+        try {
+            return $this->payWithSavedUnlocked($invoice->refresh(), $method);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /** @return array{status: string, client_secret?: string} */
+    private function payWithSavedUnlocked(Invoice $invoice, PaymentMethod $method): array
+    {
+        $amount = $invoice->balance();
+
+        if ($invoice->status !== InvoiceStatus::Unpaid || $amount <= 0) {
+            throw new PaymentFailed('This invoice has nothing left to pay.');
+        }
+
+        // A repeat while Stripe is still processing the first payment gets
+        // that same payment back; a new key is used only after a decline.
+        $declines = "stripe-saved-declines-{$invoice->id}";
+        $key = "invoice-{$invoice->id}-saved-{$method->id}-{$amount}-".Cache::get($declines, 0);
+
+        $response = $this->api()
+            ->withHeaders(['Idempotency-Key' => $key])
+            ->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
+                'customer' => $method->gateway_customer_id,
+                'payment_method' => $method->gateway_reference,
+                'payment_method_types' => [$method->type],
+                'confirm' => 'true',
+                'expand' => ['latest_charge.balance_transaction'],
+            ]);
         $intent = $response->json();
 
         if ($response->failed()) {
             Log::warning('Stripe could not charge a saved card', ['invoice' => $invoice->id, 'status' => $response->status(), 'error' => $response->json('error.code')]);
+            Cache::put($declines, (int) Cache::get($declines, 0) + 1, now()->addDay());
 
             throw new PaymentFailed($this->declineMessage($response->json('error')));
         }
@@ -204,7 +239,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
         return $this->saveMethod($client, $intent['payment_method'], (string) $intent['customer']);
     }
 
-    public function charge(Invoice $invoice, PaymentMethod $method, string $idempotencyKey): ?Transaction
+    public function charge(Invoice $invoice, PaymentMethod $method, string $idempotencyKey): SavedCharge
     {
         $response = $this->api()
             ->withHeaders(['Idempotency-Key' => $idempotencyKey])
@@ -229,7 +264,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
             throw new PaymentFailed('Your bank asked to confirm this payment. Please pay the invoice in the client area.');
         }
 
-        return $this->settle($invoice, $intent);
+        return new SavedCharge($this->settle($invoice, $intent), (string) $intent['id']);
     }
 
     public function removeMethod(PaymentMethod $method): void

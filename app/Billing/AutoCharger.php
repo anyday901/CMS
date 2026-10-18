@@ -21,6 +21,13 @@ use InvalidArgumentException;
  */
 class AutoCharger
 {
+    /**
+     * How long after the last retry day a missed run still catches up, so a
+     * billing run that was down for a few days doesn't skip invoices, while
+     * turning automatic charging on doesn't charge long-overdue ones.
+     */
+    private const CATCH_UP_DAYS = 30;
+
     public function __construct(private SavedMethodCharger $charger, private GatewayRegistry $gateways) {}
 
     /** @return array{succeeded: int, failed: int, pending: int} */
@@ -38,7 +45,7 @@ class AutoCharger
 
         Invoice::where('status', InvoiceStatus::Unpaid)
             ->whereDate('due_date', '<=', $today->copy()->subDays($tries->first()))
-            ->whereDate('due_date', '>=', $today->copy()->subDays($tries->last()))
+            ->whereDate('due_date', '>=', $today->copy()->subDays($tries->last() + self::CATCH_UP_DAYS))
             ->whereHas('client', fn ($client) => $client->where('auto_charge', true)
                 ->whereHas('paymentMethods', fn ($methods) => $methods->where('is_default', true)->whereIn('gateway', $gateways)))
             ->with('client')
