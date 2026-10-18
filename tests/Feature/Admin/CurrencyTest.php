@@ -20,6 +20,8 @@ class CurrencyTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const RATES_PATH = '/rates';
+
     private const INDEX = '/admin/settings/currencies';
 
     private const MONTHLY = 'monthly';
@@ -81,7 +83,7 @@ class CurrencyTest extends TestCase
         Currency::create(['code' => 'XAF', 'rate' => '600']);
         $this->fakeFeed();
 
-        $this->post(self::INDEX.'/rates')->assertRedirect(self::INDEX)
+        $this->post(self::INDEX.self::RATES_PATH)->assertRedirect(self::INDEX)
             ->assertSessionHas('status', fn (string $status) => str_contains($status, 'Updated 3 exchange rates') && str_contains($status, '2026-10-16') && str_contains($status, 'no rate for XAF'));
 
         // 1 / 1.0825, 0.8412 / 1.0825 and 162.35 / 1.0825, to 10 places, half up.
@@ -102,9 +104,9 @@ class CurrencyTest extends TestCase
         // Retried once, then given up on; then a feed without the default currency.
         Http::fake([ExchangeRates::FEED => Http::sequence()->push('nope', 500)->push('nope', 500)
             ->push(str_replace('<Cube currency="USD" rate="1.0825"/>', '', self::FEED))]);
-        $this->post(self::INDEX.'/rates')->assertSessionHasErrors(['rates' => 'The European Central Bank answered with HTTP 500.']);
+        $this->post(self::INDEX.self::RATES_PATH)->assertSessionHasErrors(['rates' => 'The European Central Bank answered with HTTP 500.']);
 
-        $this->post(self::INDEX.'/rates')->assertSessionHasErrors(['rates' => "The European Central Bank doesn't publish a rate for USD, the default currency, so no rates were changed."]);
+        $this->post(self::INDEX.self::RATES_PATH)->assertSessionHasErrors(['rates' => "The European Central Bank doesn't publish a rate for USD, the default currency, so no rates were changed."]);
         $this->assertSame('0.9', Currency::where('code', 'EUR')->value('rate'));
     }
 

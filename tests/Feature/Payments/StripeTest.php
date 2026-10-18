@@ -19,6 +19,8 @@ class StripeTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PAYMENT_INTENTS_URL = 'https://api.stripe.com/v1/payment_intents';
+
     private const SECRET = 'whsec_test123';
 
     private const INTENT = 'pi_123';
@@ -108,7 +110,7 @@ class StripeTest extends TestCase
         $this->postJson("/portal/invoices/{$this->invoice->id}/stripe/intent", ['save' => false])
             ->assertOk()->assertJson(['client_secret' => 'pi_123_secret_abc']);
 
-        Http::assertSent(fn (Request $r) => $r->url() === 'https://api.stripe.com/v1/payment_intents'
+        Http::assertSent(fn (Request $r) => $r->url() === self::PAYMENT_INTENTS_URL
             && $r['amount'] === 2500 && $r['currency'] === 'usd'
             && $r['metadata']['invoice_id'] === (string) $this->invoice->id
             && ! isset($r['setup_future_usage'], $r['customer'])
@@ -135,7 +137,7 @@ class StripeTest extends TestCase
         $this->postJson("/portal/invoices/{$this->invoice->id}/stripe/intent", ['save' => true])->assertOk();
 
         Http::assertSent(fn (Request $r) => $r->url() === 'https://api.stripe.com/v1/customers' && $r['email'] === $this->client->email);
-        Http::assertSent(fn (Request $r) => $r->url() === 'https://api.stripe.com/v1/payment_intents' && $r['customer'] === 'cus_1' && $r['setup_future_usage'] === 'off_session');
+        Http::assertSent(fn (Request $r) => $r->url() === self::PAYMENT_INTENTS_URL && $r['customer'] === 'cus_1' && $r['setup_future_usage'] === 'off_session');
         $this->assertSame('cus_1', $this->client->refresh()->gatewayCustomer('stripe'));
 
         $this->postJson("/portal/invoices/{$this->invoice->id}/stripe/confirm", ['payment_intent' => self::INTENT])->assertOk();
@@ -338,7 +340,7 @@ class StripeTest extends TestCase
 
         $this->get("/portal/invoices/{$invoice->id}")->assertSee('amount: 1500', false);
         $this->postJson("/portal/invoices/{$invoice->id}/stripe/intent")->assertOk();
-        Http::assertSent(fn (Request $r) => $r->url() === 'https://api.stripe.com/v1/payment_intents' && $r['amount'] === 1500 && $r['currency'] === 'jpy');
+        Http::assertSent(fn (Request $r) => $r->url() === self::PAYMENT_INTENTS_URL && $r['amount'] === 1500 && $r['currency'] === 'jpy');
 
         $this->postJson("/portal/invoices/{$invoice->id}/stripe/confirm", ['payment_intent' => 'pi_jpy'])->assertOk();
         $transaction = $invoice->transactions()->sole();

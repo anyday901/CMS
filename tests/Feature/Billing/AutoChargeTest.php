@@ -22,6 +22,14 @@ class AutoChargeTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DECLINE_MESSAGE = 'Your card has insufficient funds.';
+
+    private const DUE_DATE = '2026-11-11';
+
+    private const DAY_AFTER_DUE = '2026-11-12';
+
+    private const AUTOMATION_URL = '/admin/settings/automation';
+
     private const DUE = '2026-11-10';
 
     private const STRIPE = 'api.stripe.com/v1/payment_intents';
@@ -62,7 +70,7 @@ class AutoChargeTest extends TestCase
     private function declines(): void
     {
         Http::fake([self::STRIPE => Http::response(['error' => [
-            'type' => 'card_error', 'code' => 'card_declined', 'decline_code' => 'insufficient_funds', 'message' => 'Your card has insufficient funds.',
+            'type' => 'card_error', 'code' => 'card_declined', 'decline_code' => 'insufficient_funds', 'message' => self::DECLINE_MESSAGE,
         ]], 402)]);
     }
 
@@ -108,15 +116,15 @@ class AutoChargeTest extends TestCase
 
         $this->assertSame(1, $this->runOn(self::DUE)[PaymentAttempt::FAILED]);
         $this->assertSame(0, $this->runOn(self::DUE)[PaymentAttempt::FAILED]);
-        $this->assertSame(1, $this->runOn('2026-11-11')[PaymentAttempt::FAILED]);
-        $this->assertSame(0, $this->runOn('2026-11-12')[PaymentAttempt::FAILED]);
+        $this->assertSame(1, $this->runOn(self::DUE_DATE)[PaymentAttempt::FAILED]);
+        $this->assertSame(0, $this->runOn(self::DAY_AFTER_DUE)[PaymentAttempt::FAILED]);
         $this->assertSame(1, $this->runOn('2026-11-13')[PaymentAttempt::FAILED]);
         $this->assertSame(0, $this->runOn('2026-11-14')[PaymentAttempt::FAILED]);
         $this->assertSame(1, $this->runOn('2026-11-15')[PaymentAttempt::FAILED]);
         $this->assertSame(0, $this->runOn('2026-11-16')[PaymentAttempt::FAILED]);
         $this->assertSame(0, $this->runOn('2026-11-30')[PaymentAttempt::FAILED]);
 
-        $this->assertSame(['2026-11-10', '2026-11-11', '2026-11-13', '2026-11-15'], PaymentAttempt::orderBy('id')->get()->map(fn ($a) => $a->attempted_on->toDateString())->all());
+        $this->assertSame(['2026-11-10', self::DUE_DATE, '2026-11-13', '2026-11-15'], PaymentAttempt::orderBy('id')->get()->map(fn ($a) => $a->attempted_on->toDateString())->all());
         Http::assertSentCount(4);
         $this->assertSame(InvoiceStatus::Unpaid, $this->invoice->refresh()->status);
     }
@@ -126,8 +134,8 @@ class AutoChargeTest extends TestCase
         $this->declines();
 
         // Nothing ran on the due date or the day after.
-        $this->assertSame(1, $this->runOn('2026-11-12')[PaymentAttempt::FAILED]);
-        $this->assertSame(0, $this->runOn('2026-11-12')[PaymentAttempt::FAILED]);
+        $this->assertSame(1, $this->runOn(self::DAY_AFTER_DUE)[PaymentAttempt::FAILED]);
+        $this->assertSame(0, $this->runOn(self::DAY_AFTER_DUE)[PaymentAttempt::FAILED]);
         Http::assertSentCount(1);
     }
 
@@ -139,11 +147,11 @@ class AutoChargeTest extends TestCase
         $email = EmailLog::where('template', 'payment_failed')->sole();
         $this->assertSame($this->invoice->id, $email->invoice_id);
         $this->assertStringContainsString('Visa ending 4242', $email->body);
-        $this->assertStringContainsString('Your card has insufficient funds.', $email->body);
+        $this->assertStringContainsString(self::DECLINE_MESSAGE, $email->body);
         $this->assertStringContainsString(route('portal.payment-methods.index'), $email->body);
 
         $this->actingAs(User::factory()->create(), 'web');
-        $this->get("/admin/invoices/{$this->invoice->id}")->assertSee('Saved card charges')->assertSee('Billing run')->assertSee('Your card has insufficient funds.');
+        $this->get("/admin/invoices/{$this->invoice->id}")->assertSee('Saved card charges')->assertSee('Billing run')->assertSee(self::DECLINE_MESSAGE);
     }
 
     public function test_clients_who_opted_out_are_not_charged(): void
@@ -178,9 +186,9 @@ class AutoChargeTest extends TestCase
             'auto_charge_days_before_due' => '2', 'charge_retry_days' => '7, 2, 2',
         ];
 
-        $this->get('/admin/settings/automation')->assertSee('Automatic card charging')->assertSee('value="1, 3, 5"', false);
-        $this->put('/admin/settings/automation', ['charge_retry_days' => '1, soon'] + $form)->assertSessionHasErrors('charge_retry_days');
-        $this->put('/admin/settings/automation', $form)->assertSessionHasNoErrors();
+        $this->get(self::AUTOMATION_URL)->assertSee('Automatic card charging')->assertSee('value="1, 3, 5"', false);
+        $this->put(self::AUTOMATION_URL, ['charge_retry_days' => '1, soon'] + $form)->assertSessionHasErrors('charge_retry_days');
+        $this->put(self::AUTOMATION_URL, $form)->assertSessionHasNoErrors();
 
         Settings::apply();
         $this->assertSame([2, [2, 7]], [(int) config('billing.auto_charge_days_before_due'), config('billing.charge_retry_days')]);
@@ -193,7 +201,7 @@ class AutoChargeTest extends TestCase
 
         $this->assertSame(1, $this->runOn(self::DUE)[PaymentAttempt::PENDING]);
         // Not tried again on a retry day while the first charge may still go through.
-        $this->runOn('2026-11-11');
+        $this->runOn(self::DUE_DATE);
         Http::assertSentCount(1);
 
         // The gateway's webhook records the payment.

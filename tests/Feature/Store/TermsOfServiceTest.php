@@ -14,6 +14,8 @@ class TermsOfServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SETTINGS_URL = '/admin/settings';
+
     private const TERMS_URL = 'https://example.com/terms';
 
     private const CHECKOUT = '/checkout';
@@ -95,12 +97,12 @@ class TermsOfServiceTest extends TestCase
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put('/admin/settings', ['terms_url' => 'not a link'])->assertSessionHasErrors('terms_url');
-        $this->put('/admin/settings', ['terms_url' => self::TERMS_URL])->assertRedirect('/admin/settings');
+        $this->put(self::SETTINGS_URL, ['terms_url' => 'not a link'])->assertSessionHasErrors('terms_url');
+        $this->put(self::SETTINGS_URL, ['terms_url' => self::TERMS_URL])->assertRedirect(self::SETTINGS_URL);
         $this->assertSame(self::TERMS_URL, config('store.terms_url'));
-        $this->get('/admin/settings')->assertOk()->assertSee(self::TERMS_URL);
+        $this->get(self::SETTINGS_URL)->assertOk()->assertSee(self::TERMS_URL);
 
-        $this->put('/admin/settings', ['terms_url' => ''])->assertRedirect('/admin/settings');
+        $this->put(self::SETTINGS_URL, ['terms_url' => ''])->assertRedirect(self::SETTINGS_URL);
         $this->assertNull(config('store.terms_url'));
     }
 }

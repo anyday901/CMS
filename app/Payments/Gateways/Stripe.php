@@ -31,6 +31,8 @@ use InvalidArgumentException;
  */
 class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
 {
+    private const PAYMENT_INTENTS = '/v1/payment_intents';
+
     public const KEY = 'stripe';
 
     /** Currencies Stripe takes in whole units. */
@@ -115,7 +117,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
     {
         $customer = $save ? $this->customerFor($invoice->client) : $invoice->client->gatewayCustomer(self::KEY);
 
-        $response = $this->api()->post('/v1/payment_intents', $this->intentParams($invoice) + array_filter([
+        $response = $this->api()->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + array_filter([
             'automatic_payment_methods' => ['enabled' => 'true'],
             'customer' => $customer,
             'setup_future_usage' => $save ? 'off_session' : null,
@@ -133,7 +135,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
      */
     public function payWithSaved(Invoice $invoice, PaymentMethod $method): array
     {
-        $response = $this->api()->post('/v1/payment_intents', $this->intentParams($invoice) + [
+        $response = $this->api()->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
             'customer' => $method->gateway_customer_id,
             'payment_method' => $method->gateway_reference,
             'payment_method_types' => [$method->type],
@@ -206,7 +208,7 @@ class Stripe implements ChargesSavedMethods, Gateway, RefundsPayments
     {
         $response = $this->api()
             ->withHeaders(['Idempotency-Key' => $idempotencyKey])
-            ->post('/v1/payment_intents', $this->intentParams($invoice) + [
+            ->post(self::PAYMENT_INTENTS, $this->intentParams($invoice) + [
                 'customer' => $method->gateway_customer_id,
                 'payment_method' => $method->gateway_reference,
                 'payment_method_types' => [$method->type],

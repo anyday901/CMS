@@ -512,17 +512,21 @@ Route::prefix('admin')->name('admin.')->middleware(['auth:web', RequireStaffTwoF
     Route::middleware('can:manage-billing')->group(function () {
         Route::get('clients/{client}/quotes/create', 'create')->name('quotes.create');
         Route::post('clients/{client}/quotes', 'store')->name('quotes.store');
-        Route::get('quotes/{quote}/edit', 'edit')->name('quotes.edit');
-        Route::put('quotes/{quote}', 'update')->name('quotes.update');
-        Route::delete('quotes/{quote}', 'destroy')->name('quotes.destroy');
-        Route::post('quotes/{quote}/duplicate', 'duplicate')->name('quotes.duplicate');
-        Route::post('quotes/{quote}/send', 'send')->name('quotes.send');
-        Route::post('quotes/{quote}/convert', 'convert')->name('quotes.convert');
+        Route::prefix('quotes/{quote}')->name('quotes.')->group(function () {
+            Route::get('edit', 'edit')->name('edit');
+            Route::put('/', 'update')->name('update');
+            Route::delete('/', 'destroy')->name('destroy');
+            Route::post('duplicate', 'duplicate')->name('duplicate');
+            Route::post('send', 'send')->name('send');
+            Route::post('convert', 'convert')->name('convert');
+        });
     });
     // Every staff role can look, as with invoices.
     Route::get('quotes', 'index')->name('quotes.index');
-    Route::get('quotes/{quote}', 'show')->whereNumber('quote')->name('quotes.show');
-    Route::get('quotes/{quote}/pdf', 'pdf')->name('quotes.pdf');
+    Route::prefix('quotes/{quote}')->name('quotes.')->group(function () {
+        Route::get('/', 'show')->whereNumber('quote')->name('show');
+        Route::get('pdf', 'pdf')->name('pdf');
+    });
 });
 
 require __DIR__.'/platform.php';

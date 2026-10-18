@@ -98,7 +98,7 @@
             <h2 class="mb-1 font-semibold">Pricing ({{ config('billing.currency') }})</h2>
             <p class="mb-3 text-ink-500">Leave a price blank to not offer that billing cycle.@if ($otherCurrencies) Clients billed in another currency see the prices set for it below; fill them in, or convert them all from {{ config('billing.currency') }} under <a href="{{ route('admin.currencies.index') }}" class="text-brand-600">Currencies</a>.@endif</p>
             <table class="text-sm">
-                <thead class="text-left text-ink-500"><tr><th class="pr-4">Cycle</th><th class="pr-4">Price</th><th>Setup fee</th></tr></thead>
+                <th scope="col"ead class="text-left text-ink-500"><tr><th scope="col" class="pr-4">Cycle</th><th scope="col" class="pr-4">Price</th><th scope="col">Setup fee</th></tr></thead>
                 <tbody>
                     @foreach (App\Enums\BillingCycle::cases() as $cycle)
                         @php $price = $prices[$cycle->value] ?? null; @endphp
@@ -119,8 +119,8 @@
                 <div class="overflow-x-auto">
                     <table class="text-sm">
                         <thead class="text-left text-ink-500">
-                            <tr><th class="pr-4"></th>@foreach ($otherCurrencies as $code)<th colspan="2" class="pr-4">{{ $code }}</th>@endforeach</tr>
-                            <tr><th class="pr-4">Cycle</th>@foreach ($otherCurrencies as $code)<th class="pr-2 font-normal">Price</th><th class="pr-4 font-normal">Setup fee</th>@endforeach</tr>
+                            <tr><th scope="col" class="pr-4"></th>@foreach ($otherCurrencies as $code)<th scope="col" colspan="2" class="pr-4">{{ $code }}</th>@endforeach</tr>
+                            <tr><th scope="col" class="pr-4">Cycle</th>@foreach ($otherCurrencies as $code)<th scope="col" class="pr-2 font-normal">Price</th><th scope="col" class="pr-4 font-normal">Setup fee</th>@endforeach</tr>
                         </thead>
                         <tbody>
                             @foreach (App\Enums\BillingCycle::cases() as $cycle)

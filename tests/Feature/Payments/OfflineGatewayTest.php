@@ -14,6 +14,12 @@ class OfflineGatewayTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const MAIL_IN_LABEL = 'Mail-in payment';
+
+    private const ACCOUNT_LINE = 'Account 12345678';
+
+    private const SETTINGS_URL = '/admin/settings';
+
     private const BANK_DETAILS = "Example Bank\nAccount 12345678";
 
     private const POSTAL_ADDRESS = 'Post cheques to 1 Main Street, Springfield';
@@ -39,7 +45,7 @@ class OfflineGatewayTest extends TestCase
         $this->assertNotContains('bank_transfer', $keys);
         $this->assertNotContains('mail_in', $keys);
         $this->actingAs($this->client, 'client')->get(route('portal.invoices.show', $this->invoice))
-            ->assertOk()->assertDontSee('Mail-in payment');
+            ->assertOk()->assertDontSee(self::MAIL_IN_LABEL);
     }
 
     public function test_clients_see_the_instructions_with_the_invoice_number_to_quote(): void
@@ -47,8 +53,8 @@ class OfflineGatewayTest extends TestCase
         config(['payments.bank_transfer.instructions' => self::BANK_DETAILS, 'payments.mail_in.instructions' => self::POSTAL_ADDRESS]);
 
         $this->actingAs($this->client, 'client')->get(route('portal.invoices.show', $this->invoice))->assertOk()
-            ->assertSee('Bank transfer')->assertSee('Example Bank<br />', false)->assertSee('Account 12345678')
-            ->assertSee('Mail-in payment')->assertSee(self::POSTAL_ADDRESS)
+            ->assertSee('Bank transfer')->assertSee('Example Bank<br />', false)->assertSee(self::ACCOUNT_LINE)
+            ->assertSee(self::MAIL_IN_LABEL)->assertSee(self::POSTAL_ADDRESS)
             ->assertSee("Include invoice #{$this->invoice->number} as the reference");
     }
 
@@ -70,7 +76,7 @@ class OfflineGatewayTest extends TestCase
             'company' => config('billing.company'),
             'offlineGateways' => app(GatewayRegistry::class)->enabled(),
         ])->render();
-        $this->assertStringContainsString('Account 12345678', $html);
+        $this->assertStringContainsString(self::ACCOUNT_LINE, $html);
         $this->assertStringStartsWith('%PDF', $pdf->output($this->invoice));
     }
 
@@ -78,13 +84,13 @@ class OfflineGatewayTest extends TestCase
     {
         $this->actingAs(User::factory()->create(), 'web');
 
-        $this->put('/admin/settings', ['bank_transfer_instructions' => self::BANK_DETAILS, 'mail_in_instructions' => '  '])->assertRedirect('/admin/settings');
+        $this->put(self::SETTINGS_URL, ['bank_transfer_instructions' => self::BANK_DETAILS, 'mail_in_instructions' => '  '])->assertRedirect(self::SETTINGS_URL);
         $this->assertSame(self::BANK_DETAILS, config('payments.bank_transfer.instructions'));
         $this->assertNull(config('payments.mail_in.instructions'));
-        $this->get('/admin/settings')->assertOk()->assertSee('Account 12345678');
+        $this->get(self::SETTINGS_URL)->assertOk()->assertSee(self::ACCOUNT_LINE);
 
         $this->post(route('admin.invoices.pay', $this->invoice), ['amount' => '10.00', 'method' => 'mail_in', 'reference' => 'Cheque 1001'])->assertRedirect();
-        $this->assertSame('Mail-in payment', $this->invoice->transactions()->sole()->methodLabel());
+        $this->assertSame(self::MAIL_IN_LABEL, $this->invoice->transactions()->sole()->methodLabel());
         $this->assertSame('paid', $this->invoice->fresh()->status->value);
     }
 }

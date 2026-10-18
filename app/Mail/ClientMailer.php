@@ -24,6 +24,9 @@ use Illuminate\Support\Traits\Localizable;
  */
 class ClientMailer
 {
+    /** How dates read in email placeholders, e.g. Oct 18, 2026. */
+    private const DATE_FORMAT = 'M j, Y';
+
     use Localizable;
 
     /** @param  array<string, string|int|null>  $values */
@@ -151,7 +154,7 @@ class ClientMailer
 
         return $this->withLocale(Language::forClient($order->client), fn () => $this->send($order->client, 'order_confirmation', [
             'order_number' => $order->id,
-            'order_date' => $order->created_at->translatedFormat('M j, Y'),
+            'order_date' => $order->created_at->translatedFormat(self::DATE_FORMAT),
             'order_items' => $order->services->toBase()->map(fn (Service $service) => '- '.$service->description()
                 .($service->billing_cycle->isRecurring() ? ', '.mb_strtolower(__($service->billing_cycle->label())) : '')
                 .($service->parent ? ' '.__('(add-on for :service)', ['service' => $service->parent->description()]) : ''))
@@ -176,7 +179,7 @@ class ClientMailer
             'quote_number' => $quote->number,
             'quote_subject' => $quote->subject,
             'quote_total' => Money::format($quote->total, $quote->currency),
-            'quote_valid_until' => $quote->valid_until->translatedFormat('M j, Y'),
+            'quote_valid_until' => $quote->valid_until->translatedFormat(self::DATE_FORMAT),
             'quote_url' => route('portal.quotes.show', $quote),
         ]), $client->email, [
             'client_id' => $client->id,
@@ -221,7 +224,7 @@ class ClientMailer
             'invoice_number' => $invoice->number,
             'invoice_total' => Money::format($invoice->total, $invoice->currency),
             'invoice_balance' => Money::format($invoice->balance(), $invoice->currency),
-            'invoice_due_date' => $invoice->due_date->translatedFormat('M j, Y'),
+            'invoice_due_date' => $invoice->due_date->translatedFormat(self::DATE_FORMAT),
             'invoice_url' => route('portal.invoices.show', $invoice),
         ];
     }

@@ -8,7 +8,6 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 use SimpleXMLElement;
 use Throwable;
 
@@ -25,7 +24,7 @@ class ExchangeRates
     /**
      * @return array{date: ?string, updated: array<string, string>, missing: list<string>}
      *
-     * @throws RuntimeException when the feed can't be read or doesn't quote the default currency.
+     * @throws ExchangeRatesUnavailable when the feed can't be read or doesn't quote the default currency.
      */
     public function update(): array
     {
@@ -33,7 +32,7 @@ class ExchangeRates
         $default = Currency::defaultCode();
 
         if (! isset($perEuro[$default])) {
-            throw new RuntimeException("The European Central Bank doesn't publish a rate for {$default}, the default currency, so no rates were changed.");
+            throw new ExchangeRatesUnavailable("The European Central Bank doesn't publish a rate for {$default}, the default currency, so no rates were changed.");
         }
 
         $updated = [];
@@ -69,11 +68,11 @@ class ExchangeRates
         try {
             $response = Http::timeout(20)->retry(2, 1000, throw: false)->get(self::FEED);
         } catch (Throwable $e) {
-            throw new RuntimeException("Couldn't reach the European Central Bank: {$e->getMessage()}", previous: $e);
+            throw new ExchangeRatesUnavailable("Couldn't reach the European Central Bank: {$e->getMessage()}", previous: $e);
         }
 
         if (! $response->successful()) {
-            throw new RuntimeException("The European Central Bank answered with HTTP {$response->status()}.");
+            throw new ExchangeRatesUnavailable("The European Central Bank answered with HTTP {$response->status()}.");
         }
 
         $previous = libxml_use_internal_errors(true);
@@ -84,7 +83,7 @@ class ExchangeRates
         }
 
         if ($xml === false) {
-            throw new RuntimeException("The European Central Bank's rates couldn't be read.");
+            throw new ExchangeRatesUnavailable("The European Central Bank's rates couldn't be read.");
         }
 
         $rates = ['EUR' => '1'];
@@ -102,7 +101,7 @@ class ExchangeRates
         }
 
         if (count($rates) === 1) {
-            throw new RuntimeException("The European Central Bank's feed had no rates in it.");
+            throw new ExchangeRatesUnavailable("The European Central Bank's feed had no rates in it.");
         }
 
         return ['date' => $date, 'rates' => $rates];

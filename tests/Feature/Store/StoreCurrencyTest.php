@@ -18,6 +18,12 @@ class StoreCurrencyTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const DOLLAR_PLAN = 'Dollar plan';
+
+    private const CURRENCY_PICKER = 'id="store-currency"';
+
+    private const STORE_URL = '/store';
+
     private const MONTHLY = 'monthly';
 
     private const PASSWORD = 'a-long-password';
@@ -36,20 +42,20 @@ class StoreCurrencyTest extends TestCase
         $this->vps = Product::factory()->create(['name' => 'VPS']);
         $this->vps->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => 1000]);
         $this->vps->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'EUR', 'price' => 900, 'setup_fee' => 100]);
-        Product::factory()->create(['name' => 'Dollar plan'])
+        Product::factory()->create(['name' => self::DOLLAR_PLAN])
             ->prices()->create(['billing_cycle' => self::MONTHLY, 'currency' => 'USD', 'price' => 500]);
     }
 
     public function test_guests_pick_a_currency_for_the_store(): void
     {
-        $this->get('/store')->assertOk()->assertSee('id="store-currency"', false)
-            ->assertSee('$10.00')->assertSee('Dollar plan');
+        $this->get(self::STORE_URL)->assertOk()->assertSee(self::CURRENCY_PICKER, false)
+            ->assertSee('$10.00')->assertSee(self::DOLLAR_PLAN);
 
-        $this->from('/store')->post(self::PICK, ['currency' => 'EUR'])->assertRedirect('/store');
+        $this->from(self::STORE_URL)->post(self::PICK, ['currency' => 'EUR'])->assertRedirect(self::STORE_URL);
         $this->assertSame('EUR', session(Checkout::SESSION_CURRENCY));
 
         // Only products priced in euros, at their euro prices.
-        $this->get('/store')->assertOk()->assertSee('€9.00')->assertDontSee('Dollar plan');
+        $this->get(self::STORE_URL)->assertOk()->assertSee('€9.00')->assertDontSee(self::DOLLAR_PLAN);
 
         $this->post(self::PICK, ['currency' => 'GBP'])->assertSessionHasErrors('currency');
         $this->assertSame('EUR', session(Checkout::SESSION_CURRENCY));
@@ -57,14 +63,14 @@ class StoreCurrencyTest extends TestCase
 
     public function test_a_currency_removed_since_falls_back_to_the_default(): void
     {
-        $this->withSession([Checkout::SESSION_CURRENCY => 'GBP'])->get('/store')->assertOk()->assertSee('Dollar plan');
+        $this->withSession([Checkout::SESSION_CURRENCY => 'GBP'])->get(self::STORE_URL)->assertOk()->assertSee(self::DOLLAR_PLAN);
     }
 
     public function test_the_picker_is_hidden_with_one_currency(): void
     {
         Currency::where('code', 'EUR')->delete();
 
-        $this->get('/store')->assertOk()->assertDontSee('id="store-currency"', false);
+        $this->get(self::STORE_URL)->assertOk()->assertDontSee(self::CURRENCY_PICKER, false);
     }
 
     public function test_a_guest_signs_up_in_the_currency_they_picked(): void
@@ -94,7 +100,7 @@ class StoreCurrencyTest extends TestCase
 
         $this->post(self::PICK, ['currency' => 'EUR']);
         $this->assertNull(session(Checkout::SESSION_CURRENCY));
-        $this->get('/store')->assertOk()->assertSee('$10.00')->assertSee('Dollar plan')->assertDontSee('id="store-currency"', false);
+        $this->get(self::STORE_URL)->assertOk()->assertSee('$10.00')->assertSee(self::DOLLAR_PLAN)->assertDontSee(self::CURRENCY_PICKER, false);
         $this->assertSame('USD', Checkout::currencyFor($client));
     }
 

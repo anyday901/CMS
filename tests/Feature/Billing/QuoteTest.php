@@ -21,6 +21,14 @@ class QuoteTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const SUBJECT = 'Website redesign';
+
+    private const LINE = 'Move 3 sites';
+
+    private const PORTAL_QUOTES_URL = '/portal/quotes';
+
+    private const ACCEPT_BUTTON = 'Accept quote';
+
     private Client $client;
 
     protected function setUp(): void
@@ -38,7 +46,7 @@ class QuoteTest extends TestCase
     private function form(array $extra = []): array
     {
         return $extra + [
-            'subject' => 'Website redesign',
+            'subject' => self::SUBJECT,
             'stage' => 'draft',
             'issue_date' => today()->toDateString(),
             'valid_until' => today()->addDays(30)->toDateString(),
@@ -62,7 +70,7 @@ class QuoteTest extends TestCase
             'issue_date' => today(),
             'valid_until' => today()->addDays(30),
         ]);
-        $quote->items()->create(['description' => 'Move 3 sites', 'amount' => 20000]);
+        $quote->items()->create(['description' => self::LINE, 'amount' => 20000]);
         $quote->items()->create(['description' => 'Discount', 'amount' => -2000]);
 
         return $quote->recalculate();
@@ -85,11 +93,11 @@ class QuoteTest extends TestCase
         $this->assertNull($quote->delivered_at);
         $this->assertTrue(Activity::where('subject_type', $quote->getMorphClass())->where('subject_id', $quote->id)->where('description', 'like', 'Created quote%')->exists());
 
-        $this->get("/admin/quotes/{$quote->id}")->assertOk()->assertSee('Website redesign')->assertSee('$1,132.50')->assertSee('Quoted low to win the work.');
-        $this->get('/admin/quotes')->assertOk()->assertSee('Website redesign');
-        $this->get('/admin/quotes?stage=accepted')->assertOk()->assertDontSee('Website redesign');
-        $this->get('/admin/quotes?q=redesign')->assertOk()->assertSee('Website redesign');
-        $this->get("/admin/clients/{$this->client->id}?tab=quotes")->assertOk()->assertSee('Website redesign');
+        $this->get("/admin/quotes/{$quote->id}")->assertOk()->assertSee(self::SUBJECT)->assertSee('$1,132.50')->assertSee('Quoted low to win the work.');
+        $this->get('/admin/quotes')->assertOk()->assertSee(self::SUBJECT);
+        $this->get('/admin/quotes?stage=accepted')->assertOk()->assertDontSee(self::SUBJECT);
+        $this->get('/admin/quotes?q=redesign')->assertOk()->assertSee(self::SUBJECT);
+        $this->get("/admin/clients/{$this->client->id}?tab=quotes")->assertOk()->assertSee(self::SUBJECT);
         $this->get('/admin/search?q=redesign')->assertOk()->assertSee("/admin/quotes/{$quote->id}");
     }
 
@@ -116,7 +124,7 @@ class QuoteTest extends TestCase
         $quote = $this->quote(QuoteStage::Draft);
         $keep = $quote->items()->orderBy('id')->first();
 
-        $this->get("/admin/quotes/{$quote->id}/edit")->assertOk()->assertSee('Move 3 sites');
+        $this->get("/admin/quotes/{$quote->id}/edit")->assertOk()->assertSee(self::LINE);
         $this->put("/admin/quotes/{$quote->id}", $this->form([
             'stage' => 'on_hold',
             'items' => [['id' => $keep->id, 'description' => 'Move 4 sites', 'amount' => '300', 'taxable' => '0']],
@@ -189,7 +197,7 @@ class QuoteTest extends TestCase
         $this->assertSame(QuoteStage::Accepted, $quote->stage);
         $this->assertNotNull($quote->accepted_at);
         $this->assertSame(InvoiceStatus::Unpaid, $invoice->status);
-        $this->assertSame(['Move 3 sites', 'Discount'], $invoice->items()->orderBy('id')->pluck('description')->all());
+        $this->assertSame([self::LINE, 'Discount'], $invoice->items()->orderBy('id')->pluck('description')->all());
         $this->assertSame([$quote->subtotal, $quote->tax, $quote->total, 825], [$invoice->subtotal, $invoice->tax, $invoice->total, $invoice->tax_rate]);
         $this->assertSame(19485, $invoice->total);
         $this->assertSame('invoice_created', EmailLog::sole()->template);
@@ -226,7 +234,7 @@ class QuoteTest extends TestCase
 
         $html = view('pdf.quote', ['quote' => $quote->load(['client', 'items']), 'company' => config('billing.company')])->render();
         $this->assertStringContainsString('Quote #'.$quote->number, $html);
-        $this->assertStringContainsString('Move 3 sites', $html);
+        $this->assertStringContainsString(self::LINE, $html);
         $this->assertStringContainsString('Sales tax (8.25%)', $html);
 
         $this->staff();
@@ -246,9 +254,9 @@ class QuoteTest extends TestCase
         $theirs = $this->quote(QuoteStage::Delivered, ['subject' => 'Their quote', 'client_id' => Client::factory()->create()->id]);
 
         $this->actingAs($this->client, 'client');
-        $this->get('/portal')->assertSee('/portal/quotes');
-        $this->get('/portal/quotes')->assertOk()->assertSee('Sent quote')->assertDontSee('Draft quote')->assertDontSee('Their quote');
-        $this->get("/portal/quotes/{$sent->id}")->assertOk()->assertSee('Move 3 sites')->assertSee('$194.85')->assertSee('Accept quote');
+        $this->get('/portal')->assertSee(self::PORTAL_QUOTES_URL);
+        $this->get(self::PORTAL_QUOTES_URL)->assertOk()->assertSee('Sent quote')->assertDontSee('Draft quote')->assertDontSee('Their quote');
+        $this->get("/portal/quotes/{$sent->id}")->assertOk()->assertSee(self::LINE)->assertSee('$194.85')->assertSee(self::ACCEPT_BUTTON);
         foreach ([$draft, $theirs] as $hidden) {
             $this->get("/portal/quotes/{$hidden->id}")->assertNotFound();
             $this->get("/portal/quotes/{$hidden->id}/pdf")->assertNotFound();
@@ -273,7 +281,7 @@ class QuoteTest extends TestCase
         $this->assertSame($invoice->id, $quote->invoice_id);
         $this->assertTrue(Activity::where('actor_type', 'client')->where('description', "Client accepted quote #{$quote->number}")->exists());
 
-        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee("invoice #{$invoice->number}")->assertDontSee('Accept quote');
+        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee("invoice #{$invoice->number}")->assertDontSee(self::ACCEPT_BUTTON);
         $this->post("/portal/quotes/{$quote->id}/accept")->assertSessionHasErrors('quote');
         $this->assertSame(1, Invoice::count());
     }
@@ -297,7 +305,7 @@ class QuoteTest extends TestCase
         $quote = $this->quote(QuoteStage::OnHold);
         $this->actingAs($this->client, 'client');
 
-        $this->post("/portal/quotes/{$quote->id}/decline")->assertRedirect('/portal/quotes');
+        $this->post("/portal/quotes/{$quote->id}/decline")->assertRedirect(self::PORTAL_QUOTES_URL);
 
         $this->assertSame(QuoteStage::Lost, $quote->fresh()->stage);
         $this->assertSame(0, Invoice::count());
@@ -310,8 +318,8 @@ class QuoteTest extends TestCase
         $quote = $this->quote(QuoteStage::Delivered, ['issue_date' => today()->subDays(40), 'valid_until' => today()->subDay()]);
         $this->actingAs($this->client, 'client');
 
-        $this->get('/portal/quotes')->assertSee('Expired');
-        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee('This quote expired on')->assertDontSee('Accept quote');
+        $this->get(self::PORTAL_QUOTES_URL)->assertSee('Expired');
+        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee('This quote expired on')->assertDontSee(self::ACCEPT_BUTTON);
         $this->post("/portal/quotes/{$quote->id}/accept")->assertSessionHasErrors('quote');
         $this->post("/portal/quotes/{$quote->id}/decline")->assertSessionHasErrors('quote');
 
@@ -326,11 +334,11 @@ class QuoteTest extends TestCase
         $billing = $this->client->contacts()->create(['first_name' => 'Pat', 'last_name' => 'Lee', 'email' => 'pat@example.test', 'portal_access' => true, 'permissions' => ['billing']]);
 
         $this->actingAs($this->client, 'client')->withSession(['portal_contact_id' => $support->id]);
-        $this->get('/portal/quotes')->assertRedirect()->assertSessionHasErrors();
+        $this->get(self::PORTAL_QUOTES_URL)->assertRedirect()->assertSessionHasErrors();
         $this->post("/portal/quotes/{$quote->id}/accept")->assertRedirect();
         $this->assertSame(0, Invoice::count());
 
         $this->withSession(['portal_contact_id' => $billing->id]);
-        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee('Accept quote');
+        $this->get("/portal/quotes/{$quote->id}")->assertOk()->assertSee(self::ACCEPT_BUTTON);
     }
 }

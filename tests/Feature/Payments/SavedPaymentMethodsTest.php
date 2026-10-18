@@ -21,6 +21,14 @@ class SavedPaymentMethodsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const VISA_LABEL = 'Visa ending 4242';
+
+    private const AUTO_CHARGE_PATH = '/auto-charge';
+
+    private const PORTAL_URL = '/portal';
+
+    private const GATEWAYS_URL = '/admin/settings/payment-gateways';
+
     private const PAGE = '/portal/payment-methods';
 
     private Client $client;
@@ -73,8 +81,8 @@ class SavedPaymentMethodsTest extends TestCase
         $this->postJson(self::PAGE.'/stripe/confirm', ['setup_intent' => 'seti_1'])->assertOk()->assertJson(['redirect' => route('portal.payment-methods.index')]);
 
         $card = PaymentMethod::sole();
-        $this->assertSame([$this->client->id, 'Visa ending 4242', true], [$card->client_id, $card->label(), $card->is_default]);
-        $this->get(self::PAGE)->assertSee('Visa ending 4242')->assertSee('Automatic payments');
+        $this->assertSame([$this->client->id, self::VISA_LABEL, true], [$card->client_id, $card->label(), $card->is_default]);
+        $this->get(self::PAGE)->assertSee(self::VISA_LABEL)->assertSee('Automatic payments');
     }
 
     public function test_a_setup_intent_of_another_client_is_refused(): void
@@ -129,11 +137,11 @@ class SavedPaymentMethodsTest extends TestCase
 
         $this->get("/portal/invoices/{$this->invoice()->id}")->assertSee('Visa ending 4242 will be charged automatically');
 
-        $this->put(self::PAGE.'/auto-charge', ['auto_charge' => '0'])->assertRedirect();
+        $this->put(self::PAGE.self::AUTO_CHARGE_PATH, ['auto_charge' => '0'])->assertRedirect();
         $this->assertFalse($this->client->refresh()->auto_charge);
         $this->get(self::PAGE)->assertSee('Turn automatic payments on');
 
-        $this->put(self::PAGE.'/auto-charge', ['auto_charge' => '1']);
+        $this->put(self::PAGE.self::AUTO_CHARGE_PATH, ['auto_charge' => '1']);
         $this->assertTrue($this->client->refresh()->auto_charge);
     }
 
@@ -144,9 +152,9 @@ class SavedPaymentMethodsTest extends TestCase
         $contact->forceFill(['password' => 'contact-password-1'])->save();
         $this->post('/portal/login', ['email' => 'pat@example.com', 'password' => 'contact-password-1']);
 
-        $this->get(self::PAGE)->assertRedirect('/portal');
-        $this->delete(self::PAGE."/{$card->id}")->assertRedirect('/portal');
-        $this->put(self::PAGE.'/auto-charge', ['auto_charge' => '0'])->assertRedirect('/portal');
+        $this->get(self::PAGE)->assertRedirect(self::PORTAL_URL);
+        $this->delete(self::PAGE."/{$card->id}")->assertRedirect(self::PORTAL_URL);
+        $this->put(self::PAGE.self::AUTO_CHARGE_PATH, ['auto_charge' => '0'])->assertRedirect(self::PORTAL_URL);
         $this->postJson(self::PAGE.'/stripe/setup')->assertForbidden();
         $this->assertModelExists($card);
         $this->assertTrue($this->client->refresh()->auto_charge);
@@ -164,7 +172,7 @@ class SavedPaymentMethodsTest extends TestCase
             'api.stripe.com/v1/payment_methods/*' => Http::response(['id' => 'pm_1']),
         ]);
 
-        $this->get("/admin/clients/{$this->client->id}?tab=payment-methods")->assertOk()->assertSee('Visa ending 4242')->assertSee('04/2030');
+        $this->get("/admin/clients/{$this->client->id}?tab=payment-methods")->assertOk()->assertSee(self::VISA_LABEL)->assertSee('04/2030');
         $this->get("/admin/invoices/{$invoice->id}")->assertSee('Charge saved card');
 
         $this->post("/admin/invoices/{$invoice->id}/charge", ['payment_method' => $card->id])->assertSessionHasErrors(['charge' => 'The charge failed: Your card was declined.']);
@@ -191,17 +199,17 @@ class SavedPaymentMethodsTest extends TestCase
         $this->actingAs(User::factory()->create(), 'web');
 
         $this->get('/admin/settings')->assertSee('Payment gateways');
-        $this->get('/admin/settings/payment-gateways')->assertOk()->assertSee(route('webhooks.stripe'));
-        $this->put('/admin/settings/payment-gateways', ['publishable_key' => 'sk_live_oops'])->assertSessionHasErrors('publishable_key');
+        $this->get(self::GATEWAYS_URL)->assertOk()->assertSee(route('webhooks.stripe'));
+        $this->put(self::GATEWAYS_URL, ['publishable_key' => 'sk_live_oops'])->assertSessionHasErrors('publishable_key');
 
-        $this->put('/admin/settings/payment-gateways', ['publishable_key' => 'pk_test_abc', 'secret_key' => 'sk_test_secret', 'webhook_secret' => 'whsec_abc'])
-            ->assertRedirect('/admin/settings/payment-gateways');
+        $this->put(self::GATEWAYS_URL, ['publishable_key' => 'pk_test_abc', 'secret_key' => 'sk_test_secret', 'webhook_secret' => 'whsec_abc'])
+            ->assertRedirect(self::GATEWAYS_URL);
         $saved = Setting::where('key', 'payments.stripe.secret_key')->value('value');
         $this->assertNotSame('sk_test_secret', $saved);
         $this->assertSame('sk_test_secret', decrypt($saved, false));
 
         // A blank secret keeps the saved one.
-        $this->put('/admin/settings/payment-gateways', ['publishable_key' => 'pk_test_abc', 'secret_key' => '']);
+        $this->put(self::GATEWAYS_URL, ['publishable_key' => 'pk_test_abc', 'secret_key' => '']);
         Settings::apply();
         $this->assertSame(['pk_test_abc', 'sk_test_secret', 'whsec_abc'], [config('payments.stripe.publishable_key'), config('payments.stripe.secret_key'), config('payments.stripe.webhook_secret')]);
         $this->assertTrue(app(Stripe::class)->isEnabled());
