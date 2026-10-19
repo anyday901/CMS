@@ -21,6 +21,8 @@ use App\Models\Invoice;
 use App\Models\TaxRule;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -66,11 +68,32 @@ class ProjectManagementTest extends TestCase
         $addons = app(AddonManager::class);
         $addons->install('projects');
         $addons->setEnabled('projects', true);
+        $this->restartTransactionAfterTableChanges();
         // The app booted before the add-on was enabled, so boot it as the next request would.
         $addons->find('projects')->bootInstalled();
         $addons->find('projects')->boot();
         app(Hooks::class)->listen(Hooks::ANY, function (HookEvent $event) {
             $this->fired[] = $event;
+        });
+    }
+
+    /**
+     * MySQL and MariaDB commit on CREATE and DROP TABLE, which ends the test's
+     * transaction: start a new one so the test's own rows still roll back, and
+     * leave a fresh database behind for the next test.
+     */
+    private function restartTransactionAfterTableChanges(): void
+    {
+        $pdo = DB::connection()->getPdo();
+
+        if (DB::connection()->getDriverName() === 'sqlite' || $pdo->inTransaction()) {
+            return;
+        }
+
+        $pdo->beginTransaction();
+        $this->beforeApplicationDestroyed(function () {
+            $this->artisan('migrate:fresh');
+            RefreshDatabaseState::$migrated = true;
         });
     }
 

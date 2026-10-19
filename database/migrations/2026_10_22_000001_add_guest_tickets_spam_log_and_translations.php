@@ -49,7 +49,7 @@ return new class extends Migration
             $table->longText('body');
             $table->string('tags')->nullable();
             $table->timestamps();
-            $table->unique(['translatable_type', 'translatable_id', 'locale']);
+            $table->unique(['translatable_type', 'translatable_id', 'locale'], 'content_translations_translatable_locale_unique');
         });
     }
 

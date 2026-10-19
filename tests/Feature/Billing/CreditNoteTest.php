@@ -77,7 +77,7 @@ class CreditNoteTest extends TestCase
         $this->assertSame('CN-1', $note->number);
         $this->assertSame([2500, 200, 2700], [$note->subtotal, $note->tax, $note->total]);
         $this->assertSame(2700, $this->client->refresh()->credit_balance);
-        $this->assertSame(-2700, $note->refunds()->sum('amount'));
+        $this->assertSame(-2700, (int) $note->refunds()->sum('amount'));
         $this->assertSame(InvoiceStatus::Refunded, $invoice->refresh()->status);
         $this->assertSame(0, $invoice->balance());
         $this->assertSame(2700, $invoice->credited());

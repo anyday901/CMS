@@ -70,7 +70,7 @@ class PaymentRecorderTest extends TestCase
 
         $this->pay($invoice, 1250);
 
-        $this->assertSame(1000, $invoice->transactions()->sum('amount'));
+        $this->assertSame(1000, (int) $invoice->transactions()->sum('amount'));
         $this->assertSame(250, $service->client->refresh()->credit_balance);
     }
 

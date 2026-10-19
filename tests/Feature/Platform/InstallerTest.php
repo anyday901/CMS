@@ -92,10 +92,12 @@ class InstallerTest extends TestCase
 
     public function test_a_database_that_wont_connect_is_reported_and_the_old_settings_are_kept(): void
     {
+        $before = config('database.default');
+
         $this->post('/install/database', ['driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 1, 'database' => 'cms', 'username' => 'cms', 'password' => 'secret'])
             ->assertStatus(422)->assertSee('Couldn&#039;t connect to the database', false)->assertDontSee('secret');
 
-        $this->assertSame('sqlite', config('database.default'));
+        $this->assertSame($before, config('database.default'));
         $this->assertStringNotContainsString('DB_CONNECTION', file_get_contents($this->env));
     }
 
