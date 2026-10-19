@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\User;
 use App\System\Backups\BackupManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -46,9 +47,15 @@ class BackupTest extends TestCase
         $this->assertNotNull($backup);
         $this->assertMatchesRegularExpression('/^backup-\d{4}-\d{2}-\d{2}-\d{6}\.sql\.gz$/', $backup['name']);
         $sql = gzdecode((string) file_get_contents($this->path.'/'.$backup['name']));
-        $this->assertStringContainsString('CREATE TABLE "clients"', $sql);
-        $this->assertStringContainsString("'O''Brien'", $sql);
-        $this->assertStringContainsString("'Line one' || char(10) || 'Line two'", $sql);
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $this->assertStringContainsString('CREATE TABLE "clients"', $sql);
+            $this->assertStringContainsString("'O''Brien'", $sql);
+            $this->assertStringContainsString("'Line one' || char(10) || 'Line two'", $sql);
+        } else {
+            $this->assertStringContainsString('CREATE TABLE `clients`', $sql);
+            $this->assertStringContainsString("'O\\'Brien'", $sql);
+            $this->assertStringContainsString("'Line one\\nLine two'", $sql);
+        }
 
         $this->get(self::URL)->assertSee($backup['name']);
         $this->get(self::URL.'/'.$backup['name'])->assertOk()->assertDownload($backup['name']);

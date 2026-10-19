@@ -9,36 +9,48 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // A ticket from someone without a client account has their name and email instead.
-        Schema::table('tickets', function (Blueprint $table) {
-            $table->unsignedBigInteger('client_id')->nullable()->change();
-            $table->string('guest_name')->nullable()->after('client_id');
-            $table->string('guest_email')->nullable()->after('guest_name')->index();
-            // The secret in the link that lets a guest see and answer their ticket.
-            $table->string('access_key', 64)->nullable()->after('guest_email');
-        });
+        // Each step is skipped when already done: earlier versions of this migration
+        // stopped at the translations index on MySQL and MariaDB, which had already
+        // committed the steps before it, so running it again carries on from there.
+        if (! Schema::hasColumn('tickets', 'guest_name')) {
+            // A ticket from someone without a client account has their name and email instead.
+            Schema::table('tickets', function (Blueprint $table) {
+                $table->unsignedBigInteger('client_id')->nullable()->change();
+                $table->string('guest_name')->nullable()->after('client_id');
+                $table->string('guest_email')->nullable()->after('guest_name')->index();
+                // The secret in the link that lets a guest see and answer their ticket.
+                $table->string('access_key', 64)->nullable()->after('guest_email');
+            });
+        }
 
-        Schema::table('ticket_messages', function (Blueprint $table) {
-            // Written by the guest a ticket belongs to.
-            $table->boolean('guest')->default(false)->after('client_id');
-        });
+        if (! Schema::hasColumn('ticket_messages', 'guest')) {
+            Schema::table('ticket_messages', function (Blueprint $table) {
+                // Written by the guest a ticket belongs to.
+                $table->boolean('guest')->default(false)->after('client_id');
+            });
+        }
 
         Schema::table('ticket_feedback', function (Blueprint $table) {
             $table->unsignedBigInteger('client_id')->nullable()->change();
         });
 
-        // Every email piped in for tickets, with what happened to it, so staff can see what the spam filter caught.
-        Schema::create('inbound_emails', function (Blueprint $table) {
-            $table->id();
-            $table->string('from')->nullable();
-            $table->string('subject')->nullable();
-            // opened, replied, ignored or spam
-            $table->string('outcome', 20);
-            $table->string('reason')->nullable();
-            $table->foreignId('ticket_id')->nullable()->constrained()->nullOnDelete();
-            $table->timestamp('created_at')->nullable()->index();
-            $table->index(['outcome', 'created_at']);
-        });
+        if (! Schema::hasTable('inbound_emails')) {
+            // Every email piped in for tickets, with what happened to it, so staff can see what the spam filter caught.
+            Schema::create('inbound_emails', function (Blueprint $table) {
+                $table->id();
+                $table->string('from')->nullable();
+                $table->string('subject')->nullable();
+                // opened, replied, ignored or spam
+                $table->string('outcome', 20);
+                $table->string('reason')->nullable();
+                $table->foreignId('ticket_id')->nullable()->constrained()->nullOnDelete();
+                $table->timestamp('created_at')->nullable()->index();
+                $table->index(['outcome', 'created_at']);
+            });
+        }
+
+        // Left empty and without its unique index where the earlier version stopped.
+        Schema::dropIfExists('content_translations');
 
         // Knowledge base articles and announcements in languages other than the main one.
         Schema::create('content_translations', function (Blueprint $table) {
@@ -49,7 +61,7 @@ return new class extends Migration
             $table->longText('body');
             $table->string('tags')->nullable();
             $table->timestamps();
-            $table->unique(['translatable_type', 'translatable_id', 'locale']);
+            $table->unique(['translatable_type', 'translatable_id', 'locale'], 'content_translations_translatable_locale_unique');
         });
     }
 

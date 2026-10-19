@@ -62,6 +62,7 @@ The goal is a direct open source rival to WHMCS. Milestones 2 to 4 get Corey's b
 - [ ] Side-by-side billing cycle on production data (Corey runs it; see docs/install.md)
 - [x] Install guide (Nginx, PHP-FPM, cron, queue worker)
 - [x] Docker Compose setup
+- [x] Run the tests on MariaDB in CI as well as SQLite
 - [x] Release checklist and steps (docs/release.md)
 - [ ] Public v1.0.0 release (waits on the switchover and Corey's go-ahead)
 - [x] Clear SonarCloud reliability findings on main (unlabelled admin inputs)

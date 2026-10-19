@@ -61,7 +61,7 @@ php artisan serve
 
 Then open http://localhost:8000/admin and log in with the staff account you just created (it is an admin). Skip `admin:create` to try the web installer at `/install` instead; every page goes there until a staff account exists. `php artisan demo:reset --force` fills a development database with the demo data (it wipes it first). To reach it from another machine, run `php artisan serve --host=0.0.0.0` and allow port 8000 through your firewall.
 
-Run the tests with `php artisan test`.
+Run the tests with `php artisan test`. They use an in-memory SQLite database; to run them on MySQL or MariaDB as CI also does, set `DB_CONNECTION`, `DB_HOST`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` for an empty test database in the environment first (the tests wipe it).
 
 ## Installing on a server
 

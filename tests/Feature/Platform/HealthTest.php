@@ -5,6 +5,7 @@ namespace Tests\Feature\Platform;
 use App\Models\ScheduledTaskRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -33,7 +34,7 @@ class HealthTest extends TestCase
         $this->get(self::URL)->assertOk()
             ->assertSee('System health')
             ->assertSee('PHP version')
-            ->assertSee('Connected to SQLite')
+            ->assertSee(DB::connection()->getDriverName() === 'sqlite' ? 'Connected to SQLite' : 'Connected to ')
             ->assertSee('No automatic task has run yet')
             ->assertSee('The sync queue sends email')
             ->assertSee('No database backup yet')
